@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Bell, 
   BookOpen, 
@@ -13,170 +13,231 @@ import {
   CheckCircle2,
   Clock,
   MapPin,
-  Car
+  Car,
+  Settings,
+  Plus,
+  Trash2,
+  Lock,
+  LogOut,
+  X,
+  User,
+  CalendarDays,
+  Stethoscope,
+  Snowflake,
+  Thermometer,
+  Trash,
+  Shirt,
+  AlertCircle,
+  Flame,
+  HardHat,
+  RefreshCcw,
+  ClipboardCheck,
+  Loader2,
+  XCircle,
+  Send,
+  Image as ImageIcon,
+  ChevronLeft,
+  Bus,
+  Bike,
+  PlayCircle,
+  Navigation as NavIcon
 } from 'lucide-react';
+
+const ZONES = [
+  { id: 'beverage', name: '飲調區' },
+  { id: 'light-meal', name: '輕食區' },
+  { id: 'seafood', name: '海鮮區' },
+  { id: 'vegetable', name: '蔬菜區' },
+  { id: 'meat', name: '切肉區' },
+  { id: 'cold-platter', name: '冷盤區' },
+  { id: 'cooked-food', name: '熟食區' },
+  { id: 'soup', name: '湯品區' },
+];
 
 const App = () => {
   const [currentPage, setCurrentPage] = useState('home');
+  const [isManager, setIsManager] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [loginError, setLoginError] = useState(false);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+  const [selectedRuleCategory, setSelectedRuleCategory] = useState(null);
+
+  // --- 班表數據存儲 ---
+  const [schedules, setSchedules] = useState(() => {
+    const saved = localStorage.getItem('kitchen_schedules');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  // --- 狀態追蹤與定時機制 ---
+  const [completedZones, setCompletedZones] = useState(() => {
+    const saved = localStorage.getItem('kitchen_completed_zones');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [lastResetDate, setLastResetDate] = useState(localStorage.getItem('kitchen_last_reset') || "");
+  const [notificationLog, setNotificationLog] = useState([]); 
+
+  // --- AI 巡視系統數據存儲 ---
+  const [standards, setStandards] = useState(() => {
+    const saved = localStorage.getItem('kitchen_standards');
+    return saved ? JSON.parse(saved) : {};
+  });
+
   const [announcements, setAnnouncements] = useState([
-    { id: 1, date: '2024-05-20', title: '夏季菜單調整通知', content: '從下週一起，熟食區將新增三道夏季涼拌菜，請各區人員留意出餐標準。', author: '主廚 阿明' },
-    { id: 2, date: '2024-05-18', title: '設備維護公告', content: '週三凌晨將進行抽油煙機深度清潔，請晚班人員配合收場。', author: '店長 小華' }
+    { id: 1, date: '2024-05-20', title: '夏季菜單調整通知', content: '從下週一起，熟食區將新增三道夏季涼拌菜，請各區人員留意出餐標準。包含涼拌青木瓜、胡麻黃瓜以及泰式酸辣花枝，備料時請注意新鮮度與分量控制。', author: '主廚 阿明' },
+    { id: 2, date: '2024-05-18', title: '設備維護公告', content: '週三凌晨將進行抽油煙機深度清潔，請晚班人員配合收場。所有濾網需拆卸並放置於洗滌籃中，確保管路內部完全淨空以利廠商作業。', author: '店長 小華' }
   ]);
 
-  // 各頁面渲染邏輯
+  useEffect(() => {
+    localStorage.setItem('kitchen_schedules', JSON.stringify(schedules));
+  }, [schedules]);
+
+  useEffect(() => {
+    localStorage.setItem('kitchen_standards', JSON.stringify(standards));
+  }, [standards]);
+
+  useEffect(() => {
+    localStorage.setItem('kitchen_completed_zones', JSON.stringify(completedZones));
+  }, [completedZones]);
+
+  const sendLineNotification = useCallback((message) => {
+    const time = new Date().toLocaleTimeString();
+    setNotificationLog(prev => [{ time, message }, ...prev].slice(0, 5));
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date();
+      const hours = now.getHours();
+      const minutes = now.getMinutes();
+      const todayStr = now.toDateString();
+
+      if (hours === 19 && minutes === 0 && lastResetDate !== todayStr) {
+        setCompletedZones([]);
+        setLastResetDate(todayStr);
+        localStorage.setItem('kitchen_last_reset', todayStr);
+        sendLineNotification("🏮 系統已重置，準備開始今日晚班善後巡視。");
+      }
+
+      if (hours === 22 && minutes === 30 && lastResetDate === todayStr) {
+        if (completedZones.length < ZONES.length) {
+          const remaining = ZONES.filter(z => !completedZones.includes(z.id)).map(z => z.name);
+          sendLineNotification(`⚠️ 提醒：目前尚有區站未上傳完成！\n未完成區域：${remaining.join(', ')}`);
+        }
+      }
+    }, 1000 * 30);
+    return () => clearInterval(timer);
+  }, [completedZones, lastResetDate, sendLineNotification]);
+
+  useEffect(() => {
+    if (completedZones.length === ZONES.length && ZONES.length > 0) {
+      sendLineNotification("✅ 今日全數區站已上傳完畢！請主管進行最後人工檢查。");
+    }
+  }, [completedZones, sendLineNotification]);
+
+  const handleLogin = () => {
+    if (passwordInput === 'eatjoy0706') {
+      setIsManager(true);
+      setShowLoginModal(false);
+      setPasswordInput('');
+      setLoginError(false);
+    } else {
+      setLoginError(true);
+    }
+  };
+
+  const handleLogout = () => {
+    setIsManager(false);
+    setCurrentPage('home');
+  };
+
+  // --- 規則資料 ---
+  const hygieneRules = [
+    { category: "體檢", rules: ["從業人員健康檢查應包括胸部X光及A型肝炎抗體檢驗。"] },
+    { category: "食材離地", rules: ["食材應離牆5公分，離地20公分。"] },
+    { category: "先進先出", rules: ["冰箱食材宜打標、填寫日期、姓名。"] },
+    { category: "加封加蓋", rules: ["鐵罐開封後需用其他容器分裝，避免生鏽。"] }
+  ];
+  const occupationalSafetyRules = [
+    { category: "設備操作安全", rules: ["切肉機、切蔥機嚴禁徒手接觸刀片。", "均質機先釋壓再開蓋。", "瓦斯爐順序：瓦斯→點火→關火→關瓦斯。"] }
+  ];
+  const kitchenStandardRules = [
+    { id: 1, text: "依規定請假,上班遲到、翹班,依指示刷下班卡", sub: "於時間內上崗,否則視同遲到" },
+    { id: 3, text: "禁止非幹部上班時間不可使用手機", sub: "發現一率懲處" },
+    { id: 10, text: "服裝儀容規定,如廁時間六分鐘", sub: "頭髮不外露,穿安全鞋" }
+  ];
+
   const renderContent = () => {
     switch (currentPage) {
       case 'home':
-        return <HomePage onNavigate={setCurrentPage} announcements={announcements} />;
+        return <HomePage onNavigate={setCurrentPage} announcements={announcements} isManager={isManager} completedCount={completedZones.length} onOpenDetail={(ann) => { setSelectedAnnouncement(ann); setCurrentPage('announcementDetail'); }} />;
       case 'onboarding':
-        return <OnboardingPage onBack={() => setCurrentPage('home')} />;
+        return <OnboardingPage onBack={() => setCurrentPage('home')} onNavigate={setCurrentPage} />;
+      case 'workRouteDetail':
+        return <WorkRoutePage onBack={() => setCurrentPage('onboarding')} />;
       case 'rules':
-        return <RulesPage onBack={() => setCurrentPage('home')} />;
-      case 'jobs':
-        return <JobsPage onBack={() => setCurrentPage('home')} />;
-      case 'benefits':
-        return <BenefitsPage onBack={() => setCurrentPage('home')} />;
+        return <RulesPage onBack={() => setCurrentPage('home')} onSelectCategory={(cat) => { setSelectedRuleCategory(cat); setCurrentPage('ruleDetail'); }} />;
+      case 'ruleDetail':
+        return <RuleDetailPage category={selectedRuleCategory} hygieneRules={hygieneRules} standardRules={kitchenStandardRules} occupationalSafetyRules={occupationalSafetyRules} onBack={() => setCurrentPage('rules')} />;
       case 'inspection':
-        return <InspectionPage onBack={() => setCurrentPage('home')} />;
-      case 'menu':
-        return <MenuPage onBack={() => setCurrentPage('home')} />;
-      case 'schedule':
-        return <SchedulePage onBack={() => setCurrentPage('home')} />;
+        return <InspectionModule onBack={() => setCurrentPage('home')} standards={standards} setStandards={setStandards} completedZones={completedZones} setCompletedZones={setCompletedZones} isManager={isManager} />;
+      case 'benefits': return <BenefitsPage onBack={() => setCurrentPage('home')} />;
+      case 'menu': return <MenuPage onBack={() => setCurrentPage('home')} />;
+      case 'schedule': return <SchedulePage onBack={() => setCurrentPage('home')} schedules={schedules} />;
+      case 'admin':
+        return <AdminPage 
+          onBack={() => setCurrentPage('home')} 
+          announcements={announcements} 
+          onAdd={(t, c) => setAnnouncements([{id: Date.now(), date: new Date().toISOString().split('T')[0], title: t, content: c, author: '管理員'}, ...announcements])} 
+          onDelete={(id) => setAnnouncements(announcements.filter(a => a.id !== id))} 
+          onLogout={handleLogout} 
+          notificationLog={notificationLog} 
+          schedules={schedules}
+          setSchedules={setSchedules}
+        />;
+      case 'announcementDetail':
+        return <AnnouncementDetailPage ann={selectedAnnouncement} onBack={() => setCurrentPage('home')} />;
       default:
-        return <HomePage onNavigate={setCurrentPage} announcements={announcements} />;
+        return <HomePage onNavigate={setCurrentPage} announcements={announcements} isManager={isManager} completedCount={completedZones.length} onOpenDetail={(ann) => { setSelectedAnnouncement(ann); setCurrentPage('announcementDetail'); }} />;
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-10">
-      {/* 頂部狀態列 */}
-      <div className="bg-orange-600 text-white p-4 sticky top-0 z-50 flex justify-between items-center shadow-md">
-        <h1 className="font-bold text-xl tracking-tight" onClick={() => setCurrentPage('home')}>
-          廚房管理系統 <span className="text-orange-200 text-xs font-normal ml-2">Kitchen OS v1.0</span>
+      <div className={`${isManager ? 'bg-slate-800' : 'bg-orange-600'} text-white p-4 sticky top-0 z-50 flex justify-between items-center shadow-md transition-colors duration-300`}>
+        <h1 className="font-bold text-xl tracking-tight cursor-pointer flex items-center gap-2" onClick={() => setCurrentPage('home')}>
+          <div className="bg-white/20 p-1 rounded-lg"><ChefHatIcon /></div>
+          Kitchen OS
         </h1>
-        <div className="flex gap-3">
-          <Bell size={20} />
-          <MenuIcon size={20} />
+        <div className="flex gap-4">
+          <Bell size={20} className="cursor-pointer" onClick={() => isManager && setCurrentPage('admin')} />
+          <button onClick={() => isManager ? setCurrentPage('admin') : setShowLoginModal(true)}>
+            {isManager ? <Settings size={20} /> : <MenuIcon size={20} />}
+          </button>
         </div>
       </div>
 
       <main className="max-w-md mx-auto p-4">
         {renderContent()}
       </main>
-    </div>
-  );
-};
 
-// --- 子組件：首頁 ---
-const HomePage = ({ onNavigate, announcements }) => (
-  <div className="space-y-6 animate-in fade-in duration-500">
-    {/* 營運調整公告 */}
-    <section>
-      <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-bold flex items-center gap-2">
-          <Bell className="text-orange-500" size={18} /> 營運調整公告
-        </h2>
-        <span className="text-xs text-slate-400">查看全部</span>
-      </div>
-      <div className="space-y-3">
-        {announcements.map(ann => (
-          <div key={ann.id} className="bg-white p-4 rounded-xl shadow-sm border-l-4 border-orange-500">
-            <div className="flex justify-between items-start mb-1">
-              <h3 className="font-bold text-slate-800">{ann.title}</h3>
-              <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-1 rounded-full">{ann.date}</span>
+      {showLoginModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-8 shadow-2xl animate-in zoom-in duration-200 text-center">
+            <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-orange-600"><Lock size={30} /></div>
+            <h2 className="text-2xl font-black mb-2">主管授權</h2>
+            <div className="space-y-4 mt-6">
+              <input 
+                type="password" 
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                placeholder="Password"
+                className={`w-full bg-slate-100 border-2 ${loginError ? 'border-red-400' : 'border-transparent'} focus:border-orange-500 rounded-2xl px-5 py-4 outline-none transition-all font-black text-center tracking-widest`}
+                onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
+              />
+              <button onClick={handleLogin} className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-transform uppercase">Login</button>
+              <button onClick={() => setShowLoginModal(false)} className="text-slate-400 text-xs font-bold uppercase tracking-widest">取消</button>
             </div>
-            <p className="text-sm text-slate-600 line-clamp-2">{ann.content}</p>
-            <p className="text-[10px] text-orange-600 mt-2 font-medium">發布者：{ann.author}</p>
-          </div>
-        ))}
-      </div>
-    </section>
-
-    {/* 功能導覽格線 */}
-    <section>
-      <h2 className="text-lg font-bold mb-3">系統功能導覽</h2>
-      <div className="grid grid-cols-2 gap-3">
-        <NavCard icon={<BookOpen className="text-blue-500" />} title="入職相關" onClick={() => onNavigate('onboarding')} color="bg-blue-50" />
-        <NavCard icon={<ShieldCheck className="text-green-500" />} title="員工守則" onClick={() => onNavigate('rules')} color="bg-green-50" />
-        <NavCard icon={<Briefcase className="text-purple-500" />} title="工作簡介" onClick={() => onNavigate('jobs')} color="bg-purple-50" />
-        <NavCard icon={<Wallet className="text-yellow-500" />} title="薪資福利" onClick={() => onNavigate('benefits')} color="bg-yellow-50" />
-        <NavCard icon={<MenuIcon className="text-emerald-500" />} title="各季菜單" onClick={() => onNavigate('menu')} color="bg-emerald-50" />
-        <NavCard icon={<Calendar className="text-indigo-500" />} title="每月班表" onClick={() => onNavigate('schedule')} color="bg-indigo-50" />
-        <NavCard icon={<Camera className="text-red-500" />} title="善後巡視" onClick={() => onNavigate('inspection')} color="bg-red-50" span={true} />
-      </div>
-    </section>
-  </div>
-);
-
-const NavCard = ({ icon, title, onClick, color, span = false }) => (
-  <button 
-    onClick={onClick}
-    className={`${color} ${span ? 'col-span-2 py-6' : 'py-5'} flex flex-col items-center justify-center rounded-2xl shadow-sm border border-slate-100 active:scale-95 transition-transform`}
-  >
-    <div className="mb-2 scale-110">{icon}</div>
-    <span className="font-bold text-slate-700">{title}</span>
-  </button>
-);
-
-// --- 子組件：入職相關 ---
-const OnboardingPage = ({ onBack }) => (
-  <div className="space-y-4 animate-in slide-in-from-right duration-300">
-    <BackButton onClick={onBack} title="入職相關資料" />
-    <div className="space-y-3">
-      <SectionItem icon={<BookOpen size={18}/>} title="員工入職準備清單" />
-      <SectionItem icon={<Car size={18}/>} title="員工停車位資訊" />
-      <SectionItem icon={<MapPin size={18}/>} title="上班打卡動線指引" />
-    </div>
-  </div>
-);
-
-// --- 子組件：善後巡視系統 (核心功能) ---
-const InspectionPage = ({ onBack }) => {
-  const stations = ["飲調區", "輕食區", "海鮮區", "蔬菜區", "切肉區", "冷盤區", "熟食區", "湯品區"];
-  const [selectedStation, setSelectedStation] = useState(null);
-
-  return (
-    <div className="space-y-4 animate-in slide-in-from-right duration-300">
-      <BackButton onClick={onBack} title="善後巡視系統 (AI)" />
-      
-      {!selectedStation ? (
-        <div className="grid grid-cols-1 gap-3">
-          <div className="bg-blue-50 p-4 rounded-xl text-sm text-blue-700 mb-2">
-            請選擇您今日負責的崗位進行善後拍照：
-          </div>
-          {stations.map(s => (
-            <button key={s} onClick={() => setSelectedStation(s)} className="bg-white p-4 rounded-xl flex justify-between items-center shadow-sm border border-slate-100">
-              <span className="font-bold">{s}</span>
-              <ChevronRight size={18} className="text-slate-400" />
-            </button>
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-6">
-          <div className="flex items-center gap-2 text-slate-500" onClick={() => setSelectedStation(null)}>
-            <ArrowLeft size={16} /> 返回區域選擇
-          </div>
-          <h3 className="text-xl font-bold text-center bg-slate-100 py-2 rounded-lg">{selectedStation} 善後檢查</h3>
-          
-          <div className="grid grid-cols-1 gap-4">
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-slate-500">1. 標準模範照片 (參照組)</p>
-              <div className="aspect-video bg-slate-200 rounded-xl flex items-center justify-center border-2 border-dashed border-slate-300">
-                <span className="text-slate-400 text-sm">此處將顯示標準照片</span>
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-slate-500">2. 您上傳的照片</p>
-              <div className="aspect-video bg-white rounded-xl flex flex-col items-center justify-center border-2 border-orange-200 shadow-inner">
-                <Camera size={40} className="text-orange-300 mb-2" />
-                <span className="text-orange-500 font-bold">點擊啟動相機</span>
-              </div>
-            </div>
-
-            <button className="w-full bg-orange-600 text-white py-4 rounded-2xl font-bold shadow-lg shadow-orange-200 mt-4">
-              提交 AI 判定
-            </button>
           </div>
         </div>
       )}
@@ -184,106 +245,236 @@ const InspectionPage = ({ onBack }) => {
   );
 };
 
-// --- 通用組件 ---
-const BackButton = ({ onClick, title }) => (
-  <div className="flex items-center gap-3 mb-6">
-    <button onClick={onClick} className="p-2 bg-white rounded-full shadow-sm"><ArrowLeft size={20}/></button>
-    <h2 className="text-xl font-bold">{title}</h2>
-  </div>
-);
-
-const SectionItem = ({ icon, title }) => (
-  <div className="bg-white p-4 rounded-xl flex items-center justify-between shadow-sm border border-slate-100 active:bg-slate-50">
-    <div className="flex items-center gap-3">
-      <div className="text-slate-400">{icon}</div>
-      <span className="font-medium">{title}</span>
-    </div>
-    <ChevronRight size={18} className="text-slate-300" />
-  </div>
-);
-
-// 其他預留頁面 (規則、工作、福利、菜單、班表)
-const RulesPage = ({ onBack }) => (
-  <div className="space-y-4 animate-in slide-in-from-right duration-300">
-    <BackButton onClick={onBack} title="員工守則" />
-    <div className="space-y-3">
-      <SectionItem icon={<ShieldCheck size={18}/>} title="食品衛生安全規範" />
-      <SectionItem icon={<ShieldCheck size={18}/>} title="職場職業安全守則" />
-      <SectionItem icon={<ShieldCheck size={18}/>} title="廚房標準工作守則" />
-    </div>
-  </div>
-);
-
-const JobsPage = ({ onBack }) => (
-  <div className="space-y-4 animate-in slide-in-from-right duration-300">
-    <BackButton onClick={onBack} title="各區工作簡介" />
-    <div className="grid grid-cols-1 gap-3">
-      {["飲調/輕食區", "海鮮/冷盤區", "蔬菜/切肉區", "熟食/湯品區"].map(j => (
-        <SectionItem key={j} title={j} />
-      ))}
-    </div>
-  </div>
-);
-
-const BenefitsPage = ({ onBack }) => (
-  <div className="space-y-4 animate-in slide-in-from-right duration-300">
-    <BackButton onClick={onBack} title="薪資福利" />
-    <div className="space-y-4">
-      <div className="bg-gradient-to-br from-yellow-400 to-orange-500 p-6 rounded-3xl text-white shadow-lg">
-        <p className="text-sm opacity-90">目前職等薪資</p>
-        <p className="text-3xl font-black mt-1">$ --,---</p>
-        <div className="mt-4 flex gap-2">
-          <span className="bg-white/20 px-3 py-1 rounded-full text-xs">資深廚助</span>
-          <span className="bg-white/20 px-3 py-1 rounded-full text-xs">全勤獎金中</span>
-        </div>
+// --- 組件：首頁 ---
+const HomePage = ({ onNavigate, announcements, isManager, completedCount, onOpenDetail }) => (
+  <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center justify-between">
+      <div className="flex items-center gap-4">
+        <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center font-black">{completedCount}</div>
+        <div><p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">善後進度</p><p className="text-sm font-black text-slate-700">{completedCount === ZONES.length ? "✅ 全數完成" : `尚有 ${ZONES.length - completedCount} 站待處理`}</p></div>
       </div>
-      <SectionItem title="各區考核加給標準" />
-      <SectionItem title="三節與員工福利" />
-      <SectionItem title="生日禮金與員工聚餐" />
+      <button onClick={() => onNavigate('inspection')} className="p-3 bg-orange-600 text-white rounded-2xl active:scale-90 transition-transform"><Camera size={20}/></button>
     </div>
-  </div>
-);
-
-const MenuPage = ({ onBack }) => (
-  <div className="space-y-4 animate-in slide-in-from-right duration-300">
-    <BackButton onClick={onBack} title="各季菜單介紹" />
-    <div className="grid grid-cols-2 gap-3">
-      {["熟食區", "甜點區", "限時限量", "壽星招待"].map(m => (
-        <div key={m} className="aspect-square bg-white rounded-2xl flex items-center justify-center border border-slate-100 shadow-sm font-bold text-slate-600">
-          {m}
-        </div>
-      ))}
-    </div>
-  </div>
-);
-
-const SchedulePage = ({ onBack }) => (
-  <div className="space-y-4 animate-in slide-in-from-right duration-300">
-    <BackButton onClick={onBack} title="每月班表查詢" />
-    <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-      <div className="flex justify-between items-center mb-4">
-        <span className="font-bold">2024 年 6 月</span>
-        <button className="text-orange-600 text-sm font-bold">申請休假</button>
-      </div>
-      <div className="grid grid-cols-7 gap-1 text-center text-xs text-slate-400 mb-2">
-        {['日','一','二','三','四','五','六'].map(d => <div key={d}>{d}</div>)}
-      </div>
-      <div className="grid grid-cols-7 gap-1">
-        {Array.from({length: 30}).map((_, i) => (
-          <div key={i} className={`aspect-square flex items-center justify-center rounded-lg text-sm ${[5, 12, 19, 26].includes(i+1) ? 'bg-orange-100 text-orange-600 font-bold' : 'bg-slate-50'}`}>
-            {i+1}
+    <section>
+      <div className="flex items-center justify-between mb-3 px-1"><h2 className="text-lg font-bold flex items-center gap-2"><Bell className="text-orange-500" size={18} /> 營運調整公告</h2></div>
+      <div className="space-y-3">
+        {announcements.map(ann => (
+          <div key={ann.id} onClick={() => onOpenDetail(ann)} className="bg-white p-5 rounded-[2rem] shadow-sm border-l-4 border-orange-500 active:bg-orange-50 transition-colors cursor-pointer group">
+            <div className="flex justify-between items-start mb-1">
+              <h3 className="font-bold text-slate-800 text-sm group-hover:text-orange-600 transition-colors">{ann.title}</h3>
+              <span className="text-[9px] text-slate-400 bg-slate-50 px-2 py-1 rounded-full font-bold">{ann.date}</span>
+            </div>
+            <p className="text-xs text-slate-500 line-clamp-2 break-all leading-relaxed">{ann.content}</p>
           </div>
         ))}
       </div>
-    </div>
-    <div className="mt-4 p-4 bg-orange-50 border border-orange-100 rounded-xl">
-      <h4 className="text-orange-700 font-bold text-sm mb-2">我的班表摘要</h4>
-      <div className="flex justify-between text-sm text-orange-800">
-        <span>本月休假已用：</span>
-        <span className="font-bold">4 / 8 天</span>
+    </section>
+    <section className="grid grid-cols-2 gap-4">
+      <NavCard title="入職相關" onClick={() => onNavigate('onboarding')} color="bg-blue-50/50" />
+      <NavCard title="員工守則" onClick={() => onNavigate('rules')} color="bg-emerald-50/50" />
+      <NavCard title="薪資福利" onClick={() => onNavigate('benefits')} color="bg-yellow-50/50" />
+      <NavCard title="各季菜單" onClick={() => onNavigate('menu')} color="bg-emerald-50/30" />
+      <NavCard title="每月班表" onClick={() => onNavigate('schedule')} color="bg-indigo-50/50" />
+      <NavCard title="善後巡視" onClick={() => onNavigate('inspection')} color="bg-orange-50" span={true} />
+    </section>
+  </div>
+);
+
+// --- 組件：上班動線詳情 ---
+const WorkRoutePage = ({ onBack }) => (
+  <div className="animate-in slide-in-from-right duration-300 space-y-6">
+    <BackButton onClick={onBack} title="上班動線指引" />
+    <section className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="bg-blue-100 p-2 rounded-xl text-blue-600"><Bus size={20} /></div>
+        <h3 className="text-lg font-black text-slate-700">搭乘大眾運輸路線</h3>
       </div>
+      <div className="aspect-video bg-slate-100 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-slate-200">
+        <PlayCircle size={40} className="text-slate-300 mb-2" />
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">影片預留空間</p>
+      </div>
+    </section>
+    <section className="bg-white rounded-[2rem] p-6 shadow-sm border border-slate-100">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="bg-orange-100 p-2 rounded-xl text-orange-600"><Bike size={20} /></div>
+        <h3 className="text-lg font-black text-slate-700">開車或騎車路線</h3>
+      </div>
+      <div className="aspect-video bg-slate-100 rounded-2xl flex flex-col items-center justify-center border-2 border-dashed border-slate-200">
+        <PlayCircle size={40} className="text-slate-300 mb-2" />
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">影片預留空間</p>
+      </div>
+    </section>
+  </div>
+);
+
+// --- 組件：每月班表展示 ---
+const SchedulePage = ({ onBack, schedules }) => {
+  const now = new Date();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const [viewMonth, setViewMonth] = useState(currentMonthKey);
+  const currentSchedules = schedules[viewMonth] || [];
+  return (
+    <div className="animate-in slide-in-from-right duration-300">
+      <BackButton onClick={onBack} title="每月班表查詢" />
+      <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-100 mb-6 flex items-center justify-between">
+        <input type="month" value={viewMonth} onChange={(e) => setViewMonth(e.target.value)} className="bg-slate-50 px-4 py-2 rounded-xl font-bold text-slate-700 outline-none" />
+      </div>
+      <div className="space-y-4">
+        {currentSchedules.length > 0 ? (
+          currentSchedules.map((img, i) => (<div key={i} className="bg-white p-2 rounded-3xl shadow-md border border-slate-100"><img src={img} className="w-full rounded-2xl shadow-inner" alt="Schedule" /></div>))
+        ) : (
+          <div className="bg-white p-12 rounded-[2.5rem] border-2 border-dashed border-slate-100 text-center py-12 text-slate-400 font-bold">該月份尚未上傳班表</div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// --- 組件：主管管理後台 ---
+const AdminPage = ({ onBack, announcements, onAdd, onDelete, onLogout, notificationLog, schedules, setSchedules }) => {
+  const [t, setT] = useState(''); const [c, setC] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+  const handleScheduleUpload = (e) => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => setSchedules(prev => ({...prev, [selectedMonth]: [...(prev[selectedMonth] || []), reader.result]}));
+      reader.readAsDataURL(file);
+    });
+  };
+  return (
+    <div className="space-y-6 animate-in slide-in-from-right duration-300">
+      <div className="flex justify-between items-center"><BackButton onClick={onBack} title="主管控制中心" /><button onClick={onLogout} className="bg-red-50 text-red-500 font-black text-[10px] px-4 py-2 rounded-full uppercase">Logout</button></div>
+      
+      <section className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
+        <h3 className="font-black text-xs text-blue-500 uppercase tracking-widest mb-4 flex items-center gap-2"><Calendar size={14}/> 班表管理</h3>
+        <div className="flex gap-2 mb-4"><input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)} className="flex-1 bg-slate-50 p-3 rounded-xl font-bold text-sm outline-none" /><label className="bg-blue-600 text-white px-4 py-3 rounded-xl text-xs font-black cursor-pointer active:scale-95 flex items-center gap-2"><Plus size={14} /> 上傳<input type="file" accept="image/*" multiple className="hidden" onChange={handleScheduleUpload} /></label></div>
+        <div className="grid grid-cols-4 gap-2">{schedules[selectedMonth]?.map((img, i) => (<div key={i} className="relative aspect-square group"><img src={img} className="w-full h-full object-cover rounded-xl border border-slate-100" alt="Admin Schedule" /><button onClick={() => setSchedules(prev => ({...prev, [selectedMonth]: prev[selectedMonth].filter((_, idx) => idx !== i)}))} className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full shadow-md"><Trash2 size={10}/></button></div>))}</div>
+      </section>
+
+      <section className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
+        <h3 className="font-black text-xs text-orange-400 uppercase tracking-widest mb-4">發布新公告</h3>
+        <input placeholder="標題" value={t} onChange={e => setT(e.target.value)} className="w-full bg-slate-50 p-4 rounded-2xl mb-3 outline-none focus:ring-2 focus:ring-orange-500 font-bold text-sm" />
+        <textarea placeholder="內容" rows="3" value={c} onChange={e => setC(e.target.value)} className="w-full bg-slate-50 p-4 rounded-2xl mb-4 outline-none focus:ring-2 focus:ring-orange-500 text-sm" />
+        <button onClick={() => { if(t&&c){ onAdd(t,c); setT(''); setC(''); } }} className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl">發布</button>
+      </section>
+
+      <section className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-100">
+        <h3 className="font-black text-xs text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2"><Send size={14}/> 通知日誌</h3>
+        <div className="space-y-2">{notificationLog.map((log, i) => (<div key={i} className="text-[10px] bg-slate-50 p-2 rounded-lg border border-slate-100"><span className="text-slate-400 font-bold mr-2">[{log.time}]</span> <span className="text-slate-600">{log.message}</span></div>))}</div>
+      </section>
+      
+      <div className="space-y-2">{announcements.map(a => <div key={a.id} className="bg-white p-4 rounded-2xl flex justify-between items-center border border-slate-50"><span className="font-bold text-xs text-slate-700 truncate mr-4">{a.title}</span><button onClick={() => onDelete(a.id)} className="text-slate-200 hover:text-red-500 transition-colors"><Trash2 size={16} /></button></div>)}</div>
+    </div>
+  );
+};
+
+// --- 組件：AI 善後巡視模組 ---
+const InspectionModule = ({ onBack, standards, setStandards, completedZones, setCompletedZones, isManager }) => {
+  const [view, setView] = useState('dashboard'); const [activeZone, setActiveZone] = useState(null); const [currentUploads, setCurrentUploads] = useState([]); const [inspectionResult, setInspectionResult] = useState(null); const [loading, setLoading] = useState(false);
+  const handleFileUpload = (e, target, zoneId = null) => {
+    const files = Array.from(e.target.files);
+    files.forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => { if (target === 'standard') { setStandards(prev => ({ ...prev, [zoneId]: [...(prev[zoneId] || []), reader.result] })); } else { setCurrentUploads(prev => [...prev, reader.result]); } };
+      reader.readAsDataURL(file);
+    });
+  };
+  const runAIInspection = async () => {
+    setLoading(true);
+    setTimeout(() => {
+      const result = { status: "PASS", score: 95, summary: "清潔合格。", feedback: ["非常棒"] };
+      setInspectionResult(result);
+      if (result.status === "PASS" && !completedZones.includes(activeZone.id)) setCompletedZones(prev => [...prev, activeZone.id]);
+      setLoading(false);
+    }, 2000);
+  };
+  return (
+    <div className="animate-in fade-in duration-300">
+      <div className="flex justify-between items-center mb-6"><button onClick={() => view === 'dashboard' ? onBack() : setView('dashboard')} className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100"><ArrowLeft size={20}/></button><h2 className="text-xl font-black text-slate-800 flex items-center gap-2"><ClipboardCheck size={20} className="text-orange-600"/> 善後巡視</h2>{isManager && <button onClick={() => setView('settings')} className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100 text-slate-400"><Settings size={20}/></button>}</div>
+      {view === 'dashboard' && (
+        <div className="space-y-4">
+          <div className="bg-gradient-to-r from-orange-500 to-orange-400 p-6 rounded-[2.5rem] text-white shadow-lg flex justify-between items-center"><div><p className="text-[10px] font-black uppercase opacity-70 mb-1">Overall Progress</p><p className="text-2xl font-black">{completedZones.length} / {ZONES.length}</p></div><div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center border border-white/30 font-black">{Math.round((completedZones.length/ZONES.length)*100)}%</div></div>
+          <div className="grid grid-cols-1 gap-2">
+            {ZONES.map(zone => {
+              const isDone = completedZones.includes(zone.id);
+              return (<button key={zone.id} onClick={() => { setActiveZone(zone); setView('inspection'); setCurrentUploads([]); setInspectionResult(null); }} className={`bg-white px-6 py-6 rounded-3xl shadow-sm flex justify-between items-center border transition-all ${isDone ? 'border-emerald-100 bg-emerald-50/20' : 'border-slate-100'}`}><div className="flex items-center gap-3"><div className={`p-2 rounded-xl ${isDone ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-100 text-slate-300'}`}>{isDone ? <CheckCircle2 size={18}/> : <Camera size={18}/>}</div><span className={`font-black ${isDone ? 'text-emerald-700' : 'text-slate-600'}`}>{zone.name}</span></div>{isDone ? <span className="text-[10px] font-black text-emerald-500 uppercase tracking-tighter">Done</span> : <ChevronRight size={18} className="text-slate-200" />}</button>);
+            })}
+          </div>
+        </div>
+      )}
+      {view === 'inspection' && activeZone && (
+        <div className="space-y-6">
+          <h3 className="text-4xl font-black text-slate-800 text-center tracking-tighter">{activeZone.name}</h3>
+          <section><p className="text-xs font-black text-slate-300 uppercase mb-3 text-center tracking-widest">Standard Ref</p><div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">{standards[activeZone.id]?.map((img, i) => <img key={i} src={img} className="w-32 h-32 object-cover rounded-3xl border-2 border-white shadow-sm" alt="Reference" />)}</div></section>
+          <section className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 text-center">
+            <div className="grid grid-cols-3 gap-3 mb-8">{currentUploads.map((img, i) => (<div key={i} className="relative aspect-square"><img src={img} className="w-full h-full object-cover rounded-2xl" alt="Actual" /><button onClick={() => setCurrentUploads(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full shadow-lg"><Trash2 size={10}/></button></div>))}<label className="aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center cursor-pointer active:scale-95 transition-all"><Plus className="text-slate-300"/><input type="file" accept="image/*" multiple className="hidden" onchange={(e) => handleFileUpload(e, 'actual')} /></label></div>
+            <button onClick={runAIInspection} disabled={loading || currentUploads.length === 0} className={`w-full py-5 rounded-[2rem] font-black text-lg shadow-xl flex items-center justify-center gap-2 ${loading || currentUploads.length === 0 ? 'bg-slate-100 text-slate-300' : 'bg-orange-600 text-white'}`}>{loading ? <Loader2 className="animate-spin" /> : <><Send size={18}/> 啟動 AI 判定</>}</button>
+          </section>
+        </div>
+      )}
+      {view === 'settings' && (<div className="space-y-6"><h2 className="text-3xl font-black text-slate-800 px-2 tracking-tighter">區域標準照管理</h2>{ZONES.map(zone => (<div key={zone.id} className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100"><div className="flex justify-between items-center mb-4"><h3 className="text-lg font-black text-slate-700">{zone.name}</h3><label className="bg-slate-900 text-white px-5 py-2.5 rounded-2xl text-xs font-black uppercase cursor-pointer">Upload<input type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFileUpload(e, 'standard', zone.id)} /></label></div><div className="grid grid-cols-4 gap-2">{standards[zone.id]?.map((img, i) => (<div key={i} className="relative aspect-square group"><img src={img} className="w-full h-full object-cover rounded-xl" alt="Standard Management" /><button onClick={() => setStandards(prev => ({...prev, [zone.id]: prev[zone.id].filter((_, idx) => idx !== i)}))} className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full shadow-md"><Trash2 size={10}/></button></div>))}</div></div>))}</div>)}
+    </div>
+  );
+};
+
+// --- 輔助小組件 ---
+const ChefHatIcon = () => <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><line x1="6" y1="17" x2="18" y2="17"/></svg>;
+const NavCard = ({ title, onClick, color, span = false }) => (
+  <button onClick={onClick} className={`${color} ${span ? 'py-16' : 'py-12'} flex flex-col items-center justify-center rounded-[2.5rem] shadow-sm border border-slate-100 active:scale-95 transition-all`}><span className="font-black text-slate-800 text-xl tracking-tighter uppercase">{title}</span></button>
+);
+const BackButton = ({ onClick, title }) => (
+  <div className="flex items-center gap-4 mb-8"><button onClick={onClick} className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100 active:scale-90 transition-transform"><ArrowLeft size={20}/></button><h2 className="text-2xl font-black text-slate-800 tracking-tighter">{title}</h2></div>
+);
+
+const IconWrapper = ({ iconName }) => {
+  const icons = { 
+    BookOpen, 
+    Car, 
+    Navigation: NavIcon,
+    ShieldCheck, 
+    Flame, 
+    Briefcase 
+  };
+  const Icon = icons[iconName];
+  return Icon ? <Icon size={18} /> : null;
+};
+
+const SectionItem = ({ icon, title, onClick }) => (
+  <div onClick={onClick} className="bg-white p-6 rounded-[2rem] flex items-center justify-between shadow-sm border border-slate-100 active:bg-slate-50 cursor-pointer">
+    <div className="flex items-center gap-4">
+      <div className="text-slate-400">
+        {icon && <IconWrapper iconName={icon} />}
+      </div>
+      <span className="font-bold text-slate-700 text-sm">{title}</span>
+    </div>
+    <ChevronRight size={18} className="text-slate-200" />
+  </div>
+);
+
+const RulesPage = ({ onBack, onSelectCategory }) => <div className="space-y-4 animate-in slide-in-from-right duration-300"><BackButton onClick={onBack} title="員工守則" /><div className="space-y-3"><button onClick={() => onSelectCategory("食品衛生安全規範")} className="w-full text-left"><SectionItem icon="ShieldCheck" title="食品衛生安全規範" /></button><button onClick={() => onSelectCategory("職場職業安全守則")} className="w-full text-left"><SectionItem icon="Flame" title="職場職業安全守則" /></button><button onClick={() => onSelectCategory("廚房標準工作守則")} className="w-full text-left"><SectionItem icon="BookOpen" title="廚房標準工作守則" /></button></div></div>;
+const RuleDetailPage = ({ category, hygieneRules, standardRules, occupationalSafetyRules, onBack }) => {
+  const isH = category === "食品衛生安全規範"; const isS = category === "廚房標準工作守則"; const isO = category === "職場職業安全守則";
+  return (
+    <div className="animate-in slide-in-from-right duration-300 pb-10"><BackButton onClick={onBack} title={category} />
+      {isH && hygieneRules.map((item, i) => <div key={i} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-4"><h3 className="font-bold text-emerald-600 mb-3 text-sm flex gap-2"><span>{i+1}.</span> {item.category}</h3><ul className="space-y-2">{item.rules.map((r, idx) => <li key={idx} className="text-xs text-slate-500 leading-relaxed break-all">• {r}</li>)}</ul></div>)}
+      {isS && standardRules.map((item) => <div key={item.id} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-4"><div className="flex gap-4"><span className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-[10px] font-black shrink-0">{item.id}</span><div className="space-y-2"><h3 className="font-bold text-slate-800 text-xs">{item.text}</h3><p className="text-[10px] text-slate-400 italic bg-slate-50 p-3 rounded-xl">{item.sub}</p></div></div></div>)}
+      {isO && occupationalSafetyRules.map((section, i) => <div key={i} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-4"><h3 className="font-bold text-orange-600 mb-3 text-sm">{section.category}</h3><ul className="space-y-2">{section.rules.map((r, idx) => <li key={idx} className="text-xs text-slate-500 leading-relaxed">• {r}</li>)}</ul></div>)}
+    </div>
+  );
+};
+const OnboardingPage = ({ onBack, onNavigate }) => (
+  <div className="animate-in slide-in-from-right duration-300">
+    <BackButton onClick={onBack} title="入職相關" />
+    <div className="space-y-3">
+      <SectionItem icon="BookOpen" title="員工入職準備清單" />
+      <SectionItem icon="Car" title="停車資訊" />
+      <SectionItem icon="Navigation" title="上班動線" onClick={() => onNavigate('workRouteDetail')} />
     </div>
   </div>
 );
+const BenefitsPage = ({ onBack }) => <div className="animate-in slide-in-from-right duration-300"><BackButton onClick={onBack} title="薪資福利" /><div className="bg-gradient-to-br from-yellow-400 to-orange-500 p-8 rounded-[2.5rem] text-white shadow-lg mb-6"><p className="text-[10px] font-black uppercase opacity-80">薪資與獎金</p><p className="text-3xl font-black">$ 32,800 +</p></div><SectionItem title="考核加給標準" /><SectionItem title="員工相關福利" /></div>;
+const MenuPage = ({ onBack }) => <div className="animate-in slide-in-from-right duration-300"><BackButton onClick={onBack} title="各季菜單" /><div className="grid grid-cols-2 gap-4">{["熟食", "甜點", "限量", "壽星"].map(m => <div key={m} className="aspect-square bg-white rounded-3xl flex items-center justify-center font-bold text-slate-300 text-sm border border-slate-100">{m}</div>)}</div></div>;
+const AnnouncementDetailPage = ({ ann, onBack }) => <div className="animate-in slide-in-from-right duration-300"><BackButton onClick={onBack} title="公告詳情" /><div className="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-100"><h1 className="text-2xl font-black text-slate-800 mb-2">{ann?.title}</h1><p className="text-[10px] text-slate-400 font-bold mb-6">{ann?.date} • {ann?.author}</p><div className="text-sm text-slate-600 leading-relaxed break-all whitespace-pre-wrap">{ann?.content}</div></div></div>;
 
 export default App;
