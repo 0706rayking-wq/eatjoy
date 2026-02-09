@@ -4,35 +4,38 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>廚房管理系統 Kitchen OS</title>
-    <!-- 引入資源：React, ReactDOM, Babel, Tailwind CSS, Lucide -->
+    <!-- 引入核心庫 -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- 使用穩定版 Lucide 核心 -->
     <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Firebase SDK (相容模式 v8) -->
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics-compat.js"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
-        body { font-family: 'Noto Sans TC', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { font-family: 'Noto Sans TC', sans-serif; -webkit-tap-highlight-color: transparent; background-color: #f8fafc; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .page-enter { animation: fadeIn 0.3s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .comparison-card { transition: all 0.3s ease; }
+        .comparison-card:hover { transform: translateY(-2px); }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-900 pb-12">
-
+<body class="pb-12">
     <div id="root"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useCallback, useMemo } = React;
-        const { 
-            Bell, BookOpen, ShieldCheck, Camera, Menu, Settings, Calendar, Plus, Trash2, 
-            Lock, LogOut, X, User, CalendarDays, ArrowLeft, ChevronRight, Bus, Bike, 
-            PlayCircle, Flame, HardHat, RefreshCcw, ClipboardCheck, Loader2, XCircle, Send, ImageIcon,
-            Navigation: NavIcon, MapPin, Car, Coins, Shirt, Heart, Clock, Users
-        } = lucide;
 
-        // --- 核心配置 ---
+        // --- 1. 全域配置與靜態資料 ---
         const ZONES = [
             { id: 'beverage', name: '飲調區' }, { id: 'light-meal', name: '輕食區' },
             { id: 'seafood', name: '海鮮區' }, { id: 'vegetable', name: '蔬菜區' },
@@ -40,148 +43,417 @@
             { id: 'cooked-food', name: '熟食區' }, { id: 'soup', name: '湯品區' }
         ];
 
-        // 圖示包裝組件
+        // --- 2. 基礎 UI 組件 ---
         const Icon = ({ name, size = 20, className = "" }) => {
-            useEffect(() => {
-                if (window.lucide) { window.lucide.createIcons(); }
-            }, [name, size, className]);
+            useEffect(() => { if (window.lucide) window.lucide.createIcons(); }, [name]);
             return <i data-lucide={name} className={className} style={{ width: size, height: size, display: 'inline-block' }}></i>;
         };
 
-        const ChefHatIcon = () => (
-            <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+        const ChefHatIcon = ({ size = 24 }) => (
+            <svg viewBox="0 0 24 24" width={size} height={size} stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/>
                 <line x1="6" y1="17" x2="18" y2="17"/>
             </svg>
         );
 
-        // --- 完整守則資料 ---
-        const RULES_DATA = {
-            hygiene: [
-                { category: "體檢規範", rules: ["從業人員健康檢查應包括胸部X光及A型肝炎抗體檢驗。"] },
-                { category: "食材離地放置", rules: ["食材應離牆5公分，離地20公分。"] },
-                { category: "避免交叉污染", rules: ["切製食材砧板、刀具、推車、容器應生熟食區分。", "冷藏、冷凍保存食物時應生熟食分開。", "確保雙手洗淨再觸碰食材。", "非食材勿置放至砧板上。", "食材未加封加蓋下請勿交疊。"] },
-                { category: "先進先出", rules: ["冰箱食材宜打標、填寫日期、姓名以利先進先出。", "下班前須將冷凍冷藏及乾倉整理整齊。"] },
-                { category: "加封加蓋", rules: ["避免食材汙染或異味，標示開封日期。", "鐵罐開封後需分裝，避免生鏽造成污染。"] },
-                { category: "保存溫度", rules: ["細菌容易孳生溫度為16~59度。處理食材宜充分加熱/保冰。", "落實填寫溫度記錄表。", "冷凍冷藏貨品優先處理。"] },
-                { category: "環境衛生", rules: ["容器洗完倒扣避免滋生細菌。", "廚餘垃圾確實分類。", "丟棄食材請告知主管。"] }
-            ],
-            occupational: [
-                { category: "一、切肉機操作注意事項", rules: ["1. 操作前確認護罩完好,電源線無破損。","2. 穩固擺放。","3. 嚴禁徒手接觸旋轉刀片,須使用推肉板。","4. 禁止直接擦拭刀刃。","5. 禁止穿寬鬆衣物或佩戴手飾。","6. 清潔時必須關機並拔除電源。"] },
-                { category: "二、切蔥機操作注意事項", rules: ["1. 開機前確認刀片鎖緊。","2. 不可一次投入過多。","3. 清潔或排除異物必須拔電。","4. 保持刀口鋒利。"] },
-                { category: "三、碎冰機操作注意事項", rules: ["1. 穩固平台。","2. 確認電源關閉再投冰。","3. 嚴禁徒手伸入投入口。"] },
-                { category: "四、調理機/攪拌機", rules: ["1. 杯體結合牢固再開機。","2. 勿超過最高水位。","3. 嚴禁打開上蓋伸手進入。"] },
-                { category: "五、均質機注意事項", rules: ["1. 確認壓力閥與管線密封。","2. 運轉中嚴禁開蓋。","3. 均質結束先釋壓。"] },
-                { category: "六、冷凍庫安全", rules: ["1. 進入通知同事。","2. 確認逃生裝置正常。","3. 禁止長時逗留。"] },
-                { category: "七、瓦斯爐操作", rules: ["1. 開瓦斯→點火→關火→關瓦斯。","2. 漏氣立即通風。","3. 禁止無人時開火。","4. 雜物距火源30公分。"] },
-                { category: "八、蒸烤箱注意事項", rules: ["1. 注意防燙,用防熱手套。","2. 不可直接潑水內部。","3. 開門先退後一步。"] },
-                { category: "九、其他安全事項", rules: ["1. 地面保持乾燥、穿安全鞋。","2. 電器獨立插座。","3. 刀具集中、刀尖向下。","4. 熟悉滅火器。"] }
-            ],
-            standard: [
-                { id: 1, text: "依規定請假與打卡", sub: "上班遲到需依指示刷卡。上崗前著裝、置物完畢後再打卡。" },
-                { id: 2, text: "垃圾分類", sub: "垃圾、回收、廚餘分開。依百貨指示。" },
-                { id: 3, text: "手機使用限制", sub: "禁止非幹部上班時間使用手機,發現一率懲處。" },
-                { id: 4, text: "依照SOP營運", sub: "各區需熟知供應品項,菜區依規格裁切。" },
-                { id: 5, text: "下崗前完成", sub: "週清、點貨、整理冰箱下崗前完成。" },
-                { id: 6, text: "食材通報", sub: "保存不當或丟棄食材應告知主管。" },
-                { id: 7, text: "善後落實交接", sub: "依照善後表收尾,留意水電瓦斯關閉。" },
-                { id: 8, text: "財產公物愛護", sub: "不盜取或破壞公物。未經允許禁止私拿食材招待友人。" },
-                { id: 9, text: "禁菸酒檳榔", sub: "嚴格禁止進入廚房區域。" },
-                { id: 10, text: "服裝儀容與如廁", sub: "穿制服、帽子、安全鞋。如廁限6分鐘,特殊需求告知主管。" },
-                { id: 11, text: "維護工作安全", sub: "禁止嬉戲、不可帶他人進廚房、不坐在檯面上。" },
-                { id: 12, text: "成本控制", sub: "禁止擅自烹煮或私自叫貨。" },
-                { id: 13, text: "注意專業形象", sub: "不用客用餐具。禁止於客人面前爭執。" },
-                { id: 14, text: "通道出口暢通", sub: "非置物區不得堆放私人物品。" }
-            ]
+        const NavCard = ({ title, onClick, bg, span = false }) => (
+            <button onClick={onClick} className={`${bg} ${span ? 'col-span-2 py-16' : 'py-12'} flex items-center justify-center rounded-[2.5rem] shadow-sm border border-slate-100 active:scale-95 transition-all`}>
+                <span className="font-black text-slate-800 text-2xl tracking-tighter uppercase leading-none">{title}</span>
+            </button>
+        );
+
+        const BackButton = ({ onClick, title }) => (
+            <div className="flex items-center gap-4 mb-8">
+                <button onClick={onClick} className="p-3 bg-white rounded-2xl shadow-sm border active:scale-90 transition-transform"><Icon name="arrow-left" size={20}/></button>
+                <h2 className="text-2xl font-black text-slate-800 tracking-tighter leading-tight">{title}</h2>
+            </div>
+        );
+
+        const SectionItem = ({ title, iconName, onClick }) => (
+            <div onClick={onClick} className="bg-white p-6 rounded-[2rem] flex items-center justify-between shadow-sm border border-slate-100 active:bg-slate-50 cursor-pointer group transition-all">
+                <div className="flex items-center gap-4 text-slate-400 group-active:text-orange-50 font-bold">
+                    {iconName && <Icon name={iconName} size={18} />}
+                    <span className="text-slate-700 text-sm leading-none">{title}</span>
+                </div>
+                <Icon name="chevron-right" size={18} className="text-slate-200" />
+            </div>
+        );
+
+        const RuleBlock = ({ title, items }) => (
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-4 shadow-orange-50">
+                <h3 className="font-black text-orange-600 mb-2 text-sm">{title}</h3>
+                <ul className="space-y-1 font-bold">
+                    {items?.map((it, idx) => <li key={idx} className="text-xs text-slate-500 leading-relaxed">• {it}</li>)}
+                </ul>
+            </div>
+        );
+
+        const RuleStandardBlock = ({ id, title, desc }) => (
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-4 flex gap-4 shadow-blue-50">
+                <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-black shrink-0">{id}</div>
+                <div className="space-y-1">
+                    <h3 className="font-bold text-slate-800 text-sm leading-tight">{title}</h3>
+                    <p className="text-[10px] text-slate-400 italic bg-slate-50 p-2 rounded-lg leading-relaxed font-bold">{desc}</p>
+                </div>
+            </div>
+        );
+
+        // --- 3. Firebase 配置 ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'kitchen-os-production';
+        const firebaseConfig = {
+            apiKey: "AIzaSyC-Z3aIp2obs2O6554EnsEoeC_Vffvx3SY",
+            authDomain: "eatjoy0706cook.firebaseapp.com",
+            projectId: "eatjoy0706cook",
+            storageBucket: "eatjoy0706cook.firebasestorage.app",
+            messagingSenderId: "171737049178",
+            appId: "1:171737049178:web:12954c7ce24c160bda1063",
+            measurementId: "G-EW7NJ04PHW"
         };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+            firebase.analytics();
+        }
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const getPublicPath = (col) => `artifacts/${appId}/public/data/${col}`;
+
+        // --- 4. 分頁組件 ---
+
+        const AuthPage = ({ users, setCurrentUser, setCurrentPage, addLog, setIsManager }) => {
+            const [phone, setPhone] = useState(''); const [name, setName] = useState(''); const [mode, setMode] = useState('login');
+            const [adminPass, setAdminPass] = useState('');
+            const handleAuth = async () => {
+                if (mode === 'admin') {
+                    if (adminPass.toLowerCase() === 'eatjoy0706') { 
+                        setIsManager(true); 
+                        setCurrentPage('home'); 
+                    } else alert('管理員密碼錯誤'); 
+                    return;
+                }
+                if (!phone) return;
+                const existing = users.find(u => u.phone === phone);
+                if (mode === 'register') {
+                    if (existing) return alert('此號碼已註冊過');
+                    const newUser = { phone, name, status: 'pending' };
+                    await db.collection(getPublicPath('users')).doc(phone).set(newUser);
+                    setCurrentUser(newUser); 
+                    addLog(`新註冊：${name}`);
+                    setCurrentPage('home'); // 重定向交由 App 判斷 pending
+                } else {
+                    if (existing) { 
+                        setCurrentUser(existing); 
+                        setCurrentPage('home'); // 重定向交由 App 判斷是否進首頁
+                    } else { 
+                        alert('號碼不存在'); 
+                        setMode('register'); 
+                    }
+                }
+            };
+            return (
+                <div className="p-6 pt-20 text-center page-enter">
+                    <div className="bg-orange-100 w-24 h-24 rounded-3xl flex items-center justify-center mx-auto mb-6 text-orange-600 shadow-xl shadow-orange-100"><ChefHatIcon size={40} /></div>
+                    <h2 className="text-3xl font-black text-slate-800 mb-1 leading-none tracking-tight">Kitchen OS</h2>
+                    <p className="text-slate-400 text-sm mb-10 font-bold uppercase tracking-widest leading-none">Management Service</p>
+                    <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border space-y-4">
+                        <div className="flex bg-slate-100 p-1 rounded-2xl mb-4">
+                            <button onClick={() => setMode('login')} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${mode === 'login' ? 'bg-white shadow-sm text-orange-600' : 'text-slate-400'}`}>登入</button>
+                            <button onClick={() => setMode('register')} className={`flex-1 py-3 rounded-xl font-bold text-sm transition-all ${mode === 'register' ? 'bg-white shadow-sm text-orange-600' : 'text-slate-400'}`}>註冊</button>
+                        </div>
+                        {mode === 'register' && <input type="text" placeholder="真實姓名" className="w-full bg-slate-50 p-4 rounded-2xl outline-none font-bold shadow-inner border-0" value={name} onChange={e => setName(e.target.value)} />}
+                        {mode === 'admin' ? 
+                            <input type="password" placeholder="主管管理密碼" className="w-full bg-slate-50 p-4 rounded-2xl outline-none font-bold text-center tracking-widest shadow-inner border-0" value={adminPass} onChange={e => setAdminPass(e.target.value)} onKeyDown={(e)=>e.key==='Enter'&&handleAuth()} /> :
+                            <input type="tel" placeholder="手機號碼" className="w-full bg-slate-50 p-4 rounded-2xl outline-none font-bold tracking-widest text-center shadow-inner border-0" value={phone} onChange={e => setPhone(e.target.value)} onKeyDown={(e)=>e.key==='Enter'&&handleAuth()} />
+                        }
+                        <button onClick={handleAuth} className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all uppercase">{mode === 'register' ? '提交註冊申請' : '進入系統'}</button>
+                        <div className="pt-4"><button onClick={() => setMode(mode === 'admin' ? 'login' : 'admin')} className="text-slate-300 font-bold text-[10px] uppercase tracking-widest border-b border-slate-200">{mode === 'admin' ? '返回同仁登入' : '管理員入口'}</button></div>
+                    </div>
+                </div>
+            );
+        };
+
+        const PendingPage = ({ onLogout }) => (
+            <div className="p-10 pt-32 text-center page-enter space-y-6">
+                <Icon name="clock" size={64} className="mx-auto text-blue-500 animate-pulse" />
+                <h3 className="text-2xl font-black text-slate-800">等待審核中</h3>
+                <p className="text-slate-500 text-sm font-bold leading-relaxed">您的註冊申請已提交。<br/>請聯繫主管核准權限後重新進入。</p>
+                <button onClick={onLogout} className="text-slate-300 font-bold border-b border-slate-200">登出並返回</button>
+            </div>
+        );
+
+        const HomePage = ({ onNavigate, announcements, doneCount, onOpenAnn, isManager }) => (
+            <div className="p-4 space-y-6 page-enter pb-10">
+                <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border flex items-center justify-between shadow-orange-50">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center font-black text-xl">{doneCount}</div>
+                        <div><p className="text-[10px] font-black text-slate-300 uppercase mb-1 leading-none tracking-widest">今日進度</p><p className="text-sm font-black text-slate-700 leading-tight">{doneCount === ZONES.length ? "✅ 全數完成" : `待巡站點：${ZONES.length - doneCount}`}</p></div>
+                    </div>
+                    <button onClick={() => onNavigate('inspection')} className="p-3 bg-orange-600 text-white rounded-2xl shadow-xl active:scale-90"><Icon name="camera" size={20}/></button>
+                </div>
+
+                <section>
+                    <h2 className="text-lg font-bold flex items-center gap-2 mb-3 px-1 text-slate-400 font-black"><Icon name="bell" size={18} className="text-orange-500" /> 最新營運公告</h2>
+                    <div className="space-y-3">
+                        {announcements.slice(0, 3).map(ann => (
+                            <div key={ann.id} onClick={() => onOpenAnn(ann)} className="bg-white p-5 rounded-[2rem] border-l-4 border-orange-500 shadow-sm active:bg-slate-50 transition-all cursor-pointer leading-relaxed">
+                                <h3 className="font-bold text-sm text-slate-800 leading-tight mb-1">{ann.title}</h3>
+                                <p className="text-xs text-slate-400 line-clamp-2">{ann.content}</p>
+                            </div>
+                        ))}
+                        {announcements.length === 0 && <div className="bg-white p-8 rounded-[2rem] text-center text-slate-200 font-black border border-slate-100 italic text-xs uppercase tracking-widest">No Cloud Data</div>}
+                    </div>
+                </section>
+
+                <section className="grid grid-cols-2 gap-4">
+                    <NavCard title="入職相關" onClick={() => onNavigate('onboarding')} bg="bg-blue-50/50" />
+                    <NavCard title="員工守則" onClick={() => onNavigate('rules')} bg="bg-emerald-50/50" />
+                    <NavCard title="本季菜單" onClick={() => onNavigate('menu')} bg="bg-yellow-50/50" />
+                    <NavCard title="每月班表" onClick={() => onNavigate('schedule')} bg="bg-indigo-50/50" />
+                    <NavCard title="善後巡視系統" onClick={() => onNavigate('inspection')} bg="bg-orange-50" span={true} />
+                </section>
+            </div>
+        );
+
+        const MenuPage = ({ onBack, images }) => (
+            <div className="p-4 space-y-6 page-enter pb-20">
+                <BackButton onClick={onBack} title="本季菜單" />
+                {images.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-4">
+                        {images.map((img, i) => <img key={i} src={img} className="w-full rounded-[2.5rem] shadow-md border border-white" alt="Menu" />)}
+                    </div>
+                ) : (<div className="bg-white p-20 rounded-[2.5rem] text-center text-slate-200 font-black border-2 border-dashed tracking-tighter">尚未上傳最新菜單照片</div>)}
+            </div>
+        );
+
+        const AdminPage = ({ onBack, onLogout, announcements, schedules, standards, users, logs, rules, menu }) => {
+            const [tab, setTab] = useState('members');
+            const [annT, setAnnT] = useState(''); const [annC, setAnnC] = useState('');
+            const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
+            const [stdZone, setStdZone] = useState(ZONES[0].id);
+            const [newRuleTitle, setNewRuleTitle] = useState(''); const [newRuleContent, setNewRuleContent] = useState('');
+            const [ruleCat, setRuleCat] = useState('hygiene');
+
+            const handleUpload = (e, col, docId, currentImages = []) => {
+                const files = Array.from(e.target.files);
+                files.forEach(file => {
+                    const reader = new FileReader(); reader.onloadend = () => db.collection(getPublicPath(col)).doc(docId).set({ images: [...currentImages, reader.result] });
+                    reader.readAsDataURL(file);
+                });
+            };
+
+            const addRule = async () => {
+                if(!newRuleTitle) return;
+                const updated = { ...rules };
+                if(ruleCat === 'standard') updated.standard = [...(rules.standard||[]), {id:(rules.standard?.length||0)+1, title:newRuleTitle, desc:newRuleContent}];
+                else updated[ruleCat] = [...(rules[ruleCat]||[]), {category:newRuleTitle, rules:newRuleContent.split('\n')}];
+                await db.doc(getPublicPath('system/rules')).set(updated);
+                setNewRuleTitle(''); setNewRuleContent('');
+            };
+
+            return (
+                <div className="p-4 pb-24 space-y-6 page-enter">
+                    <div className="flex justify-between items-center">
+                        <button onClick={onBack} className="p-2 bg-white rounded-xl shadow-sm border"><Icon name="arrow-left"/></button>
+                        <h2 className="text-xl font-black tracking-tighter">後台管理中心</h2>
+                        <button onClick={onLogout} className="bg-red-50 text-red-500 px-4 py-2 rounded-full font-black text-[10px]">LOGOUT</button>
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+                        {[
+                            {id:'members', name:'審核', icon:'users'}, {id:'menu', name:'菜單', icon:'book-open'},
+                            {id:'rules', name:'守則', icon:'edit-3'}, {id:'content', name:'公告', icon:'bell'},
+                            {id:'schedules', name:'班表', icon:'calendar'}, {id:'safety', name:'標準', icon:'camera'}
+                        ].map(t=>(<button key={t.id} onClick={()=>setTab(t.id)} className={`px-5 py-3 rounded-2xl font-black text-xs shrink-0 flex items-center gap-2 transition-all ${tab===t.id?'bg-orange-600 text-white shadow-lg':'bg-white text-slate-400'}`}><Icon name={t.icon} size={14}/>{t.name}</button>))}
+                    </div>
+
+                    {tab === 'members' && users.map(u=>(<div key={u.phone} className="bg-white p-5 rounded-[2rem] flex justify-between items-center shadow-sm mb-2"><div><p className="font-black text-slate-800 leading-none mb-1">{u.name}</p><p className="text-[10px] text-slate-400 font-bold">{u.phone}</p></div><div className="flex gap-2">{u.status==='pending'?<button onClick={()=>db.collection(getPublicPath('users')).doc(u.phone).update({status:'approved'})} className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-[10px] font-black shadow-sm">核准</button>:<span className="text-[9px] font-black text-emerald-500">OK</span>}<button onClick={()=>db.collection(getPublicPath('users')).doc(u.phone).delete()} className="p-2 text-slate-200"><Icon name="trash-2" size={16}/></button></div></div>))}
+                    
+                    {tab === 'menu' && (
+                        <div className="bg-white p-6 rounded-[2.5rem] border shadow-sm space-y-4">
+                            <label className="bg-slate-900 text-white w-full py-4 rounded-2xl text-[11px] font-black cursor-pointer text-center block shadow-lg uppercase tracking-widest">上傳本季菜單照片<input type="file" multiple className="hidden" onChange={e => { const files = Array.from(e.target.files); files.forEach(f => { const r = new FileReader(); r.onloadend = () => db.doc(getPublicPath('system/menu')).set({ images: [...menu, r.result] }); r.readAsDataURL(f); }); }}/></label>
+                            <div className="grid grid-cols-3 gap-2">{menu.map((img,i)=>(<div key={i} className="relative aspect-square shadow-inner"><img src={img} className="w-full h-full object-cover rounded-xl" /><button onClick={()=>{const n = menu.filter((_,idx)=>idx!==i); db.doc(getPublicPath('system/menu')).set({images:n});}} className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full"><Icon name="trash-2" size={10}/></button></div>))}</div>
+                        </div>
+                    )}
+
+                    {tab === 'rules' && (
+                        <div className="space-y-4">
+                            <div className="bg-white p-6 rounded-[2.5rem] border shadow-sm space-y-4 shadow-orange-50">
+                                <div className="flex bg-slate-100 p-1 rounded-xl">{['hygiene', 'occupational', 'standard'].map(c=><button key={c} onClick={()=>setRuleCat(c)} className={`flex-1 py-2 text-[10px] font-bold rounded-lg ${ruleCat===c?'bg-white text-orange-600 shadow-sm':'text-slate-400'}`}>{c==='hygiene'?'食品衛生':c==='occupational'?'安全':'守則'}</button>)}</div>
+                                <input placeholder="標題" className="w-full bg-slate-50 p-4 rounded-2xl text-sm font-bold border-0 outline-none" value={newRuleTitle} onChange={e=>setNewRuleTitle(e.target.value)} />
+                                <textarea placeholder="規則描述 (換行隔開)" rows="3" className="w-full bg-slate-50 p-4 rounded-2xl text-sm border-0 outline-none" value={newRuleContent} onChange={e=>setNewRuleContent(e.target.value)} />
+                                <button onClick={addRule} className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl shadow-xl transition-all">確認新增至雲端</button>
+                            </div>
+                            <div className="space-y-2">{rules[ruleCat]?.map((r, i) => (<div key={i} className="bg-white p-4 rounded-2xl flex justify-between items-center shadow-sm border border-slate-50"><div><p className="font-bold text-slate-800 text-xs">{r.category || r.title}</p></div><button onClick={()=>{ const upd = {...rules}; upd[ruleCat].splice(i,1); db.doc(getPublicPath('system/rules')).set(upd); }}><Icon name="trash-2" size={16} className="text-slate-200" /></button></div>))}</div>
+                        </div>
+                    )}
+
+                    {tab === 'schedules' && (<div className="bg-white p-6 rounded-[2.5rem] border shadow-sm space-y-4 shadow-indigo-50"><div className="flex gap-2"><input type="month" value={month} onChange={e=>setMonth(e.target.value)} className="flex-1 bg-slate-50 p-3 rounded-xl font-bold outline-none text-sm border-0 shadow-inner" /><label className="bg-blue-600 text-white px-5 py-3 rounded-xl text-[10px] font-black cursor-pointer uppercase active:scale-95 shadow-lg">Upload<input type="file" multiple className="hidden" onChange={e=>handleUpload(e,'schedules',month, schedules[month]||[])}/></label></div><div className="grid grid-cols-4 gap-2">{(schedules[month]||[]).map((img,i)=>(<div key={i} className="relative aspect-square shadow-inner group"><img src={img} className="w-full h-full object-cover rounded-xl border shadow-sm" /><button onClick={()=>{const n = schedules[month].filter((_,idx)=>idx!==i); db.collection(getPublicPath('schedules')).doc(month).set({images:n});}} className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full shadow-lg"><Icon name="trash-2" size={10}/></button></div>))}</div></div>)}
+
+                    {tab === 'safety' && (<div className="bg-white p-6 rounded-[2.5rem] border shadow-sm space-y-4 shadow-emerald-50"><select value={stdZone} onChange={e=>setStdZone(e.target.value)} className="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm border-0 outline-none">{ZONES.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}</select><label className="bg-slate-900 text-white w-full py-4 rounded-2xl text-[11px] font-black cursor-pointer uppercase text-center block shadow-xl">更新標準對照圖<input type="file" multiple className="hidden" onChange={e=>handleUpload(e,'standards',stdZone, standards[stdZone]||[])}/></label><div className="grid grid-cols-4 gap-2 mt-4">{(standards[stdZone]||[]).map((img,i)=>(<div key={i} className="relative aspect-square shadow-inner group"><img src={img} className="w-full h-full object-cover rounded-xl border shadow-sm" /><button onClick={()=>{const n = standards[stdZone].filter((_,i2)=>i2!==i); db.collection(getPublicPath('standards')).doc(stdZone).set({images:n});}} className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full shadow-lg"><Icon name="trash-2" size={10}/></button></div>))}</div></div>)}
+
+                    {tab === 'content' && (
+                        <div className="space-y-4">
+                            <div className="bg-white p-6 rounded-[2rem] border shadow-sm shadow-orange-50">
+                                <input placeholder="公告標題" value={annT} onChange={e=>setAnnT(e.target.value)} className="w-full bg-slate-50 p-4 rounded-2xl mb-3 outline-none font-bold text-sm border-0 shadow-inner" />
+                                <textarea placeholder="公告內容描述" rows="3" value={annC} onChange={e=>setAnnC(e.target.value)} className="w-full bg-slate-50 p-4 rounded-2xl mb-4 outline-none text-sm border-0 shadow-inner" />
+                                <button onClick={()=>{if(annT&&annC) db.collection(getPublicPath('announcements')).add({title:annT,content:annC,timestamp:Date.now()});setAnnT('');setAnnC('');}} className="w-full bg-orange-600 text-white font-black py-4 rounded-2xl shadow-xl active:scale-95">發布同步公告</button>
+                            </div>
+                            {announcements.map(a => <div key={a.id} className="bg-white p-4 rounded-2xl flex justify-between items-center border shadow-sm font-bold text-xs"><span className="truncate mr-4">{a.title}</span><button onClick={()=>db.collection(getPublicPath('announcements')).doc(a.id).delete()}><Icon name="trash-2" size={16} className="text-slate-200" /></button></div>)}
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const InspectionPage = ({ onBack, standards, completedZones, addLog }) => {
+            const [activeZone, setActiveZone] = useState(null); const [uploads, setUploads] = useState({}); const [loading, setLoading] = useState(false); const [result, setResult] = useState(null);
+            const handleFile = (e, idx) => {
+                const file = e.target.files[0]; if (!file) return;
+                const r = new FileReader(); r.onloadend = () => setUploads(p => ({ ...p, [idx]: r.result })); r.readAsDataURL(file);
+            };
+            const runAI = () => {
+                const stds = standards[activeZone.id] || [];
+                if (Object.keys(uploads).length < stds.length) return alert('請上傳完整對應照片');
+                setLoading(true);
+                setTimeout(() => {
+                    const pass = Math.random() > 0.1; setResult({ status: pass ? 'PASS' : 'FAIL', summary: pass ? "善後合格。" : "不合格，需改善。" });
+                    if(pass && !completedZones.includes(activeZone.id)) {
+                        const newList = [...completedZones, activeZone.id];
+                        db.doc(getPublicPath('system/progress')).set({ completedZones: newList }, { merge: true });
+                        addLog(`${activeZone.name} 巡視合格`);
+                    }
+                    setLoading(false);
+                }, 1500);
+            };
+            if(activeZone) {
+                const stds = standards[activeZone.id] || [];
+                return (
+                    <div className="p-4 space-y-6 page-enter pb-24">
+                        <button onClick={()=>{setActiveZone(null);setResult(null);setUploads({});}} className="p-3 bg-white rounded-2xl shadow-sm border"><Icon name="arrow-left" size={20}/></button>
+                        <div className="text-center"><h3 className="text-4xl font-black text-slate-800 tracking-tighter uppercase mb-1">{activeZone.name}</h3><p className="text-xs font-bold text-slate-400">對比標準圖上傳實拍</p></div>
+                        <div className="space-y-4">
+                            {stds.map((img, i) => (
+                                <div key={i} className="bg-white rounded-[2rem] p-4 shadow-sm border border-slate-100 comparison-card shadow-inner">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-2"><span className="text-[9px] font-black text-emerald-500 uppercase bg-emerald-50 px-2 py-1 rounded-full">Standard</span><img src={img} className="w-full aspect-square object-cover rounded-2xl border shadow-sm" /></div>
+                                        <div className="space-y-2"><span className="text-[9px] font-black text-orange-500 uppercase bg-orange-50 px-2 py-1 rounded-full">Actual</span>
+                                            {uploads[i] ? (
+                                                <div className="relative w-full aspect-square"><img src={uploads[i]} className="w-full h-full object-cover rounded-2xl border border-orange-200 shadow-sm" /><button onClick={()=>setUploads(p=>{const n={...p}; delete n[i]; return n;})} className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full shadow-lg"><Icon name="x" size={10}/></button></div>
+                                            ) : (
+                                                <label className="w-full aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center cursor-pointer active:bg-orange-50 transition-colors"><Icon name="plus" size={20} className="text-slate-300"/><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} /></label>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <button onClick={runAI} disabled={loading} className={`w-full py-5 rounded-[2rem] font-black text-lg shadow-xl flex items-center justify-center gap-2 ${loading ? 'bg-slate-100' : 'bg-orange-600 text-white active:scale-95 shadow-orange-100'}`}>{loading ? <Icon name="loader-2" className="animate-spin" /> : <><Icon name="send" size={18}/> 啟動 AI 判定</>}</button>
+                        {result && <div className={`p-8 rounded-[3rem] border-4 ${result.status==='PASS'?'bg-emerald-50 border-emerald-100 text-emerald-700':'bg-red-50 border-red-100 text-red-700'} text-center animate-bounce shadow-xl`}><h4 className="text-2xl font-black mb-2 uppercase">{result.status==='PASS'?'合格 ✅':'需改善 ❌'}</h4><p className="text-sm font-bold opacity-80">{result.summary}</p></div>}
+                    </div>
+                );
+            }
+            return (<div className="p-4 space-y-4 page-enter pb-20"><BackButton onClick={onBack} title="善後巡視" /><div className="bg-gradient-to-r from-orange-500 to-orange-400 p-6 rounded-[2.5rem] text-white shadow-lg flex justify-between items-center mb-4 font-black"><div>Progress {completedZones.length} / {ZONES.length}</div><div className="text-2xl tracking-tighter">{Math.round((completedZones.length/ZONES.length)*100)}%</div></div><div className="grid grid-cols-1 gap-2">{ZONES.map(z => (<button key={z.id} onClick={() => setActiveZone(z)} className={`bg-white px-6 py-6 rounded-[2rem] shadow-sm flex justify-between items-center border transition-all ${completedZones.includes(z.id) ? 'border-emerald-100 bg-emerald-50/20' : 'border-slate-100'}`}><div className="flex items-center gap-3"><div className={`p-2 rounded-xl ${completedZones.includes(z.id) ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-50 text-slate-300'}`}><Icon name={completedZones.includes(z.id) ? 'check-circle-2' : 'camera'} size={18}/></div><span className="font-black text-slate-700 leading-none">{z.name}</span></div>{completedZones.includes(z.id) ? <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">DONE</span> : <Icon name="chevron-right" size={18} className="text-slate-200" />}</button>))}</div></div>);
+        };
+
+        const RuleDetailPage = ({ category, rules, onBack }) => {
+            const list = useMemo(() => {
+                if(category === "食品衛生安全") return rules.hygiene?.map((c, i) => <RuleBlock key={i} title={c.category} items={c.rules} />);
+                if(category === "職場職業安全") return rules.occupational?.map((c, i) => <RuleBlock key={i} title={c.category} items={c.rules} />);
+                return rules.standard?.map((c, i) => <RuleStandardBlock key={i} id={i+1} title={c.title} desc={c.desc} />);
+            }, [category, rules]);
+            return <div className="p-4 space-y-4 page-enter pb-10"><BackButton onClick={onBack} title={category} />{list}</div>;
+        };
+
+        const SchedulePage = ({ onBack, schedules }) => {
+            const currentMonth = new Date().toISOString().slice(0, 7); const [viewMonth, setViewMonth] = useState(currentMonth);
+            const imgs = schedules[viewMonth] || [];
+            return (<div className="p-4 space-y-6 page-enter pb-20"><BackButton onClick={onBack} title="每月班表" /><div className="bg-white p-4 rounded-3xl border shadow-sm font-bold shadow-indigo-50"><input type="month" value={viewMonth} onChange={e=>setViewMonth(e.target.value)} className="bg-slate-50 p-2 rounded-xl outline-none border-0" /></div><div className="space-y-4">{imgs.length>0 ? imgs.map((img,i)=><div key={i} className="bg-white p-2 rounded-3xl shadow-md border shadow-orange-50"><img src={img} className="w-full rounded-2xl" /></div>) : <div className="bg-white p-12 rounded-[2.5rem] border-2 border-dashed text-center py-20 font-black italic uppercase text-slate-200 tracking-tighter">No Data</div>}</div></div>);
+        };
+
+        const RulesPage = ({ onBack, onSelect }) => (<div className="p-4 space-y-3 page-enter"><BackButton onClick={onBack} title="員工守則" /><SectionItem title="食品衛生安全規範" iconName="shield-check" onClick={() => onSelect("食品衛生安全")} /><SectionItem title="職場職業安全守則" iconName="flame" onClick={() => onSelect("職場職業安全")} /><SectionItem title="廚房標準工作守則" iconName="book-open" onClick={() => onSelect("廚房標準工作")} /></div>);
+        const BenefitsPage = ({ onBack }) => <div className="p-4 space-y-4 page-enter pb-20"><BackButton onClick={onBack} title="薪資福利" /><div className="bg-gradient-to-br from-yellow-400 to-orange-500 p-8 rounded-[2.5rem] text-white shadow-lg mb-6 shadow-orange-100 font-black leading-none tracking-tight"><p className="text-[10px] opacity-80 mb-1 uppercase tracking-widest leading-none">Estimate Budget</p><p className="text-3xl">$ 32,800 +</p></div><SectionItem title="考核加給標準" iconName="coins" /><SectionItem title="員工相關福利" iconName="heart" /></div>;
+        const AnnDetail = ({ ann, onBack }) => (<div className="p-4 page-enter pb-10"><BackButton onClick={onBack} title="詳情" /><div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 min-h-[40vh] mb-6 shadow-orange-50 font-medium leading-relaxed leading-snug"><h1 className="text-2xl font-black text-slate-800 mb-2 leading-tight tracking-tight leading-snug">{ann?.title}</h1><p className="text-[10px] text-slate-400 font-bold mb-8 border-b pb-4 uppercase tracking-widest">{new Date(ann?.timestamp).toLocaleDateString()}</p><div className="whitespace-pre-wrap">{ann?.content}</div></div><button onClick={onBack} className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl shadow-xl active:scale-95 transition-all uppercase">返回首頁</button></div>);
+        const OnboardingPage = ({ onBack, onNavigate }) => (<div className="p-4 space-y-4 page-enter"><BackButton onClick={onBack} title="入職相關" /><SectionItem title="員工準備清單" iconName="book-open" /><SectionItem title="停車資訊" iconName="car" /><SectionItem title="上班動線指引" iconName="map-pin" onClick={() => onNavigate('workRoute')} /></div>);
+        const WorkRoutePage = ({ onBack }) => (<div className="p-4 space-y-6 page-enter pb-10"><BackButton onClick={onBack} title="上班動線" /><section className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100 shadow-blue-50"><div className="flex items-center gap-3 mb-4 font-black"><Icon name="bus" className="text-blue-600"/> 大眾運輸指引</div><div className="aspect-video bg-slate-100 rounded-3xl flex items-center justify-center border-2 border-dashed border-slate-200 font-black text-slate-300 uppercase italic">Video Stream Space</div></section></div>);
+
+        // --- 5. 主應用邏輯 ---
 
         const App = () => {
             const [currentPage, setCurrentPage] = useState('auth');
             const [isManager, setIsManager] = useState(false);
-            const [showLoginModal, setShowLoginModal] = useState(false);
-            const [passwordInput, setPasswordInput] = useState('');
-            const [loginError, setLoginError] = useState(false);
+            const [fbReady, setFbReady] = useState(false);
 
-            // --- 數據持久化 ---
-            const [users, setUsers] = useState(() => JSON.parse(localStorage.getItem('k_users')) || []);
-            const [currentUser, setCurrentUser] = useState(() => JSON.parse(localStorage.getItem('k_curr_user')) || null);
-            const [announcements, setAnnouncements] = useState(() => JSON.parse(localStorage.getItem('k_ann')) || [
-                { id: 1, date: '2024-05-20', title: '歡迎使用 Kitchen OS', content: '系統會員功能已上線，請註冊後聯繫主管審核。', author: '系統' }
-            ]);
-            const [schedules, setSchedules] = useState(() => JSON.parse(localStorage.getItem('k_sch')) || {});
-            const [standards, setStandards] = useState(() => JSON.parse(localStorage.getItem('k_std')) || {});
-            const [completedZones, setCompletedZones] = useState(() => JSON.parse(localStorage.getItem('k_done')) || []);
-            const [lastResetDate, setLastResetDate] = useState(localStorage.getItem('k_reset_date') || "");
+            const [users, setUsers] = useState([]);
+            const [currentUser, setCurrentUser] = useState(() => JSON.parse(localStorage.getItem('k_active_user')) || null);
+            const [announcements, setAnnouncements] = useState([]);
+            const [schedules, setSchedules] = useState({});
+            const [standards, setStandards] = useState({});
+            const [seasonalMenu, setSeasonalMenu] = useState([]);
+            const [completedZones, setCompletedZones] = useState([]);
             const [notificationLog, setNotificationLog] = useState([]);
-            const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
-            const [selectedRuleCategory, setSelectedRuleCategory] = useState(null);
+            const [lastResetDate, setLastResetDate] = useState("");
+            const [dynamicRules, setDynamicRules] = useState({ hygiene: [], occupational: [], standard: [] });
+
+            const [selectedAnn, setSelectedAnn] = useState(null);
+            const [selectedCat, setSelectedCat] = useState(null);
 
             useEffect(() => {
-                localStorage.setItem('k_users', JSON.stringify(users));
-                localStorage.setItem('k_curr_user', JSON.stringify(currentUser));
-                localStorage.setItem('k_ann', JSON.stringify(announcements));
-                localStorage.setItem('k_sch', JSON.stringify(schedules));
-                localStorage.setItem('k_std', JSON.stringify(standards));
-                localStorage.setItem('k_done', JSON.stringify(completedZones));
-            }, [users, currentUser, announcements, schedules, standards, completedZones]);
+                const initAuth = async () => {
+                    try {
+                        const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                        if (token) { try { await auth.signInWithCustomToken(token); } catch(e) { await auth.signInAnonymously(); } }
+                        else { await auth.signInAnonymously(); }
+                        setFbReady(true);
+                    } catch (e) { console.error(e); }
+                };
+                initAuth();
+            }, []);
 
-            // 自動重置 (19:00)
             useEffect(() => {
-                const timer = setInterval(() => {
-                    const now = new Date();
-                    if (now.getHours() === 19 && now.getMinutes() === 0 && lastResetDate !== now.toDateString()) {
-                        setCompletedZones([]);
-                        setLastResetDate(now.toDateString());
-                        localStorage.setItem('k_reset_date', now.toDateString());
-                        addNotify("🏮 系統進度已自動重置。");
-                    }
-                }, 30000);
-                return () => clearInterval(timer);
-            }, [lastResetDate]);
+                if (!fbReady) return;
+                const unsubUsers = db.collection(getPublicPath('users')).onSnapshot(s => setUsers(s.docs.map(d => d.data())));
+                const unsubAnn = db.collection(getPublicPath('announcements')).onSnapshot(s => setAnnouncements(s.docs.map(d => ({id: d.id, ...d.data()})).sort((a,b)=>b.timestamp-a.timestamp)));
+                const unsubProg = db.doc(getPublicPath('system/progress')).onSnapshot(d => { if(d.exists) { setCompletedZones(d.data().completedZones || []); setLastResetDate(d.data().lastResetDate || ""); } });
+                const unsubLogs = db.collection(getPublicPath('logs')).onSnapshot(s => setNotificationLog(s.docs.map(d => d.data()).sort((a,b)=>b.timestamp-a.timestamp).slice(0,10)));
+                const unsubSch = db.collection(getPublicPath('schedules')).onSnapshot(s => { const m = {}; s.docs.forEach(d => m[d.id] = d.data().images); setSchedules(m); });
+                const unsubStd = db.collection(getPublicPath('standards')).onSnapshot(s => { const m = {}; s.docs.forEach(d => m[d.id] = d.data().images); setStandards(m); });
+                const unsubRules = db.doc(getPublicPath('system/rules')).onSnapshot(d => { if(d.exists) setDynamicRules(d.data()); });
+                const unsubMenu = db.doc(getPublicPath('system/menu')).onSnapshot(d => { if(d.exists) setSeasonalMenu(d.data().images || []); });
+                return () => { unsubUsers(); unsubAnn(); unsubProg(); unsubLogs(); unsubSch(); unsubStd(); unsubRules(); unsubMenu(); };
+            }, [fbReady]);
 
-            const addNotify = (msg) => {
-                const time = new Date().toLocaleTimeString();
-                setNotificationLog(prev => [{ time, message: msg }, ...prev].slice(0, 10));
+            useEffect(() => { localStorage.setItem('k_active_user', JSON.stringify(currentUser)); }, [currentUser]);
+
+            const addLog = async (msg) => {
+                await db.collection(getPublicPath('logs')).add({ message: msg, time: new Date().toLocaleTimeString(), timestamp: Date.now() });
             };
 
-            const handleLogin = () => {
-                if (passwordInput === 'eatjoy0706') {
-                    setIsManager(true);
-                    setShowLoginModal(false);
-                    setPasswordInput('');
-                    setLoginError(false);
-                    setCurrentPage('home');
-                } else { setLoginError(true); }
-            };
+            const logout = () => { setCurrentUser(null); setIsManager(false); setCurrentPage('auth'); };
 
-            const logout = () => {
-                setCurrentUser(null);
-                setIsManager(false);
-                setCurrentPage('auth');
-            };
-
-            // 路由控制邏輯
-            if (!currentUser && !isManager && currentPage !== 'auth') {
-                return <AuthPage setUsers={setUsers} users={users} setCurrentUser={setCurrentUser} setCurrentPage={setCurrentPage} />;
+            if (!fbReady) return <div className="p-20 text-center"><Icon name="loader-2" className="animate-spin text-orange-500" size={40}/></div>;
+            
+            // 路由判斷邏輯優化：優先處理未登入狀態
+            if (!isManager && !currentUser) {
+                return <AuthPage users={users} setCurrentUser={setCurrentUser} setCurrentPage={setCurrentPage} addLog={addLog} setIsManager={setIsManager} />;
             }
+            
             if (currentUser && currentUser.status === 'pending' && !isManager) {
                 return <PendingPage onLogout={logout} />;
             }
 
-            const renderContent = () => {
+            const renderPage = () => {
                 switch(currentPage) {
-                    case 'auth': return <AuthPage setUsers={setUsers} users={users} setCurrentUser={setCurrentUser} setCurrentPage={setCurrentPage} />;
-                    case 'home': return <HomePage onNavigate={setCurrentPage} announcements={announcements} doneCount={completedZones.length} onOpen={(a) => { setSelectedAnnouncement(a); setCurrentPage('annDetail'); }} />;
-                    case 'onboarding': return <OnboardingPage onBack={() => setCurrentPage('home')} onNavigate={setCurrentPage} />;
-                    case 'workRoute': return <WorkRoutePage onBack={() => setCurrentPage('onboarding')} />;
-                    case 'rules': return <RulesPage onBack={() => setCurrentPage('home')} onSelect={(c) => { setSelectedRuleCategory(c); setCurrentPage('ruleDetail'); }} />;
-                    case 'ruleDetail': return <RuleDetailPage category={selectedRuleCategory} onBack={() => setCurrentPage('rules')} />;
-                    case 'benefits': return <BenefitsPage onBack={() => setCurrentPage('home')} />;
-                    case 'schedule': return <SchedulePage onBack={() => setCurrentPage('home')} schedules={schedules} />;
-                    case 'inspection': return <InspectionPage onBack={() => setCurrentPage('home')} standards={standards} completedZones={completedZones} setCompletedZones={setCompletedZones} addLog={addNotify} />;
-                    case 'annDetail': return <AnnDetail ann={selectedAnnouncement} onBack={() => setCurrentPage('home')} />;
-                    case 'admin': return <AdminPage onBack={() => setCurrentPage('home')} onLogout={logout} announcements={announcements} setAnnouncements={setAnnouncements} schedules={schedules} setSchedules={setSchedules} standards={standards} setStandards={setStandards} users={users} setUsers={setUsers} logs={notificationLog} />;
-                    default: return <HomePage onNavigate={setCurrentPage} announcements={announcements} doneCount={completedZones.length} onOpen={(a) => { setSelectedAnnouncement(a); setCurrentPage('annDetail'); }} />;
+                    case 'home': return <HomePage onNavigate={setCurrentPage} announcements={announcements} doneCount={completedZones.length} onOpenAnn={(a)=>{setSelectedAnn(a); setCurrentPage('annDetail');}} isManager={isManager} />;
+                    case 'rules': return <RulesPage onBack={()=>setCurrentPage('home')} onSelect={(c)=>{setSelectedCat(c); setCurrentPage('ruleDetail');}} />;
+                    case 'ruleDetail': return <RuleDetailPage category={selectedCat} rules={dynamicRules} onBack={()=>setCurrentPage('rules')} />;
+                    case 'schedule': return <SchedulePage onBack={()=>setCurrentPage('home')} schedules={schedules} />;
+                    case 'menu': return <MenuPage onBack={()=>setCurrentPage('home')} images={seasonalMenu} />;
+                    case 'inspection': return <InspectionPage onBack={()=>setCurrentPage('home')} standards={standards} completedZones={completedZones} addLog={addLog} />;
+                    case 'admin': return <AdminPage onBack={()=>setCurrentPage('home')} onLogout={logout} announcements={announcements} schedules={schedules} standards={standards} users={users} logs={notificationLog} rules={dynamicRules} menu={seasonalMenu} />;
+                    case 'annDetail': return <AnnDetail ann={selectedAnn} onBack={()=>setCurrentPage('home')} />;
+                    case 'benefits': return <BenefitsPage onBack={()=>setCurrentPage('home')} />;
+                    case 'onboarding': return <OnboardingPage onBack={()=>setCurrentPage('home')} onNavigate={setCurrentPage} />;
+                    case 'workRoute': return <WorkRoutePage onBack={()=>setCurrentPage('onboarding')} />;
+                    default: return <HomePage onNavigate={setCurrentPage} announcements={announcements} doneCount={completedZones.length} onOpenAnn={(a)=>{setSelectedAnn(a); setCurrentPage('annDetail');}} isManager={isManager} />;
                 }
             };
 
@@ -189,317 +461,22 @@
                 <div className="min-h-screen flex flex-col">
                     <header className={`${isManager ? 'bg-slate-800' : 'bg-orange-600'} text-white p-4 sticky top-0 z-50 flex justify-between items-center shadow-lg transition-colors`}>
                         <div className="flex items-center gap-2 cursor-pointer" onClick={() => setCurrentPage('home')}>
-                            <div className="bg-white/20 p-1 rounded-lg"><ChefHatIcon /></div>
-                            <span className="font-bold text-xl tracking-tight leading-none">Kitchen OS</span>
+                            <div className="bg-white/20 p-1 rounded-lg"><ChefHatIcon size={20}/></div>
+                            <span className="font-bold text-xl tracking-tight leading-none uppercase">Kitchen OS</span>
                         </div>
                         <div className="flex gap-3">
-                            <button onClick={() => isManager ? setCurrentPage('admin') : setShowLoginModal(true)}>
-                                {isManager ? <Icon name="settings" size={22} /> : <Icon name="menu" size={22} />}
+                            <button onClick={() => isManager ? setCurrentPage('admin') : setCurrentPage('auth')}>
+                                <Icon name={isManager ? "settings" : "menu"} size={22} />
                             </button>
-                            {currentUser && <button onClick={logout} className="p-1"><Icon name="log-out" size={20} /></button>}
+                            {(currentUser || isManager) && <button onClick={logout} className="p-1"><Icon name="log-out" size={20} /></button>}
                         </div>
                     </header>
-
-                    <div className="flex-grow">{renderContent()}</div>
-
-                    {showLoginModal && (
-                        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-6 text-center">
-                            <div className="bg-white w-full max-w-sm rounded-[2.5rem] p-8 shadow-2xl page-transition">
-                                <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-orange-600"><Icon name="lock" size={32} /></div>
-                                <h2 className="text-2xl font-black mb-6 tracking-tight">主管控制中心</h2>
-                                <div className="space-y-4">
-                                    <input type="password" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} placeholder="管理密碼" className={`w-full bg-slate-100 border-2 ${loginError ? 'border-red-400' : 'border-transparent'} focus:border-orange-500 rounded-2xl px-5 py-4 outline-none font-bold text-center mb-4`} onKeyDown={(e) => e.key === 'Enter' && handleLogin()} />
-                                    <button onClick={handleLogin} className="w-full bg-orange-600 text-white font-black py-4 rounded-2xl shadow-xl active:scale-95 transition-all">進入後台</button>
-                                    <button onClick={() => setShowLoginModal(false)} className="mt-4 text-slate-400 text-xs font-bold uppercase tracking-widest">取消</button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
+                    <main className="flex-grow">{renderPage()}</main>
                 </div>
             );
         };
 
-        // --- 組件：認證與等待頁 ---
-
-        const AuthPage = ({ setUsers, users, setCurrentUser, setCurrentPage }) => {
-            const [phone, setPhone] = useState('');
-            const [name, setName] = useState('');
-            const [mode, setMode] = useState('login');
-
-            const handleAuth = () => {
-                if (!phone) return;
-                if (mode === 'register') {
-                    if (users.find(u => u.phone === phone)) return alert('此號碼已註冊過');
-                    const newUser = { phone, name, status: 'pending' };
-                    setUsers([...users, newUser]);
-                    setCurrentUser(newUser);
-                } else {
-                    const user = users.find(u => u.phone === phone);
-                    if (user) {
-                        setCurrentUser(user);
-                        if (user.status === 'approved') setCurrentPage('home');
-                    } else {
-                        alert('帳號不存在，請先註冊');
-                        setMode('register');
-                    }
-                }
-            };
-
-            return (
-                <div className="p-6 pt-20 text-center page-enter">
-                    <div className="bg-orange-100 w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-6 text-orange-600 shadow-lg shadow-orange-100"><ChefHatIcon /></div>
-                    <h2 className="text-3xl font-black text-slate-800 mb-2">同仁服務系統</h2>
-                    <p className="text-slate-400 text-sm mb-10 uppercase tracking-widest font-bold">Membership Access</p>
-                    <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 space-y-4">
-                        <div className="flex bg-slate-100 p-1 rounded-2xl mb-4">
-                            <button onClick={() => setMode('login')} className={`flex-1 py-3 rounded-xl font-bold text-sm ${mode === 'login' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-400'}`}>登入</button>
-                            <button onClick={() => setMode('register')} className={`flex-1 py-3 rounded-xl font-bold text-sm ${mode === 'register' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-400'}`}>註冊</button>
-                        </div>
-                        {mode === 'register' && <input type="text" placeholder="真實姓名" className="w-full bg-slate-50 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-orange-500 font-bold" value={name} onChange={e => setName(e.target.value)} />}
-                        <input type="tel" placeholder="手機號碼" className="w-full bg-slate-50 p-4 rounded-2xl outline-none focus:ring-2 focus:ring-orange-500 font-bold tracking-widest text-center" value={phone} onChange={e => setPhone(e.target.value)} />
-                        <button onClick={handleAuth} className="w-full bg-slate-900 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all">{mode === 'register' ? '申請註冊' : '登入系統'}</button>
-                    </div>
-                </div>
-            );
-        };
-
-        const PendingPage = ({ onLogout }) => (
-            <div className="p-10 pt-32 text-center space-y-6 page-enter">
-                <div className="w-24 h-24 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto animate-pulse"><Icon name="clock" size={40} /></div>
-                <h3 className="text-2xl font-black text-slate-800">帳號審核中</h3>
-                <p className="text-slate-500 text-sm leading-relaxed">您的申請已提交，請告知主管核准手機號碼。<br/>審核通過前無法觀看內部資料。</p>
-                <button onClick={onLogout} className="text-slate-300 font-bold text-xs uppercase tracking-widest border-b border-slate-200 pb-1">登出</button>
-            </div>
-        );
-
-        // --- 子組件：首頁與導覽 ---
-
-        const HomePage = ({ onNavigate, announcements, doneCount, onOpen }) => (
-            <div className="p-4 space-y-6 page-enter">
-                <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center font-black text-xl">{doneCount}</div>
-                        <div>
-                            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest leading-none mb-1">今日進度</p>
-                            <p className="text-sm font-black text-slate-700 leading-tight">{doneCount === ZONES.length ? "✅ 今日全數完成" : `尚有 ${ZONES.length - doneCount} 站待處理`}</p>
-                        </div>
-                    </div>
-                    <button onClick={() => onNavigate('inspection')} className="p-3 bg-orange-600 text-white rounded-2xl shadow-lg"><Icon name="camera" size={20}/></button>
-                </div>
-                <section className="grid grid-cols-2 gap-4">
-                    <NavCard title="入職相關" onClick={() => onNavigate('onboarding')} bg="bg-blue-50/50" />
-                    <NavCard title="員工守則" onClick={() => onNavigate('rules')} bg="bg-emerald-50/50" />
-                    <NavCard title="薪資福利" onClick={() => onNavigate('benefits')} bg="bg-yellow-50/50" />
-                    <NavCard title="每月班表" onClick={() => onNavigate('schedule')} bg="bg-indigo-50/50" />
-                    <NavCard title="善後巡視系統" onClick={() => onNavigate('inspection')} bg="bg-orange-50" span={true} />
-                </section>
-                <section>
-                    <h2 className="text-lg font-bold flex items-center gap-2 mb-3 px-1 text-slate-400"><Icon name="bell" size={18} className="text-orange-500" /> 最新公告</h2>
-                    <div className="space-y-3">
-                        {announcements.slice(0, 3).map(ann => (
-                            <div key={ann.id} onClick={() => onOpen(ann)} className="bg-white p-5 rounded-[2rem] shadow-sm border-l-4 border-orange-500 active:bg-orange-50 cursor-pointer"><h3 className="font-bold text-slate-800 text-sm leading-tight">{ann.title}</h3><p className="text-xs text-slate-400 line-clamp-2 mt-1 leading-relaxed">{ann.content}</p></div>
-                        ))}
-                    </div>
-                </section>
-            </div>
-        );
-
-        const NavCard = ({ title, onClick, bg, span = false }) => (
-            <button onClick={onClick} className={`${bg} ${span ? 'col-span-2 py-16' : 'py-14'} rounded-[2.5rem] shadow-sm border border-slate-100 active:scale-95 transition-all text-center`}>
-                <span className="font-black text-slate-800 text-2xl tracking-tighter uppercase leading-none">{title}</span>
-            </button>
-        );
-
-        // --- 主管後台 (分類管理) ---
-        const AdminPage = ({ onBack, onLogout, announcements, setAnnouncements, schedules, setSchedules, standards, setStandards, users, setUsers, logs }) => {
-            const [tab, setTab] = useState('members');
-            const [annT, setAnnT] = useState(''); const [annC, setAnnC] = useState('');
-            const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
-            const [stdZone, setStdZone] = useState(ZONES[0].id);
-
-            const approveUser = (phone) => setUsers(users.map(u => u.phone === phone ? { ...u, status: 'approved' } : u));
-            const deleteUser = (phone) => setUsers(users.filter(u => u.phone !== phone));
-
-            return (
-                <div className="p-4 pb-24 space-y-6 page-enter">
-                    <div className="flex justify-between items-center">
-                        <div onClick={onBack} className="p-2 bg-white rounded-xl shadow-sm border cursor-pointer"><Icon name="arrow-left" /></div>
-                        <h2 className="text-xl font-black">控制中心</h2>
-                        <button onClick={onLogout} className="bg-red-50 text-red-500 px-4 py-2 rounded-full font-black text-[10px]">LOGOUT</button>
-                    </div>
-
-                    <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">
-                        {[
-                            { id: 'members', name: '成員審核', icon: 'users' },
-                            { id: 'content', name: '公告管理', icon: 'bell' },
-                            { id: 'schedules', name: '班表管理', icon: 'calendar' },
-                            { id: 'safety', name: '標準照片', icon: 'camera' },
-                            { id: 'logs', name: '系統日誌', icon: 'send' }
-                        ].map(t => (
-                            <button key={t.id} onClick={() => setTab(t.id)} className={`px-5 py-3 rounded-2xl font-black text-xs shrink-0 flex items-center gap-2 transition-all ${tab === t.id ? 'bg-orange-600 text-white shadow-lg' : 'bg-white text-slate-400'}`}>
-                                <Icon name={t.icon} size={14}/> {t.name}
-                            </button>
-                        ))}
-                    </div>
-
-                    {tab === 'members' && (
-                        <div className="space-y-3">
-                            {users.map(u => (
-                                <div key={u.phone} className="bg-white p-5 rounded-[2rem] border border-slate-100 flex justify-between items-center shadow-sm">
-                                    <div><p className="font-black text-slate-800 leading-none mb-1">{u.name}</p><p className="text-[10px] text-slate-400 font-bold tracking-widest">{u.phone}</p></div>
-                                    <div className="flex gap-2">
-                                        {u.status === 'pending' ? <button onClick={() => approveUser(u.phone)} className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-[10px] font-black">核准</button> : <span className="text-[9px] font-black text-emerald-500 bg-emerald-50 px-2 py-1 rounded-lg">已通過</span>}
-                                        <button onClick={() => deleteUser(u.phone)} className="p-2 text-slate-200 hover:text-red-500"><Icon name="trash-2" size={16}/></button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    {tab === 'content' && (
-                        <div className="space-y-4">
-                            <div className="bg-white p-6 rounded-[2rem] border shadow-sm">
-                                <input placeholder="標題" value={annT} onChange={e => setAnnT(e.target.value)} className="w-full bg-slate-50 p-4 rounded-2xl mb-3 outline-none font-bold text-sm" />
-                                <textarea placeholder="內容" rows="3" value={annC} onChange={e => setAnnC(e.target.value)} className="w-full bg-slate-50 p-4 rounded-2xl mb-4 outline-none text-sm" />
-                                <button onClick={() => { if(annT && annC) { setAnnouncements([{ id: Date.now(), date: new Date().toISOString().slice(0,10), title: annT, content: annC, author: "主管" }, ...announcements]); setAnnT(''); setAnnC(''); } }} className="w-full bg-orange-600 text-white font-black py-4 rounded-2xl active:scale-95 shadow-xl">發布公告</button>
-                            </div>
-                            {announcements.map(a => <div key={a.id} className="bg-white p-4 rounded-2xl flex justify-between items-center border"><span className="font-bold text-xs truncate mr-4">{a.title}</span><button onClick={() => setAnnouncements(announcements.filter(x => x.id !== a.id))}><Icon name="trash-2" size={16} className="text-slate-200" /></button></div>)}
-                        </div>
-                    )}
-
-                    {tab === 'schedules' && (
-                        <div className="space-y-4">
-                            <div className="bg-white p-6 rounded-[2rem] border shadow-sm">
-                                <div className="flex gap-2 mb-4"><input type="month" value={month} onChange={(e) => setMonth(e.target.value)} className="flex-1 bg-slate-50 p-3 rounded-xl font-bold outline-none text-sm" /><label className="bg-blue-600 text-white px-5 py-3 rounded-xl text-[10px] font-black cursor-pointer uppercase active:scale-95 shadow-lg">Upload<input type="file" multiple className="hidden" onChange={(e) => { const files = Array.from(e.target.files); files.forEach(file => { const r = new FileReader(); r.onloadend = () => setSchedules(p => ({ ...p, [month]: [...(p[month] || []), r.result] })); r.readAsDataURL(file); }); }}/></label></div>
-                                <div className="grid grid-cols-4 gap-2">{(schedules[month] || []).map((img, i) => <div key={i} className="relative aspect-square shadow-inner"><img src={img} className="w-full h-full object-cover rounded-xl border shadow-sm" /><button onClick={() => setSchedules(p => ({...p, [month]: p[month].filter((_, idx) => idx !== i)}))} className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full shadow-lg"><Icon name="trash-2" size={10}/></button></div>)}</div>
-                            </div>
-                        </div>
-                    )}
-
-                    {tab === 'safety' && (
-                        <div className="space-y-4">
-                            <div className="bg-white p-6 rounded-[2rem] border shadow-sm">
-                                <select value={stdZone} onChange={(e) => setStdZone(e.target.value)} className="w-full bg-slate-50 p-4 rounded-2xl font-bold text-sm outline-none mb-4">{ZONES.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}</select>
-                                <label className="bg-slate-900 text-white w-full py-4 rounded-2xl text-[11px] font-black cursor-pointer uppercase text-center block shadow-xl">上傳標準照<input type="file" multiple className="hidden" onChange={(e) => { const files = Array.from(e.target.files); files.forEach(file => { const r = new FileReader(); r.onloadend = () => setStandards(prev => ({ ...prev, [stdZone]: [...(prev[stdZone] || []), r.result] })); r.readAsDataURL(file); }); }}/></label>
-                                <div className="grid grid-cols-4 gap-2 mt-6">{(standards[stdZone] || []).map((img, i) => <div key={i} className="relative aspect-square shadow-inner"><img src={img} className="w-full h-full object-cover rounded-xl border" /><button onClick={() => setStandards(p => ({...p, [stdZone]: p[stdZone].filter((_, idx) => idx !== i)}))} className="absolute -top-1 -right-1 bg-red-500 text-white p-1 rounded-full shadow-lg"><Icon name="trash-2" size={10}/></button></div>)}</div>
-                            </div>
-                        </div>
-                    )}
-
-                    {tab === 'logs' && (
-                        <div className="bg-white p-6 rounded-[2rem] shadow-sm border space-y-2">
-                            {logs.length === 0 ? <p className="text-slate-300 italic text-center py-10">No recent activity.</p> : logs.map((l, i) => <div key={i} className="text-[10px] bg-slate-50 p-2 rounded-lg font-bold shadow-sm"><span className="text-orange-400 mr-2">[{l.time}]</span> {l.message}</div>)}
-                        </div>
-                    )}
-                </div>
-            );
-        };
-
-        // --- 其餘靜態分頁 ---
-
-        const OnboardingPage = ({ onBack, onNavigate }) => (
-            <div className="p-4 space-y-4 page-enter">
-                <BackButton onClick={onBack} title="入職相關" />
-                <div className="space-y-3">
-                    <SectionItem title="員工入職準備清單" iconName="book-open" />
-                    <SectionItem title="停車資訊" iconName="car" />
-                    <div onClick={() => onNavigate('workRoute')}><SectionItem title="上班動線指引" iconName="map-pin" /></div>
-                </div>
-            </div>
-        );
-
-        const WorkRoutePage = ({ onBack }) => (
-            <div className="p-4 space-y-6 page-enter pb-10">
-                <BackButton onClick={onBack} title="上班動線指引" />
-                <section className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100">
-                    <div className="flex items-center gap-3 mb-4 text-slate-700"><div className="bg-blue-100 p-2 rounded-xl text-blue-600"><Icon name="bus" size={20} /></div><h3 className="font-black">搭乘大眾運輸路線</h3></div>
-                    <div className="aspect-video bg-slate-100 rounded-3xl flex flex-col items-center justify-center border-2 border-dashed border-slate-200"><Icon name="play-circle" size={40} className="text-slate-300 mb-2" /><p className="text-[10px] font-black text-slate-400 italic text-center uppercase tracking-widest">Video Placeholder</p></div>
-                </section>
-                <section className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100">
-                    <div className="flex items-center gap-3 mb-4 text-slate-700"><div className="bg-orange-100 p-2 rounded-xl text-orange-600"><Icon name="bike" size={20} /></div><h3 className="font-black">開車或騎車路線</h3></div>
-                    <div className="aspect-video bg-slate-100 rounded-3xl flex flex-col items-center justify-center border-2 border-dashed border-slate-200"><Icon name="play-circle" size={40} className="text-slate-300 mb-2" /><p className="text-[10px] font-black text-slate-400 italic text-center uppercase tracking-widest">Video Placeholder</p></div>
-                </section>
-            </div>
-        );
-
-        const RulesPage = ({ onBack, onSelect }) => (
-            <div className="p-4 space-y-3 page-enter">
-                <BackButton onClick={onBack} title="員工守則" />
-                <SectionItem title="食品衛生安全規範" iconName="shield-check" onClick={() => onSelect('hygiene')} />
-                <SectionItem title="職場職業安全守則" iconName="flame" onClick={() => onSelect('occupational')} />
-                <SectionItem title="廚房標準工作守則" iconName="book-open" onClick={() => onSelect('standard')} />
-            </div>
-        );
-
-        const RuleDetailPage = ({ category, onBack }) => {
-            const data = useMemo(() => {
-                if(category === 'hygiene') return { title: "食品衛生安全規範", content: RULES_DATA.hygiene.map((c, i) => <RuleBlock key={i} index={i+1} title={c.category} items={c.rules} />) };
-                if(category === 'occupational') return { title: "職場職業安全守則", content: RULES_DATA.occupational.map((c, i) => <RuleBlock key={i} index={i+1} title={c.category} items={c.rules} />) };
-                return { title: "廚房標準工作守則", content: RULES_DATA.standard.map(c => <RuleStandardBlock key={c.id} id={c.id} title={c.text} desc={c.sub} />) };
-            }, [category]);
-            return <div className="p-4 space-y-4 page-enter pb-10"><BackButton onClick={onBack} title={data.title} />{data.content}</div>;
-        };
-
-        const RuleBlock = ({ index, title, items }) => (
-            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-4 shadow-orange-50"><h3 className="font-bold text-slate-800 mb-2 text-sm">{title}</h3><ul className="space-y-1">{items.map((it, idx) => <li key={idx} className="text-xs text-slate-500">• {it}</li>)}</ul></div>
-        );
-
-        const RuleStandardBlock = ({ id, title, desc }) => (
-            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 mb-4 flex gap-4 shadow-blue-50"><div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-black shrink-0">{id}</div><div className="space-y-1"><h3 className="font-bold text-slate-800 text-sm leading-tight">{title}</h3><p className="text-[10px] text-slate-400 italic bg-slate-50 p-2 rounded-lg leading-relaxed">{desc}</p></div></div>
-        );
-
-        const SchedulePage = ({ onBack, schedules }) => {
-            const currentMonth = new Date().toISOString().slice(0, 7);
-            const [viewMonth, setViewMonth] = useState(currentMonth);
-            const imgs = schedules[viewMonth] || [];
-            return (
-                <div className="p-4 space-y-6 page-enter pb-20">
-                    <BackButton onClick={onBack} title="每月班表查詢" />
-                    <div className="bg-white p-4 rounded-3xl shadow-sm border flex items-center justify-between mb-4 shadow-sm"><input type="month" value={viewMonth} onChange={(e) => setViewMonth(e.target.value)} className="bg-slate-50 p-2 rounded-xl font-bold outline-none border-0" /><span className="text-[9px] font-black text-slate-300 uppercase">Selected</span></div>
-                    <div className="space-y-4">{imgs.length > 0 ? imgs.map((img, i) => <div key={i} className="bg-white p-2 rounded-3xl shadow-md border mb-4 shadow-orange-50"><img src={img} className="w-full rounded-2xl shadow-inner" /></div>) : (<div className="bg-white p-12 rounded-[2.5rem] border-2 border-dashed border-slate-100 text-center space-y-4 text-slate-200 font-black italic tracking-widest py-20 uppercase">No Data Uploaded</div>)}</div>
-                </div>
-            );
-        };
-
-        const InspectionPage = ({ onBack, standards, completedZones, setCompletedZones, addLog }) => {
-            const [activeZone, setActiveZone] = useState(null);
-            const [uploads, setUploads] = useState([]);
-            const [loading, setLoading] = useState(false);
-            const [result, setResult] = useState(null);
-            const handleFile = (e) => { const files = Array.from(e.target.files); files.forEach(file => { const reader = new FileReader(); reader.onloadend = () => setUploads(prev => [...prev, reader.result]); reader.readAsDataURL(file); }); };
-            const runAI = () => {
-                setLoading(true);
-                setTimeout(() => {
-                    const pass = Math.random() > 0.1;
-                    setResult({ status: pass ? 'PASS' : 'FAIL', summary: pass ? "善後合格,桌面整潔。" : "需改進,地面尚有積水。" });
-                    if(pass && !completedZones.includes(activeZone.id)) {
-                        const newList = [...completedZones, activeZone.id];
-                        setCompletedZones(newList);
-                        if(newList.length === ZONES.length) addLog("✅ 今日全員完成上傳！請主管複查。");
-                    }
-                    setLoading(false);
-                }, 1500);
-            };
-            if(activeZone) return (
-                <div className="p-4 space-y-6 page-enter pb-20"><button onClick={() => { setActiveZone(null); setResult(null); setUploads([]); }} className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100"><Icon name="arrow-left" size={20}/></button><h3 className="text-4xl font-black text-slate-800 text-center tracking-tighter uppercase">{activeZone.name}</h3><section><p className="text-xs font-black text-slate-300 uppercase mb-3 text-center">Standard Ref</p><div className="flex gap-2 overflow-x-auto no-scrollbar pb-2">{(standards[activeZone.id] || []).map((img, i) => <img key={i} src={img} className="w-32 h-32 object-cover rounded-3xl border-2 border-white shadow-sm" />)}</div></section><section className="bg-white p-8 rounded-[3rem] shadow-sm border border-slate-100 text-center"><div className="grid grid-cols-3 gap-3 mb-8">{uploads.map((img, i) => <div key={i} className="relative aspect-square"><img src={img} className="w-full h-full object-cover rounded-2xl" /><button onClick={() => setUploads(u => u.filter((_, idx) => idx !== i))} className="absolute -top-2 -right-2 bg-red-500 text-white p-1 rounded-full shadow-lg"><Icon name="x" size={10}/></button></div>)}<label className="aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center cursor-pointer active:scale-95 transition-all"><Icon name="plus" size={18} className="text-slate-300"/><input type="file" multiple className="hidden" onChange={handleFile} /></label></div><button onClick={runAI} disabled={loading || uploads.length === 0} className={`w-full py-5 rounded-[2rem] font-black text-lg shadow-xl flex items-center justify-center gap-2 ${loading || uploads.length === 0 ? 'bg-slate-100 text-slate-300' : 'bg-orange-600 text-white active:scale-95'}`}>{loading ? <Icon name="loader-2" className="animate-spin" /> : <><Icon name="send" size={18}/> 啟動 AI 判定</>}</button></section>
-                {result && <div className={`p-8 rounded-[3rem] border-4 ${result.status === 'PASS' ? 'bg-emerald-50 border-emerald-100' : 'bg-red-50 border-red-100'} animate-in slide-in-from-bottom duration-500`}><h4 className="text-2xl font-black mb-2 text-center uppercase tracking-tighter">{result.status === 'PASS' ? '判定合格' : '需改善'}</h4><p className="text-sm font-bold text-slate-600 text-center">{result.summary}</p></div>}</div>
-            );
-            return (
-                <div className="p-4 space-y-4 page-enter pb-20"><BackButton onClick={onBack} title="善後巡視系統" /><div className="bg-gradient-to-r from-orange-500 to-orange-400 p-6 rounded-[2.5rem] text-white shadow-lg flex justify-between items-center mb-4 font-black"><div>Progress {completedZones.length} / {ZONES.length}</div><div>{Math.round((completedZones.length/ZONES.length)*100)}%</div></div><div className="grid grid-cols-1 gap-2">{ZONES.map(z => { const done = completedZones.includes(z.id); return <button key={z.id} onClick={() => setActiveZone(z)} className={`bg-white px-6 py-6 rounded-[2rem] shadow-sm flex justify-between items-center border transition-all ${done ? 'border-emerald-100 bg-emerald-50/20' : 'border-slate-100'}`}><div className="flex items-center gap-3"><div className={`p-2 rounded-xl ${done ? 'bg-emerald-100 text-emerald-600' : 'bg-slate-50 text-slate-300'}`}><Icon name={done ? 'check-circle-2' : 'camera'} size={18}/></div><span className="font-black text-slate-700">{z.name}</span></div>{done ? <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">DONE</span> : <Icon name="chevron-right" size={18} className="text-slate-200" />}</button> })}</div></div>
-            );
-        };
-
-        const BackButton = ({ onClick, title }) => (
-            <div className="flex items-center gap-4 mb-8"><button onClick={onClick} className="p-3 bg-white rounded-2xl shadow-sm border border-slate-100 active:scale-90 transition-transform"><Icon name="arrow-left" size={20}/></button><h2 className="text-2xl font-black text-slate-800 tracking-tighter leading-tight">{title}</h2></div>
-        );
-        const SectionItem = ({ title, iconName, onClick }) => (
-            <div onClick={onClick} className="bg-white p-6 rounded-[2rem] flex items-center justify-between shadow-sm border border-slate-100 active:bg-slate-50 cursor-pointer group transition-all"><div className="flex items-center gap-4 text-slate-400 group-active:text-orange-50">{iconName && <Icon name={iconName} size={18} />}<span className="font-bold text-slate-700 text-sm leading-none">{title}</span></div><Icon name="chevron-right" size={18} className="text-slate-200" /></div>
-        );
-        const BenefitsPage = ({ onBack }) => <div className="p-4 space-y-4 page-enter pb-20"><BackButton onClick={onBack} title="薪資福利" /><div className="bg-gradient-to-br from-yellow-400 to-orange-500 p-8 rounded-[2.5rem] text-white shadow-lg mb-6 shadow-orange-100 font-black"><p className="text-[10px] opacity-80 mb-1">估計薪資預算</p><p className="text-3xl">$ 32,800 +</p></div><SectionItem title="各區考核加給標準" iconName="coins" /><SectionItem title="員工相關福利" iconName="heart" /></div>;
-        const AnnDetail = ({ ann, onBack }) => (
-            <div className="p-4 page-enter pb-10"><BackButton onClick={onBack} title="公告詳情" /><div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 min-h-[40vh] mb-6 shadow-orange-50 font-medium leading-relaxed"><h1 className="text-2xl font-black text-slate-800 mb-2 tracking-tight">{ann?.title}</h1><p className="text-[10px] text-slate-400 font-bold mb-8 uppercase tracking-widest">{ann?.date} • posted by {ann?.author}</p><div className="text-sm text-slate-600 leading-relaxed">{ann?.content}</div></div><button onClick={onBack} className="w-full py-4 bg-slate-900 text-white font-black rounded-2xl shadow-xl active:scale-95 transition-all">返回首頁</button></div>
-        );
-
+        // --- 6. 啟動渲染 ---
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
