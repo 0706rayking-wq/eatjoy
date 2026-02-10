@@ -21,7 +21,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         :root { 
             --brand-orange: #f97316; 
-            --bg-light: #fff5f5; /* 您要求的淡紅色背景 */
+            --bg-light: #fff5f5; 
         }
         body { 
             font-family: 'Noto Sans TC', sans-serif; 
@@ -78,6 +78,31 @@
             { id: 'cooked-food', name: '熟食區' }, { id: 'soup', name: '湯品區' }
         ];
 
+        const LINE_CONFIG = {
+            groupIds: ["Cc6ff13a21a779cd6c7e4875a56287e42"],
+            adminUserId: "U5a30c0baa7c2c96a256b58de2d5735ad"
+        };
+
+        const triggerLineAlert = async (type, payload = {}) => {
+            const gasUrl = "https://script.google.com/macros/s/AKfycbxTA7x4okmWs5R1GBfYphflf5-oEz35JYuwk5L1mIbn_NLxhzfWJzbN23TZTqDJ0kep/exec";
+            try {
+                await fetch(gasUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        type: type, 
+                        payload: payload,
+                        groupIds: LINE_CONFIG.groupIds,
+                        adminId: LINE_CONFIG.adminUserId
+                    })
+                });
+                console.log(`[LINE通報] 指令 ${type} 已發送`);
+            } catch (e) {
+                console.error("[LINE通報] 連線失敗:", e);
+            }
+        };
+
         // --- 2. 基礎 UI 組件 ---
 
         const Icon = ({ name, size = 20, className = "" }) => {
@@ -114,7 +139,7 @@
                         <span key={i} className="flex items-center gap-2 whitespace-nowrap">
                             <span className="text-orange-500">●</span> {l.time} - {l.message}
                         </span>
-                    )) : <span>歡迎使用廚房管理系統 ... 目前雲端連線正常 ... 隨時保持環境整潔 ... </span>}
+                    )) : <span>歡迎使用廚房管理系統 ... 雲端連線正常 ... 系統將於 22:10 自動發送巡視提醒 ... </span>}
                 </div>
             </div>
         );
@@ -137,15 +162,15 @@
         );
 
         const RuleStandardBlock = ({ id, title, desc, img }) => (
-            <div className="glass-panel rounded-3xl p-6 border border-slate-100 mb-4 bg-white shadow-sm flex flex-col gap-4 overflow-hidden">
+            <div className="glass-panel rounded-3xl p-6 border border-slate-100 mb-4 bg-white shadow-sm flex flex-col gap-4 overflow-hidden text-left">
                 <div className="flex gap-4">
                     <div className="w-9 h-9 bg-orange-50 text-orange-600 border border-orange-100 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 leading-none">{id}</div>
-                    <div className="space-y-1 text-left">
+                    <div className="space-y-1">
                         <h3 className="font-bold text-slate-800 text-sm leading-tight">{title}</h3>
                         <p className="text-[10px] text-slate-500 leading-relaxed font-bold whitespace-pre-wrap">{desc}</p>
                     </div>
                 </div>
-                {img && <img src={img} className="w-full rounded-2xl border border-slate-100 shadow-inner object-cover max-h-64" alt="項次圖片" />}
+                {img && <img src={img} className="w-full rounded-2xl border border-slate-100 shadow-inner object-cover max-h-64" alt="圖片" />}
             </div>
         );
 
@@ -203,7 +228,8 @@
             const [newT, setNewT] = useState(''); const [newC, setNewC] = useState(''); const [newI, setNewI] = useState(null);
             const addItem = () => {
                 if (!newT || !newC) return;
-                db.doc(getPublicPath(docPath)).set({ items: [...items, { title: newT, content: newC, img: newI }] }).then(() => {
+                db.doc(getPublicPath(docPath)).set({ items: [...items, { title: newT, content: newC, img: newI, timestamp: Date.now() }] }).then(() => {
+                    if (docPath === 'system/announcements_list') { triggerLineAlert("ANNOUNCEMENT", { title: newT, content: newC }); }
                     setNewT(''); setNewC(''); setNewI(null); triggerNotify("已成功同步雲端", "success");
                 });
             };
@@ -213,7 +239,7 @@
                         <input placeholder={titleLabel} value={newT} onChange={e=>setNewT(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold border-slate-200 outline-none shadow-inner" />
                         <textarea placeholder="詳細描述內容..." rows="3" value={newC} onChange={e=>setNewC(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm border-slate-200 outline-none shadow-inner" />
                         <label className="block w-full bg-slate-50 border border-slate-200 py-3 rounded-xl text-[10px] font-black text-center cursor-pointer text-slate-500 shadow-sm">{newI ? "✅ 圖片已就緒" : "+ 上傳附圖"}<input type="file" className="hidden" onChange={e=>{const r=new FileReader(); r.onloadend=()=>setNewI(r.result); r.readAsDataURL(e.target.files[0]);}}/></label>
-                        <button onClick={addItem} className="w-full bg-orange-600 text-white font-black py-4 rounded-2xl shadow-lg uppercase text-xs active:scale-95 transition-all shadow-orange-100">新增一條至雲端</button>
+                        <button onClick={addItem} className="w-full bg-orange-600 text-white font-black py-4 rounded-2xl shadow-lg uppercase text-xs active:scale-95 transition-all shadow-orange-100">新增並發佈</button>
                     </div>
                     <div className="space-y-2">
                         {items.map((r, i) => (
@@ -223,7 +249,6 @@
                                 <button onClick={() => db.doc(getPublicPath(docPath)).set({ items: items.filter((_, idx)=>idx!==i) })} className="text-slate-300 hover:text-red-500 transition-colors p-1"><Icon name="trash-2" size={16} /></button>
                             </div>
                         ))}
-                        {items.length === 0 && <div className="py-10 text-center text-slate-300 font-bold uppercase text-[10px]">目前尚無內容</div>}
                     </div>
                 </div>
             );
@@ -262,7 +287,7 @@
                         </div>
                         {mode === 'register' && <input type="text" placeholder="真實姓名" className="w-full input-light p-5 rounded-2xl outline-none font-bold text-center border-0 shadow-inner" value={name} onChange={e => setName(e.target.value)} />}
                         {mode === 'admin' ? <input type="password" placeholder="主管驗證碼" className="w-full input-light p-5 rounded-2xl outline-none font-bold text-center tracking-[0.5em] border-0 shadow-inner" value={adminPass} onChange={e => setAdminPass(e.target.value)} onKeyDown={(e)=>e.key==='Enter'&&handleAuth()} /> : <input type="tel" placeholder="手機號碼" className="w-full input-light p-5 rounded-2xl outline-none font-bold tracking-widest text-center border-0 shadow-inner" value={phone} onChange={e => setPhone(e.target.value)} onKeyDown={(e)=>e.key==='Enter'&&handleAuth()} />}
-                        <button handleAuth onClick={handleAuth} className="w-full bg-orange-600 text-white font-black py-5 rounded-2xl shadow-lg active:scale-95 transition-all uppercase text-sm tracking-widest shadow-orange-100">進入系統</button>
+                        <button onClick={handleAuth} className="w-full bg-orange-600 text-white font-black py-5 rounded-2xl shadow-lg active:scale-95 transition-all uppercase text-sm tracking-widest shadow-orange-100">進入系統</button>
                         <button onClick={() => setMode(mode === 'admin' ? 'login' : 'admin')} className="text-slate-400 font-bold text-[10px] uppercase border-b border-slate-200 pt-4 active:text-orange-500">主管管理入口</button>
                     </div>
                 </div>
@@ -274,9 +299,9 @@
                 <div className="bg-white w-24 h-24 rounded-full flex items-center justify-center mx-auto shadow-lg">
                     <Icon name="clock" size={48} className="text-orange-500 animate-pulse" />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 text-center">
                     <h3 className="text-2xl font-black text-slate-800">核准等待中</h3>
-                    <p className="text-slate-500 text-sm font-bold leading-relaxed px-10">您的註冊資訊已成功提交雲端。<br/>目前正在等待主管核准權限，請稍後再次登入查看。</p>
+                    <p className="text-slate-500 text-sm font-bold leading-relaxed px-10">您的註冊資訊已提交雲端。<br/>目前正在等待主管核准權限，請稍後再次登入查看。</p>
                 </div>
                 <button onClick={onLogout} className="text-slate-400 font-bold border-b border-slate-200 pb-1 text-sm active:text-orange-500">登出並返回登入畫面</button>
             </div>
@@ -330,7 +355,7 @@
             };
             return (
                 <div className="p-4 space-y-8 page-enter pb-20 text-left">
-                    <BackButton onClick={onBack} title="員工守則 (完整閱讀)" />
+                    <BackButton onClick={onBack} title="員工守則" />
                     {categories.map((cat) => (
                         <div key={cat} className="space-y-4">
                             <h3 className="text-lg font-black text-orange-600 pl-2 border-l-4 border-orange-500">{cat}</h3>
@@ -368,11 +393,11 @@
             <div className="p-4 space-y-6 page-enter pb-10 text-left">
                 <BackButton onClick={onBack} title="上班動線" />
                 <section className="glass-panel rounded-[2.5rem] p-6 border border-slate-100 mb-4 bg-white shadow-sm">
-                    <div className="flex items-center gap-3 mb-4 font-black text-slate-800"><Icon name="bus" className="text-orange-500"/> 大眾運輸導引</div>
+                    <div className="flex items-center gap-3 mb-4 font-black text-slate-800"><Icon name="bus" className="text-orange-50"/> 大眾運輸導引</div>
                     {data?.routeBusVideo ? <video src={data.routeBusVideo} controls className="w-full rounded-3xl shadow-sm border border-slate-100" /> : <div className="aspect-video bg-slate-50 rounded-3xl flex items-center justify-center border-2 border-dashed border-slate-200 font-black text-slate-400">影片載入中...</div>}
                 </section>
                 <section className="glass-panel rounded-[2.5rem] p-6 border border-slate-100 bg-white shadow-sm">
-                    <div className="flex items-center gap-3 mb-4 font-black text-slate-800"><Icon name="car" className="text-orange-500"/> 騎車 / 開車導引</div>
+                    <div className="flex items-center gap-3 mb-4 font-black text-slate-800"><Icon name="car" className="text-orange-50"/> 騎車 / 開車導引</div>
                     {data?.routeCarVideo ? <video src={data.routeCarVideo} controls className="w-full rounded-3xl shadow-sm border border-slate-100" /> : <div className="aspect-video bg-slate-50 rounded-3xl flex items-center justify-center border-2 border-dashed border-slate-200 font-black text-slate-400">影片載入中...</div>}
                 </section>
             </div>
@@ -395,8 +420,13 @@
                 setTimeout(() => {
                     const pass = Math.random() > 0.1;
                     setResult({ status: pass ? 'PASS' : 'FAIL', summary: pass ? "合格 ✅" : "不合格 ❌" });
+                    
                     if(pass && !completedZones.includes(activeZone.id)) {
-                        db.doc(getPublicPath('system/progress')).set({ completedZones: [...completedZones, activeZone.id] }, { merge: true });
+                        const newCompleted = [...completedZones, activeZone.id];
+                        db.doc(getPublicPath('system/progress')).set({ completedZones: newCompleted }, { merge: true });
+                        if (newCompleted.length === ZONES.length) {
+                            triggerLineAlert("COMPLETION");
+                        }
                     }
                     setLoading(false);
                 }, 1500);
@@ -409,8 +439,8 @@
                             <div key={i} className="glass-panel p-4 rounded-[2rem] border border-slate-100 bg-white shadow-sm">
                                 <p className="text-[11px] font-black text-slate-700 mb-3 bg-slate-50 p-3 rounded-xl flex items-center gap-2 border border-slate-100 shadow-inner"><Icon name="info" size={14} className="text-orange-500" />要求：{item.note || "無說明"}</p>
                                 <div className="grid grid-cols-2 gap-3">
-                                    <div className="text-center"><span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full uppercase">標準照</span><img src={item.url} className="w-full aspect-square object-cover rounded-2xl border mt-2 shadow-sm shadow-emerald-50/50" /></div>
-                                    <div className="text-center"><span className="text-[9px] font-black text-orange-600 bg-orange-50 px-2 py-1 rounded-full uppercase">實拍照</span>{uploads[i] ? <div className="relative mt-2"><img src={uploads[i]} className="w-full aspect-square object-cover rounded-2xl border shadow-sm shadow-orange-50/50" /></div> : <label className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer shadow-inner hover:bg-slate-100 transition-colors"><Icon name="plus" size={20} className="text-slate-300"/><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} /></label>}</div>
+                                    <div className="text-center"><span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full uppercase">標準照</span><img src={item.url} className="w-full aspect-square object-cover rounded-2xl border mt-2 shadow-sm" /></div>
+                                    <div className="text-center"><span className="text-[9px] font-black text-orange-600 bg-orange-50 px-2 py-1 rounded-full uppercase">實拍照</span>{uploads[i] ? <div className="relative mt-2"><img src={uploads[i]} className="w-full aspect-square object-cover rounded-2xl border shadow-sm" /></div> : <label className="w-full aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer shadow-inner hover:bg-slate-100 transition-colors"><Icon name="plus" size={20} className="text-slate-300"/><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} /></label>}</div>
                                 </div>
                             </div>
                         ))}
@@ -448,10 +478,13 @@
 
             return (
                 <div className="p-4 pb-24 page-enter text-left">
-                    <div className="flex justify-between items-center mb-6"><BackButton onClick={onBack} title="後台管理中心" /><button onClick={onLogout} className="bg-red-50 text-red-600 font-black text-[10px] px-4 py-2 rounded-full border border-red-100 shadow-sm active:scale-90 shadow-red-50/50">登出</button></div>
+                    <div className="flex justify-between items-center mb-6">
+                        <BackButton onClick={onBack} title="管理中心" />
+                        <button onClick={onLogout} className="bg-red-50 text-red-600 font-black text-[10px] px-4 py-2 rounded-full border border-red-100 shadow-sm active:scale-90">登出</button>
+                    </div>
                     <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 overflow-x-auto no-scrollbar gap-1.5 mb-6 shadow-inner">
                         {[{id:'members',n:'人員'},{id:'menu',n:'菜單'},{id:'content',n:'公告'},{id:'onboard',n:'入職'},{id:'benefit',n:'福利'},{id:'rules',n:'守則'},{id:'schedules',n:'班表'},{id:'safety',n:'巡視'},{id:'sign',n:'簽署'}].map(t => (
-                            <button key={t.id} onClick={()=>setTab(t.id)} className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${tab===t.id?'bg-orange-600 text-white shadow-md shadow-orange-100':'text-slate-400'}`}>{t.n}</button>
+                            <button key={t.id} onClick={()=>{setTab(t.id); setSubCat('list');}} className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${tab===t.id?'bg-orange-600 text-white shadow-md shadow-orange-100':'text-slate-400'}`}>{t.n}</button>
                         ))}
                     </div>
 
@@ -461,8 +494,7 @@
                         {tab === 'onboard' && (<div><div className="flex bg-slate-100 p-1 rounded-xl mb-4 shadow-inner">{[{id:'list',n:'清單'},{id:'parking',n:'停車'},{id:'video',n:'影片'}].map(c=>(<button key={c.id} onClick={()=>setSubCat(c.id)} className={`flex-1 py-2 rounded-lg text-[10px] font-bold ${subCat===c.id?'bg-white text-orange-600 shadow-sm':'text-slate-400'}`}>{c.n}</button>))}</div>
                             {subCat === 'video' ? (
                                 <div className="space-y-4 bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-left mb-2">動線引導影片管理</p>
-                                    <label className="bg-slate-900 text-white w-full block py-4 rounded-xl text-[10px] font-black cursor-pointer text-center uppercase shadow-lg mb-2 active:scale-95 transition-all shadow-slate-200">上傳大眾運輸影片<input type="file" className="hidden" accept="video/*" onChange={e=>handleVideoUpload(e, 'routeBusVideo')}/></label>
+                                    <label className="bg-slate-900 text-white w-full block py-4 rounded-xl text-[10px] font-black cursor-pointer text-center uppercase shadow-lg active:scale-95 transition-all shadow-slate-200">上傳大眾運輸影片<input type="file" className="hidden" accept="video/*" onChange={e=>handleVideoUpload(e, 'routeBusVideo')}/></label>
                                     <label className="bg-slate-900 text-white w-full block py-4 rounded-xl text-[10px] font-black cursor-pointer text-center uppercase shadow-lg active:scale-95 transition-all shadow-slate-200">上傳自行前往影片<input type="file" className="hidden" accept="video/*" onChange={e=>handleVideoUpload(e, 'routeCarVideo')}/></label>
                                 </div>
                             ) : <UniversalListManager docPath={subCat==='list'?'system/onboarding_list':'system/onboarding_parking'} items={subCat==='list'?(onboarding?.list || []):(onboarding?.parking || [])} triggerNotify={triggerNotify} />}
@@ -470,17 +502,18 @@
 
                         {tab === 'menu' && <UniversalListManager docPath="system/menu_list" items={menu?.items || []} titleLabel="菜單項目名稱" triggerNotify={triggerNotify} />}
                         {tab === 'content' && <UniversalListManager docPath="system/announcements_list" items={announcements || []} titleLabel="公告標題" triggerNotify={triggerNotify} />}
+                        
                         {tab === 'benefit' && (<div><div className="flex bg-slate-100 p-1 rounded-xl mb-4 shadow-inner">{[{id:'eval',n:'考核'},{id:'wel',n:'福利'}].map(c=>(<button key={c.id} onClick={()=>setSubCat(c.id)} className={`flex-1 py-2 rounded-lg text-[10px] font-bold ${subCat===c.id?'bg-white text-orange-600 shadow-sm':'text-slate-400'}`}>{c.n}</button>))}</div><UniversalListManager docPath={subCat==='eval'?'system/benefits_eval':'system/benefits_welfare'} items={subCat==='eval'?(benefits?.evaluation || []):(benefits?.welfare || [])} triggerNotify={triggerNotify} /></div>)}
 
-                        {tab === 'rules' && (<div><div className="flex bg-slate-100 p-1 rounded-xl mb-4 shadow-inner">{['廚房規則','食品衛生安全','設備操作安全','出缺勤規範'].map(c=>(<button key={c} onClick={()=>setSubCat(c)} className={`flex-1 py-2 rounded-lg text-[10px] font-bold ${subCat===c?'bg-white text-orange-600 shadow-sm':'text-slate-400'}`}>{c.slice(0,2)}</button>))}</div><UniversalListManager docPath={`rules/${subCat}`} items={rulesData[subCat] || []} triggerNotify={triggerNotify} /></div>)}
+                        {tab === 'rules' && (<div><div className="flex bg-slate-100 p-1 rounded-xl mb-4 shadow-inner overflow-x-auto no-scrollbar">{['廚房規則','食品衛生安全','設備操作安全','出缺勤規範'].map(c=>(<button key={c} onClick={()=>setSubCat(c)} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-bold ${subCat===c?'bg-white text-orange-600 shadow-sm':'text-slate-400'}`}>{c}</button>))}</div><UniversalListManager docPath={`rules/${subCat}`} items={rulesData[subCat] || []} triggerNotify={triggerNotify} /></div>)}
 
-                        {tab === 'schedules' && (<div className="glass-panel p-6 rounded-[2.5rem] space-y-4 bg-white border border-slate-100 shadow-sm text-center shadow-sm"><input type="month" value={selectedMonth} onChange={e=>setSelectedMonth(e.target.value)} className="w-full input-light p-3 rounded-xl text-sm border-slate-200 outline-none shadow-inner" /><label className="bg-orange-600 text-white w-full block py-4 rounded-2xl text-[11px] font-black cursor-pointer text-center shadow-lg active:scale-95 transition-all mt-4 shadow-orange-100">上傳最新班表圖檔<input type="file" multiple className="hidden" onChange={e => { const f = Array.from(e.target.files); f.forEach(file => { const r = new FileReader(); r.onloadend = () => db.collection(getPublicPath('schedules')).doc(selectedMonth).set({ images: [...(schedules[selectedMonth] || []), r.result] }); r.readAsDataURL(file); }); }}/></label></div>)}
+                        {tab === 'schedules' && (<div className="glass-panel p-6 rounded-[2.5rem] space-y-4 bg-white border border-slate-100 shadow-sm text-center shadow-sm"><input type="month" value={selectedMonth} onChange={e=>setSelectedMonth(e.target.value)} className="w-full input-light p-3 rounded-xl text-sm border-slate-200 outline-none shadow-inner" /><label className="bg-orange-600 text-white w-full block py-4 rounded-2xl text-[11px] font-black cursor-pointer text-center shadow-lg active:scale-95 transition-all mt-4 shadow-orange-100">上傳班表圖檔<input type="file" multiple className="hidden" onChange={e => { const f = Array.from(e.target.files); f.forEach(file => { const r = new FileReader(); r.onloadend = () => db.collection(getPublicPath('schedules')).doc(selectedMonth).get().then(docSnapshot => { const current = docSnapshot.exists ? docSnapshot.data().images : []; db.collection(getPublicPath('schedules')).doc(selectedMonth).set({ images: [...current, r.result] }); }); r.readAsDataURL(file); }); }}/></label></div>)}
 
                         {tab === 'safety' && (
                             <div className="glass-panel p-6 rounded-[2.5rem] space-y-4 bg-white border border-slate-100 shadow-sm text-left shadow-sm">
                                 <select value={selectedZone} onChange={e=>setSelectedZone(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold border-slate-200 outline-none shadow-inner">{ZONES.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}</select>
-                                <div className="bg-slate-50 p-4 rounded-2xl space-y-3 border border-slate-100 shadow-inner"><input id="std-note" placeholder="檢查重點標註..." className="w-full input-light p-3 rounded-xl text-xs border-slate-200 outline-none shadow-sm shadow-inner" /><label className="bg-slate-900 text-white w-full block py-4 rounded-xl text-[10px] font-black text-center cursor-pointer uppercase shadow-lg active:scale-95 transition-all shadow-slate-200">點擊上傳標準對照圖<input type="file" className="hidden" onChange={e=>{const f=e.target.files[0]; if(f){const r=new FileReader(); const note=document.getElementById('std-note').value; r.onloadend=()=>{ db.collection(getPublicPath('standards')).doc(selectedZone).set({ items: [...(standards[selectedZone] || []), {url: r.result, note: note}] }); document.getElementById('std-note').value=''; triggerNotify("標準圖已同步至雲端", "success"); }; r.readAsDataURL(f);}}}/></label></div>
-                                <div className="space-y-3">{(standards[selectedZone] || []).map((item, i) => (<div key={i} className="bg-white p-3 rounded-2xl border border-slate-100 flex gap-4 items-start shadow-sm"><img src={item.url} className="w-16 h-16 rounded-xl object-cover border shadow-sm" /><div className="flex-1 text-left text-xs text-slate-600 line-clamp-2">{item.note || "尚未設定說明"}</div><button onClick={()=>{db.collection(getPublicPath('standards')).doc(selectedZone).set({items: standards[selectedZone].filter((_,idx)=>idx!==i)});}} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x" size={14}/></button></div>))}</div>
+                                <div className="bg-slate-50 p-4 rounded-2xl space-y-3 border border-slate-100 shadow-inner"><input id="std-note" placeholder="檢查重點標註..." className="w-full input-light p-3 rounded-xl text-xs border-slate-200 outline-none shadow-sm shadow-inner" /><label className="bg-slate-900 text-white w-full block py-4 rounded-xl text-[10px] font-black text-center cursor-pointer uppercase shadow-lg active:scale-95 transition-all shadow-slate-200">上傳標準照<input type="file" className="hidden" onChange={e=>{const f=e.target.files[0]; if(f){const r=new FileReader(); const note=document.getElementById('std-note').value; r.onloadend=()=>{ const currentItems = standards[selectedZone] || []; db.collection(getPublicPath('standards')).doc(selectedZone).set({ items: [...currentItems, {url: r.result, note: note}] }); document.getElementById('std-note').value=''; triggerNotify("標準圖已上傳", "success"); }; r.readAsDataURL(f);}}}/></label></div>
+                                <div className="space-y-3">{(standards[selectedZone] || []).map((item, i) => (<div key={i} className="bg-white p-3 rounded-2xl border border-slate-100 flex gap-4 items-start shadow-sm"><img src={item.url} className="w-16 h-16 rounded-xl object-cover border shadow-sm" /><div className="flex-1 text-left text-xs text-slate-600 line-clamp-2">{item.note || "無說明"}</div><button onClick={()=>{db.collection(getPublicPath('standards')).doc(selectedZone).set({items: standards[selectedZone].filter((_,idx)=>idx!==i)});}} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x" size={14}/></button></div>))}</div>
                             </div>
                         )}
 
@@ -494,8 +527,6 @@
                 </div>
             );
         };
-
-        // --- 5. 主應用程式 (App) ---
 
         const App = () => {
             const [currentPage, setCurrentPage] = useState('auth');
@@ -515,13 +546,22 @@
             const [rulesData, setRulesData] = useState({});
             const [signatures, setSignatures] = useState([]);
             const [selectedAnn, setSelectedAnn] = useState(null);
-            const [selectedCat, setSelectedCat] = useState(null);
 
             const triggerNotify = useCallback((msg, type = "info") => {
                 const id = Date.now();
                 setNotifications(prev => [...prev, { id, msg, type }]);
                 setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 4000);
             }, []);
+
+            useEffect(() => {
+                const timer = setInterval(() => {
+                    const now = new Date();
+                    if (now.getHours() === 22 && now.getMinutes() === 10 && now.getSeconds() === 0) {
+                        triggerNotify("⏰ 提醒：請同仁盡快於 22:30 前完成善後巡視照上傳！", "info");
+                    }
+                }, 1000);
+                return () => clearInterval(timer);
+            }, [triggerNotify]);
 
             useEffect(() => {
                 const initAuth = async () => {
@@ -559,26 +599,37 @@
                 switch(currentPage) {
                     case 'home': return <HomePage onNavigate={setCurrentPage} announcements={announcements} doneCount={completedZones.length} onOpenAnn={(a)=>{setSelectedAnn(a); setCurrentPage('annDetail');}} logs={[]} />;
                     case 'unifiedRules': return <UnifiedRulesPage rulesData={rulesData} onBack={()=>setCurrentPage('home')} user={currentUser} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />;
-                    case 'benefits': return <div className="p-4 space-y-4 page-enter text-left"><BackButton onClick={()=>setCurrentPage('home')} title="薪資福利" /><SectionItem title="考核加給標準" iconName="coins" onClick={()=>setCurrentPage('benefit-eval')} /><SectionItem title="員工相關福利" iconName="heart" onClick={()=>setCurrentPage('benefit-wel')} /></div>;
-                    case 'benefit-eval': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="考核標準" list={benefitsData?.evaluation} />;
-                    case 'benefit-wel': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="福利項目" list={benefitsData?.welfare} />;
-                    case 'onboarding': return <div className="p-4 space-y-4 page-enter text-left"><BackButton onClick={()=>setCurrentPage('home')} title="入職相關" /><SectionItem title="員工準備清單" iconName="list-checks" onClick={()=>setCurrentPage('onboard-list')} /><SectionItem title="停車資訊指引" iconName="car" onClick={()=>setCurrentPage('onboard-parking')} /><SectionItem title="上班動線引導" iconName="navigation" onClick={()=>setCurrentPage('workRoute')} /></div>;
+                    case 'inspection': return <InspectionPage onBack={()=>setCurrentPage('home')} standards={standards} completedZones={completedZones} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />;
+                    case 'onboarding': return (
+                        <div className="p-4 space-y-4 page-enter text-left">
+                            <BackButton onClick={()=>setCurrentPage('home')} title="入職相關" />
+                            <SectionItem title="員工準備清單" iconName="list-checks" onClick={()=>setCurrentPage('onboard-list')} />
+                            <SectionItem title="停車資訊指引" iconName="car" onClick={()=>setCurrentPage('onboard-parking')} />
+                            <SectionItem title="上班動線引導" iconName="navigation" onClick={()=>setCurrentPage('workRoute')} />
+                        </div>
+                    );
                     case 'onboard-list': return <ListDetailPage onBack={()=>setCurrentPage('onboarding')} title="準備清單" list={onboardingData?.list} />;
                     case 'onboard-parking': return <ListDetailPage onBack={()=>setCurrentPage('onboarding')} title="停車資訊" list={onboardingData?.parking} />;
                     case 'workRoute': return <WorkRoutePage onBack={()=>setCurrentPage('onboarding')} data={onboardingData} />;
+                    case 'benefits': return (
+                        <div className="p-4 space-y-4 page-enter text-left">
+                            <BackButton onClick={()=>setCurrentPage('home')} title="薪資福利" />
+                            <SectionItem title="考核加給標準" iconName="coins" onClick={()=>setCurrentPage('benefit-eval')} />
+                            <SectionItem title="員工相關福利" iconName="heart" onClick={()=>setCurrentPage('benefit-wel')} />
+                        </div>
+                    );
+                    case 'benefit-eval': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="考核標準" list={benefitsData?.evaluation} />;
+                    case 'benefit-wel': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="福利項目" list={benefitsData?.welfare} />;
                     case 'menu': return <ListDetailPage onBack={()=>setCurrentPage('home')} title="本季菜單" list={menuData?.items} />;
-                    case 'schedule': return (<div className="p-4 space-y-6 page-enter pb-20 text-left"><BackButton onClick={()=>setCurrentPage('home')} title="每月班表" /><div className="space-y-4">{Object.entries(schedules).sort((a,b)=>b[0].localeCompare(a[0])).map(([m, d]) => (<div key={m} className="glass-panel p-2 rounded-[2.5rem] border border-slate-100 mb-4 bg-white shadow-sm shadow-orange-50/50"><p className="text-xs font-black text-slate-800 p-4 uppercase tracking-widest bg-slate-50 rounded-t-[2rem] border-b">{m.replace('-','年')}月 班表資料</p><div className="p-2 space-y-2">{d.map((img,i)=><img key={i} src={img} className="w-full rounded-[1.5rem] border border-slate-100 shadow-sm" />)}</div></div>))}</div></div>);
-                    case 'inspection': return <InspectionPage onBack={()=>setCurrentPage('home')} standards={standards} completedZones={completedZones} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />;
+                    case 'schedule': return (<div className="p-4 space-y-6 page-enter pb-20 text-left"><BackButton onClick={()=>setCurrentPage('home')} title="每月班表" /><div className="space-y-4">{Object.entries(schedules).sort((a,b)=>b[0].localeCompare(a[0])).map(([m, d]) => (<div key={m} className="glass-panel p-2 rounded-[2.5rem] border border-slate-100 mb-4 bg-white shadow-sm shadow-orange-50/50 text-center shadow-sm"><p className="text-xs font-black text-slate-800 p-4 uppercase tracking-widest bg-slate-50 rounded-t-[2rem] border-b">{m.replace('-','年')}月 班表資料</p><div className="p-2 space-y-2">{d.map((img,i)=><img key={i} src={img} className="w-full rounded-[1.5rem] border border-slate-100 shadow-sm" />)}</div></div>))}</div></div>);
                     case 'admin': return <AdminPage onBack={()=>setCurrentPage('home')} onLogout={()=>{setCurrentUser(null); setIsManager(false); setCurrentPage('auth'); localStorage.removeItem('k_active_user');}} announcements={announcements} schedules={schedules} standards={standards} users={users} triggerNotify={triggerNotify} menu={menuData} onboarding={onboardingData} benefits={benefitsData} rulesData={rulesData} getPublicPath={getPublicPath} signatures={signatures} />;
-                    case 'annDetail': return (<div className="p-4 page-enter pb-10 text-left"><BackButton onClick={()=>setCurrentPage('home')} title="公告詳情" /><div className="glass-panel rounded-[3rem] p-8 border-l-4 border-orange-500 shadow-2xl mb-8 bg-white text-left shadow-xl shadow-orange-500/10"><h1 className="text-2xl font-black text-slate-800 mb-2 leading-tight">{selectedAnn?.title}</h1><p className="text-[10px] text-slate-400 font-bold mb-8 border-b border-slate-100 pb-4 uppercase tracking-widest">{new Date(selectedAnn?.timestamp || Date.now()).toLocaleDateString()} • 官方系統發佈</p><div className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{selectedAnn?.content}</div></div><button onClick={()=>setCurrentPage('home')} className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl active:scale-95 transition-all uppercase tracking-widest shadow-orange-100">返回首頁導覽</button></div>);
+                    case 'annDetail': return (<div className="p-4 page-enter pb-10 text-left"><BackButton onClick={()=>setCurrentPage('home')} title="公告詳情" /><div className="glass-panel rounded-[3rem] p-8 border-l-4 border-orange-500 shadow-2xl mb-8 bg-white text-left shadow-xl shadow-orange-500/10"><h1 className="text-2xl font-black text-slate-800 mb-2 leading-tight">{selectedAnn?.title}</h1><p className="text-[10px] text-slate-400 font-bold mb-8 border-b border-slate-100 pb-4 uppercase tracking-widest">{new Date(selectedAnn?.timestamp || Date.now()).toLocaleDateString()}</p><div className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{selectedAnn?.content}</div></div><button onClick={()=>setCurrentPage('home')} className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl uppercase tracking-widest shadow-xl">返回首頁</button></div>);
                 }
             };
 
             const logout = () => { setCurrentUser(null); setIsManager(false); setCurrentPage('auth'); localStorage.removeItem('k_active_user'); };
 
-            if (fbReady && !isManager && currentUser?.status === 'pending') {
-                return <PendingPage onLogout={logout} />;
-            }
+            if (fbReady && !isManager && currentUser?.status === 'pending') return <PendingPage onLogout={logout} />;
 
             return (
                 <div className="min-h-screen flex flex-col bg-[#fff5f5]">
@@ -595,8 +646,14 @@
                             <span className="font-black text-xl tracking-tighter text-slate-800 uppercase leading-none">Kitchen <span className="text-orange-600">OS</span></span>
                         </div>
                         <div className="flex gap-4">
-                            <button onClick={() => isManager ? setCurrentPage('admin') : setCurrentPage('home')} className="text-slate-400 hover:text-slate-600 transition-colors active:scale-90"><Icon name={isManager ? "settings" : "bell"} size={22} /></button>
-                            {(currentUser || isManager) && <button onClick={logout} className="p-1 text-slate-300 hover:text-red-400 transition-colors active:scale-90"><Icon name="log-out" size={20} /></button>}
+                            <button onClick={() => isManager ? setCurrentPage('admin') : setCurrentPage('home')} className="text-slate-400 hover:text-slate-600 transition-colors active:scale-90">
+                                <Icon name={isManager ? "settings" : "bell"} size={22} />
+                            </button>
+                            {(currentUser || isManager) && (
+                                <button onClick={logout} className="p-1 text-slate-300 hover:text-red-400 transition-colors active:scale-90">
+                                    <Icon name="log-out" size={20} />
+                                </button>
+                            )}
                         </div>
                     </header>
                     <main className="flex-grow max-w-lg mx-auto w-full">
