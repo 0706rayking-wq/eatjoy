@@ -21,7 +21,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         :root { 
             --brand-orange: #f97316; 
-            --bg-light: #fff5f5; /* 淡紅色背景 */
+            --bg-light: #fff5f5; /* 您要求的淡紅色背景 */
         }
         body { 
             font-family: 'Noto Sans TC', sans-serif; 
@@ -55,9 +55,7 @@
     <script type="text/babel">
         const { useState, useEffect, useCallback, useMemo, useRef } = React;
 
-        /**
-         * 重要說明：部署至 GitHub 時，請手動替換下方的 firebaseConfig 為您 Firebase 專案的實際配置。
-         */
+        // --- 1. 初始化全域配置 ---
         const appIdGlobal = typeof __app_id !== 'undefined' ? __app_id : 'kitchen-v16';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
             apiKey: "AIzaSyC-Z3aIp2obs2O6554EnsEoeC_Vffvx3SY", 
@@ -147,7 +145,7 @@
                         <p className="text-[10px] text-slate-500 leading-relaxed font-bold whitespace-pre-wrap">{desc}</p>
                     </div>
                 </div>
-                {img && <img src={img} className="w-full rounded-2xl border border-slate-100 shadow-inner object-cover max-h-64" alt="項目附圖" />}
+                {img && <img src={img} className="w-full rounded-2xl border border-slate-100 shadow-inner object-cover max-h-64" alt="項次圖片" />}
             </div>
         );
 
@@ -192,10 +190,10 @@
             return (
                 <div className="glass-panel p-6 rounded-[2.5rem] mt-8 bg-white border border-slate-200 text-center shadow-lg">
                     <h4 className="font-black text-slate-800 mb-4 flex items-center justify-center gap-2"><Icon name="pen-tool" size={18} className="text-orange-500" />確認閱讀完畢並簽名</h4>
-                    <canvas ref={canvasRef} width={600} height={300} className="signature-canvas mb-4 mx-auto" onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={()=>setIsDrawing(false)} onMouseLeave={()=>setIsDrawing(false)} onTouchStart={startDrawing} onTouchEnd={()=>setIsDrawing(false)} onTouchMove={draw}></canvas>
+                    <canvas ref={canvasRef} width={600} height={300} className="signature-canvas mb-4 mx-auto shadow-inner" onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={()=>setIsDrawing(false)} onMouseLeave={()=>setIsDrawing(false)} onTouchStart={startDrawing} onTouchEnd={()=>setIsDrawing(false)} onTouchMove={draw}></canvas>
                     <div className="flex gap-3">
                         <button onClick={() => canvasRef.current.getContext('2d').clearRect(0,0,600,300)} className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-400 font-bold text-xs shadow-sm">重寫</button>
-                        <button onClick={() => onSave(canvasRef.current.toDataURL())} className="flex-[2] py-3 rounded-xl bg-orange-600 text-white font-black text-xs shadow-lg active:scale-95 transition-all">確認提交簽名</button>
+                        <button onClick={() => onSave(canvasRef.current.toDataURL())} className="flex-[2] py-3 rounded-xl bg-orange-600 text-white font-black text-xs shadow-lg active:scale-95 transition-all uppercase tracking-widest">提交簽署</button>
                     </div>
                 </div>
             );
@@ -215,7 +213,7 @@
                         <input placeholder={titleLabel} value={newT} onChange={e=>setNewT(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold border-slate-200 outline-none shadow-inner" />
                         <textarea placeholder="詳細描述內容..." rows="3" value={newC} onChange={e=>setNewC(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm border-slate-200 outline-none shadow-inner" />
                         <label className="block w-full bg-slate-50 border border-slate-200 py-3 rounded-xl text-[10px] font-black text-center cursor-pointer text-slate-500 shadow-sm">{newI ? "✅ 圖片已就緒" : "+ 上傳附圖"}<input type="file" className="hidden" onChange={e=>{const r=new FileReader(); r.onloadend=()=>setNewI(r.result); r.readAsDataURL(e.target.files[0]);}}/></label>
-                        <button onClick={addItem} className="w-full bg-orange-600 text-white font-black py-4 rounded-2xl shadow-lg uppercase text-xs active:scale-95 transition-all">新增一條至雲端</button>
+                        <button onClick={addItem} className="w-full bg-orange-600 text-white font-black py-4 rounded-2xl shadow-lg uppercase text-xs active:scale-95 transition-all shadow-orange-100">新增一條至雲端</button>
                     </div>
                     <div className="space-y-2">
                         {items.map((r, i) => (
@@ -231,14 +229,14 @@
             );
         };
 
-        // --- 3. 頁面分流組件 ---
+        // --- 4. 頁面分組組件 ---
 
         const AuthPage = ({ users, setCurrentUser, setCurrentPage, setIsManager, triggerNotify }) => {
             const [phone, setPhone] = useState(''); const [name, setName] = useState(''); const [mode, setMode] = useState('login');
             const [adminPass, setAdminPass] = useState('');
             const handleAuth = async () => {
                 if (mode === 'admin') {
-                    if (adminPass.toLowerCase() === 'eatjoy0706') { setIsManager(true); setCurrentPage('home'); triggerNotify("主管身分已核證", "success"); }
+                    if (adminPass.toLowerCase() === 'eatjoy0706') { setIsManager(true); setCurrentPage('home'); triggerNotify("管理員模式已啟用", "success"); }
                     else alert('驗證碼錯誤'); return;
                 }
                 if (!phone) return;
@@ -264,7 +262,7 @@
                         </div>
                         {mode === 'register' && <input type="text" placeholder="真實姓名" className="w-full input-light p-5 rounded-2xl outline-none font-bold text-center border-0 shadow-inner" value={name} onChange={e => setName(e.target.value)} />}
                         {mode === 'admin' ? <input type="password" placeholder="主管驗證碼" className="w-full input-light p-5 rounded-2xl outline-none font-bold text-center tracking-[0.5em] border-0 shadow-inner" value={adminPass} onChange={e => setAdminPass(e.target.value)} onKeyDown={(e)=>e.key==='Enter'&&handleAuth()} /> : <input type="tel" placeholder="手機號碼" className="w-full input-light p-5 rounded-2xl outline-none font-bold tracking-widest text-center border-0 shadow-inner" value={phone} onChange={e => setPhone(e.target.value)} onKeyDown={(e)=>e.key==='Enter'&&handleAuth()} />}
-                        <button handleAuth onClick={handleAuth} className="w-full bg-orange-600 text-white font-black py-5 rounded-2xl shadow-lg active:scale-95 transition-all uppercase text-sm tracking-widest">進入系統</button>
+                        <button handleAuth onClick={handleAuth} className="w-full bg-orange-600 text-white font-black py-5 rounded-2xl shadow-lg active:scale-95 transition-all uppercase text-sm tracking-widest shadow-orange-100">進入系統</button>
                         <button onClick={() => setMode(mode === 'admin' ? 'login' : 'admin')} className="text-slate-400 font-bold text-[10px] uppercase border-b border-slate-200 pt-4 active:text-orange-500">主管管理入口</button>
                     </div>
                 </div>
@@ -291,15 +289,15 @@
                     <div className="glass-panel p-6 rounded-[2.5rem] flex items-center justify-between border-l-4 border-orange-500 shadow-sm bg-white">
                         <div className="flex items-center gap-4 text-left">
                             <div className="w-14 h-14 bg-orange-50 text-orange-600 rounded-[1.5rem] flex items-center justify-center font-black text-2xl border border-orange-100">{doneCount}</div>
-                            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1 text-left">今日巡視進度</p><p className="text-sm font-black text-slate-800">{doneCount === ZONES.length ? "✅ 今日區域已全數完成" : `尚有 ${ZONES.length - doneCount} 站待處理`}</p></div>
+                            <div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1 text-left">今日巡視進度</p><p className="text-sm font-black text-slate-800">{doneCount === ZONES.length ? "✅ 區域已全數完成" : `尚有 ${ZONES.length - doneCount} 站待處理`}</p></div>
                         </div>
                         <button onClick={() => onNavigate('inspection')} className="p-4 bg-orange-600 text-white rounded-2xl active:scale-90 transition-transform shadow-lg shadow-orange-100"><Icon name="camera" size={24}/></button>
                     </div>
                     <section>
-                        <div className="flex items-center gap-2 mb-4 px-2 text-left font-black text-slate-400"><Icon name="bell" size={18} className="text-orange-500" /><span>系統最新公告</span></div>
+                        <div className="flex items-center gap-2 mb-4 px-2 text-left font-black text-slate-400"><Icon name="bell" size={18} className="text-orange-500" /><span>系統公告</span></div>
                         <div className="space-y-3">
                             {announcements.slice(0, 3).map(ann => (
-                                <div key={ann.id} onClick={() => onOpenAnn(ann)} className="glass-panel p-5 rounded-[2rem] border border-slate-100 active:bg-slate-50 cursor-pointer text-left transition-all bg-white shadow-sm">
+                                <div key={ann.id} onClick={() => onOpenAnn(ann)} className="glass-panel p-5 rounded-[2rem] border border-slate-100 active:bg-slate-50 cursor-pointer text-left transition-all bg-white shadow-sm shadow-orange-50/10">
                                     <h3 className="font-bold text-sm text-slate-800 mb-1">{ann.title}</h3>
                                     <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">{ann.content}</p>
                                 </div>
@@ -308,12 +306,60 @@
                     </section>
                     <section className="grid grid-cols-2 gap-4">
                         <NavCard title="入職相關" onClick={() => onNavigate('onboarding')} colorClass="bg-blue-50/50" iconName="user-plus" />
-                        <NavCard title="員工守則" onClick={() => onNavigate('rules')} colorClass="bg-emerald-50/50" iconName="book-open" />
+                        <NavCard title="員工守則" onClick={() => onNavigate('unifiedRules')} colorClass="bg-emerald-50/50" iconName="book-open" />
                         <NavCard title="薪資福利" onClick={() => onNavigate('benefits')} colorClass="bg-rose-50/50" iconName="wallet" />
                         <NavCard title="本季菜單" onClick={() => onNavigate('menu')} colorClass="bg-yellow-50/50" iconName="utensils" />
                         <NavCard title="每月班表" onClick={() => onNavigate('schedule')} colorClass="bg-indigo-50/50" iconName="calendar" />
                         <NavCard title="善後巡視" onClick={() => onNavigate('inspection')} colorClass="bg-orange-50" iconName="check-square" />
                     </section>
+                </div>
+            </div>
+        );
+
+        const UnifiedRulesPage = ({ rulesData, onBack, user, triggerNotify, getPublicPath }) => {
+            const categories = ['廚房規則', '食品衛生安全', '設備操作安全', '出缺勤規範'];
+            const [signed, setSigned] = useState(false);
+            const handleSign = async (img) => {
+                if (!user) return;
+                try {
+                    await db.collection(getPublicPath('signatures')).doc(`${user.phone}_full_rules`).set({
+                        userName: user.name, phone: user.phone, category: '全體員工守則', signature: img, timestamp: Date.now()
+                    });
+                    setSigned(true); triggerNotify("簽名已完成上傳", "success");
+                } catch (e) { triggerNotify("簽署失敗", "error"); }
+            };
+            return (
+                <div className="p-4 space-y-8 page-enter pb-20 text-left">
+                    <BackButton onClick={onBack} title="員工守則 (完整閱讀)" />
+                    {categories.map((cat) => (
+                        <div key={cat} className="space-y-4">
+                            <h3 className="text-lg font-black text-orange-600 pl-2 border-l-4 border-orange-500">{cat}</h3>
+                            {rulesData[cat] && rulesData[cat].length > 0 ? (
+                                rulesData[cat].map((item, idx) => (
+                                    <RuleStandardBlock key={idx} id={idx + 1} title={item.title} desc={item.content} img={item.img} />
+                                ))
+                            ) : <div className="p-10 text-center text-slate-300 font-bold uppercase text-[10px] bg-white rounded-3xl border border-slate-100 shadow-sm shadow-inner">內容載入中...</div>}
+                        </div>
+                    ))}
+                    <div className="mt-12 border-t-2 border-dashed border-slate-200 pt-10">
+                        {!signed ? <SignaturePad onSave={handleSign} /> : (
+                            <div className="glass-panel p-10 rounded-[3rem] bg-emerald-50 border-emerald-100 text-emerald-600 text-center font-bold font-black shadow-sm">
+                                <Icon name="check-circle" size={48} className="mx-auto mb-2" />
+                                您已完成全體守則的簽署
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const ListDetailPage = ({ onBack, title, list }) => (
+            <div className="p-4 space-y-6 page-enter pb-20 text-left">
+                <BackButton onClick={onBack} title={title} />
+                <div className="space-y-4">
+                    {list && list.length > 0 ? list.map((item, idx) => (
+                        <RuleStandardBlock key={idx} id={idx + 1} title={item.title} desc={item.content} img={item.img} />
+                    )) : <div className="py-20 text-center text-slate-300 font-bold uppercase glass-panel rounded-[3rem] border border-slate-100 bg-white shadow-inner">目前尚無內容</div>}
                 </div>
             </div>
         );
@@ -363,20 +409,20 @@
                             <div key={i} className="glass-panel p-4 rounded-[2rem] border border-slate-100 bg-white shadow-sm">
                                 <p className="text-[11px] font-black text-slate-700 mb-3 bg-slate-50 p-3 rounded-xl flex items-center gap-2 border border-slate-100 shadow-inner"><Icon name="info" size={14} className="text-orange-500" />要求：{item.note || "無說明"}</p>
                                 <div className="grid grid-cols-2 gap-3">
-                                    <div className="text-center"><span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full uppercase">標準照</span><img src={item.url} className="w-full aspect-square object-cover rounded-2xl border mt-2 shadow-sm" /></div>
-                                    <div className="text-center"><span className="text-[9px] font-black text-orange-600 bg-orange-50 px-2 py-1 rounded-full uppercase">實拍照</span>{uploads[i] ? <div className="relative mt-2"><img src={uploads[i]} className="w-full aspect-square object-cover rounded-2xl border shadow-sm" /></div> : <label className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer shadow-inner hover:bg-slate-100 transition-colors"><Icon name="plus" size={20} className="text-slate-300"/><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} /></label>}</div>
+                                    <div className="text-center"><span className="text-[9px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full uppercase">標準照</span><img src={item.url} className="w-full aspect-square object-cover rounded-2xl border mt-2 shadow-sm shadow-emerald-50/50" /></div>
+                                    <div className="text-center"><span className="text-[9px] font-black text-orange-600 bg-orange-50 px-2 py-1 rounded-full uppercase">實拍照</span>{uploads[i] ? <div className="relative mt-2"><img src={uploads[i]} className="w-full aspect-square object-cover rounded-2xl border shadow-sm shadow-orange-50/50" /></div> : <label className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer shadow-inner hover:bg-slate-100 transition-colors"><Icon name="plus" size={20} className="text-slate-300"/><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} /></label>}</div>
                                 </div>
                             </div>
                         ))}
                     </div>
-                    <button onClick={runAI} className="w-full py-5 rounded-[2rem] font-black bg-orange-600 text-white shadow-xl active:scale-95 transition-all uppercase">啟動 AI 判定</button>
-                    {result && <div className={`p-8 rounded-[3rem] border-4 ${result.status==='PASS'?'bg-emerald-50 border-emerald-200 text-emerald-700 animate-bounce shadow-lg':'bg-red-50 border-red-200 text-red-700'} text-center mt-4 shadow-sm`}><h4 className="text-2xl font-black">{result.status==='PASS'?'合格 ✅':'需改善 ❌'}</h4></div>}
+                    <button onClick={runAI} className="w-full py-5 rounded-[2rem] font-black bg-orange-600 text-white shadow-xl active:scale-95 transition-all uppercase shadow-orange-100">啟動 AI 判定</button>
+                    {result && <div className={`p-8 rounded-[3rem] border-4 ${result.status==='PASS'?'bg-emerald-50 border-emerald-200 text-emerald-700 animate-bounce shadow-xl shadow-emerald-500/10':'bg-red-50 border-red-200 text-red-700'} text-center mt-4 shadow-sm`}><h4 className="text-2xl font-black">{result.status==='PASS'?'合格 ✅':'需改善 ❌'}</h4></div>}
                 </div>
             );
             return (
                 <div className="p-4 space-y-4 page-enter pb-20 text-left">
                     <BackButton onClick={onBack} title="善後巡視" />
-                    <div className="bg-gradient-to-r from-orange-500 to-orange-400 p-7 rounded-[2.5rem] text-white shadow-lg flex justify-between items-center mb-6">
+                    <div className="bg-gradient-to-r from-orange-500 to-orange-400 p-7 rounded-[2.5rem] text-white shadow-lg flex justify-between items-center mb-6 shadow-orange-100">
                         <div><p className="text-[10px] font-black uppercase opacity-60 mb-1 text-left tracking-widest">當日完成度</p><p className="text-3xl font-black">{completedZones.length} / {ZONES.length}</p></div>
                         <div className="w-14 h-14 rounded-full border-4 border-white/20 flex items-center justify-center font-black text-xs">{Math.round((completedZones.length/ZONES.length)*100)}%</div>
                     </div>
@@ -387,7 +433,7 @@
             );
         };
 
-        const AdminPage = ({ onBack, onLogout, announcements, schedules, standards, users, triggerNotify, menu, onboarding, benefits, rulesData, getPublicPath }) => {
+        const AdminPage = ({ onBack, onLogout, announcements, schedules, standards, users, triggerNotify, menu, onboarding, benefits, rulesData, getPublicPath, signatures }) => {
             const [tab, setTab] = useState('members');
             const [subCat, setSubCat] = useState('list');
             const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
@@ -402,22 +448,22 @@
 
             return (
                 <div className="p-4 pb-24 page-enter text-left">
-                    <div className="flex justify-between items-center mb-6"><BackButton onClick={onBack} title="後台管理系統" /><button onClick={onLogout} className="bg-red-50 text-red-600 font-black text-[10px] px-4 py-2 rounded-full border border-red-100 shadow-sm active:scale-90">登出</button></div>
+                    <div className="flex justify-between items-center mb-6"><BackButton onClick={onBack} title="後台管理中心" /><button onClick={onLogout} className="bg-red-50 text-red-600 font-black text-[10px] px-4 py-2 rounded-full border border-red-100 shadow-sm active:scale-90 shadow-red-50/50">登出</button></div>
                     <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 overflow-x-auto no-scrollbar gap-1.5 mb-6 shadow-inner">
                         {[{id:'members',n:'人員'},{id:'menu',n:'菜單'},{id:'content',n:'公告'},{id:'onboard',n:'入職'},{id:'benefit',n:'福利'},{id:'rules',n:'守則'},{id:'schedules',n:'班表'},{id:'safety',n:'巡視'},{id:'sign',n:'簽署'}].map(t => (
-                            <button key={t.id} onClick={()=>setTab(t.id)} className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${tab===t.id?'bg-orange-600 text-white shadow-md':'text-slate-400'}`}>{t.n}</button>
+                            <button key={t.id} onClick={()=>setTab(t.id)} className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${tab===t.id?'bg-orange-600 text-white shadow-md shadow-orange-100':'text-slate-400'}`}>{t.n}</button>
                         ))}
                     </div>
 
                     <div className="space-y-4">
-                        {tab === 'members' && users.map(u=>(<div key={u.phone} className="glass-panel p-5 rounded-[2rem] border border-slate-100 flex justify-between items-center bg-white shadow-sm mb-2 shadow-sm shadow-orange-50/50"><div><p className="font-bold text-slate-800 mb-1">{u.name}</p><p className="text-[10px] text-slate-400">{u.phone}</p></div><div className="flex gap-2">{u.status==='pending'?<button onClick={()=>db.collection(getPublicPath('users')).doc(u.phone).update({status:'approved'})} className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black shadow-md">核准</button>:<span className="text-[9px] font-black text-emerald-600 border border-emerald-100 px-3 py-2 rounded-lg bg-emerald-50 uppercase">已核准</span>}<button onClick={()=>db.collection(getPublicPath('users')).doc(u.phone).delete()} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Icon name="trash-2" size={16}/></button></div></div>))}
+                        {tab === 'members' && users.map(u=>(<div key={u.phone} className="glass-panel p-5 rounded-[2rem] border border-slate-100 flex justify-between items-center bg-white mb-2 shadow-sm shadow-orange-50/50"><div><p className="font-bold text-slate-800 mb-1">{u.name}</p><p className="text-[10px] text-slate-400">{u.phone}</p></div><div className="flex gap-2">{u.status==='pending'?<button onClick={()=>db.collection(getPublicPath('users')).doc(u.phone).update({status:'approved'})} className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black shadow-md">核准</button>:<span className="text-[9px] font-black text-emerald-600 border border-emerald-100 px-3 py-2 rounded-lg bg-emerald-50 uppercase">已核准</span>}<button onClick={()=>db.collection(getPublicPath('users')).doc(u.phone).delete()} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Icon name="trash-2" size={16}/></button></div></div>))}
                         
                         {tab === 'onboard' && (<div><div className="flex bg-slate-100 p-1 rounded-xl mb-4 shadow-inner">{[{id:'list',n:'清單'},{id:'parking',n:'停車'},{id:'video',n:'影片'}].map(c=>(<button key={c.id} onClick={()=>setSubCat(c.id)} className={`flex-1 py-2 rounded-lg text-[10px] font-bold ${subCat===c.id?'bg-white text-orange-600 shadow-sm':'text-slate-400'}`}>{c.n}</button>))}</div>
                             {subCat === 'video' ? (
                                 <div className="space-y-4 bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest text-left mb-2">動線引導影片管理</p>
-                                    <label className="bg-slate-900 text-white w-full block py-4 rounded-xl text-[10px] font-black cursor-pointer text-center uppercase shadow-lg mb-2 active:scale-95 transition-all">上傳大眾運輸影片<input type="file" className="hidden" accept="video/*" onChange={e=>handleVideoUpload(e, 'routeBusVideo')}/></label>
-                                    <label className="bg-slate-900 text-white w-full block py-4 rounded-xl text-[10px] font-black cursor-pointer text-center uppercase shadow-lg active:scale-95 transition-all">上傳自行前往影片<input type="file" className="hidden" accept="video/*" onChange={e=>handleVideoUpload(e, 'routeCarVideo')}/></label>
+                                    <label className="bg-slate-900 text-white w-full block py-4 rounded-xl text-[10px] font-black cursor-pointer text-center uppercase shadow-lg mb-2 active:scale-95 transition-all shadow-slate-200">上傳大眾運輸影片<input type="file" className="hidden" accept="video/*" onChange={e=>handleVideoUpload(e, 'routeBusVideo')}/></label>
+                                    <label className="bg-slate-900 text-white w-full block py-4 rounded-xl text-[10px] font-black cursor-pointer text-center uppercase shadow-lg active:scale-95 transition-all shadow-slate-200">上傳自行前往影片<input type="file" className="hidden" accept="video/*" onChange={e=>handleVideoUpload(e, 'routeCarVideo')}/></label>
                                 </div>
                             ) : <UniversalListManager docPath={subCat==='list'?'system/onboarding_list':'system/onboarding_parking'} items={subCat==='list'?(onboarding?.list || []):(onboarding?.parking || [])} triggerNotify={triggerNotify} />}
                         </div>)}
@@ -433,18 +479,23 @@
                         {tab === 'safety' && (
                             <div className="glass-panel p-6 rounded-[2.5rem] space-y-4 bg-white border border-slate-100 shadow-sm text-left shadow-sm">
                                 <select value={selectedZone} onChange={e=>setSelectedZone(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold border-slate-200 outline-none shadow-inner">{ZONES.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}</select>
-                                <div className="bg-slate-50 p-4 rounded-2xl space-y-3 border border-slate-100 shadow-inner"><input id="std-note" placeholder="檢查重點標註..." className="w-full input-light p-3 rounded-xl text-xs border-slate-200 outline-none shadow-sm shadow-inner" /><label className="bg-slate-900 text-white w-full block py-4 rounded-xl text-[10px] font-black text-center cursor-pointer uppercase shadow-lg active:scale-95 transition-all">點擊上傳標準對照圖<input type="file" className="hidden" onChange={e=>{const f=e.target.files[0]; if(f){const r=new FileReader(); const note=document.getElementById('std-note').value; r.onloadend=()=>{ db.collection(getPublicPath('standards')).doc(selectedZone).set({ items: [...(standards[selectedZone] || []), {url: r.result, note: note}] }); document.getElementById('std-note').value=''; triggerNotify("標準圖已同步", "success"); }; r.readAsDataURL(f);}}}/></label></div>
-                                <div className="space-y-3">{(standards[selectedZone] || []).map((item, i) => (<div key={i} className="bg-white p-3 rounded-2xl border border-slate-100 flex gap-4 items-start shadow-sm"><img src={item.url} className="w-16 h-16 rounded-xl object-cover border shadow-sm" /><div className="flex-1 text-left text-xs text-slate-600 line-clamp-2">{item.note || "無說明"}</div><button onClick={()=>{db.collection(getPublicPath('standards')).doc(selectedZone).set({items: standards[selectedZone].filter((_,idx)=>idx!==i)});}} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x" size={14}/></button></div>))}</div>
+                                <div className="bg-slate-50 p-4 rounded-2xl space-y-3 border border-slate-100 shadow-inner"><input id="std-note" placeholder="檢查重點標註..." className="w-full input-light p-3 rounded-xl text-xs border-slate-200 outline-none shadow-sm shadow-inner" /><label className="bg-slate-900 text-white w-full block py-4 rounded-xl text-[10px] font-black text-center cursor-pointer uppercase shadow-lg active:scale-95 transition-all shadow-slate-200">點擊上傳標準對照圖<input type="file" className="hidden" onChange={e=>{const f=e.target.files[0]; if(f){const r=new FileReader(); const note=document.getElementById('std-note').value; r.onloadend=()=>{ db.collection(getPublicPath('standards')).doc(selectedZone).set({ items: [...(standards[selectedZone] || []), {url: r.result, note: note}] }); document.getElementById('std-note').value=''; triggerNotify("標準圖已同步至雲端", "success"); }; r.readAsDataURL(f);}}}/></label></div>
+                                <div className="space-y-3">{(standards[selectedZone] || []).map((item, i) => (<div key={i} className="bg-white p-3 rounded-2xl border border-slate-100 flex gap-4 items-start shadow-sm"><img src={item.url} className="w-16 h-16 rounded-xl object-cover border shadow-sm" /><div className="flex-1 text-left text-xs text-slate-600 line-clamp-2">{item.note || "尚未設定說明"}</div><button onClick={()=>{db.collection(getPublicPath('standards')).doc(selectedZone).set({items: standards[selectedZone].filter((_,idx)=>idx!==i)});}} className="p-2 text-slate-300 hover:text-red-500 transition-colors"><Icon name="x" size={14}/></button></div>))}</div>
                             </div>
                         )}
 
-                        {tab === 'sign' && <div className="py-20 text-center glass-panel rounded-[3rem] text-slate-300 font-bold uppercase tracking-widest text-xs border border-slate-100 bg-white">目前尚無簽署記錄</div>}
+                        {tab === 'sign' && (
+                            <div className="space-y-3">
+                                {signatures.map((s, i) => (<div key={i} className="bg-white p-5 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col gap-4 mb-3 text-left shadow-orange-50/10"><div className="flex justify-between items-start"><div><p className="font-black text-slate-800 text-sm">{s.userName}</p><p className="text-[9px] text-slate-400 uppercase font-black">{s.category}</p></div><p className="text-[8px] text-slate-300 font-bold">{new Date(s.timestamp).toLocaleString()}</p></div><img src={s.signature} className="w-full h-32 object-contain bg-slate-50 border rounded-xl border-slate-100" /></div>))}
+                                {signatures.length === 0 && <div className="py-20 text-center glass-panel rounded-[3rem] text-slate-300 font-bold uppercase tracking-widest text-xs border border-slate-100 bg-white">目前尚無簽署記錄</div>}
+                            </div>
+                        )}
                     </div>
                 </div>
             );
         };
 
-        // --- 5. 主應用邏輯 ---
+        // --- 5. 主應用程式 (App) ---
 
         const App = () => {
             const [currentPage, setCurrentPage] = useState('auth');
@@ -462,6 +513,7 @@
             const [onboardingData, setOnboardingData] = useState({});
             const [benefitsData, setBenefitsData] = useState({});
             const [rulesData, setRulesData] = useState({});
+            const [signatures, setSignatures] = useState([]);
             const [selectedAnn, setSelectedAnn] = useState(null);
             const [selectedCat, setSelectedCat] = useState(null);
 
@@ -497,6 +549,7 @@
                 db.doc(getPublicPath('system/onboarding')).onSnapshot(d => d.exists && setOnboardingData(p => ({...p, ...d.data()})), err);
                 db.doc(getPublicPath('system/menu_list')).onSnapshot(d => d.exists && setMenuData(p => ({...p, items: d.data().items})), err);
                 db.doc(getPublicPath('system/announcements_list')).onSnapshot(d => d.exists && setAnnouncements(d.data().items || []), err);
+                db.collection(getPublicPath('signatures')).onSnapshot(s => setSignatures(s.docs.map(d => d.data()).sort((a,b)=>b.timestamp-a.timestamp)), err);
                 ['廚房規則','食品衛生安全','設備操作安全','出缺勤規範'].forEach(cat => db.doc(getPublicPath(`rules/${cat}`)).onSnapshot(d => d.exists && setRulesData(prev => ({ ...prev, [cat]: d.data().items || [] })), err));
             }, [user]);
 
@@ -505,8 +558,7 @@
             const renderPage = () => {
                 switch(currentPage) {
                     case 'home': return <HomePage onNavigate={setCurrentPage} announcements={announcements} doneCount={completedZones.length} onOpenAnn={(a)=>{setSelectedAnn(a); setCurrentPage('annDetail');}} logs={[]} />;
-                    case 'rules': return <div className="p-4 space-y-3 page-enter text-left"><BackButton onClick={()=>setCurrentPage('home')} title="員工守則" /><SectionItem title="廚房規則" iconName="book-open" onClick={()=>{setSelectedCat("廚房規則"); setCurrentPage('ruleDetail');}} /><SectionItem title="食品衛生安全" iconName="shield-check" onClick={()=>{setSelectedCat("食品衛生安全"); setCurrentPage('ruleDetail');}} /><SectionItem title="設備操作安全" iconName="flame" onClick={()=>{setSelectedCat("設備操作安全"); setCurrentPage('ruleDetail');}} /><SectionItem title="出缺勤規範" iconName="clock" onClick={()=>{setSelectedCat("出缺勤規範"); setCurrentPage('ruleDetail');}} /></div>;
-                    case 'ruleDetail': return <RuleDetailPage category={selectedCat} rulesData={rulesData} onBack={()=>setCurrentPage('rules')} user={currentUser} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />;
+                    case 'unifiedRules': return <UnifiedRulesPage rulesData={rulesData} onBack={()=>setCurrentPage('home')} user={currentUser} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />;
                     case 'benefits': return <div className="p-4 space-y-4 page-enter text-left"><BackButton onClick={()=>setCurrentPage('home')} title="薪資福利" /><SectionItem title="考核加給標準" iconName="coins" onClick={()=>setCurrentPage('benefit-eval')} /><SectionItem title="員工相關福利" iconName="heart" onClick={()=>setCurrentPage('benefit-wel')} /></div>;
                     case 'benefit-eval': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="考核標準" list={benefitsData?.evaluation} />;
                     case 'benefit-wel': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="福利項目" list={benefitsData?.welfare} />;
@@ -515,10 +567,10 @@
                     case 'onboard-parking': return <ListDetailPage onBack={()=>setCurrentPage('onboarding')} title="停車資訊" list={onboardingData?.parking} />;
                     case 'workRoute': return <WorkRoutePage onBack={()=>setCurrentPage('onboarding')} data={onboardingData} />;
                     case 'menu': return <ListDetailPage onBack={()=>setCurrentPage('home')} title="本季菜單" list={menuData?.items} />;
-                    case 'schedule': return (<div className="p-4 space-y-6 page-enter pb-20 text-left"><BackButton onClick={()=>setCurrentPage('home')} title="每月班表" /><div className="space-y-4">{Object.entries(schedules).sort((a,b)=>b[0].localeCompare(a[0])).map(([m, d]) => (<div key={m} className="glass-panel p-2 rounded-[2.5rem] border border-slate-100 mb-4 bg-white shadow-sm shadow-sm shadow-orange-50/50"><p className="text-xs font-black text-slate-800 p-4 uppercase tracking-widest bg-slate-50 rounded-t-[2rem] border-b">{m.replace('-','年')}月 班表資料</p><div className="p-2 space-y-2">{d.map((img,i)=><img key={i} src={img} className="w-full rounded-[1.5rem] border border-slate-100 shadow-sm" />)}</div></div>))}</div></div>);
+                    case 'schedule': return (<div className="p-4 space-y-6 page-enter pb-20 text-left"><BackButton onClick={()=>setCurrentPage('home')} title="每月班表" /><div className="space-y-4">{Object.entries(schedules).sort((a,b)=>b[0].localeCompare(a[0])).map(([m, d]) => (<div key={m} className="glass-panel p-2 rounded-[2.5rem] border border-slate-100 mb-4 bg-white shadow-sm shadow-orange-50/50"><p className="text-xs font-black text-slate-800 p-4 uppercase tracking-widest bg-slate-50 rounded-t-[2rem] border-b">{m.replace('-','年')}月 班表資料</p><div className="p-2 space-y-2">{d.map((img,i)=><img key={i} src={img} className="w-full rounded-[1.5rem] border border-slate-100 shadow-sm" />)}</div></div>))}</div></div>);
                     case 'inspection': return <InspectionPage onBack={()=>setCurrentPage('home')} standards={standards} completedZones={completedZones} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />;
-                    case 'admin': return <AdminPage onBack={()=>setCurrentPage('home')} onLogout={logout} announcements={announcements} schedules={schedules} standards={standards} users={users} triggerNotify={triggerNotify} menu={menuData} onboarding={onboardingData} benefits={benefitsData} rulesData={rulesData} getPublicPath={getPublicPath} />;
-                    case 'annDetail': return (<div className="p-4 page-enter pb-10 text-left"><BackButton onClick={()=>setCurrentPage('home')} title="公告詳情" /><div className="glass-panel rounded-[3rem] p-8 border-l-4 border-orange-500 shadow-2xl mb-8 bg-white text-left shadow-xl shadow-orange-500/10"><h1 className="text-2xl font-black text-slate-800 mb-2 leading-tight">{selectedAnn?.title}</h1><p className="text-[10px] text-slate-400 font-bold mb-8 border-b border-slate-100 pb-4 uppercase tracking-widest">{new Date(selectedAnn?.timestamp || Date.now()).toLocaleDateString()} • 官方系統發佈</p><div className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{selectedAnn?.content}</div></div><button onClick={()=>setCurrentPage('home')} className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl active:scale-95 transition-all uppercase tracking-widest">返回首頁</button></div>);
+                    case 'admin': return <AdminPage onBack={()=>setCurrentPage('home')} onLogout={()=>{setCurrentUser(null); setIsManager(false); setCurrentPage('auth'); localStorage.removeItem('k_active_user');}} announcements={announcements} schedules={schedules} standards={standards} users={users} triggerNotify={triggerNotify} menu={menuData} onboarding={onboardingData} benefits={benefitsData} rulesData={rulesData} getPublicPath={getPublicPath} signatures={signatures} />;
+                    case 'annDetail': return (<div className="p-4 page-enter pb-10 text-left"><BackButton onClick={()=>setCurrentPage('home')} title="公告詳情" /><div className="glass-panel rounded-[3rem] p-8 border-l-4 border-orange-500 shadow-2xl mb-8 bg-white text-left shadow-xl shadow-orange-500/10"><h1 className="text-2xl font-black text-slate-800 mb-2 leading-tight">{selectedAnn?.title}</h1><p className="text-[10px] text-slate-400 font-bold mb-8 border-b border-slate-100 pb-4 uppercase tracking-widest">{new Date(selectedAnn?.timestamp || Date.now()).toLocaleDateString()} • 官方系統發佈</p><div className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">{selectedAnn?.content}</div></div><button onClick={()=>setCurrentPage('home')} className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl active:scale-95 transition-all uppercase tracking-widest shadow-orange-100">返回首頁導覽</button></div>);
                 }
             };
 
