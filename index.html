@@ -60,14 +60,13 @@
          */
         const appIdGlobal = typeof __app_id !== 'undefined' ? __app_id : 'kitchen-v16';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-         apiKey: "AIzaSyC-Z3aIp2obs2O6554EnsEoeC_Vffvx3SY",
-         authDomain: "eatjoy0706cook.firebaseapp.com",
-         projectId: "eatjoy0706cook",
-         storageBucket: "eatjoy0706cook.firebasestorage.app",
-         messagingSenderId: "171737049178",
-         appId: "1:171737049178:web:12954c7ce24c160bda1063",
-         measurementId: "G-EW7NJ04PHW"
-};
+            apiKey: "AIzaSyC-Z3aIp2obs2O6554EnsEoeC_Vffvx3SY", 
+            authDomain: "eatjoy0706cook.firebaseapp.com",
+            projectId: "eatjoy0706cook",
+            storageBucket: "eatjoy0706cook.firebasestorage.app",
+            messagingSenderId: "171737049178",
+            appId: "1:171737049178:web:12954c7ce24c160bda1063"
+        };
 
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
@@ -564,4 +563,3 @@
     </script>
 </body>
 </html>
-
