@@ -98,17 +98,15 @@
             });
         };
 
-        // --- 重要：每次更新 GAS 代碼並重新部署後，請確保此網址是最新的 ---
+        // --- 重要：請將此處更換為你在 GAS 部署後獲得的網址 ---
         const GAS_BRIDGE_URL = "https://script.google.com/macros/s/AKfycbw2TuIjGuxPUq6jiGU0IrWbWwYLbTACtldA3UbvcDZQ1CypgkGsqa02e_gmDaZ3oysY/exec";
 
         const triggerLineAlert = async (type, payload = {}) => {
             try {
-                // 使用 text/plain 來規避某些 CORS 限制，GAS 的 doPost 可以處理
                 await fetch(GAS_BRIDGE_URL, {
                     method: 'POST',
                     mode: 'no-cors',
-                    cache: 'no-cache',
-                    headers: { 'Content-Type': 'text/plain' },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ type: type, payload: payload })
                 });
             } catch (e) { console.error("LINE 推播發送失敗", e); }
@@ -197,6 +195,7 @@
                 if (newI) imgToSave = await compressImage(newI);
                 const newItem = { id: crypto.randomUUID(), title: newT.trim(), content: newC.trim(), img: imgToSave, timestamp: Date.now() };
                 db.doc(getPublicPath(docPath)).set({ items: [...items, newItem] }).then(() => {
+                    // 自動發佈公告至 LINE
                     if (docPath === 'system/announcements_list') triggerLineAlert("ANNOUNCEMENT", { title: newT, content: newC });
                     setNewT(''); setNewC(''); setNewI(null); triggerNotify("發佈成功", "success");
                 }).catch(() => triggerNotify("存檔失敗 (檔案太大)", "error"));
@@ -402,6 +401,7 @@
                     if (!completedZones.includes(activeZone.id)) {
                         const newCompleted = [...completedZones, activeZone.id];
                         db.doc(getPublicPath('system/progress')).update({ completedZones: newCompleted }).then(() => { 
+                            // 檢測是否為今日最後一個完成的崗位，若是則通知主管
                             if (newCompleted.length === ZONES.length) triggerLineAlert("COMPLETION"); 
                         });
                     }
@@ -438,6 +438,9 @@
                                 </div>
                             </div>
                         ))}
+                        {(standards[activeZone.id] || []).length === 0 && (
+                            <div className="text-center py-10 text-slate-400 text-xs italic">此崗位目前無設定檢查標準照</div>
+                        )}
                     </div>
 
                     {!isSubmitted ? (
@@ -458,6 +461,7 @@
                     ) : (
                         <div className="p-8 rounded-[3rem] border-4 bg-emerald-50 border-emerald-200 text-emerald-700 animate-bounce text-center mt-4 shadow-xl shadow-emerald-500/10">
                             <h4 className="text-2xl font-black uppercase font-bold">提交完成 ✅</h4>
+                            <p className="text-xs mt-1">巡視紀錄已同步至雲端系統</p>
                         </div>
                     )}
                 </div>
@@ -498,6 +502,21 @@
                     <div className="space-y-4">
                         {tab === 'members' && users.map(u=>(<div key={u.phone} className="glass-panel p-5 rounded-[2rem] border border-slate-100 flex justify-between items-center bg-white mb-2 shadow-sm"><div><p className="font-bold text-slate-800 mb-1">{u.name}</p><p className="text-[10px] text-slate-400 font-bold">{u.phone}</p></div><div className="flex gap-2">{u.status==='pending'?<button onClick={()=>db.collection(getPublicPath('users')).doc(u.phone).update({status:'approved'})} className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black">核准</button>:<span className="text-[9px] font-black text-emerald-600 border px-3 py-2 rounded-lg bg-emerald-50">已授權</span>}<button onClick={()=>db.collection(getPublicPath('users')).doc(u.phone).delete()} className="p-2 text-slate-300 hover:text-red-500 transition-all font-bold"><Icon name="trash-2" size={16}/></button></div></div>))}
                         
+                        {tab === 'onboard' && (<div><div className="flex bg-slate-100 p-1 rounded-xl mb-4 font-bold">{[{id:'list',n:'清單'},{id:'parking',n:'停車'},{id:'video',n:'影片'}].map(c=>(<button key={c.id} onClick={()=>setSubCat(c.id)} className={`flex-1 py-2 rounded-lg text-[10px] font-bold ${subCat===c.id?'bg-white text-orange-600 shadow-sm':'text-slate-400'}`}>{c.n}</button>))}</div>
+                            {subCat === 'video' ? (
+                                <div className="space-y-4 bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                                    {[{f:'routeBusUrl', l:'大眾運輸引導影片連結'}, {f:'routeCarUrl', l:'自行前往引導影片連結'}].map(x => (
+                                        <div key={x.f} className="space-y-2">
+                                            <p className="text-[10px] font-black text-slate-400 ml-1 uppercase font-bold">{x.l}</p>
+                                            <input placeholder="貼上外部連結..." className="w-full input-light p-4 rounded-xl text-xs outline-none shadow-inner font-bold" onBlur={(e) => db.doc(getPublicPath('system/onboarding')).set({ [x.f]: e.target.value }, {merge:true}).then(()=>triggerNotify("網址儲存成功","success"))} defaultValue={onboarding?.[x.f] || ''} />
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : <UniversalListManager docPath={subCat==='list'?'system/onboarding_list':'system/onboarding_parking'} items={subCat==='list'?(onboarding?.list || []):(onboarding?.parking || [])} triggerNotify={triggerNotify} />}
+                        </div>)}
+
+                        {tab === 'menu' && <UniversalListManager docPath="system/menu_list" items={menu?.items || []} titleLabel="菜單項目名稱" triggerNotify={triggerNotify} />}
+                        
                         {tab === 'content' && (
                             <div className="space-y-6">
                                 <div className="glass-panel p-6 rounded-[2.5rem] bg-white border border-slate-100 shadow-sm space-y-4 shadow-sm">
@@ -508,6 +527,15 @@
                                 <UniversalListManager docPath="system/announcements_list" items={announcements || []} titleLabel="公告標題" triggerNotify={triggerNotify} />
                             </div>
                         )}
+                        
+                        {tab === 'benefit' && (
+                            <div>
+                                <div className="flex bg-slate-100 p-1 rounded-xl mb-4 font-bold">{[{id:'eval',n:'考核'},{id:'wel',n:'福利'}].map(c=>(<button key={c.id} onClick={()=>setSubCat(c.id)} className={`flex-1 py-2 rounded-lg text-[10px] font-bold ${subCat===c.id?'bg-white text-orange-600 shadow-sm':'text-slate-400'}`}>{c.n}</button>))}</div>
+                                <UniversalListManager docPath={subCat==='eval'?'system/benefits_eval':'system/benefits_welfare'} items={subCat==='eval'?(benefits?.evaluation || []):(benefits?.welfare || [])} triggerNotify={triggerNotify} />
+                            </div>
+                        )}
+
+                        {tab === 'rules' && (<div><div className="flex bg-slate-100 p-1 rounded-xl mb-4 overflow-x-auto no-scrollbar font-bold">{RULE_CATEGORIES.map(c=>(<button key={c} onClick={()=>setSubCat(c)} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-bold ${subCat===c?'bg-white text-orange-600 shadow-sm':'text-slate-400'}`}>{c}</button>))}</div><UniversalListManager docPath={`rules/${subCat}`} items={rulesData[subCat] || []} triggerNotify={triggerNotify} /></div>)}
 
                         {tab === 'schedules' && (
                             <div className="glass-panel p-6 rounded-[2.5rem] space-y-4 bg-white border border-slate-100 shadow-sm font-bold">
@@ -538,6 +566,25 @@
                                         }); }; r.readAsDataURL(f);}}}/></label>
                                 </div>
                                 <div className="space-y-3 mt-4 font-bold">{(standards[selectedZone] || []).map((item, i) => (<div key={item.id} className="bg-white p-3 rounded-2xl border border-slate-100 flex gap-4 items-start shadow-sm shadow-inner"><img src={item.url} className="w-16 h-16 rounded-xl object-cover" /><div className="flex-1 text-left text-xs font-bold font-medium font-bold font-bold">{item.note || "無說明"}</div><button onClick={()=>{db.collection(getPublicPath('standards_items')).doc(item.id).delete();}} className="p-2 text-slate-300 hover:text-red-500 transition-all font-bold font-bold"><Icon name="x" size={14}/></button></div>))}</div>
+                            </div>
+                        )}
+
+                        {tab === 'sign' && (
+                            <div className="space-y-4">
+                                <div className="flex bg-slate-100 p-1 rounded-xl mb-4 overflow-x-auto no-scrollbar font-bold">
+                                    {RULE_CATEGORIES.map(c => (<button key={c} onClick={() => setSignSubCat(c)} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-bold transition-all ${signSubCat === c ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>{c}</button>))}
+                                </div>
+                                <div className="space-y-3">
+                                    {signatures.filter(s => s.category === `守則簽署 - ${signSubCat}`).map((s, i) => (
+                                        <div key={i} className="bg-white p-5 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col gap-4 mb-3 text-left shadow-orange-50/5">
+                                            <div className="flex justify-between items-start font-bold">
+                                                <div><p className="font-black text-slate-800 text-sm font-bold font-bold font-bold">{s.userName}</p><p className="text-[9px] text-blue-500 uppercase font-bold font-bold font-bold">{s.category}</p></div>
+                                                <p className="text-[8px] text-slate-300 font-bold font-bold font-bold font-bold">{new Date(s.timestamp).toLocaleString()}</p>
+                                            </div>
+                                            <img src={s.signature} className="w-full h-32 object-contain bg-slate-50 border rounded-xl shadow-inner font-bold" />
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -603,6 +650,7 @@
                     const hours = now.getHours(); const mins = now.getMinutes(); const secs = now.getSeconds();
                     const currentKey = getBusinessCycleKey();
 
+                    // 1. 每天晚上 10:10 提醒上傳（若未完成）
                     if (hours === 22 && mins === 10 && secs === 0 && !sentAlerts.current.reminder) {
                         if (completedZones.length < ZONES.length) {
                             triggerLineAlert("REMINDER");
@@ -610,6 +658,7 @@
                         sentAlerts.current.reminder = true;
                     }
 
+                    // 2. 晚上 10:30 通知尚未完成的崗位清單
                     if (hours === 22 && mins === 30 && secs === 0 && !sentAlerts.current.missing) {
                         if (completedZones.length < ZONES.length) {
                             const missing = ZONES.filter(z => !completedZones.includes(z.id)).map(z => z.name);
@@ -618,6 +667,7 @@
                         sentAlerts.current.missing = true;
                     }
 
+                    // 換日重置觸發狀態
                     if (hours === 0 && mins === 0) sentAlerts.current = { reminder: false, missing: false };
 
                     db.doc(getPublicPath('system/progress')).get().then(doc => {
@@ -634,6 +684,13 @@
                     db.collection(getPublicPath('users')).onSnapshot(s => {
                         const allUsers = s.docs.map(d => d.data());
                         setUsers(allUsers);
+                        if (currentUser) {
+                            const updated = allUsers.find(u => u.phone === currentUser.phone);
+                            if (updated && updated.status !== currentUser.status) {
+                                setCurrentUser(updated);
+                                localStorage.setItem('k_active_user', JSON.stringify(updated));
+                            }
+                        }
                     }, errHandler),
                     db.doc(getPublicPath('system/progress')).onSnapshot(d => d.exists && setCompletedZones(d.data().completedZones || []), errHandler),
                     db.collection(getPublicPath('standards_items')).onSnapshot(snapshot => { 
@@ -646,13 +703,23 @@
                         Object.keys(m).forEach(k => m[k].sort((a,b) => (a.timestamp || 0) - (b.timestamp || 0)));
                         setStandards(m); 
                     }, errHandler),
+                    db.doc(getPublicPath('system/onboarding_list')).onSnapshot(d => d.exists && setOnboardingData(p => ({...p, list: d.data().items})), errHandler),
+                    db.doc(getPublicPath('system/onboarding_parking')).onSnapshot(d => d.exists && setOnboardingData(p => ({...p, parking: d.data().items})), errHandler),
+                    db.doc(getPublicPath('system/onboarding')).onSnapshot(d => d.exists && setOnboardingData(p => ({...p, ...d.data()})), errHandler),
+                    db.doc(getPublicPath('system/benefits_eval')).onSnapshot(d => d.exists && setBenefitsData(p => ({...p, evaluation: d.data().items})), errHandler),
+                    db.doc(getPublicPath('system/benefits_welfare')).onSnapshot(d => d.exists && setBenefitsData(p => ({...p, welfare: d.data().items})), errHandler),
+                    db.doc(getPublicPath('system/menu_list')).onSnapshot(d => d.exists && setMenuData({items: d.data().items}), errHandler),
                     db.doc(getPublicPath('system/announcements_list')).onSnapshot(d => d.exists && setAnnouncements(d.data().items || []), errHandler),
                     db.doc(getPublicPath('system/ticker')).onSnapshot(d => d.exists && setTickerText(d.data().text || ''), errHandler),
+                    db.collection(getPublicPath('signatures')).onSnapshot(s => setSignatures(s.docs.map(d => d.data()).sort((a,b)=>b.timestamp-a.timestamp)), errHandler),
                     db.collection(getPublicPath('schedules_links')).onSnapshot(snapshot => {
                         const links = {}; snapshot.forEach(doc => links[doc.id] = doc.data().url);
                         setSchedules(links);
                     }, errHandler)
                 ];
+                RULE_CATEGORIES.forEach(cat => {
+                    subs.push(db.doc(getPublicPath(`rules/${cat}`)).onSnapshot(d => d.exists && setRulesData(prev => ({ ...prev, [cat]: d.data().items || [] })), errHandler));
+                });
                 return () => { clearInterval(interval); subs.forEach(un => un()); };
             }, [user, currentUser, completedZones.length]);
 
@@ -675,6 +742,7 @@
                                         <div className="bg-slate-100 h-3.5 rounded-full overflow-hidden border shadow-inner border-slate-50">
                                             <div className="h-full bg-gradient-to-r from-orange-400 to-orange-600 transition-all duration-700 ease-out shadow-[0_0_10px_rgba(249,115,22,0.3)]" style={{ width: `${progressPercent}%` }}></div>
                                         </div>
+                                        <p className="text-[9px] text-slate-400 font-bold mt-4 text-center uppercase tracking-widest opacity-60 font-bold uppercase">點擊進入巡視詳細崗位</p>
                                     </div>
                                     <section>
                                         <div className="flex items-center gap-2 mb-4 px-2 font-black text-slate-400 uppercase tracking-widest text-[10px] uppercase font-bold font-bold"><Icon name="bell" size={18} className="text-orange-500 font-bold" /><span>公告欄</span></div>
@@ -688,15 +756,62 @@
                                         </div>
                                     </section>
                                     <section className="grid grid-cols-2 gap-4 font-bold">
+                                        <NavCard title="入職相關" onClick={() => setCurrentPage('onboarding')} colorClass="bg-blue-50/50" iconName="user-plus" />
+                                        <NavCard title="員工守則" onClick={() => setCurrentPage('unifiedRules')} colorClass="bg-emerald-50/50" iconName="book-open" />
+                                        <NavCard title="薪資福利" onClick={() => setCurrentPage('benefits')} colorClass="bg-rose-50/50" iconName="wallet" />
                                         <NavCard title="本季菜單" onClick={() => setCurrentPage('menu')} colorClass="bg-yellow-50/50" iconName="utensils" />
                                         <NavCard title="每月班表" onClick={() => setCurrentPage('schedule')} colorClass="bg-indigo-50/50" iconName="calendar" />
+                                        <NavCard title="叫貨系統" onClick={() => setCurrentPage('ordering')} colorClass="bg-slate-50" iconName="package-plus" />
                                     </section>
                                 </div>
                             </div>
                         );
                     }
+                    case 'ordering': return (<div className="p-10 pt-32 text-center h-screen space-y-8 page-enter font-bold"><div className="bg-white w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto shadow-lg shadow-orange-50/5 shadow-sm"><Icon name="package-search" size={48} className="text-slate-400 animate-pulse font-bold" /></div><div className="space-y-2 text-center px-6 font-bold"><h3 className="text-2xl font-black text-slate-800 tracking-tighter uppercase font-bold">叫貨系統</h3><p className="text-slate-500 text-sm font-bold leading-relaxed font-bold">功能規劃中。</p></div><button onClick={()=>setCurrentPage('home')} className="text-slate-400 font-bold border-b border-slate-200 pb-1 text-sm uppercase active:text-orange-500 transition-all font-bold">返回首頁</button></div>);
+                    case 'onboarding': return (<div className="p-4 space-y-4 page-enter text-left font-bold"><BackButton onClick={()=>setCurrentPage('home')} title="入職相關" /><SectionItem title="員工準備清單" iconName="list-checks" onClick={()=>setCurrentPage('onboard-list')} /><SectionItem title="停車資訊指引" iconName="car" onClick={()=>setCurrentPage('onboard-parking')} /><SectionItem title="上班動線引導" iconName="navigation" onClick={()=>setCurrentPage('workRoute')} /></div>);
+                    case 'onboard-list': return <ListDetailPage onBack={()=>setCurrentPage('onboarding')} title="準備清單" list={onboardingData?.list} />;
+                    case 'onboard-parking': return <ListDetailPage onBack={()=>setCurrentPage('onboarding')} title="停車資訊" list={onboardingData?.parking} />;
+                    case 'workRoute': return (
+                        <div className="p-4 space-y-8 page-enter text-left pb-10 font-bold">
+                            <BackButton onClick={()=>setCurrentPage('onboarding')} title="上班動線" />
+                            <div className="space-y-4">
+                                {[{l:'大眾運輸引導',u:onboardingData?.routeBusUrl, icon:'bus'}, {l:'自行前往引導',u:onboardingData?.routeCarUrl, icon:'car'}].map(x => (
+                                    <div key={x.l} onClick={() => x.u && window.open(x.u, '_blank')} className="glass-panel p-6 rounded-[2.5rem] bg-white border border-slate-100 shadow-sm flex items-center justify-between active:bg-slate-50 cursor-pointer group transition-all font-bold">
+                                        <div className="flex items-center gap-4 font-bold">
+                                            <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center shadow-inner font-bold"><Icon name={x.icon} size={22} className="font-bold" /></div>
+                                            <div><p className="text-[10px] font-black text-slate-400 uppercase mb-1 font-bold">Movement Guide</p><h3 className="text-sm font-black text-slate-800 uppercase tracking-tighter font-bold">{x.l}</h3></div>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-slate-300 group-active:text-orange-500 font-bold uppercase font-bold"><span className="text-[10px] font-black uppercase font-bold">查看影片</span><Icon name="chevron-right" size={18} className="font-bold" /></div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    );
+                    case 'benefits': return (<div className="p-4 space-y-4 page-enter text-left font-bold"><BackButton onClick={()=>setCurrentPage('home')} title="薪資福利" /><SectionItem title="考核加給標準" iconName="coins" onClick={()=>setCurrentPage('benefit-eval')} /><SectionItem title="員工相關福利" iconName="heart" onClick={()=>setCurrentPage('benefit-wel')} /></div>);
+                    case 'benefit-eval': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="考核標準" list={benefitsData?.evaluation} />;
+                    case 'benefit-wel': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="福利項目" list={benefitsData?.welfare} />;
+                    case 'menu': return <ListDetailPage onBack={()=>setCurrentPage('home')} title="本季菜單" list={menuData?.items} />;
+                    case 'schedule': return (
+                        <div className="p-4 space-y-6 page-enter text-left pb-20 font-bold">
+                            <BackButton onClick={()=>setCurrentPage('home')} title="每月班表" />
+                            <div className="space-y-4">
+                                {Object.entries(schedules).length > 0 ? Object.entries(schedules).sort((a,b)=>b[0].localeCompare(a[0])).map(([m, url]) => (
+                                    <div key={m} onClick={() => url && window.open(url, '_blank')} className="glass-panel p-6 rounded-[2rem] flex items-center justify-between bg-white shadow-sm active:scale-[0.98] transition-all cursor-pointer group shadow-sm font-bold">
+                                        <div className="flex items-center gap-4 font-bold">
+                                            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex flex-col items-center justify-center font-black uppercase tracking-tighter font-bold">
+                                                <span className="text-[14px] font-bold">{m.split('-')[1]}月</span>
+                                            </div>
+                                            <div><p className="text-[10px] font-black text-slate-400 uppercase leading-none mb-1 uppercase font-bold tracking-widest font-bold">Schedule Link</p><p className="text-sm font-black text-slate-800 uppercase tracking-tighter font-bold">{m.replace('-','年')}月 班表網址</p></div>
+                                        </div>
+                                        <Icon name="external-link" size={18} className="text-slate-300 group-active:text-indigo-500 font-bold" />
+                                    </div>
+                                )) : <div className="py-20 text-center glass-panel rounded-3xl bg-white text-slate-300 font-bold uppercase text-[10px] shadow-inner font-bold uppercase font-bold">尚未設定班表網址</div>}
+                            </div>
+                        </div>
+                    );
+                    case 'unifiedRules': return <UnifiedRulesPage rulesData={rulesData} onBack={()=>setCurrentPage('home')} user={currentUser} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />;
                     case 'inspection': return <InspectionPage onBack={()=>setCurrentPage('home')} standards={standards} completedZones={completedZones} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />;
-                    case 'admin': return <AdminPage onBack={()=>setCurrentPage('home')} onLogout={logout} announcements={announcements} schedules={schedules} standards={standards} users={users} triggerNotify={triggerNotify} getPublicPath={getPublicPath} tickerText={tickerText} setTickerText={setTickerText} />;
+                    case 'admin': return <AdminPage onBack={()=>setCurrentPage('home')} onLogout={logout} announcements={announcements} schedules={schedules} standards={standards} users={users} triggerNotify={triggerNotify} menu={menuData} onboarding={onboardingData} benefits={benefitsData} rulesData={rulesData} getPublicPath={getPublicPath} signatures={signatures} tickerText={tickerText} setTickerText={setTickerText} />;
                     case 'annDetail': return (<div className="p-4 page-enter text-left pb-10 font-bold"><BackButton onClick={()=>setCurrentPage('home')} title="公告詳情" /><div className="glass-panel p-8 rounded-[3rem] border-l-4 border-orange-500 bg-white shadow-2xl shadow-orange-500/10 font-bold"><h1 className="text-2xl font-black mb-2 text-slate-800 leading-tight font-bold">{selectedAnn?.title}</h1><p className="text-[10px] text-slate-400 mb-8 pb-4 border-b uppercase tracking-widest font-bold uppercase">{new Date(selectedAnn?.timestamp).toLocaleDateString()}</p><div className="text-sm text-black leading-relaxed font-bold">{selectedAnn?.content}</div></div><button onClick={()=>setCurrentPage('home')} className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl uppercase tracking-widest shadow-xl mt-4 active:scale-95 transition-all font-bold">返回首頁</button></div>);
                     default: return <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4 font-bold uppercase tracking-widest"><Icon name="loader-2" className="animate-spin text-orange-500" size={32}/> 系統啟動中...</div>;
                 }
@@ -745,9 +860,3 @@
     </script>
 </body>
 </html>
-
-
-
-
-
-
