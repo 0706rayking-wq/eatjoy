@@ -317,6 +317,10 @@
         const UnifiedRulesPage = ({ rulesData, onBack, user, triggerNotify, getPublicPath }) => {
             const [activeTab, setActiveTab] = useState('廚房規則');
             const [signedTabs, setSignedTabs] = useState({});
+            
+            useEffect(() => {
+                window.scrollTo({ top: 0, behavior: 'instant' });
+}, []);
             const handleSign = async (img) => {
                 if (!user) return;
                 try {
@@ -860,6 +864,7 @@
     </script>
 </body>
 </html>
+
 
 
 
