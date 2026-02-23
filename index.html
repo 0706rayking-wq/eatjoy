@@ -1446,6 +1446,22 @@
                             <div className="page-enter pb-10">
                                 <Ticker text={tickerText} />
                                 <div className="p-4 space-y-6 mt-2 text-left font-bold">
+                                    
+                                    {/* 最高權限專屬：首頁快速切換分店 */}
+                                    {isSuperAdmin && (
+                                        <div className="bg-slate-900 text-white p-4 rounded-[2rem] flex items-center justify-between shadow-xl mb-2">
+                                            <div>
+                                                <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">目前檢視分店 (最高權限)</p>
+                                                <select value={currentBranch} onChange={e => setCurrentBranch(e.target.value)} className="bg-transparent border-none text-xl font-black outline-none appearance-none cursor-pointer text-white">
+                                                    {globalBranches.map(b => <option key={b} value={b} className="text-slate-900">{b}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="bg-brand-red w-10 h-10 rounded-xl flex items-center justify-center shadow-lg">
+                                                <Icon name="building-2" size={20} className="text-white"/>
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <div onClick={() => setCurrentPage('inspection')} className="glass-panel p-6 rounded-[2.5rem] border-l-4 border-l-brand-red bg-white shadow-sm active-scale cursor-pointer">
                                         <div className="flex justify-between items-end mb-4 px-1"><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">巡視進度 (20:00刷新)</p><h3 className="text-lg font-black text-slate-800 leading-tight">{completedZones.length >= branchZones.length && branchZones.length > 0 ? "✅ 全數巡視完成" : `進度：${completedZones.length} / ${branchZones.length || 1}`}</h3></div><span className="text-sm font-black text-brand-red">{progressPercent}%</span></div>
                                         <div className="bg-slate-100 h-3.5 rounded-full overflow-hidden border shadow-inner"><div className="h-full bg-gradient-to-r from-[#c22946] to-brand-red transition-all duration-700" style={{ width: `${progressPercent}%` }}></div></div>
