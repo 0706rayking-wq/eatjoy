@@ -3,9 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kitchen OS - 企業版</title>
+    <title>EATJOY OS - 企業完整整合版</title>
     <!-- 引入核心庫 -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            red: '#9b1c31', // 主色：深酒紅
+                            dark: '#821628', // 互動深色
+                            light: '#f8fafc'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -20,8 +35,7 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         :root { 
-            --brand-orange: #f97316; 
-            --bg-light: #fff5f5; 
+            --bg-light: #f8fafc; 
         }
         body { 
             font-family: 'Noto Sans TC', sans-serif; 
@@ -37,16 +51,30 @@
         .toast-enter { animation: slideDown 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28); }
         @keyframes slideDown { from { opacity: 0; transform: translate(-50%, -100%); } to { opacity: 1; transform: translate(-50%, 0); } }
         .glass-panel { 
-            background: rgba(255, 255, 255, 0.9); 
+            background: rgba(255, 255, 255, 0.95); 
             backdrop-filter: blur(12px); 
-            border: 1px solid rgba(255, 255, 255, 0.5); 
-            box-shadow: 0 4px 15px -3px rgba(0, 0, 0, 0.04); 
+            border: 1px solid rgba(255, 255, 255, 0.8); 
+            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05); 
         }
-        .input-light { background: #ffffff; border: 1px solid rgba(0, 0, 0, 0.1); color: #1e293b; }
+        .input-light { background: #ffffff; border: 1px solid #e2e8f0; color: #1e293b; transition: all 0.2s; }
+        .input-light:focus { border-color: #9b1c31; outline: none; box-shadow: 0 0 0 3px rgba(155, 28, 49, 0.1); }
         .ticker-wrap { overflow: hidden; white-space: nowrap; }
         .ticker-move { display: inline-block; animation: ticker 25s linear infinite; }
         @keyframes ticker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
         .signature-canvas { border: 2px dashed #cbd5e1; background: #fff; cursor: crosshair; touch-action: none; border-radius: 1.5rem; width: 100%; height: 200px; }
+        
+        /* 點貨系統進階樣式 */
+        .active-scale:active { transform: scale(0.95); }
+        .drag-ghost { opacity: 0.2; transform: scale(0.95); border: 2px dashed #9b1c31 !important; background-color: #fff1f2 !important; }
+        .drag-handle { cursor: grab; }
+        .drag-handle:active { cursor: grabbing; }
+        .btn-touch { min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
+        
+        .editable-order-text {
+            background-color: #1e293b; color: #f8fafc; font-family: ui-monospace, monospace;
+            line-height: 1.625; width: 100%; border-radius: 1.5rem; padding: 1.25rem; resize: none; outline: none; border: 2px solid transparent; transition: border-color 0.2s;
+        }
+        .editable-order-text:focus { border-color: #9b1c31; }
     </style>
 </head>
 <body class="pb-12">
@@ -72,7 +100,7 @@
         const auth = firebase.auth();
         const getPublicPath = (col) => `artifacts/${appIdGlobal}/public/data/${col}`;
 
-        const ZONES = [
+        const DEFAULT_ZONES = [
             { id: 'beverage', name: '飲調區' }, { id: 'light-meal', name: '輕食區' },
             { id: 'seafood', name: '海鮮區' }, { id: 'vegetable', name: '蔬菜區' },
             { id: 'meat', name: '切肉區' }, { id: 'cold-platter', name: '冷盤區' },
@@ -81,7 +109,26 @@
 
         const RULE_CATEGORIES = ['廚房規則', '食品衛生安全', '設備操作安全', '出缺勤規範'];
 
-        // --- 工具與推播函式 ---
+        const TEMPLATE_INGREDIENTS = [
+            { id: 1001, name: "高麗菜", vendor: "鑫羿", unit: "件", zone: "菜區" },
+            { id: 1002, name: "黑木耳", vendor: "大台北", unit: "盒", zone: "菜區" },
+            { id: 2001, name: "鱸魚", vendor: "元家", unit: "箱", zone: "海鮮" },
+            { id: 3001, name: "豆漿", vendor: "美食家", unit: "籃", zone: "湯區" }
+        ];
+
+        const INITIAL_ORDER_ZONES = [
+            { name: "菜區", icon: 'Carrot', color: "bg-emerald-500" },
+            { name: "海鮮", icon: 'Fish', color: "bg-blue-500" },
+            { name: "湯區", icon: 'Soup', color: "bg-[#9b1c31]" },
+            { name: "熟食", icon: 'UtensilsCrossed', color: "bg-rose-500" },
+            { name: "冷台", icon: 'IceCream', color: "bg-cyan-500" },
+            { name: "飲調", icon: 'Coffee', color: "bg-amber-600" },
+            { name: "輕食區", icon: 'Timer', color: "bg-pink-500" }
+        ];
+
+        const DEFAULT_UNITS = ["件", "箱", "包", "斤", "顆", "條", "罐", "桶", "籃", "袋", "捲", "盒", "兩", "串", "瓶", "滿", "組"];
+
+        // --- 工具函式 ---
         const compressImage = (base64Str, maxWidth = 800, quality = 0.5) => {
             return new Promise((resolve) => {
                 const img = new Image();
@@ -98,12 +145,9 @@
             });
         };
 
-        // --- 重要：請將此處更換為你在 GAS 部署後獲得的網址 ---
-        const GAS_BRIDGE_URL = "https://script.google.com/macros/s/AKfycby7V7_BuzJKStkjE2te5mIeLFSQfTBfPGtb0nz7SCmCO0APcziR-ip3AEtRYrn4psW_/exec";
-
         const triggerLineAlert = async (type, payload = {}) => {
             try {
-                await fetch(GAS_BRIDGE_URL, {
+                await fetch("https://script.google.com/macros/s/AKfycby7V7_BuzJKStkjE2te5mIeLFSQfTBfPGtb0nz7SCmCO0APcziR-ip3AEtRYrn4psW_/exec", {
                     method: 'POST',
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
@@ -112,15 +156,7 @@
             } catch (e) { console.error("LINE 推播發送失敗", e); }
         };
 
-        const getBusinessCycleKey = () => {
-            const now = new Date();
-            const cycleDate = new Date(now);
-            if (now.getHours() < 20) cycleDate.setDate(now.getDate() - 1);
-            return cycleDate.toISOString().split('T')[0]; 
-        };
-
-        // --- 2. 基礎組件 ---
-
+        // --- 基礎組件 ---
         const Icon = ({ name, size = 20, className = "" }) => {
             const iconRef = useRef(null);
             useEffect(() => {
@@ -135,6 +171,19 @@
             return <span ref={iconRef} className="inline-flex items-center justify-center"></span>;
         };
 
+        const OrderSymbolIcon = ({ name, className = "" }) => {
+            const symbols = {
+                "ChevronLeft": "chevron-left", "ChevronRight": "chevron-right", "Plus": "plus", "Minus": "minus", "Settings": "settings",
+                "Trash2": "trash-2", "X": "x", "Search": "search", "Share2": "share-2", "ClipboardCheck": "clipboard-check",
+                "Package": "package", "ArrowRight": "arrow-right", "GripVertical": "grip-vertical", "CheckCircle2": "check-circle-2",
+                "Layers": "layers", "Filter": "filter", "Building2": "building-2", "LayoutGrid": "layout-grid", "Edit": "edit-3",
+                "Chart": "bar-chart-3", "History": "history", "Carrot": "carrot", "Fish": "fish", "Soup": "soup",
+                "UtensilsCrossed": "utensils-crossed", "IceCream": "ice-cream", "Coffee": "coffee", "Timer": "timer",
+                "Calendar": "calendar"
+            };
+            return <Icon name={symbols[name] || "help-circle"} className={className} />;
+        };
+
         const ChefHatIcon = ({ size = 24 }) => (
             <svg viewBox="0 0 24 24" width={size} height={size} stroke="currentColor" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><line x1="6" y1="17" x2="18" y2="17"/>
@@ -144,8 +193,8 @@
         const Ticker = ({ text }) => (
             <div className="bg-slate-900 text-white py-2.5 px-4 ticker-wrap">
                 <div className="ticker-move flex gap-8 font-bold text-[11px] uppercase tracking-wider items-center">
-                    <span className="flex items-center gap-2 whitespace-nowrap"><span className="text-orange-500">●</span> {text || "歡迎使用 Kitchen OS 廚房管理系統 ... "}</span>
-                    <span className="flex items-center gap-2 whitespace-nowrap"><span className="text-orange-500">●</span> {text || "歡迎使用 Kitchen OS 廚房管理系統 ... "}</span>
+                    <span className="flex items-center gap-2 whitespace-nowrap"><span className="text-brand-red">●</span> {text || "歡迎使用 EATJOY OS 系統 ... "}</span>
+                    <span className="flex items-center gap-2 whitespace-nowrap"><span className="text-brand-red">●</span> {text || "歡迎使用 EATJOY OS 系統 ... "}</span>
                 </div>
             </div>
         );
@@ -159,7 +208,7 @@
 
         const SectionItem = ({ title, iconName, onClick }) => (
             <div onClick={onClick} className="glass-panel p-6 rounded-[2rem] flex items-center justify-between active:bg-slate-50 cursor-pointer group transition-all mb-3 text-left bg-white shadow-sm">
-                <div className="flex items-center gap-4 text-slate-400 group-active:text-orange-500 font-bold">
+                <div className="flex items-center gap-4 text-slate-400 group-active:text-brand-red font-bold">
                     {iconName && <Icon name={iconName} size={18} />}
                     <span className="text-slate-800 text-sm font-bold leading-none">{title}</span>
                 </div>
@@ -175,12 +224,12 @@
         );
 
         const RuleStandardBlock = ({ id, title, desc, img }) => (
-            <div className="glass-panel rounded-3xl p-6 border border-slate-100 mb-4 bg-white shadow-sm flex flex-col gap-4 text-left shadow-sm">
+            <div className="glass-panel rounded-3xl p-6 border border-slate-100 mb-4 bg-white shadow-sm flex flex-col gap-4 text-left">
                 <div className="flex gap-4">
-                    <div className="w-9 h-9 bg-orange-50 text-orange-600 border border-orange-100 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 font-bold">{id}</div>
+                    <div className="w-9 h-9 bg-rose-50 text-brand-red border border-rose-100 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 font-bold">{id}</div>
                     <div className="space-y-1">
-                        <h3 className="font-bold text-blue-600 text-sm leading-tight font-black">{title}</h3>
-                        <p className="text-[10px] text-black leading-relaxed font-bold whitespace-pre-wrap">{desc}</p>
+                        <h3 className="font-bold text-slate-800 text-sm leading-tight font-black">{title}</h3>
+                        <p className="text-[10px] text-slate-600 leading-relaxed font-bold whitespace-pre-wrap">{desc}</p>
                     </div>
                 </div>
                 {img && <img src={img} className="w-full rounded-2xl border border-slate-100 shadow-inner object-cover max-h-64" alt="附圖" />}
@@ -191,25 +240,20 @@
             const [newT, setNewT] = useState(''); const [newC, setNewC] = useState(''); const [newI, setNewI] = useState(null);
             const addItem = async () => {
                 if (!newT.trim() || !newC.trim()) return triggerNotify("標題與內容不能為空", "error");
-                let imgToSave = newI;
-                if (newI) imgToSave = await compressImage(newI);
+                let imgToSave = newI; if (newI) imgToSave = await compressImage(newI);
                 const newItem = { id: crypto.randomUUID(), title: newT.trim(), content: newC.trim(), img: imgToSave, timestamp: Date.now() };
                 db.doc(getPublicPath(docPath)).set({ items: [...items, newItem] }).then(() => {
-                    // 自動發佈公告至 LINE
-                    if (docPath === 'system/announcements_list') triggerLineAlert("ANNOUNCEMENT", { title: newT, content: newC });
                     setNewT(''); setNewC(''); setNewI(null); triggerNotify("發佈成功", "success");
                 }).catch(() => triggerNotify("存檔失敗 (檔案太大)", "error"));
             };
-            const deleteItem = (id) => {
-                db.doc(getPublicPath(docPath)).set({ items: items.filter(i => i.id !== id) }).then(() => triggerNotify("項目已刪除", "info"));
-            };
+            const deleteItem = (id) => { db.doc(getPublicPath(docPath)).set({ items: items.filter(i => i.id !== id) }).then(() => triggerNotify("項目已刪除", "info")); };
             return (
                 <div className="space-y-4">
-                    <div className="glass-panel p-6 rounded-[2.5rem] space-y-4 bg-white shadow-sm shadow-orange-50/10">
-                        <input placeholder={titleLabel} value={newT} onChange={e=>setNewT(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none font-bold" />
-                        <textarea placeholder="詳細描述..." rows="3" value={newC} onChange={e=>setNewC(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm outline-none font-bold" />
+                    <div className="glass-panel p-6 rounded-[2.5rem] space-y-4 bg-white shadow-sm">
+                        <input placeholder={titleLabel} value={newT} onChange={e=>setNewT(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none" />
+                        <textarea placeholder="詳細描述..." rows="3" value={newC} onChange={e=>setNewC(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm outline-none" />
                         <label className="block w-full bg-slate-50 border border-slate-200 py-3 rounded-xl text-[10px] font-black text-center cursor-pointer">{newI ? "✅ 圖片已就緒" : "+ 上傳附圖"}<input type="file" className="hidden" accept="image/*" onChange={e=>{const file = e.target.files[0]; if (file) { const r=new FileReader(); r.onloadend=()=>setNewI(r.result); r.readAsDataURL(file); }}}/></label>
-                        <button onClick={addItem} className="w-full bg-orange-600 text-white font-black py-4 rounded-2xl shadow-lg uppercase active:scale-95 transition-all font-bold">發佈</button>
+                        <button onClick={addItem} className="w-full bg-brand-red text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all">發佈</button>
                     </div>
                     <div className="space-y-2">
                         {items.map((r) => (
@@ -218,6 +262,63 @@
                                 <button onClick={() => deleteItem(r.id)} className="text-slate-300 hover:text-red-500 p-1 transition-colors"><Icon name="trash-2" size={16} /></button>
                             </div>
                         ))}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 分店專用公告管理器 (支援已讀名單) ---
+        const AnnouncementAdminManager = ({ currentBranch, announcements, triggerNotify, getPublicPath }) => {
+            const [newT, setNewT] = useState('');
+            const [newC, setNewC] = useState('');
+            const [newI, setNewI] = useState(null);
+
+            const addItem = async () => {
+                if (!newT.trim() || !newC.trim()) return triggerNotify("標題與內容不能為空", "error");
+                let imgToSave = newI;
+                if (newI) imgToSave = await compressImage(newI);
+                // 結構中加入 readBy 陣列
+                const newItem = { id: crypto.randomUUID(), title: newT.trim(), content: newC.trim(), img: imgToSave, timestamp: Date.now(), readBy: [] };
+                db.doc(getPublicPath(`announcements/branch_${currentBranch}`)).set({ items: [newItem, ...(announcements||[])] }).then(() => {
+                    setNewT(''); setNewC(''); setNewI(null); triggerNotify(`公告已發佈至 ${currentBranch}`, "success");
+                    triggerLineAlert("ANNOUNCEMENT", { title: newT.trim(), content: newC.trim() });
+                }).catch(() => triggerNotify("發佈失敗", "error"));
+            };
+
+            const deleteItem = (id) => {
+                db.doc(getPublicPath(`announcements/branch_${currentBranch}`)).set({ items: announcements.filter(i => i.id !== id) });
+            };
+
+            return (
+                <div className="space-y-4">
+                    <div className="glass-panel p-6 rounded-[2.5rem] space-y-4 bg-white shadow-sm">
+                        <h3 className="font-black text-slate-800 text-xs flex items-center gap-2 uppercase tracking-widest"><Icon name="edit" size={16} className="text-brand-red" /> 發佈分店公告 ({currentBranch})</h3>
+                        <input placeholder="公告標題" value={newT} onChange={e=>setNewT(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none" />
+                        <textarea placeholder="詳細描述..." rows="3" value={newC} onChange={e=>setNewC(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm outline-none" />
+                        <label className="block w-full bg-slate-50 border border-slate-200 py-3 rounded-xl text-[10px] font-black text-center cursor-pointer">{newI ? "✅ 圖片已就緒" : "+ 上傳附圖"}<input type="file" className="hidden" accept="image/*" onChange={e=>{const file = e.target.files[0]; if (file) { const r=new FileReader(); r.onloadend=()=>setNewI(r.result); r.readAsDataURL(file); }}}/></label>
+                        <button onClick={addItem} className="w-full bg-brand-red text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all">發佈至本分店</button>
+                    </div>
+                    <div className="space-y-3">
+                        {(announcements||[]).map((a) => (
+                            <div key={a.id} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm space-y-3 text-left">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <h4 className="font-black text-slate-800">{a.title}</h4>
+                                        <p className="text-[10px] text-slate-400 mt-1">{new Date(a.timestamp).toLocaleString()}</p>
+                                    </div>
+                                    <button onClick={() => deleteItem(a.id)} className="text-slate-300 hover:text-red-500"><Icon name="trash-2" size={18}/></button>
+                                </div>
+                                <div className="bg-slate-50 p-3 rounded-xl border shadow-inner">
+                                    <p className="text-[10px] font-black text-slate-500 mb-2 flex items-center gap-1"><Icon name="eye" size={12}/> 已讀取人員 ({a.readBy?.length || 0})</p>
+                                    <div className="flex flex-wrap gap-1">
+                                        {a.readBy && a.readBy.length > 0 ? a.readBy.map(name => (
+                                            <span key={name} className="text-[9px] bg-emerald-100 text-emerald-700 px-2 py-1 rounded-md font-bold">{name}</span>
+                                        )) : <span className="text-[10px] text-slate-400">尚未有人讀取</span>}
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                        {(announcements||[]).length === 0 && <p className="text-center text-slate-400 text-xs py-10">目前尚無分店公告</p>}
                     </div>
                 </div>
             );
@@ -250,54 +351,139 @@
             };
             return (
                 <div className="glass-panel p-6 rounded-[2.5rem] mt-8 bg-white border border-slate-200 text-center shadow-lg">
-                    <h4 className="font-black text-slate-800 mb-4 flex items-center justify-center gap-2 font-bold"><Icon name="pen-tool" size={18} className="text-orange-500" />確認閱讀完畢並簽名</h4>
+                    <h4 className="font-black text-slate-800 mb-4 flex items-center justify-center gap-2 font-bold"><Icon name="pen-tool" size={18} className="text-brand-red" />確認閱讀完畢並簽名</h4>
                     <canvas ref={canvasRef} width={600} height={300} className="signature-canvas mb-4 mx-auto shadow-inner" onMouseDown={startDrawing} onMouseMove={draw} onMouseUp={()=>setIsDrawing(false)} onMouseLeave={()=>setIsDrawing(false)} onTouchStart={startDrawing} onTouchEnd={()=>setIsDrawing(false)} onTouchMove={draw}></canvas>
                     <div className="flex gap-3">
                         <button onClick={() => canvasRef.current.getContext('2d').clearRect(0,0,600,300)} className="flex-1 py-3 rounded-xl bg-slate-100 text-slate-400 font-bold text-xs uppercase">重寫</button>
-                        <button onClick={() => onSave(canvasRef.current.toDataURL())} className="flex-[2] py-3 rounded-xl bg-orange-600 text-white font-black text-xs uppercase active:scale-95 transition-all">提交簽署</button>
+                        <button onClick={() => onSave(canvasRef.current.toDataURL())} className="flex-[2] py-3 rounded-xl bg-brand-red text-white font-black text-xs uppercase active:scale-95 transition-all">提交簽署</button>
                     </div>
                 </div>
             );
         };
 
-        // --- 3. 頁面組件 ---
+        // --- 4. 頁面功能組件 ---
 
-        const AuthPage = ({ users, setCurrentUser, setCurrentPage, setIsManager, triggerNotify, getPublicPath }) => {
-            const [phone, setPhone] = useState(''); const [name, setName] = useState(''); const [mode, setMode] = useState('login');
+        const AuthPage = ({ users, setCurrentUser, setCurrentPage, setIsManager, setIsSuperAdmin, setCurrentBranch, globalBranches, triggerNotify, getPublicPath }) => {
+            const [phone, setPhone] = useState(''); 
+            const [name, setName] = useState(''); 
+            const [role, setRole] = useState('正職人員'); 
+            const [mode, setMode] = useState('login'); 
             const [adminPass, setAdminPass] = useState('');
+            const [branch, setBranch] = useState(globalBranches[0] || '南港旗艦店');
+
+            useEffect(() => {
+                if(globalBranches.length > 0 && !globalBranches.includes(branch)) setBranch(globalBranches[0]);
+            }, [globalBranches]);
+
             const handleAuth = async () => {
                 if (mode === 'admin') {
-                    if (adminPass.toLowerCase() === 'eatjoy0706') { setIsManager(true); setCurrentPage('home'); triggerNotify("管理員模式啟動", "success"); }
-                    else alert('驗證碼錯誤'); return;
+                    if (adminPass.toLowerCase() === 'eatjoy07060112') { 
+                        setIsSuperAdmin(true);
+                        setIsManager(true); 
+                        setCurrentBranch(branch);
+                        setCurrentPage('home'); 
+                        triggerNotify("最高權限管理員模式啟動", "success"); 
+                    }
+                    else {
+                        triggerNotify("驗證碼錯誤", "error"); 
+                    }
+                    return;
                 }
-                if (!phone) return;
+                
+                if (!phone) {
+                    triggerNotify("請輸入手機號碼", "error");
+                    return;
+                }
+                
                 const existing = users.find(u => u.phone === phone);
+                
                 if (mode === 'register') {
-                    if (existing) return alert('此號碼已註冊過');
-                    await db.collection(getPublicPath('users')).doc(phone).set({ phone, name, status: 'pending' });
-                    triggerNotify("申請已提交，請聯絡主管", "info");
+                    if (!name) {
+                        triggerNotify("請輸入真實姓名", "error");
+                        return;
+                    }
+                    if (existing) {
+                        triggerNotify("此手機號碼已註冊過", "error");
+                        return;
+                    }
+                    await db.collection(getPublicPath('users')).doc(phone).set({ phone, name, status: 'pending', branch, role });
+                    triggerNotify(`申請已提交(${role})，請聯絡主管`, "info");
                 } else {
                     if (existing) { 
-                        setCurrentUser(existing); 
-                        localStorage.setItem('k_active_user', JSON.stringify(existing));
-                        if (existing.status === 'approved') { setCurrentPage('home'); triggerNotify(`歡迎回來, ${existing.name}`, "success"); } 
+                        if (existing.branch !== branch) {
+                            triggerNotify(`登入失敗：您的帳號隸屬於「${existing.branch}」，請選擇正確的分店。`, "error");
+                            return;
+                        }
+                        setCurrentUser(existing); localStorage.setItem('k_active_user', JSON.stringify(existing));
+                        if (existing.status === 'approved') { 
+                            if(existing.role === '主管') setIsManager(true);
+                            setCurrentBranch(existing.branch);
+                            setCurrentPage('home'); 
+                            triggerNotify(`歡迎回來, ${existing.name} (${existing.role})`, "success"); 
+                        } else {
+                            triggerNotify('帳號審核中，請聯繫主管核准', 'info');
+                        }
                     }
-                    else { alert('帳號不存在，請進行註冊'); setMode('register'); }
+                    else { 
+                        triggerNotify('帳號不存在，請先進行註冊', 'error'); 
+                        setMode('register'); 
+                    }
                 }
             };
+            
             return (
-                <div className="p-6 pt-20 text-center page-enter">
-                    <div className="bg-orange-500 w-20 h-20 rounded-[1.5rem] flex items-center justify-center mx-auto mb-6 text-white shadow-xl shadow-orange-100 shadow-sm"><ChefHatIcon size={40} /></div>
-                    <h2 className="text-3xl font-black text-slate-800 mb-8 tracking-tighter uppercase text-center leading-none font-bold uppercase">Kitchen OS</h2>
-                    <div className="glass-panel p-8 rounded-[3rem] space-y-5 shadow-xl shadow-orange-50/5">
-                        <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 shadow-inner">
-                            <button onClick={() => setMode('login')} className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all ${mode === 'login' ? 'bg-white shadow-sm text-orange-600' : 'text-slate-400'}`}>登入</button>
-                            <button onClick={() => setMode('register')} className={`flex-1 py-3 rounded-xl font-bold text-xs transition-all ${mode === 'register' ? 'bg-white shadow-sm text-orange-600' : 'text-slate-400'}`}>註冊</button>
+                <div className="p-6 pt-16 text-center page-enter min-h-screen flex flex-col items-center justify-center -mt-20">
+                    <div className="bg-brand-red w-[72px] h-[72px] rounded-[1.5rem] flex items-center justify-center mx-auto mb-6 text-white shadow-xl shadow-brand-red/20">
+                        <ChefHatIcon size={36} />
+                    </div>
+                    
+                    <h2 className="text-[28px] font-black text-[#1e293b] mb-10 tracking-tight uppercase">
+                        EATJOY <span className="text-brand-red">OS</span>
+                    </h2>
+                    
+                    <div className="glass-panel p-6 sm:p-8 rounded-[2rem] w-full max-w-[340px] border border-slate-100 bg-white">
+                        <div className="flex bg-[#f1f5f9] p-1.5 rounded-[1rem] mb-6 border border-slate-100">
+                            <button onClick={() => setMode('login')} className={`flex-1 py-2.5 rounded-[0.85rem] font-bold text-xs transition-all ${mode === 'login' ? 'bg-white shadow-sm text-brand-red' : 'text-slate-400'}`}>登入</button>
+                            <button onClick={() => setMode('register')} className={`flex-1 py-2.5 rounded-[0.85rem] font-bold text-xs transition-all ${mode === 'register' ? 'bg-white shadow-sm text-brand-red' : 'text-slate-400'}`}>註冊</button>
+                            <button onClick={() => setMode('admin')} className={`flex-1 py-2.5 rounded-[0.85rem] font-bold text-xs transition-all ${mode === 'admin' ? 'bg-white shadow-sm text-brand-red' : 'text-slate-400'}`}>管理員</button>
                         </div>
-                        {mode === 'register' && <input placeholder="真實姓名" className="w-full input-light p-5 rounded-2xl outline-none font-bold text-center border-0 shadow-inner font-bold" value={name} onChange={e => setName(e.target.value)} />}
-                        {mode === 'admin' ? <input type="password" placeholder="主管驗證碼" className="w-full input-light p-5 rounded-2xl outline-none font-bold text-center tracking-[0.5em] border-0 shadow-inner font-bold" value={adminPass} onChange={e => setAdminPass(e.target.value)} /> : <input placeholder="手機號碼" className="w-full input-light p-5 rounded-2xl outline-none font-bold tracking-widest text-center border-0 shadow-inner font-bold" value={phone} onChange={e => setPhone(e.target.value)} />}
-                        <button onClick={handleAuth} className="w-full bg-orange-600 text-white font-black py-5 rounded-2xl shadow-lg uppercase text-sm shadow-orange-100 active:scale-95 transition-all font-bold uppercase">進入系統</button>
-                        <button onClick={() => setMode(mode === 'admin' ? 'login' : 'admin')} className="text-slate-400 font-bold text-[10px] uppercase border-b border-slate-200 pt-4 active:text-orange-500 font-bold uppercase">主管專屬入口</button>
+                        
+                        <div className="space-y-4">
+                            <div className="relative">
+                                <select value={branch} onChange={e => setBranch(e.target.value)} className="w-full input-light p-4 rounded-xl outline-none font-bold text-sm appearance-none text-slate-700 px-5 text-left bg-white">
+                                    {globalBranches.map(b => <option key={b} value={b}>{b}</option>)}
+                                </select>
+                                <Icon name="chevron-down" size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-800 pointer-events-none" />
+                            </div>
+
+                            {mode === 'register' && (
+                                <>
+                                    <input placeholder="真實姓名" className="w-full input-light p-4 rounded-xl outline-none font-bold text-sm px-5" value={name} onChange={e => setName(e.target.value)} />
+                                    <div className="relative">
+                                        <select value={role} onChange={e => setRole(e.target.value)} className="w-full input-light p-4 rounded-xl outline-none font-bold text-sm appearance-none text-slate-700 px-5 text-left bg-white">
+                                            <option value="正職人員">正職人員</option>
+                                            <option value="計時人員">計時人員</option>
+                                            <option value="主管">主管 (需最高權限審核)</option>
+                                        </select>
+                                        <Icon name="chevron-down" size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-800 pointer-events-none" />
+                                    </div>
+                                </>
+                            )}
+                            
+                            {mode === 'admin' ? (
+                                <input type="password" placeholder="最高權限驗證碼" className="w-full input-light p-4 rounded-xl outline-none font-bold text-sm px-5 tracking-[0.2em]" value={adminPass} onChange={e => setAdminPass(e.target.value)} />
+                            ) : (
+                                <input placeholder="手機號碼 (登入帳號)" className="w-full input-light p-4 rounded-xl outline-none font-bold text-sm px-5 placeholder:text-slate-400" value={phone} onChange={e => setPhone(e.target.value)} />
+                            )}
+                            
+                            <button onClick={handleAuth} className="w-full bg-brand-red text-white font-black py-4 rounded-xl shadow-lg shadow-brand-red/20 active:scale-95 transition-all text-sm mt-2 tracking-widest">
+                                進入系統
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div className="absolute bottom-8 w-full text-center left-0">
+                        <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">© EATJOY TECH MANAGEMENT</p>
                     </div>
                 </div>
             );
@@ -309,24 +495,18 @@
                 <div className="space-y-4">
                     {list && list.length > 0 ? list.map((item, idx) => (
                         <RuleStandardBlock key={item.id || idx} id={idx + 1} title={item.title} desc={item.content} img={item.img} />
-                    )) : <div className="py-20 text-center glass-panel rounded-[3rem] border border-slate-100 bg-white shadow-inner text-slate-300 font-bold uppercase text-[10px] uppercase font-bold shadow-sm">目前尚未發佈內容</div>}
+                    )) : <div className="py-20 text-center glass-panel rounded-[3rem] border border-slate-100 bg-white text-slate-300 font-bold uppercase text-[10px]">目前尚未發佈內容</div>}
                 </div>
             </div>
         );
 
-        const UnifiedRulesPage = ({ rulesData, onBack, user, triggerNotify, getPublicPath }) => {
+        const UnifiedRulesPage = ({ rulesData, onBack, user, currentBranch, triggerNotify, getPublicPath }) => {
             const [activeTab, setActiveTab] = useState('廚房規則');
             const [signedTabs, setSignedTabs] = useState({});
-            
-            useEffect(() => {
-                window.scrollTo({ top: 0, behavior: 'instant' });
-}, []);
             const handleSign = async (img) => {
                 if (!user) return;
                 try {
-                    await db.collection(getPublicPath('signatures')).add({
-                        userName: user.name, phone: user.phone, category: `守則簽署 - ${activeTab}`, signature: img, timestamp: Date.now()
-                    });
+                    await db.collection(getPublicPath('signatures')).add({ userName: user.name, phone: user.phone, branch: currentBranch, category: `守則簽署 - ${activeTab}`, signature: img, timestamp: Date.now() });
                     setSignedTabs(prev => ({ ...prev, [activeTab]: true }));
                     triggerNotify(`[${activeTab}] 簽名成功`, "success");
                 } catch (e) { triggerNotify("簽署失敗", "error"); }
@@ -335,59 +515,44 @@
                 <div className="page-enter pb-20 text-left">
                     <div className="p-4 border-b bg-white/80 backdrop-blur sticky top-[60px] z-40 shadow-sm">
                         <BackButton onClick={onBack} title="員工守則" />
-                        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 font-bold">
+                        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
                             {RULE_CATEGORIES.map(cat => (
-                                <button key={cat} onClick={() => setActiveTab(cat)} className={`shrink-0 px-5 py-2.5 rounded-2xl text-xs font-black border transition-all ${activeTab === cat ? 'bg-orange-500 text-white border-orange-500 shadow-md' : 'bg-white text-slate-400 border-slate-100'}`}>{cat}</button>
+                                <button key={cat} onClick={() => setActiveTab(cat)} className={`shrink-0 px-5 py-2.5 rounded-2xl text-xs font-black border transition-all ${activeTab === cat ? 'bg-brand-red text-white border-brand-red shadow-md' : 'bg-white text-slate-400 border-slate-100'}`}>{cat}</button>
                             ))}
                         </div>
                     </div>
                     <div className="p-4 space-y-4">
-                        <h3 className="text-[10px] font-black text-orange-600 mb-4 pl-1 uppercase tracking-widest font-bold uppercase"><Icon name="bookmark" size={14} /> 當前分類：{activeTab}</h3>
+                        <h3 className="text-[10px] font-black text-brand-red mb-4 pl-1 uppercase tracking-widest"><Icon name="bookmark" size={14} /> 當前分類：{activeTab}</h3>
                         {rulesData[activeTab] && rulesData[activeTab].length > 0 ? rulesData[activeTab].map((item, idx) => (
                             <RuleStandardBlock key={item.id || idx} id={idx + 1} title={item.title} desc={item.content} img={item.img} />
-                        )) : <div className="p-20 text-center text-slate-300 font-bold text-[10px] glass-panel rounded-3xl bg-white border border-slate-100 shadow-inner font-bold uppercase">內容讀取中...</div>}
-                        <div className="mt-12 border-t-2 border-dashed border-slate-200 pt-10">
-                            {!signedTabs[activeTab] ? <SignaturePad onSave={handleSign} /> : (
-                                <div className="glass-panel p-10 rounded-[3rem] bg-emerald-50 border-emerald-100 text-emerald-600 text-center font-bold shadow-sm shadow-emerald-500/5 font-bold"><Icon name="check-circle" size={48} className="mx-auto mb-2" /> 您已完成 [{activeTab}] 的簽署</div>
-                            )}
-                        </div>
+                        )) : <div className="p-20 text-center text-slate-300 font-bold text-[10px] glass-panel rounded-3xl bg-white border shadow-inner">內容讀取中...</div>}
+                        {!signedTabs[activeTab] ? <SignaturePad onSave={handleSign} /> : (
+                            <div className="glass-panel p-10 rounded-[3rem] bg-emerald-50 border-emerald-100 text-emerald-600 text-center font-bold shadow-sm"><Icon name="check-circle" size={48} className="mx-auto mb-2" /> 您已完成 [{activeTab}] 的簽署</div>
+                        )}
                     </div>
                 </div>
             );
         };
 
-        const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, getPublicPath }) => {
+        const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, branchZones, currentBranch, getPublicPath }) => {
             const [activeZone, setActiveZone] = useState(null);
             const [dailyPhotos, setDailyPhotos] = useState({});
             const [loading, setLoading] = useState(false);
             const [isSubmitted, setIsSubmitted] = useState(false);
 
             useEffect(() => {
-                const unsubscribe = db.collection(getPublicPath('daily_photos_items')).onSnapshot(snapshot => {
-                    const allPhotos = {}; 
-                    snapshot.forEach(doc => { 
-                        const data = doc.data();
-                        allPhotos[`${data.zoneId}_${data.itemIdx}`] = data.photo;
-                    });
+                const unsubscribe = db.collection(getPublicPath(`daily_photos_${currentBranch}`)).onSnapshot(snapshot => {
+                    const allPhotos = {}; snapshot.forEach(doc => { const data = doc.data(); allPhotos[`${data.zoneId}_${data.itemIdx}`] = data.photo; });
                     setDailyPhotos(allPhotos);
-                }, (e) => console.error("巡視照載入錯誤", e));
+                });
                 return () => unsubscribe();
-            }, []);
+            }, [currentBranch]);
 
             const handleFile = (e, idx) => {
                 const file = e.target.files[0]; if (!file) return;
-                const r = new FileReader();
-                r.onloadend = async () => {
+                const r = new FileReader(); r.onloadend = async () => {
                     const compressed = await compressImage(r.result, 800, 0.5);
-                    const zoneKey = activeZone.id;
-                    db.collection(getPublicPath('daily_photos_items'))
-                      .doc(`${zoneKey}_${idx}`)
-                      .set({ 
-                          photo: compressed, 
-                          zoneId: zoneKey,
-                          itemIdx: idx,
-                          timestamp: Date.now() 
-                      }).then(() => triggerNotify("實拍照已更新", "success"));
+                    db.collection(getPublicPath(`daily_photos_${currentBranch}`)).doc(`${activeZone.id}_${idx}`).set({ photo: compressed, zoneId: activeZone.id, itemIdx: idx, timestamp: Date.now() }).then(() => triggerNotify("實拍照已更新", "success"));
                 };
                 r.readAsDataURL(file);
             };
@@ -404,188 +569,761 @@
                 setTimeout(() => {
                     if (!completedZones.includes(activeZone.id)) {
                         const newCompleted = [...completedZones, activeZone.id];
-                        db.doc(getPublicPath('system/progress')).update({ completedZones: newCompleted }).then(() => { 
-                            // 檢測是否為今日最後一個完成的崗位，若是則通知主管
-                            if (newCompleted.length === ZONES.length) triggerLineAlert("COMPLETION"); 
-                        });
+                        db.doc(getPublicPath(`system/progress_${currentBranch}`)).set({ completedZones: newCompleted }, {merge: true}).then(() => { if (newCompleted.length >= branchZones.length && branchZones.length > 0) triggerLineAlert("COMPLETION"); });
                     }
-                    setLoading(false);
-                    setIsSubmitted(true);
-                    triggerNotify("巡視結果提交成功", "success");
+                    setLoading(false); setIsSubmitted(true); triggerNotify("巡視結果提交成功", "success");
                 }, 800);
             };
 
             if(activeZone) return (
                 <div className="p-4 space-y-6 page-enter pb-24 text-left font-bold">
-                    <button onClick={()=>{setActiveZone(null);setIsSubmitted(false);}} className="p-3 bg-white rounded-2xl shadow-sm border active:scale-90 transition-all shadow-sm"><Icon name="arrow-left" size={20}/></button>
+                    <button onClick={()=>{setActiveZone(null);setIsSubmitted(false);}} className="p-3 bg-white rounded-2xl shadow-sm border active:scale-90 transition-all"><Icon name="arrow-left" size={20}/></button>
                     <div className="space-y-4">
                         {(standards[activeZone.id] || []).map((item, i) => (
                             <div key={i} className="glass-panel p-4 rounded-[2rem] border border-slate-100 bg-white">
-                                <p className="text-[11px] font-black text-slate-700 mb-3 bg-slate-50 p-3 rounded-xl flex items-center gap-2 border shadow-inner"><Icon name="info" size={14} className="text-orange-500" />要求：{item.note || "無說明"}</p>
+                                <p className="text-[11px] font-black text-slate-700 mb-3 bg-slate-50 p-3 rounded-xl flex items-center gap-2 border shadow-inner"><Icon name="info" size={14} className="text-brand-red" />要求：{item.note || "無說明"}</p>
                                 <div className="grid grid-cols-2 gap-3">
-                                    <div className="text-center">
-                                        <span className="text-[9px] font-black text-emerald-600 uppercase font-bold">標準照</span>
-                                        <img src={item.url} className="w-full aspect-square object-cover rounded-2xl border mt-2 shadow-sm shadow-inner" />
-                                    </div>
-                                    <div className="text-center">
-                                        <span className="text-[9px] font-black text-orange-600 uppercase font-bold">實拍照</span>
-                                        {dailyPhotos[`${activeZone.id}_${i}`] ? 
-                                            <div className="relative mt-2">
-                                                <img src={dailyPhotos[`${activeZone.id}_${i}`]} className="w-full aspect-square object-cover rounded-2xl border shadow-sm shadow-inner" />
-                                                <label className="absolute bottom-1 right-1 bg-white/80 p-1 rounded-lg cursor-pointer border border-slate-200"><Icon name="refresh-cw" size={12}/><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} /></label>
-                                            </div> : 
-                                            <label className="w-full aspect-square bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer transition-all active:bg-slate-100 uppercase">
-                                                <Icon name="plus" size={20} className="text-slate-300"/><span className="text-[8px] mt-1 text-slate-400">上傳</span><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} />
-                                            </label>
-                                        }
-                                    </div>
+                                    <div className="text-center"><span className="text-[9px] font-black text-emerald-600">標準照</span><img src={item.url} className="w-full aspect-square object-cover rounded-2xl border mt-2 shadow-inner" /></div>
+                                    <div className="text-center"><span className="text-[9px] font-black text-brand-red">實拍照</span>{dailyPhotos[`${activeZone.id}_${i}`] ? <div className="relative mt-2"><img src={dailyPhotos[`${activeZone.id}_${i}`]} className="w-full aspect-square object-cover rounded-2xl border" /><label className="absolute bottom-1 right-1 bg-white/80 p-1 rounded-lg cursor-pointer border"><Icon name="refresh-cw" size={12}/><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} /></label></div> : <label className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer active:bg-slate-100"><Icon name="plus" size={20} className="text-slate-300"/><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} /></label>}</div>
                                 </div>
                             </div>
                         ))}
-                        {(standards[activeZone.id] || []).length === 0 && (
-                            <div className="text-center py-10 text-slate-400 text-xs italic">此崗位目前無設定檢查標準照</div>
-                        )}
                     </div>
-
                     {!isSubmitted ? (
                         <div className="space-y-3">
-                            {!isAllUploaded && (
-                                <p className="text-[10px] text-red-500 font-bold text-center animate-pulse"><Icon name="alert-circle" size={12} /> 請完成所有實拍照上傳後再提交</p>
-                            )}
-                            <button 
-                                onClick={handleSubmit} 
-                                disabled={!isAllUploaded || loading}
-                                className={`w-full py-5 rounded-[2rem] font-black text-white shadow-xl uppercase transition-all flex items-center justify-center gap-2 
-                                    ${isAllUploaded ? 'bg-orange-600 active:scale-95' : 'bg-slate-300 cursor-not-allowed'}`}
-                            >
-                                {loading ? "提交中..." : "確認提交巡視結果"}
-                                <Icon name="check" size={18}/>
-                            </button>
+                            {!isAllUploaded && <p className="text-[10px] text-red-500 font-bold text-center animate-pulse"><Icon name="alert-circle" size={12} /> 請完成所有實拍照上傳</p>}
+                            <button onClick={handleSubmit} disabled={!isAllUploaded || loading} className={`w-full py-5 rounded-[2rem] font-black text-white shadow-xl flex items-center justify-center gap-2 ${isAllUploaded ? 'bg-brand-red active:scale-95' : 'bg-slate-300 cursor-not-allowed'}`}>{loading ? "提交中..." : "確認提交結果"}</button>
                         </div>
-                    ) : (
-                        <div className="p-8 rounded-[3rem] border-4 bg-emerald-50 border-emerald-200 text-emerald-700 animate-bounce text-center mt-4 shadow-xl shadow-emerald-500/10">
-                            <h4 className="text-2xl font-black uppercase font-bold">提交完成 ✅</h4>
-                            <p className="text-xs mt-1">巡視紀錄已同步至雲端系統</p>
+                    ) : <div className="p-8 rounded-[3rem] bg-emerald-50 text-emerald-700 text-center font-black">提交完成 ✅</div>}
+                </div>
+            );
+
+            return (
+                <div className="p-4 space-y-4 page-enter pb-20 text-left font-bold">
+                    <BackButton onClick={onBack} title="巡視崗位清單" />
+                    <div className="bg-gradient-to-r from-brand-red to-[#c22946] p-7 rounded-[2.5rem] text-white shadow-lg flex justify-between items-center mb-6 shadow-rose-100/50">
+                        <div><p className="text-[10px] font-black uppercase opacity-60 mb-1 leading-none tracking-widest">巡視進度 (20:00刷新)</p><p className="text-3xl font-black mt-2 font-bold">{completedZones.length} / {branchZones.length || 1}</p></div>
+                        <div className="w-14 h-14 rounded-full border-4 border-white/20 flex items-center justify-center font-bold text-xs">{branchZones.length > 0 ? Math.round((completedZones.length/branchZones.length)*100) : 0}%</div>
+                    </div>
+                    {branchZones.length === 0 && <p className="text-center text-slate-400 py-10 text-xs">此分店尚未設定任何區站，請至後台設定。</p>}
+                    <div className="grid grid-cols-1 gap-3">
+                        {branchZones.map(z => (<SectionItem key={z.id} title={z.name} iconName={completedZones.includes(z.id) ? "check-circle" : "camera"} onClick={() => setActiveZone(z)} />))}
+                    </div>
+                </div>
+            );
+        };
+
+        const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, isSuperAdmin, getPublicPath }) => {
+            const [storeDatabases, setStoreDatabases] = useState(() => {
+                const dbMap = {};
+                globalBranches.forEach(b => {
+                    dbMap[b] = { ingredients: [...TEMPLATE_INGREDIENTS], zones: [...INITIAL_ORDER_ZONES], vendors: ["鑫羿", "大台北", "元家", "美食家"], history: [] };
+                });
+                return dbMap;
+            });
+
+            const branches = isSuperAdmin ? globalBranches : [currentBranch];
+            const [selectedBranch, setSelectedBranch] = useState(currentBranch);
+            
+            const currentDb = storeDatabases[selectedBranch] || { ingredients: [], zones: [], vendors: [], history: [] };
+
+            const [view, setView] = useState('setup'); 
+            const [adminTab, setAdminTab] = useState('ingredients');
+            const [analyticsTab, setAnalyticsTab] = useState('monthly'); 
+            
+            const [orderDate, setOrderDate] = useState(() => {
+                const d = new Date();
+                d.setDate(d.getDate() + 1);
+                return d.toISOString().split('T')[0];
+            });
+
+            const [selectedZone, setSelectedZone] = useState(null);
+            const [orderQuantities, setOrderQuantities] = useState({});
+            const [searchQuery, setSearchQuery] = useState('');
+            const [copyStatus, setCopyStatus] = useState({});
+            const [draggedId, setDraggedId] = useState(null);
+            const [overId, setOverId] = useState(null);
+            const [editedOrderTexts, setEditedOrderTexts] = useState({});
+
+            const [adminZoneFilter, setAdminZoneFilter] = useState('全部');
+            const [adminVendorFilter, setAdminVendorFilter] = useState('全部');
+            const [newItem, setNewItem] = useState({ name: '', vendor: '', unit: '包', zone: '菜區' });
+            const [newVendorName, setNewVendorName] = useState('');
+            const [newZoneName, setNewZoneName] = useState('');
+
+            const updateCurrentDb = (newData) => {
+                setStoreDatabases(prev => ({
+                    ...prev,
+                    [selectedBranch]: { ...prev[selectedBranch], ...newData }
+                }));
+            };
+
+            const saveOrderToHistory = () => {
+                const orderItems = currentDb.ingredients
+                    .map(item => ({
+                        name: item.name,
+                        qty: parseFloat(orderQuantities[item.id] || 0),
+                        unit: item.unit
+                    }))
+                    .filter(i => i.qty > 0);
+                if (orderItems.length === 0) return;
+                const newHistoryRecord = {
+                    id: Date.now(),
+                    date: orderDate,
+                    timestamp: new Date().toLocaleString(),
+                    items: orderItems
+                };
+                updateCurrentDb({ history: [...currentDb.history, newHistoryRecord] });
+            };
+
+            const monthlyStats = useMemo(() => {
+                const stats = {};
+                const currentMonth = orderDate.substring(0, 7);
+                currentDb.history.forEach(record => {
+                    if (record.date.startsWith(currentMonth)) {
+                        record.items.forEach(item => {
+                            stats[item.name] = (stats[item.name] || 0) + item.qty;
+                        });
+                    }
+                });
+                return stats;
+            }, [currentDb.history, orderDate]);
+
+            const getComparisonData = (itemName) => {
+                const currentMonth = orderDate.substring(0, 7);
+                return branches.map(branch => {
+                    const db = storeDatabases[branch];
+                    let total = 0;
+                    if (db && db.history) {
+                        db.history.forEach(record => {
+                            if (record.date.startsWith(currentMonth)) {
+                                const match = record.items.find(i => i.name === itemName);
+                                if (match) total += match.qty;
+                            }
+                        });
+                    }
+                    return { branch, total };
+                });
+            };
+
+            const handleDragStart = (id) => setDraggedId(id);
+            const handleDragOver = (e, id) => { e.preventDefault(); if (id !== draggedId) setOverId(id); };
+            const handleDragEnd = () => {
+                if (draggedId !== null && overId !== null) {
+                    const newIngredients = [...currentDb.ingredients];
+                    const fromIndex = newIngredients.findIndex(i => i.id === draggedId);
+                    const toIndex = newIngredients.findIndex(i => i.id === overId);
+                    const [movedItem] = newIngredients.splice(fromIndex, 1);
+                    newIngredients.splice(toIndex, 0, movedItem);
+                    updateCurrentDb({ ingredients: newIngredients });
+                }
+                setDraggedId(null);
+                setOverId(null);
+            };
+
+            const groupedOrders = useMemo(() => {
+                const list = currentDb.ingredients
+                    .map(item => ({ ...item, orderQty: parseFloat(orderQuantities[item.id] || 0) }))
+                    .filter(i => i.orderQty > 0);
+                return list.reduce((acc, item) => {
+                    if (!acc[item.vendor]) acc[item.vendor] = [];
+                    acc[item.vendor].push(item);
+                    return acc;
+                }, {});
+            }, [currentDb.ingredients, orderQuantities]);
+
+            useEffect(() => {
+                if (view === 'result') {
+                    const initialTexts = {};
+                    const [y, m, d] = orderDate.split('-');
+                    const dateStr = `${parseInt(m)}/${parseInt(d)}`;
+                    Object.entries(groupedOrders).forEach(([vendor, items]) => {
+                        let text = `${selectedBranch} ${dateStr}\n`;
+                        items.forEach(item => { text += `${item.name}${item.orderQty}${item.unit}\n`; });
+                        initialTexts[vendor] = text.trim();
+                    });
+                    setEditedOrderTexts(initialTexts);
+                }
+            }, [view, groupedOrders, selectedBranch, orderDate]);
+
+            const handleTextChange = (vendor, newText) => {
+                setEditedOrderTexts(prev => ({ ...prev, [vendor]: newText }));
+            };
+
+            const handleShare = async (vendorName) => {
+                saveOrderToHistory(); 
+                const text = editedOrderTexts[vendorName] || "";
+                const el = document.createElement('textarea');
+                el.value = text;
+                document.body.appendChild(el);
+                el.select();
+                document.execCommand('copy');
+                document.body.removeChild(el);
+                
+                setCopyStatus({ ...copyStatus, [vendorName]: true });
+                triggerNotify(`${vendorName} 訂單已保存並複製`, "success");
+                
+                setTimeout(() => setCopyStatus(prev => ({ ...prev, [vendorName]: false })), 3000);
+                
+                if (navigator.share) {
+                    try { await navigator.share({ title: `訂貨單-${vendorName}`, text }); return; } catch (err) {}
+                }
+                window.location.href = `https://line.me/R/msg/text/?${encodeURIComponent(text)}`;
+            };
+
+            const Nav = ({ title, onBackAction, rightAction }) => (
+                <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-4 flex items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-3">
+                        {onBackAction && (
+                            <button onClick={onBackAction} className="w-10 h-10 bg-slate-100 rounded-xl active-scale btn-touch flex items-center justify-center">
+                                <OrderSymbolIcon name="ChevronLeft" className="text-slate-700" />
+                            </button>
+                        )}
+                        <h1 className="text-lg font-black text-slate-800 tracking-tight">{title}</h1>
+                    </div>
+                    {rightAction}
+                </div>
+            );
+
+            return (
+                <div className="text-slate-900 pb-24 selection:bg-rose-100 overflow-x-hidden page-enter">
+                    {/* 1. 設定頁面 */}
+                    {view === 'setup' && (
+                        <div className="max-w-md mx-auto px-6 pt-10">
+                            <div className="flex justify-center mb-8">
+                                <div className="bg-brand-red w-20 h-20 rounded-[2.5rem] shadow-2xl shadow-brand-red/20 flex items-center justify-center rotate-3 font-black text-white text-3xl">
+                                    <OrderSymbolIcon name="Package" className="text-4xl" />
+                                </div>
+                            </div>
+                            <h2 className="text-3xl font-black text-center text-slate-800 mb-1">智能分商點貨</h2>
+                            <p className="text-center text-slate-400 text-sm mb-8 font-medium">數據驅動 • 獨立資料庫</p>
+
+                            <div className="bg-white rounded-[3rem] shadow-xl border border-white overflow-hidden">
+                                <div className="flex flex-col">
+                                    <div className="bg-slate-50 px-8 py-5 border-b border-slate-100">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{isSuperAdmin ? '選擇分店' : '當前分店'}</label>
+                                        {isSuperAdmin ? (
+                                            <select value={selectedBranch} onChange={e => setSelectedBranch(e.target.value)} className="w-full bg-transparent border-none p-0 text-xl font-black outline-none mt-1 text-brand-red">
+                                                {branches.map(b => <option key={b} value={b}>{b}</option>)}
+                                            </select>
+                                        ) : (
+                                            <div className="w-full text-xl font-black mt-1 text-brand-red py-1">{selectedBranch}</div>
+                                        )}
+                                    </div>
+                                    <div className="px-8 py-5 border-b border-slate-100">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">進貨日期</label>
+                                        <input type="date" value={orderDate} onChange={e => setOrderDate(e.target.value)} className="w-full bg-transparent border-none p-0 text-xl font-black outline-none mt-1" />
+                                    </div>
+                                    
+                                    <div className="p-8">
+                                        <button onClick={() => setView('zone_select')} className="w-full bg-brand-red text-white py-5 rounded-3xl font-black text-lg shadow-xl shadow-brand-red/20 flex items-center justify-center gap-3 active-scale transition-all">
+                                            開始點貨 <OrderSymbolIcon name="ArrowRight" className="text-xl" />
+                                        </button>
+                                        
+                                        <div className="grid grid-cols-2 gap-3 mt-4">
+                                            <button onClick={() => setView('analytics')} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
+                                                <OrderSymbolIcon name="Chart" /> 數據分析報表
+                                            </button>
+                                            <button onClick={() => { setView('admin'); setAdminTab('ingredients'); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
+                                                <OrderSymbolIcon name="Settings" /> 店務管理後台
+                                            </button>
+                                        </div>
+                                        <button onClick={onBack} className="w-full py-4 text-slate-400 font-bold text-xs uppercase mt-4">返回主系統</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 2. 區站選擇 */}
+                    {view === 'zone_select' && (
+                        <div className="max-w-md mx-auto">
+                            <Nav title={`${selectedBranch} - 區站`} onBackAction={() => setView('setup')} />
+                            <div className="p-6 space-y-6 pb-20 mt-4">
+                                <div className="grid grid-cols-1 gap-4">
+                                    {currentDb.zones.map((zone) => {
+                                        const zoneItems = currentDb.ingredients.filter(i => i.zone === zone.name);
+                                        const activeCount = zoneItems.filter(i => (orderQuantities[i.id] || 0) > 0).length;
+                                        return (
+                                            <button key={zone.name} onClick={() => { setSelectedZone(zone.name); setView('inventory'); }} className={`p-5 rounded-[2.5rem] border transition-all active-scale flex items-center justify-between bg-white shadow-sm hover:border-brand-red/30 ${activeCount > 0 ? 'border-brand-red/30 ring-4 ring-rose-50' : 'border-slate-100'}`}>
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`${zone.color} w-14 h-14 rounded-2xl shadow-lg flex items-center justify-center font-black text-white text-2xl`}>
+                                                        <OrderSymbolIcon name={zone.icon} />
+                                                    </div>
+                                                    <div className="text-left">
+                                                        <h3 className="font-black text-lg text-slate-800">{zone.name}</h3>
+                                                        <p className="text-xs font-bold text-slate-400">{activeCount > 0 ? `已點: ${activeCount} 項` : `清單共 ${zoneItems.length} 項`}</p>
+                                                    </div>
+                                                </div>
+                                                <OrderSymbolIcon name="ChevronRight" className="text-slate-300 text-xl" />
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+
+                                {Object.keys(groupedOrders).length > 0 && (
+                                    <button 
+                                        onClick={() => setView('result')} 
+                                        className="w-full bg-emerald-600 text-white py-5 rounded-3xl font-black shadow-2xl flex items-center justify-center gap-2 active-scale transition-all mt-2"
+                                    >
+                                        <OrderSymbolIcon name="ClipboardCheck" /> 生成廠商訂單 ({Object.keys(groupedOrders).length})
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 3. 食材點貨頁面 */}
+                    {view === 'inventory' && (
+                        <div className="max-w-md mx-auto">
+                            <Nav title={selectedZone} onBackAction={() => { setView('zone_select'); setSearchQuery(''); }} />
+                            <div className="bg-white/80 backdrop-blur-md sticky top-[61px] z-40 px-4 py-4 border-b border-slate-100 shadow-sm">
+                                <div className="relative flex items-center">
+                                    <div className="absolute left-4 font-black text-slate-300 flex items-center"><OrderSymbolIcon name="Search" /></div>
+                                    <input type="text" placeholder={`搜尋${selectedZone}...`} value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="w-full bg-slate-50 border-none rounded-2xl py-4 pl-12 pr-4 text-sm font-bold focus:ring-2 focus:ring-brand-red/50 outline-none" />
+                                </div>
+                            </div>
+                            <div className="p-4 space-y-4 pb-40">
+                                {currentDb.ingredients.filter(i => i.zone === selectedZone && i.name.includes(searchQuery)).map((item) => {
+                                    const qty = orderQuantities[item.id] || 0;
+                                    const isDragging = draggedId === item.id;
+                                    const isOver = overId === item.id;
+                                    return (
+                                        <div key={item.id} draggable onDragStart={() => handleDragStart(item.id)} onDragOver={(e) => handleDragOver(e, item.id)} onDragEnd={handleDragEnd} className={`bg-white p-5 rounded-[2rem] border shadow-sm flex items-center justify-between transition-all duration-300 ${isDragging ? 'drag-ghost' : 'border-slate-100'} ${isOver ? 'border-brand-red/40 translate-y-1 shadow-md' : ''}`}>
+                                            <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                <div className="p-1.5 text-slate-300 drag-handle font-black text-xl flex items-center"><OrderSymbolIcon name="GripVertical" /></div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h4 className="font-black text-slate-800 text-lg truncate leading-tight">{item.name}</h4>
+                                                    <p className="text-[10px] font-black text-brand-red uppercase mt-0.5">{item.vendor}</p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2 bg-slate-100/50 p-1.5 rounded-3xl shrink-0 ml-4">
+                                                <button onClick={() => { const cur = parseFloat(orderQuantities[item.id] || 0); setOrderQuantities({ ...orderQuantities, [item.id]: Math.max(0, cur - 1) }); }} className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center active-scale btn-touch text-slate-400 font-black text-2xl"><OrderSymbolIcon name="Minus" /></button>
+                                                <div className="w-10 text-center">
+                                                    <span className={`text-xl font-black ${qty === 0 ? 'text-slate-300' : 'text-brand-red'}`}>{qty}</span>
+                                                    <p className="text-[9px] text-slate-400 font-black">{item.unit}</p>
+                                                </div>
+                                                <button onClick={() => { const cur = parseFloat(orderQuantities[item.id] || 0); setOrderQuantities({ ...orderQuantities, [item.id]: cur + 1 }); }} className="w-12 h-12 bg-brand-red rounded-2xl shadow-lg flex items-center justify-center text-white active-scale btn-touch font-black text-2xl"><OrderSymbolIcon name="Plus" /></button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                                <div className="mt-12 pt-6 border-t border-slate-200">
+                                    <button 
+                                        onClick={() => { setView('zone_select'); window.scrollTo(0,0); }}
+                                        className="w-full bg-white border-2 border-brand-red text-brand-red py-5 rounded-3xl font-black text-lg active-scale transition-all shadow-lg flex items-center justify-center gap-2"
+                                    >
+                                        <OrderSymbolIcon name="ChevronLeft" /> 點貨完畢，返回區站選擇
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 4. 結果頁面 */}
+                    {view === 'result' && (
+                        <div className="max-w-md mx-auto px-6">
+                            <Nav title="確認訂單並編輯" onBackAction={() => setView('zone_select')} />
+                            <div className="space-y-8 pb-32 mt-6">
+                                <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200 text-xs font-bold text-amber-700 leading-relaxed">
+                                    提示：點擊「發送」後系統會自動保存此次叫貨紀錄至數據報表中。
+                                </div>
+                                {Object.keys(groupedOrders).length === 0 ? (
+                                    <div className="text-center py-24 bg-white rounded-[3rem] border border-dashed border-slate-200">
+                                        <div className="font-black text-slate-200 text-5xl mb-4">?</div>
+                                        <p className="text-slate-400 font-black">尚未叫貨</p>
+                                    </div>
+                                ) : (
+                                    Object.entries(groupedOrders).map(([vendor, items]) => (
+                                        <div key={vendor} className="bg-white rounded-[2.5rem] shadow-xl border border-white overflow-hidden animate-in zoom-in-95 duration-300">
+                                            <div className="p-6 bg-slate-900 flex items-center justify-between">
+                                                <div>
+                                                    <h3 className="text-white font-black text-xl">{vendor}</h3>
+                                                    <p className="text-rose-200 text-[10px] font-bold uppercase mt-1 flex items-center gap-1"><OrderSymbolIcon name="Edit" className="w-3 h-3" /> 文字框可編輯</p>
+                                                </div>
+                                                <div className="bg-white/10 px-4 py-1.5 rounded-full text-[10px] text-white font-black uppercase">{items.length} 項</div>
+                                            </div>
+                                            <div className="p-6 space-y-5">
+                                                <textarea className="editable-order-text no-scrollbar" rows={Math.max(4, (editedOrderTexts[vendor]?.split('\n').length || 0) + 1)} value={editedOrderTexts[vendor] || ""} onChange={(e) => handleTextChange(vendor, e.target.value)} />
+                                                <button onClick={() => handleShare(vendor)} className={`w-full py-5 rounded-2xl font-black flex items-center justify-center gap-3 shadow-lg active-scale transition-all ${copyStatus[vendor] ? 'bg-emerald-500 text-white' : 'bg-brand-red text-white shadow-brand-red/20'}`}>
+                                                    <OrderSymbolIcon name={copyStatus[vendor] ? "CheckCircle2" : "Share2"} /> {copyStatus[vendor] ? '紀錄已保存！已複製內容' : `發送訂單給 ${vendor}`}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 數據分析報表頁面 */}
+                    {view === 'analytics' && (
+                        <div className="max-w-md mx-auto">
+                            <Nav title={`${selectedBranch} - 數據報表`} onBackAction={() => setView('setup')} />
+                            <div className="flex bg-white border-b border-slate-100 px-4 py-3 gap-2 sticky top-[61px] z-50 shadow-sm">
+                                <button onClick={() => setAnalyticsTab('monthly')} className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${analyticsTab === 'monthly' ? 'bg-brand-red text-white shadow-md' : 'text-slate-400'}`}>每月匯總</button>
+                                <button onClick={() => setAnalyticsTab('comparison')} className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${analyticsTab === 'comparison' ? 'bg-brand-red text-white shadow-md' : 'text-slate-400'}`}>分店需求比較</button>
+                            </div>
+                            <div className="p-6 space-y-6">
+                                {analyticsTab === 'monthly' && (
+                                    <div className="space-y-6 animate-in fade-in duration-300">
+                                        <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100">
+                                            <h3 className="font-black text-slate-800 text-lg mb-4 flex items-center gap-2"><OrderSymbolIcon name="Calendar" className="text-brand-red" /> {orderDate.substring(0,7)} 叫貨總量</h3>
+                                            <div className="space-y-3">
+                                                {Object.entries(monthlyStats).length === 0 ? (
+                                                    <p className="text-center py-10 text-slate-300 font-bold italic">本月尚無叫貨紀錄</p>
+                                                ) : (
+                                                    Object.entries(monthlyStats).map(([name, total]) => (
+                                                        <div key={name} className="flex justify-between items-center py-2 border-b border-slate-50 last:border-0">
+                                                            <span className="font-bold text-slate-600">{name}</span>
+                                                            <span className="font-black text-brand-red text-lg">{total} <span className="text-[10px] text-slate-400">當月累計</span></span>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <h4 className="px-4 font-black text-[10px] text-slate-400 uppercase tracking-widest">最近叫貨歷史</h4>
+                                            {currentDb.history.slice().reverse().map(record => (
+                                                <div key={record.id} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+                                                    <div className="flex justify-between items-center mb-3">
+                                                        <span className="font-black text-slate-800">{record.date}</span>
+                                                        <span className="text-[10px] bg-slate-100 px-2 py-1 rounded-full text-slate-400">{record.timestamp}</span>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {record.items.map((item, idx) => (<span key={idx} className="text-[10px] font-bold bg-rose-50 text-brand-red px-2 py-1 rounded-lg">{item.name}{item.qty}{item.unit}</span>))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {currentDb.history.length === 0 && <p className="text-center py-6 text-slate-300 text-sm font-bold">目前無任何歷史紀錄</p>}
+                                        </div>
+                                    </div>
+                                )}
+                                {analyticsTab === 'comparison' && (
+                                    <div className="space-y-6 animate-in fade-in duration-300">
+                                        {Object.keys(monthlyStats).map(itemName => (
+                                            <div key={itemName} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
+                                                <h3 className="font-black text-slate-800 border-l-4 border-brand-red pl-3">{itemName} - 分店對比</h3>
+                                                <div className="space-y-4">
+                                                    {getComparisonData(itemName).map(data => {
+                                                        const max = Math.max(...getComparisonData(itemName).map(d => d.total)) || 1;
+                                                        const width = (data.total / max) * 100;
+                                                        return (
+                                                            <div key={data.branch} className="space-y-1">
+                                                                <div className="flex justify-between text-[11px] font-black uppercase tracking-tight">
+                                                                    <span className={data.branch === selectedBranch ? "text-brand-red" : "text-slate-400"}>{data.branch}</span>
+                                                                    <span className="text-slate-800">{data.total} 單位</span>
+                                                                </div>
+                                                                <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                                                                    <div className={`h-full transition-all duration-1000 ${data.branch === selectedBranch ? 'bg-brand-red' : 'bg-slate-300'}`} style={{ width: `${width}%` }}></div>
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+                                        {Object.keys(monthlyStats).length === 0 && <p className="text-center py-20 text-slate-300 font-bold italic">尚無數據可供比較</p>}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 後台管理 */}
+                    {view === 'admin' && (
+                        <div className="max-w-md mx-auto">
+                            <Nav title={`${selectedBranch} - 管理`} onBackAction={() => setView('setup')} />
+                            <div className="flex bg-white border-b border-slate-100 px-4 py-3 gap-2 overflow-x-auto no-scrollbar shadow-sm sticky top-[61px] z-50">
+                                {[
+                                    { id: 'ingredients', label: '食材', icon: 'Layers' }, 
+                                    { id: 'vendors', label: '廠商', icon: 'Filter' }, 
+                                    { id: 'zones', label: '區站', icon: 'LayoutGrid' }
+                                ].map(tab => (
+                                    <button key={tab.id} onClick={() => setAdminTab(tab.id)} className={`px-5 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap ${adminTab === tab.id ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-100'}`}>
+                                        <OrderSymbolIcon name={tab.icon} /> {tab.label}
+                                    </button>
+                                ))}
+                            </div>
+                            <div className="p-6 space-y-6 pb-20">
+                                {adminTab === 'ingredients' && (
+                                    <div className="space-y-6">
+                                        <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
+                                            <h3 className="font-black text-slate-800 flex items-center gap-2"><OrderSymbolIcon name="Plus" className="text-brand-red" /> 新增食材</h3>
+                                            <input placeholder="食材名稱" className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none ring-1 ring-slate-100" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} />
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <select className="bg-slate-50 rounded-xl p-4 font-bold outline-none" value={newItem.vendor} onChange={e => setNewItem({...newItem, vendor: e.target.value})}>
+                                                    <option value="">選擇廠商</option>
+                                                    {currentDb.vendors.map(v => <option key={v} value={v}>{v}</option>)}
+                                                </select>
+                                                <select className="bg-slate-50 rounded-xl p-4 font-bold outline-none" value={newItem.unit} onChange={e => setNewItem({...newItem, unit: e.target.value})}>
+                                                    {DEFAULT_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                                </select>
+                                            </div>
+                                            <select className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none" value={newItem.zone} onChange={e => setNewItem({...newItem, zone: e.target.value})}>
+                                                {currentDb.zones.map(z => <option key={z.name} value={z.name}>{z.name}</option>)}
+                                            </select>
+                                            <button onClick={() => { if(newItem.name && newItem.vendor) { updateCurrentDb({ ingredients: [...currentDb.ingredients, { ...newItem, id: Date.now() }] }); setNewItem({ ...newItem, name: '', vendor: '', unit: '包', zone: currentDb.zones[0]?.name }); triggerNotify('新增食材成功', 'success'); } }} className="w-full bg-brand-red text-white p-5 rounded-2xl font-black shadow-lg">確認新增</button>
+                                        </div>
+                                        <div className="bg-slate-200/50 p-4 rounded-3xl grid grid-cols-2 gap-2">
+                                            <select className="bg-white rounded-xl p-2 text-xs font-bold border-none shadow-sm" value={adminZoneFilter} onChange={e => setAdminZoneFilter(e.target.value)}><option value="全部">全部區站</option>{currentDb.zones.map(z => <option key={z.name} value={z.name}>{z.name}</option>)}</select>
+                                            <select className="bg-white rounded-xl p-2 text-xs font-bold border-none shadow-sm" value={adminVendorFilter} onChange={e => setAdminVendorFilter(e.target.value)}><option value="全部">全部廠商</option>{currentDb.vendors.map(v => <option key={v} value={v}>{v}</option>)}</select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {currentDb.ingredients.filter(i => (adminZoneFilter === '全部' || i.zone === adminZoneFilter) && (adminVendorFilter === '全部' || i.vendor === adminVendorFilter)).slice().reverse().map(item => (
+                                                <div key={item.id} className="bg-white p-5 rounded-[2rem] flex justify-between items-center shadow-sm border border-slate-50">
+                                                    <div className="min-w-0 pr-4">
+                                                        <p className="font-black text-slate-700 truncate">{item.name}</p>
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase">{item.vendor} • {item.zone} • {item.unit}</p>
+                                                    </div>
+                                                    <button onClick={() => updateCurrentDb({ ingredients: currentDb.ingredients.filter(i => i.id !== item.id) })} className="bg-rose-50 text-rose-400 p-2.5 rounded-xl"><OrderSymbolIcon name="Trash2" /></button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                                {adminTab === 'vendors' && (
+                                    <div className="space-y-6">
+                                        <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex gap-3">
+                                            <input placeholder="新廠商名稱" className="flex-1 bg-slate-50 rounded-2xl p-4.5 font-bold outline-none ring-1 ring-slate-100 border-none" value={newVendorName} onChange={e => setNewVendorName(e.target.value)} />
+                                            <button onClick={() => { if(newVendorName) { updateCurrentDb({ vendors: [...currentDb.vendors, newVendorName] }); setNewVendorName(''); triggerNotify('新增廠商成功', 'success'); } }} className="bg-slate-900 text-white px-8 rounded-2xl font-black">新增</button>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">{currentDb.vendors.map(v => (<div key={v} className="bg-white p-5 rounded-[1.5rem] flex justify-between items-center shadow-sm border border-slate-50"><span className="font-bold text-sm truncate">{v}</span><button onClick={() => updateCurrentDb({ vendors: currentDb.vendors.filter(i => i !== v) })} className="text-slate-300 hover:text-rose-500 font-black px-2"><OrderSymbolIcon name="X" /></button></div>))}</div>
+                                    </div>
+                                )}
+                                {adminTab === 'zones' && (
+                                    <div className="space-y-8">
+                                        <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
+                                            <h3 className="font-black text-slate-800 flex items-center gap-2"><OrderSymbolIcon name="LayoutGrid" className="text-brand-red" /> 叫貨區站管理</h3>
+                                            <div className="flex gap-2"><input placeholder="新區站名稱" className="flex-1 bg-slate-50 rounded-xl p-4 font-bold outline-none" value={newZoneName} onChange={e => setNewZoneName(e.target.value)} /><button onClick={() => { if(newZoneName) { updateCurrentDb({ zones: [...currentDb.zones, { name: newZoneName, icon: 'Package', color: 'bg-slate-500' }] }); setNewZoneName(''); triggerNotify('區站新增成功', 'success'); } }} className="bg-slate-900 text-white px-6 rounded-xl font-black">新增</button></div>
+                                            <div className="grid grid-cols-2 gap-2">{currentDb.zones.map(z => (<div key={z.name} className="bg-slate-50 px-4 py-3 rounded-xl flex justify-between items-center text-xs font-bold text-slate-700 border border-slate-100"><span>{z.name}</span><button onClick={() => updateCurrentDb({ zones: currentDb.zones.filter(i => i.name !== z.name) })} className="text-slate-300 font-black px-2 hover:text-rose-500"><OrderSymbolIcon name="X" /></button></div>))}</div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
             );
-            return (
-                <div className="p-4 space-y-4 page-enter pb-20 text-left font-bold">
-                    <BackButton onClick={onBack} title="巡視崗位清單" />
-                    <div className="bg-gradient-to-r from-orange-500 to-orange-400 p-7 rounded-[2.5rem] text-white shadow-lg flex justify-between items-center mb-6 shadow-orange-100">
-                        <div><p className="text-[10px] font-black uppercase opacity-60 mb-1 leading-none tracking-widest uppercase">巡視進度 (20:00刷新)</p><p className="text-3xl font-black mt-2 font-bold uppercase">{completedZones.length} / {ZONES.length}</p></div>
-                        <div className="w-14 h-14 rounded-full border-4 border-white/20 flex items-center justify-center font-bold text-xs uppercase">{Math.round((completedZones.length/ZONES.length)*100)}%</div>
-                    </div>
-                    <div className="grid grid-cols-1 gap-3 font-bold">
-                        {ZONES.map(z => (<SectionItem key={z.id} title={z.name} iconName={completedZones.includes(z.id) ? "check-circle" : "camera"} onClick={() => setActiveZone(z)} />))}
-                    </div>
-                </div>
-            );
         };
 
-        const AdminPage = ({ onBack, onLogout, announcements, schedules, standards, users, triggerNotify, menu, onboarding, benefits, rulesData, getPublicPath, signatures, tickerText, setTickerText }) => {
-            const [tab, setTab] = useState('members');
-            const [subCat, setSubCat] = useState('list');
+        const AdminPage = ({ onBack, onLogout, announcements, schedules, standards, users, triggerNotify, menu, onboarding, benefits, rulesData, isSuperAdmin, currentBranch, setCurrentBranch, globalBranches, branchZones, getPublicPath, signatures, tickerText, setTickerText }) => {
+            const [tab, setTab] = useState('members'); const [subCat, setSubCat] = useState('list');
             const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
-            const [selectedZone, setSelectedZone] = useState(ZONES[0].id);
+            const [selectedZone, setSelectedZone] = useState('');
             const [signSubCat, setSignSubCat] = useState('廚房規則');
+            const [newZoneName, setNewZoneName] = useState('');
+            const [newBranchName, setNewBranchName] = useState('');
+            const [expandedSig, setExpandedSig] = useState(null);
+
+            useEffect(() => {
+                if(branchZones && branchZones.length > 0 && !selectedZone) setSelectedZone(branchZones[0].id);
+            }, [branchZones]);
+
+            // 過濾顯示的成員：最高權限看全部(或當前分店與所有主管)，分店主管只看本店的非主管人員
+            const visibleUsers = users.filter(u => {
+                if (isSuperAdmin) {
+                    return u.branch === currentBranch || u.role === '主管';
+                } else {
+                    return u.branch === currentBranch && u.role !== '主管';
+                }
+            });
 
             return (
                 <div className="p-4 pb-24 page-enter text-left font-bold">
-                    <div className="flex justify-between items-center mb-6">
-                        <BackButton onClick={onBack} title="管理後台" />
-                        <button onClick={onLogout} className="bg-red-50 text-red-600 font-black text-[10px] px-4 py-2 rounded-full border border-red-100 shadow-sm active:scale-90 transition-all font-bold">登出</button>
-                    </div>
-                    <div className="flex bg-slate-100 p-1.5 rounded-2xl overflow-x-auto no-scrollbar gap-1.5 mb-6 shadow-inner font-bold">
-                        {[{id:'members',n:'人員'},{id:'menu',n:'菜單'},{id:'content',n:'公告'},{id:'onboard',n:'入職'},{id:'benefit',n:'福利'},{id:'rules',n:'守則'},{id:'schedules',n:'班表'},{id:'safety',n:'巡視'},{id:'sign',n:'簽署'}].map(t => (
-                            <button key={t.id} onClick={()=>{setTab(t.id); if(t.id==='rules') setSubCat('廚房規則'); else if(t.id==='sign') setSignSubCat('廚房規則'); else if(t.id==='benefit') setSubCat('eval'); else setSubCat('list');}} className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${tab===t.id?'bg-orange-600 text-white shadow-md':'text-slate-400'}`}>{t.n}</button>
+                    <div className="flex justify-between items-center mb-4"><BackButton onClick={onBack} title="管理後台" /><button onClick={onLogout} className="bg-red-50 text-red-600 font-black text-[10px] px-4 py-2 rounded-full border border-red-100 active:scale-90 transition-all">登出</button></div>
+                    
+                    {isSuperAdmin && (
+                        <div className="mb-6 bg-slate-900 text-white p-4 rounded-3xl flex items-center justify-between shadow-xl">
+                            <div>
+                                <p className="text-[10px] uppercase tracking-widest text-slate-400">目前管理分店 (最高權限)</p>
+                                <select value={currentBranch} onChange={e=>setCurrentBranch(e.target.value)} className="bg-transparent border-none text-lg font-black outline-none appearance-none cursor-pointer">
+                                    {globalBranches.map(b => <option key={b} value={b} className="text-black">{b}</option>)}
+                                </select>
+                            </div>
+                            <Icon name="chevron-down" className="text-brand-red"/>
+                        </div>
+                    )}
+
+                    <div className="flex bg-slate-100 p-1.5 rounded-2xl overflow-x-auto no-scrollbar gap-1.5 mb-6 shadow-inner">
+                        {[{id:'members',n:'人員'},{id:'menu',n:'菜單'},{id:'content',n:'公告'},{id:'onboard',n:'入職'},{id:'benefit',n:'福利'},{id:'rules',n:'守則'},{id:'schedules',n:'班表'},{id:'safety',n:'各店巡視'},{id:'sign',n:'簽署'}, ...(isSuperAdmin ? [{id:'system',n:'系統設定'}] : [])].map(t => (
+                            <button key={t.id} onClick={()=>{setTab(t.id); if(t.id==='rules') setSubCat('廚房規則'); else if(t.id==='sign') setSignSubCat('廚房規則'); else if(t.id==='benefit') setSubCat('eval'); else setSubCat('list');}} className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${tab===t.id?'bg-brand-red text-white shadow-md':'text-slate-400'}`}>{t.n}</button>
                         ))}
                     </div>
-
+                    
                     <div className="space-y-4">
-                        {tab === 'members' && users.map(u=>(<div key={u.phone} className="glass-panel p-5 rounded-[2rem] border border-slate-100 flex justify-between items-center bg-white mb-2 shadow-sm"><div><p className="font-bold text-slate-800 mb-1">{u.name}</p><p className="text-[10px] text-slate-400 font-bold">{u.phone}</p></div><div className="flex gap-2">{u.status==='pending'?<button onClick={()=>db.collection(getPublicPath('users')).doc(u.phone).update({status:'approved'})} className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black">核准</button>:<span className="text-[9px] font-black text-emerald-600 border px-3 py-2 rounded-lg bg-emerald-50">已授權</span>}<button onClick={()=>db.collection(getPublicPath('users')).doc(u.phone).delete()} className="p-2 text-slate-300 hover:text-red-500 transition-all font-bold"><Icon name="trash-2" size={16}/></button></div></div>))}
-                        
-                        {tab === 'onboard' && (<div><div className="flex bg-slate-100 p-1 rounded-xl mb-4 font-bold">{[{id:'list',n:'清單'},{id:'parking',n:'停車'},{id:'video',n:'影片'}].map(c=>(<button key={c.id} onClick={()=>setSubCat(c.id)} className={`flex-1 py-2 rounded-lg text-[10px] font-bold ${subCat===c.id?'bg-white text-orange-600 shadow-sm':'text-slate-400'}`}>{c.n}</button>))}</div>
-                            {subCat === 'video' ? (
-                                <div className="space-y-4 bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
-                                    {[{f:'routeBusUrl', l:'大眾運輸引導影片連結'}, {f:'routeCarUrl', l:'自行前往引導影片連結'}].map(x => (
-                                        <div key={x.f} className="space-y-2">
-                                            <p className="text-[10px] font-black text-slate-400 ml-1 uppercase font-bold">{x.l}</p>
-                                            <input placeholder="貼上外部連結..." className="w-full input-light p-4 rounded-xl text-xs outline-none shadow-inner font-bold" onBlur={(e) => db.doc(getPublicPath('system/onboarding')).set({ [x.f]: e.target.value }, {merge:true}).then(()=>triggerNotify("網址儲存成功","success"))} defaultValue={onboarding?.[x.f] || ''} />
+                        {tab === 'members' && (
+                            <div>
+                                <h3 className="text-xs text-slate-400 mb-2 pl-2">顯示：{isSuperAdmin ? `${currentBranch} 人員 & 全部分店主管` : `${currentBranch} 店內人員`}</h3>
+                                {visibleUsers.map(u=>(
+                                    <div key={u.phone} className="glass-panel p-5 rounded-[2rem] border flex justify-between items-center bg-white mb-2 shadow-sm">
+                                        <div>
+                                            <p className="font-bold text-slate-800 mb-1 flex items-center gap-2">
+                                                {u.name} 
+                                                <span className={`text-[9px] px-2 py-0.5 rounded-full ${u.role==='主管' ? 'bg-brand-red text-white' : 'bg-slate-100 text-slate-500'}`}>{u.role}</span>
+                                                {isSuperAdmin && u.branch !== currentBranch && <span className="text-[9px] text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">{u.branch}</span>}
+                                            </p>
+                                            <p className="text-[10px] text-slate-400">{u.phone}</p>
                                         </div>
-                                    ))}
-                                </div>
-                            ) : <UniversalListManager docPath={subCat==='list'?'system/onboarding_list':'system/onboarding_parking'} items={subCat==='list'?(onboarding?.list || []):(onboarding?.parking || [])} triggerNotify={triggerNotify} />}
-                        </div>)}
-
-                        {tab === 'menu' && <UniversalListManager docPath="system/menu_list" items={menu?.items || []} titleLabel="菜單項目名稱" triggerNotify={triggerNotify} />}
-                        
-                        {tab === 'content' && (
-                            <div className="space-y-6">
-                                <div className="glass-panel p-6 rounded-[2.5rem] bg-white border border-slate-100 shadow-sm space-y-4 shadow-sm">
-                                    <h3 className="font-black text-slate-800 text-xs flex items-center gap-2 uppercase tracking-widest font-bold"><Icon name="megaphone" size={16} className="text-orange-50" />跑馬燈編輯</h3>
-                                    <textarea value={tickerText} onChange={e=>setTickerText(e.target.value)} rows="2" className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none shadow-inner font-bold" placeholder="公告文字..." />
-                                    <button onClick={()=>db.doc(getPublicPath('system/ticker')).set({ text: tickerText }).then(()=>triggerNotify("公告已同步","success"))} className="w-full bg-slate-900 text-white font-black py-3 rounded-xl text-[10px] uppercase active:scale-95 transition-all font-bold">更新跑馬燈</button>
-                                </div>
-                                <UniversalListManager docPath="system/announcements_list" items={announcements || []} titleLabel="公告標題" triggerNotify={triggerNotify} />
+                                        <div className="flex gap-2">
+                                            {u.status==='pending' ? <button onClick={()=>db.collection(getPublicPath('users')).doc(u.phone).update({status:'approved'})} className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black active-scale">核准</button> : <span className="text-[9px] font-black text-emerald-600 border px-3 py-2 rounded-lg bg-emerald-50">已授權</span>}
+                                            <button onClick={()=>db.collection(getPublicPath('users')).doc(u.phone).delete()} className="p-2 text-slate-300 hover:text-red-500 transition-all"><Icon name="trash-2" size={16}/></button>
+                                        </div>
+                                    </div>
+                                ))}
+                                {visibleUsers.length === 0 && <p className="text-center text-slate-400 py-10 text-xs">尚無人員紀錄</p>}
                             </div>
                         )}
                         
+                        {tab === 'menu' && <UniversalListManager docPath="system/menu_list" items={menu?.items || []} titleLabel="菜單名稱" triggerNotify={triggerNotify} />}
+                        
+                        {tab === 'content' && (
+                            <div className="space-y-6">
+                                <div className="glass-panel p-6 rounded-[2.5rem] bg-white border shadow-sm space-y-4">
+                                    <h3 className="font-black text-slate-800 text-xs flex items-center gap-2 uppercase tracking-widest"><Icon name="megaphone" size={16} className="text-brand-red" />跑馬燈 ({currentBranch})</h3>
+                                    <textarea value={tickerText} onChange={e=>setTickerText(e.target.value)} rows="2" className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none" placeholder="公告文字..." />
+                                    <button onClick={()=>db.doc(getPublicPath(`ticker/branch_${currentBranch}`)).set({ text: tickerText }).then(()=>triggerNotify(`跑馬燈已同步至 ${currentBranch}`,"success"))} className="w-full bg-slate-900 text-white font-black py-3 rounded-xl text-[10px]">更新分店跑馬燈</button>
+                                </div>
+                                <AnnouncementAdminManager currentBranch={currentBranch} announcements={announcements} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />
+                            </div>
+                        )}
+
+                        {tab === 'onboard' && (
+                            <div>
+                                <div className="flex bg-slate-100 p-1 rounded-xl mb-4">
+                                    {[{id:'list',n:'清單'},{id:'parking',n:'停車'},{id:'video',n:'影片'}].map(c=>(
+                                        <button key={c.id} onClick={()=>setSubCat(c.id)} className={`flex-1 py-2 rounded-lg text-[10px] font-bold ${subCat===c.id?'bg-white text-brand-red shadow-sm':'text-slate-400'}`}>{c.n}</button>
+                                    ))}
+                                </div>
+                                {subCat === 'video' ? (
+                                    <div className="space-y-4 bg-white p-6 rounded-[2.5rem] border shadow-sm">
+                                        {[{f:'routeBusUrl', l:'大眾運輸引導影片連結'}, {f:'routeCarUrl', l:'自行前往引導影片連結'}].map(x => (
+                                            <div key={x.f} className="space-y-2">
+                                                <p className="text-[10px] font-black text-slate-400 ml-1 uppercase">{x.l}</p>
+                                                <input placeholder="貼上外部連結..." className="w-full input-light p-4 rounded-xl text-xs outline-none" onBlur={(e) => db.doc(getPublicPath('system/onboarding')).set({ [x.f]: e.target.value }, {merge:true}).then(()=>triggerNotify("網址儲存成功","success"))} defaultValue={onboarding?.[x.f] || ''} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : <UniversalListManager docPath={subCat==='list'?'system/onboarding_list':'system/onboarding_parking'} items={subCat==='list'?(onboarding?.list || []):(onboarding?.parking || [])} triggerNotify={triggerNotify} />}
+                            </div>
+                        )}
+
                         {tab === 'benefit' && (
                             <div>
-                                <div className="flex bg-slate-100 p-1 rounded-xl mb-4 font-bold">{[{id:'eval',n:'考核'},{id:'wel',n:'福利'}].map(c=>(<button key={c.id} onClick={()=>setSubCat(c.id)} className={`flex-1 py-2 rounded-lg text-[10px] font-bold ${subCat===c.id?'bg-white text-orange-600 shadow-sm':'text-slate-400'}`}>{c.n}</button>))}</div>
+                                <div className="flex bg-slate-100 p-1 rounded-xl mb-4">
+                                    {[{id:'eval',n:'考核'},{id:'wel',n:'福利'}].map(c=>(
+                                        <button key={c.id} onClick={()=>setSubCat(c.id)} className={`flex-1 py-2 rounded-lg text-[10px] font-bold ${subCat===c.id?'bg-white text-brand-red shadow-sm':'text-slate-400'}`}>{c.n}</button>
+                                    ))}
+                                </div>
                                 <UniversalListManager docPath={subCat==='eval'?'system/benefits_eval':'system/benefits_welfare'} items={subCat==='eval'?(benefits?.evaluation || []):(benefits?.welfare || [])} triggerNotify={triggerNotify} />
                             </div>
                         )}
 
-                        {tab === 'rules' && (<div><div className="flex bg-slate-100 p-1 rounded-xl mb-4 overflow-x-auto no-scrollbar font-bold">{RULE_CATEGORIES.map(c=>(<button key={c} onClick={()=>setSubCat(c)} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-bold ${subCat===c?'bg-white text-orange-600 shadow-sm':'text-slate-400'}`}>{c}</button>))}</div><UniversalListManager docPath={`rules/${subCat}`} items={rulesData[subCat] || []} triggerNotify={triggerNotify} /></div>)}
-
+                        {tab === 'rules' && (<div><div className="flex bg-slate-100 p-1 rounded-xl mb-4 overflow-x-auto no-scrollbar">{RULE_CATEGORIES.map(c=>(<button key={c} onClick={()=>setSubCat(c)} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-bold ${subCat===c?'bg-white text-brand-red shadow-sm':'text-slate-400'}`}>{c}</button>))}</div><UniversalListManager docPath={`rules/${subCat}`} items={rulesData[subCat] || []} triggerNotify={triggerNotify} /></div>)}
+                        
                         {tab === 'schedules' && (
-                            <div className="glass-panel p-6 rounded-[2.5rem] space-y-4 bg-white border border-slate-100 shadow-sm font-bold">
-                                <h3 className="font-black text-slate-800 text-xs flex items-center gap-2 uppercase tracking-widest font-bold"><Icon name="link" size={16} className="text-blue-500" />班表查看網址</h3>
-                                <input type="month" value={selectedMonth} onChange={e=>setSelectedMonth(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold border-slate-200 outline-none font-bold" />
+                            <div className="glass-panel p-6 rounded-[2.5rem] space-y-4 bg-white border shadow-sm">
+                                <h3 className="font-black text-slate-800 text-xs flex items-center gap-2 uppercase tracking-widest"><Icon name="link" size={16} className="text-blue-500" />{currentBranch} 班表網址</h3>
+                                <input type="month" value={selectedMonth} onChange={e=>setSelectedMonth(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold border-slate-200 outline-none" />
                                 <div className="space-y-2">
-                                    <p className="text-[10px] font-black text-slate-400 ml-1 uppercase tracking-widest font-bold">外部網址 (Google 硬碟 / 圖片連結)</p>
-                                    <input placeholder="貼上網址..." className="w-full input-light p-4 rounded-xl text-xs outline-none shadow-inner font-bold" onBlur={(e) => db.collection(getPublicPath('schedules_links')).doc(selectedMonth).set({ url: e.target.value }, {merge:true}).then(()=>triggerNotify("網址儲存成功","success"))} defaultValue={schedules[selectedMonth] || ''} />
+                                    <p className="text-[10px] font-black text-slate-400 ml-1 uppercase">外部網址 (Google 硬碟 / 圖片連結)</p>
+                                    <input placeholder="貼上網址..." className="w-full input-light p-4 rounded-xl text-xs outline-none" onBlur={(e) => db.collection(getPublicPath(`schedules_links_${currentBranch}`)).doc(selectedMonth).set({ url: e.target.value }, {merge:true}).then(()=>triggerNotify("網址儲存成功","success"))} defaultValue={schedules[selectedMonth] || ''} />
                                 </div>
-                                <button onClick={() => { const m = selectedMonth.split('-')[1]; triggerLineAlert("SCHEDULE", { month: m }); triggerNotify(`${m}月通知已發送至 LINE`, "success"); }} className="w-full bg-slate-800 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all text-xs tracking-widest mt-2 uppercase font-bold">📢 推送 {selectedMonth.split('-')[1]} 月份更新通知</button>
                             </div>
                         )}
 
                         {tab === 'safety' && (
-                            <div className="glass-panel p-6 rounded-[2.5rem] space-y-4 bg-white border border-slate-100 shadow-sm text-left font-bold">
-                                <select value={selectedZone} onChange={e=>setSelectedZone(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold border-slate-200 outline-none shadow-inner font-bold">{ZONES.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}</select>
-                                <div className="bg-slate-50 p-4 rounded-2xl space-y-3 border border-slate-100 shadow-inner">
-                                    <input id="std-note" placeholder="檢查標註..." className="w-full input-light p-3 rounded-xl text-xs outline-none shadow-sm shadow-inner font-bold" />
-                                    <label className="bg-slate-900 text-white w-full block py-4 rounded-xl text-[10px] font-black text-center cursor-pointer uppercase shadow-lg active:scale-95 transition-all font-bold">上傳標準照<input type="file" className="hidden" onChange={e=>{const f=e.target.files[0]; if(f){const r=new FileReader(); const note=document.getElementById('std-note').value; r.onloadend=async ()=>{ const compressed = await compressImage(r.result, 800, 0.5); 
-                                        db.collection(getPublicPath('standards_items')).add({
-                                            zoneId: selectedZone,
-                                            url: compressed,
-                                            note: note,
-                                            timestamp: Date.now()
-                                        }).then(() => {
-                                            document.getElementById('std-note').value=''; 
-                                            triggerNotify("標準圖已同步","success");
-                                        }); }; r.readAsDataURL(f);}}}/></label>
+                            <div className="space-y-4">
+                                <div className="glass-panel p-6 rounded-[2.5rem] bg-white border shadow-sm space-y-4">
+                                    <h3 className="font-black text-brand-red text-sm flex items-center gap-2"><Icon name="layout-grid" size={18} /> {currentBranch} 區站管理</h3>
+                                    <div className="flex gap-2">
+                                        <input placeholder="新區站名稱..." value={newZoneName} onChange={e=>setNewZoneName(e.target.value)} className="flex-1 input-light p-3 rounded-xl text-sm" />
+                                        <button onClick={()=>{
+                                            if(!newZoneName.trim()) return;
+                                            const newZ = [...branchZones, { id: Date.now().toString(), name: newZoneName }];
+                                            db.doc(getPublicPath(`config/zones_${currentBranch}`)).set({ zones: newZ }).then(()=>{setNewZoneName(''); triggerNotify("區站新增成功", "success");});
+                                        }} className="bg-slate-900 text-white px-5 rounded-xl text-xs">新增</button>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 mt-2">
+                                        {branchZones.map(z => (
+                                            <div key={z.id} className="bg-slate-50 px-3 py-2 rounded-xl text-xs flex justify-between items-center border">
+                                                <span>{z.name}</span>
+                                                <button onClick={()=>{
+                                                    const newZ = branchZones.filter(bz => bz.id !== z.id);
+                                                    db.doc(getPublicPath(`config/zones_${currentBranch}`)).set({ zones: newZ });
+                                                }} className="text-slate-400 hover:text-red-500"><Icon name="x" size={14}/></button>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                                <div className="space-y-3 mt-4 font-bold">{(standards[selectedZone] || []).map((item, i) => (<div key={item.id} className="bg-white p-3 rounded-2xl border border-slate-100 flex gap-4 items-start shadow-sm shadow-inner"><img src={item.url} className="w-16 h-16 rounded-xl object-cover" /><div className="flex-1 text-left text-xs font-bold font-medium font-bold font-bold">{item.note || "無說明"}</div><button onClick={()=>{db.collection(getPublicPath('standards_items')).doc(item.id).delete();}} className="p-2 text-slate-300 hover:text-red-500 transition-all font-bold font-bold"><Icon name="x" size={14}/></button></div>))}</div>
+
+                                {branchZones.length > 0 && (
+                                    <div className="glass-panel p-6 rounded-[2.5rem] space-y-4 bg-white border text-left">
+                                        <h3 className="font-black text-brand-red text-sm flex items-center gap-2"><Icon name="camera" size={18} /> {currentBranch} 巡視標準設定</h3>
+                                        <select value={selectedZone} onChange={e=>setSelectedZone(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none">
+                                            {branchZones.map(z => <option key={z.id} value={z.id}>{z.name}</option>)}
+                                        </select>
+                                        <div className="bg-slate-50 p-4 rounded-2xl space-y-3 border shadow-inner">
+                                            <input id="std-note" placeholder="檢查標註..." className="w-full input-light p-3 rounded-xl text-xs outline-none" />
+                                            <label className="bg-slate-900 text-white w-full block py-4 rounded-xl text-[10px] font-black text-center cursor-pointer active:scale-95 transition-all">上傳標準照<input type="file" className="hidden" onChange={e=>{const f=e.target.files[0]; if(f){const r=new FileReader(); const note=document.getElementById('std-note').value; r.onloadend=async ()=>{ const compressed = await compressImage(r.result, 800, 0.5); db.collection(getPublicPath(`standards_${currentBranch}`)).add({ zoneId: selectedZone, url: compressed, note: note, timestamp: Date.now() }).then(() => { document.getElementById('std-note').value=''; triggerNotify("標準圖已同步","success"); }); }; r.readAsDataURL(f);}}}/></label>
+                                        </div>
+                                        <div className="space-y-3 mt-4">{(standards[selectedZone] || []).map(item => (<div key={item.id} className="bg-white p-3 rounded-2xl border flex gap-4 items-center shadow-sm"><img src={item.url} className="w-12 h-12 rounded-lg object-cover" /><div className="flex-1 text-xs">{item.note}</div><button onClick={()=>db.collection(getPublicPath(`standards_${currentBranch}`)).doc(item.id).delete()} className="text-slate-300 active:text-red-500"><Icon name="x" size={14}/></button></div>))}</div>
+                                    </div>
+                                )}
                             </div>
                         )}
-
                         {tab === 'sign' && (
                             <div className="space-y-4">
-                                <div className="flex bg-slate-100 p-1 rounded-xl mb-4 overflow-x-auto no-scrollbar font-bold">
-                                    {RULE_CATEGORIES.map(c => (<button key={c} onClick={() => setSignSubCat(c)} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-bold transition-all ${signSubCat === c ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>{c}</button>))}
-                                </div>
-                                <div className="space-y-3">
-                                    {signatures.filter(s => s.category === `守則簽署 - ${signSubCat}`).map((s, i) => (
-                                        <div key={i} className="bg-white p-5 rounded-[2.5rem] border border-slate-100 shadow-sm flex flex-col gap-4 mb-3 text-left shadow-orange-50/5">
-                                            <div className="flex justify-between items-start font-bold">
-                                                <div><p className="font-black text-slate-800 text-sm font-bold font-bold font-bold">{s.userName}</p><p className="text-[9px] text-blue-500 uppercase font-bold font-bold font-bold">{s.category}</p></div>
-                                                <p className="text-[8px] text-slate-300 font-bold font-bold font-bold font-bold">{new Date(s.timestamp).toLocaleString()}</p>
+                                <div className="flex bg-slate-100 p-1 rounded-xl mb-4 overflow-x-auto no-scrollbar">{RULE_CATEGORIES.map(c => (<button key={c} onClick={() => setSignSubCat(c)} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-bold transition-all ${signSubCat === c ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>{c}</button>))}</div>
+                                <div className="space-y-2">
+                                    {signatures.filter(s => s.category === `守則簽署 - ${signSubCat}` && (isSuperAdmin ? true : s.branch === currentBranch)).map((s, i) => (
+                                        <div key={i} className="bg-white rounded-[2rem] border shadow-sm overflow-hidden transition-all">
+                                            <div onClick={()=>setExpandedSig(expandedSig === i ? null : i)} className="p-5 flex justify-between items-center cursor-pointer active:bg-slate-50">
+                                                <div className="flex items-center gap-3">
+                                                    <span className="font-bold text-slate-800">{s.userName}</span>
+                                                    {isSuperAdmin && s.branch !== currentBranch && <span className="text-[9px] bg-slate-100 text-slate-400 px-2 rounded-full">{s.branch}</span>}
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-[10px] text-slate-400">{new Date(s.timestamp).toLocaleDateString()}</span>
+                                                    <Icon name={expandedSig === i ? "chevron-up" : "chevron-down"} size={16} className="text-slate-300" />
+                                                </div>
                                             </div>
-                                            <img src={s.signature} className="w-full h-32 object-contain bg-slate-50 border rounded-xl shadow-inner font-bold" />
+                                            {expandedSig === i && (
+                                                <div className="p-4 bg-slate-50 border-t">
+                                                    <img src={s.signature} className="w-full h-32 object-contain bg-white rounded-xl border border-dashed border-slate-200" alt="簽名" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                    {signatures.filter(s => s.category === `守則簽署 - ${signSubCat}` && (isSuperAdmin ? true : s.branch === currentBranch)).length === 0 && <p className="text-center py-10 text-slate-400 text-xs">目前無簽署紀錄</p>}
+                                </div>
+                            </div>
+                        )}
+                        {tab === 'system' && isSuperAdmin && (
+                            <div className="glass-panel p-6 rounded-[2.5rem] bg-white border shadow-sm space-y-4">
+                                <h3 className="font-black text-brand-red text-sm flex items-center gap-2"><Icon name="building-2" size={18} /> 全域分店管理</h3>
+                                <div className="flex gap-2">
+                                    <input placeholder="新分店名稱..." value={newBranchName} onChange={e=>setNewBranchName(e.target.value)} className="flex-1 input-light p-3 rounded-xl text-sm" />
+                                    <button onClick={()=>{
+                                        if(!newBranchName.trim() || globalBranches.includes(newBranchName)) return;
+                                        const newB = [...globalBranches, newBranchName.trim()];
+                                        db.doc(getPublicPath('system/branches')).set({ list: newB }).then(()=>{
+                                            setNewBranchName(''); 
+                                            triggerNotify("分店新增成功", "success");
+                                        });
+                                    }} className="bg-slate-900 text-white px-5 rounded-xl text-xs">新增分店</button>
+                                </div>
+                                <div className="space-y-2 mt-4">
+                                    {globalBranches.map(b => (
+                                        <div key={b} className="bg-slate-50 p-4 rounded-2xl font-bold flex justify-between items-center border">
+                                            <span>{b}</span>
+                                            {globalBranches.length > 1 && (
+                                                <button onClick={()=>{
+                                                    const newB = globalBranches.filter(i => i !== b);
+                                                    db.doc(getPublicPath('system/branches')).set({ list: newB });
+                                                    if(currentBranch === b) setCurrentBranch(newB[0]);
+                                                }} className="text-slate-300 hover:text-red-500"><Icon name="trash-2" size={16}/></button>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -596,183 +1334,168 @@
             );
         };
 
-        // --- 4. 主要應用程式 (Main App) ---
+        // --- 5. App 進入點 ---
 
         const App = () => {
             const [currentPage, setCurrentPage] = useState('auth');
             const [isManager, setIsManager] = useState(false);
+            const [isSuperAdmin, setIsSuperAdmin] = useState(false);
             const [fbReady, setFbReady] = useState(false);
             const [user, setUser] = useState(null);
             const [notifications, setNotifications] = useState([]);
             const [users, setUsers] = useState([]);
-            const [currentUser, setCurrentUser] = useState(() => {
-                const saved = localStorage.getItem('k_active_user');
-                return saved ? JSON.parse(saved) : null;
-            });
+            const [currentUser, setCurrentUser] = useState(() => { const saved = localStorage.getItem('k_active_user'); return saved ? JSON.parse(saved) : null; });
+            const [activeAnnouncement, setActiveAnnouncement] = useState(null);
+            
+            // 全域資料
+            const [globalBranches, setGlobalBranches] = useState(['南港旗艦店', '信義本店']);
+            const [currentBranch, setCurrentBranch] = useState('南港旗艦店');
+            const [branchZones, setBranchZones] = useState([]);
             const [announcements, setAnnouncements] = useState([]);
-            const [schedules, setSchedules] = useState({});
-            const [standards, setStandards] = useState({});
-            const [completedZones, setCompletedZones] = useState([]);
+            const [tickerText, setTickerText] = useState('');
+            const [menuData, setMenuData] = useState({});
             const [onboardingData, setOnboardingData] = useState({});
             const [benefitsData, setBenefitsData] = useState({});
-            const [menuData, setMenuData] = useState({});
             const [rulesData, setRulesData] = useState({});
+            
+            // 分店特定資料
+            const [completedZones, setCompletedZones] = useState([]);
+            const [standards, setStandards] = useState({});
             const [signatures, setSignatures] = useState([]);
-            const [selectedAnn, setSelectedAnn] = useState(null);
-            const [tickerText, setTickerText] = useState('');
-            const sentAlerts = useRef({ reminder: false, missing: false });
+            const [schedules, setSchedules] = useState({});
 
-            const logout = () => { setCurrentUser(null); setIsManager(false); setCurrentPage('auth'); localStorage.removeItem('k_active_user'); };
+            const logout = () => { setCurrentUser(null); setIsManager(false); setIsSuperAdmin(false); setCurrentPage('auth'); localStorage.removeItem('k_active_user'); };
             const triggerNotify = useCallback((msg, type = "info") => {
-                const id = Date.now();
-                setNotifications(prev => [...prev, { id, msg, type }]);
+                const id = Date.now(); setNotifications(prev => [...prev, { id, msg, type }]);
                 setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 4000);
             }, []);
 
+            const openAnnouncement = (a) => {
+                setActiveAnnouncement(a);
+                const readBy = a.readBy || [];
+                if (currentUser && !readBy.includes(currentUser.name)) {
+                    const newItems = announcements.map(item => item.id === a.id ? { ...item, readBy: [...readBy, currentUser.name] } : item);
+                    db.doc(getPublicPath(`announcements/branch_${currentBranch}`)).set({ items: newItems });
+                }
+            };
+
             useEffect(() => {
-                const initAuth = async () => {
-                    try { 
-                        await auth.signInAnonymously(); 
-                        setFbReady(true); 
-                        if (currentUser) {
-                            setCurrentPage('home');
-                        }
-                    } 
-                    catch (e) { triggerNotify("Firebase 連線失敗", "error"); }
-                };
-                initAuth();
-                const unsubscribe = auth.onAuthStateChanged(u => setUser(u));
-                return () => unsubscribe();
+                const initAuth = async () => { try { await auth.signInAnonymously(); setFbReady(true); if (currentUser) setCurrentPage('home'); } catch (e) { triggerNotify("連線失敗", "error"); } };
+                initAuth(); return auth.onAuthStateChanged(u => setUser(u));
             }, []);
 
+            // 全域系統資料監聽
             useEffect(() => {
                 if (!user) return;
-                const errHandler = (e) => { if (e.code === 'permission-denied') triggerNotify("權限不足，請聯繫主管", "error"); };
-
-                const timerLogic = () => {
-                    const now = new Date();
-                    const hours = now.getHours(); const mins = now.getMinutes(); const secs = now.getSeconds();
-                    const currentKey = getBusinessCycleKey();
-
-                    // 1. 每天晚上 10:10 提醒上傳（若未完成）
-                    if (hours === 22 && mins === 10 && secs === 0 && !sentAlerts.current.reminder) {
-                        if (completedZones.length < ZONES.length) {
-                            triggerLineAlert("REMINDER");
-                        }
-                        sentAlerts.current.reminder = true;
-                    }
-
-                    // 2. 晚上 10:30 通知尚未完成的崗位清單
-                    if (hours === 22 && mins === 30 && secs === 0 && !sentAlerts.current.missing) {
-                        if (completedZones.length < ZONES.length) {
-                            const missing = ZONES.filter(z => !completedZones.includes(z.id)).map(z => z.name);
-                            triggerLineAlert("MISSING_LIST", { list: missing });
-                        }
-                        sentAlerts.current.missing = true;
-                    }
-
-                    // 換日重置觸發狀態
-                    if (hours === 0 && mins === 0) sentAlerts.current = { reminder: false, missing: false };
-
-                    db.doc(getPublicPath('system/progress')).get().then(doc => {
-                        const data = doc.exists ? doc.data() : {};
-                        if (data.lastResetDate !== currentKey) {
-                            db.doc(getPublicPath('system/progress')).set({ lastResetDate: currentKey, completedZones: [] }, { merge: true });
-                            db.collection(getPublicPath('daily_photos_items')).get().then(s => s.forEach(d => d.ref.delete()));
-                        }
-                    });
-                };
-                const interval = setInterval(timerLogic, 1000);
-
+                const errH = () => triggerNotify("讀取失敗", "error");
                 const subs = [
-                    db.collection(getPublicPath('users')).onSnapshot(s => {
-                        const allUsers = s.docs.map(d => d.data());
-                        setUsers(allUsers);
-                        if (currentUser) {
-                            const updated = allUsers.find(u => u.phone === currentUser.phone);
-                            if (updated && updated.status !== currentUser.status) {
-                                setCurrentUser(updated);
-                                localStorage.setItem('k_active_user', JSON.stringify(updated));
-                            }
-                        }
-                    }, errHandler),
-                    db.doc(getPublicPath('system/progress')).onSnapshot(d => d.exists && setCompletedZones(d.data().completedZones || []), errHandler),
-                    db.collection(getPublicPath('standards_items')).onSnapshot(snapshot => { 
-                        const m = {}; 
-                        snapshot.forEach(doc => {
-                            const data = doc.data();
-                            if (!m[data.zoneId]) m[data.zoneId] = [];
-                            m[data.zoneId].push({ ...data, id: doc.id });
-                        });
-                        Object.keys(m).forEach(k => m[k].sort((a,b) => (a.timestamp || 0) - (b.timestamp || 0)));
-                        setStandards(m); 
-                    }, errHandler),
-                    db.doc(getPublicPath('system/onboarding_list')).onSnapshot(d => d.exists && setOnboardingData(p => ({...p, list: d.data().items})), errHandler),
-                    db.doc(getPublicPath('system/onboarding_parking')).onSnapshot(d => d.exists && setOnboardingData(p => ({...p, parking: d.data().items})), errHandler),
-                    db.doc(getPublicPath('system/onboarding')).onSnapshot(d => d.exists && setOnboardingData(p => ({...p, ...d.data()})), errHandler),
-                    db.doc(getPublicPath('system/benefits_eval')).onSnapshot(d => d.exists && setBenefitsData(p => ({...p, evaluation: d.data().items})), errHandler),
-                    db.doc(getPublicPath('system/benefits_welfare')).onSnapshot(d => d.exists && setBenefitsData(p => ({...p, welfare: d.data().items})), errHandler),
-                    db.doc(getPublicPath('system/menu_list')).onSnapshot(d => d.exists && setMenuData({items: d.data().items}), errHandler),
-                    db.doc(getPublicPath('system/announcements_list')).onSnapshot(d => d.exists && setAnnouncements(d.data().items || []), errHandler),
-                    db.doc(getPublicPath('system/ticker')).onSnapshot(d => d.exists && setTickerText(d.data().text || ''), errHandler),
-                    db.collection(getPublicPath('signatures')).onSnapshot(s => setSignatures(s.docs.map(d => d.data()).sort((a,b)=>b.timestamp-a.timestamp)), errHandler),
-                    db.collection(getPublicPath('schedules_links')).onSnapshot(snapshot => {
-                        const links = {}; snapshot.forEach(doc => links[doc.id] = doc.data().url);
-                        setSchedules(links);
-                    }, errHandler)
+                    db.doc(getPublicPath('system/branches')).onSnapshot(d => d.exists && d.data().list && setGlobalBranches(d.data().list), errH),
+                    db.collection(getPublicPath('users')).onSnapshot(s => { 
+                        const all = s.docs.map(d => d.data()); setUsers(all); 
+                        if (currentUser) { 
+                            const upd = all.find(u => u.phone === currentUser.phone); 
+                            if (upd && (upd.status !== currentUser.status || upd.role !== currentUser.role)) { 
+                                setCurrentUser(upd); localStorage.setItem('k_active_user', JSON.stringify(upd)); 
+                                if(upd.status === 'approved' && upd.role === '主管') setIsManager(true);
+                            } 
+                        } 
+                    }, errH),
+                    db.doc(getPublicPath('system/menu_list')).onSnapshot(d => d.exists && setMenuData({items: d.data().items}), errH),
+                    db.doc(getPublicPath('system/onboarding_list')).onSnapshot(d => d.exists && setOnboardingData(p => ({...p, list: d.data().items})), errH),
+                    db.doc(getPublicPath('system/onboarding_parking')).onSnapshot(d => d.exists && setOnboardingData(p => ({...p, parking: d.data().items})), errH),
+                    db.doc(getPublicPath('system/onboarding')).onSnapshot(d => d.exists && setOnboardingData(p => ({...p, ...d.data()})), errH),
+                    db.doc(getPublicPath('system/benefits_eval')).onSnapshot(d => d.exists && setBenefitsData(p => ({...p, evaluation: d.data().items})), errH),
+                    db.doc(getPublicPath('system/benefits_welfare')).onSnapshot(d => d.exists && setBenefitsData(p => ({...p, welfare: d.data().items})), errH),
+                    db.collection(getPublicPath('signatures')).onSnapshot(s => setSignatures(s.docs.map(d => d.data()).sort((a,b)=>b.timestamp-a.timestamp)), errH)
                 ];
-                RULE_CATEGORIES.forEach(cat => {
-                    subs.push(db.doc(getPublicPath(`rules/${cat}`)).onSnapshot(d => d.exists && setRulesData(prev => ({ ...prev, [cat]: d.data().items || [] })), errHandler));
-                });
-                return () => { clearInterval(interval); subs.forEach(un => un()); };
-            }, [user, currentUser, completedZones.length]);
+                RULE_CATEGORIES.forEach(cat => subs.push(db.doc(getPublicPath(`rules/${cat}`)).onSnapshot(d => d.exists && setRulesData(prev => ({ ...prev, [cat]: d.data().items || [] })), errH)));
+                return () => subs.forEach(un => un());
+            }, [user, currentUser]);
+
+            // 依據目前選擇的分店 (currentBranch) 動態切換資料監聽
+            useEffect(() => {
+                if(!user || !currentBranch) return;
+                const errH = () => {};
+                
+                const subZone = db.doc(getPublicPath(`config/zones_${currentBranch}`)).onSnapshot(d => {
+                    if(d.exists && d.data().zones) { setBranchZones(d.data().zones); } 
+                    else { setBranchZones(DEFAULT_ZONES); }
+                }, errH);
+
+                const subProg = db.doc(getPublicPath(`system/progress_${currentBranch}`)).onSnapshot(d => d.exists && setCompletedZones(d.data().completedZones || []), errH);
+                const subStd = db.collection(getPublicPath(`standards_${currentBranch}`)).onSnapshot(s => { const m = {}; s.forEach(doc => { const d = doc.data(); if (!m[d.zoneId]) m[d.zoneId] = []; m[d.zoneId].push({...d, id: doc.id}); }); setStandards(m); }, errH);
+                const subSch = db.collection(getPublicPath(`schedules_links_${currentBranch}`)).onSnapshot(s => { const l = {}; s.forEach(doc => l[doc.id] = doc.data().url); setSchedules(l); }, errH);
+                const subAnn = db.doc(getPublicPath(`announcements/branch_${currentBranch}`)).onSnapshot(d => { if(d.exists && d.data().items) setAnnouncements(d.data().items); else setAnnouncements([]); }, errH);
+                const subTicker = db.doc(getPublicPath(`ticker/branch_${currentBranch}`)).onSnapshot(d => { setTickerText(d.exists ? d.data().text || '' : ''); }, errH);
+
+                return () => { subZone(); subProg(); subStd(); subSch(); subAnn(); subTicker(); };
+            }, [user, currentBranch]);
+
+            // 確保非最高權限者強制綁定自己的分店
+            useEffect(() => {
+                if(!isSuperAdmin && currentUser && currentUser.branch) {
+                    setCurrentBranch(currentUser.branch);
+                }
+            }, [currentUser, isSuperAdmin]);
 
             const renderPage = () => {
                 switch(currentPage) {
                     case 'home': {
-                        const progressPercent = Math.round((completedZones.length / ZONES.length) * 100);
+                        const progressPercent = branchZones.length > 0 ? Math.round((completedZones.length / branchZones.length) * 100) : 0;
                         return (
                             <div className="page-enter pb-10">
                                 <Ticker text={tickerText} />
                                 <div className="p-4 space-y-6 mt-2 text-left font-bold">
-                                    <div onClick={() => setCurrentPage('inspection')} className="glass-panel p-6 rounded-[2.5rem] border-l-4 border-orange-500 bg-white shadow-sm active:scale-[0.98] transition-all cursor-pointer shadow-orange-500/5 shadow-sm">
-                                        <div className="flex justify-between items-end mb-4 px-1">
-                                            <div>
-                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 leading-none uppercase font-bold">善後巡視進度 (20:00刷新)</p>
-                                                <h3 className="text-lg font-black text-slate-800 leading-tight font-bold uppercase">{completedZones.length === ZONES.length ? "✅ 今日巡視全數完成" : `進度：${completedZones.length} / ${ZONES.length}`}</h3>
-                                            </div>
-                                            <span className="text-sm font-black text-orange-600 font-bold uppercase">{progressPercent}%</span>
-                                        </div>
-                                        <div className="bg-slate-100 h-3.5 rounded-full overflow-hidden border shadow-inner border-slate-50">
-                                            <div className="h-full bg-gradient-to-r from-orange-400 to-orange-600 transition-all duration-700 ease-out shadow-[0_0_10px_rgba(249,115,22,0.3)]" style={{ width: `${progressPercent}%` }}></div>
-                                        </div>
-                                        <p className="text-[9px] text-slate-400 font-bold mt-4 text-center uppercase tracking-widest opacity-60 font-bold uppercase">點擊進入巡視詳細崗位</p>
+                                    <div onClick={() => setCurrentPage('inspection')} className="glass-panel p-6 rounded-[2.5rem] border-l-4 border-l-brand-red bg-white shadow-sm active-scale cursor-pointer">
+                                        <div className="flex justify-between items-end mb-4 px-1"><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">巡視進度 (20:00刷新)</p><h3 className="text-lg font-black text-slate-800 leading-tight">{completedZones.length >= branchZones.length && branchZones.length > 0 ? "✅ 全數巡視完成" : `進度：${completedZones.length} / ${branchZones.length || 1}`}</h3></div><span className="text-sm font-black text-brand-red">{progressPercent}%</span></div>
+                                        <div className="bg-slate-100 h-3.5 rounded-full overflow-hidden border shadow-inner"><div className="h-full bg-gradient-to-r from-[#c22946] to-brand-red transition-all duration-700" style={{ width: `${progressPercent}%` }}></div></div>
                                     </div>
-                                    <section>
-                                        <div className="flex items-center gap-2 mb-4 px-2 font-black text-slate-400 uppercase tracking-widest text-[10px] uppercase font-bold font-bold"><Icon name="bell" size={18} className="text-orange-500 font-bold" /><span>公告欄</span></div>
-                                        <div className="space-y-3 font-bold">
-                                            {announcements.slice(0, 3).map((ann) => (
-                                                <div key={ann.id} onClick={() => { setSelectedAnn(ann); setCurrentPage('annDetail'); }} className="glass-panel p-5 rounded-[2rem] border border-slate-100 active:bg-slate-50 cursor-pointer bg-white shadow-sm shadow-orange-50/5 transition-all shadow-sm">
-                                                    <h3 className="font-bold text-sm text-slate-800 mb-1 font-bold">{ann.title}</h3>
-                                                    <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed font-bold">{ann.content}</p>
+                                    
+                                    {/* 最新公告區塊 */}
+                                    <div className="space-y-3">
+                                        <h3 className="text-lg font-black text-slate-800 tracking-tight flex items-center gap-2 mb-2"><Icon name="bell" size={20} className="text-brand-red" /> {currentBranch} 最新公告</h3>
+                                        {announcements.length > 0 ? announcements.slice(0, 3).map(a => {
+                                            // 加入 currentUser 的安全檢查
+                                            const isRead = currentUser?.name ? a.readBy?.includes(currentUser.name) : false;
+                                            return (
+                                                <div key={a.id} onClick={() => openAnnouncement(a)} className={`glass-panel p-4 rounded-2xl border cursor-pointer active:scale-[0.98] transition-all flex gap-4 ${isRead ? 'opacity-70 bg-slate-50 border-slate-200 shadow-none' : 'bg-white border-brand-red/30 shadow-sm'}`}>
+                                                    {!isRead && <div className="w-2 h-2 rounded-full bg-brand-red mt-2 shrink-0 animate-pulse" />}
+                                                    <div className="flex-1 min-w-0">
+                                                        <h4 className={`font-black truncate ${isRead ? 'text-slate-600' : 'text-slate-800'}`}>{a.title}</h4>
+                                                        <p className="text-xs text-slate-400 mt-1 line-clamp-1">{a.content}</p>
+                                                    </div>
+                                                    <div className="text-[10px] text-slate-300 whitespace-nowrap pt-1">
+                                                        {new Date(a.timestamp).toLocaleDateString()}
+                                                    </div>
                                                 </div>
-                                            ))}
-                                        </div>
-                                    </section>
-                                    <section className="grid grid-cols-2 gap-4 font-bold">
-                                        <NavCard title="入職相關" onClick={() => setCurrentPage('onboarding')} colorClass="bg-blue-50/50" iconName="user-plus" />
+                                            )
+                                        }) : <div className="text-center py-6 text-slate-400 text-xs font-bold glass-panel rounded-2xl border border-dashed shadow-sm">目前無新公告</div>}
+                                    </div>
+
+                                    <section className="grid grid-cols-2 gap-4">
+                                        <NavCard title="叫貨系統" onClick={() => setCurrentPage('ordering')} colorClass="bg-rose-50/80" iconName="package-plus" />
                                         <NavCard title="員工守則" onClick={() => setCurrentPage('unifiedRules')} colorClass="bg-emerald-50/50" iconName="book-open" />
+                                        <NavCard title="每月班表" onClick={() => setCurrentPage('schedule')} colorClass="bg-indigo-50/50" iconName="calendar" />
+                                        <NavCard title="入職相關" onClick={() => setCurrentPage('onboarding')} colorClass="bg-blue-50/50" iconName="user-plus" />
                                         <NavCard title="薪資福利" onClick={() => setCurrentPage('benefits')} colorClass="bg-rose-50/50" iconName="wallet" />
                                         <NavCard title="本季菜單" onClick={() => setCurrentPage('menu')} colorClass="bg-yellow-50/50" iconName="utensils" />
-                                        <NavCard title="每月班表" onClick={() => setCurrentPage('schedule')} colorClass="bg-indigo-50/50" iconName="calendar" />
-                                        <NavCard title="叫貨系統" onClick={() => setCurrentPage('ordering')} colorClass="bg-slate-50" iconName="package-plus" />
                                     </section>
                                 </div>
                             </div>
                         );
                     }
-                    case 'ordering': return (<div className="p-10 pt-32 text-center h-screen space-y-8 page-enter font-bold"><div className="bg-white w-24 h-24 rounded-[2rem] flex items-center justify-center mx-auto shadow-lg shadow-orange-50/5 shadow-sm"><Icon name="package-search" size={48} className="text-slate-400 animate-pulse font-bold" /></div><div className="space-y-2 text-center px-6 font-bold"><h3 className="text-2xl font-black text-slate-800 tracking-tighter uppercase font-bold">叫貨系統</h3><p className="text-slate-500 text-sm font-bold leading-relaxed font-bold">功能規劃中。</p></div><button onClick={()=>setCurrentPage('home')} className="text-slate-400 font-bold border-b border-slate-200 pb-1 text-sm uppercase active:text-orange-500 transition-all font-bold">返回首頁</button></div>);
-                    case 'onboarding': return (<div className="p-4 space-y-4 page-enter text-left font-bold"><BackButton onClick={()=>setCurrentPage('home')} title="入職相關" /><SectionItem title="員工準備清單" iconName="list-checks" onClick={()=>setCurrentPage('onboard-list')} /><SectionItem title="停車資訊指引" iconName="car" onClick={()=>setCurrentPage('onboard-parking')} /><SectionItem title="上班動線引導" iconName="navigation" onClick={()=>setCurrentPage('workRoute')} /></div>);
+                    case 'ordering': return <OrderingSystem onBack={()=>setCurrentPage('home')} triggerNotify={triggerNotify} globalBranches={globalBranches} currentBranch={currentBranch} isSuperAdmin={isSuperAdmin} getPublicPath={getPublicPath} />;
+                    case 'inspection': return <InspectionPage onBack={()=>setCurrentPage('home')} standards={standards} completedZones={completedZones} triggerNotify={triggerNotify} branchZones={branchZones} currentBranch={currentBranch} getPublicPath={getPublicPath} />;
+                    case 'unifiedRules': return <UnifiedRulesPage rulesData={rulesData} onBack={()=>setCurrentPage('home')} user={currentUser} currentBranch={currentBranch} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />;
+                    case 'menu': return <ListDetailPage onBack={()=>setCurrentPage('home')} title="本季菜單" list={menuData?.items} />;
+                    case 'onboarding': return (
+                        <div className="p-4 space-y-4 page-enter text-left">
+                            <BackButton onClick={()=>setCurrentPage('home')} title="入職相關" />
+                            <SectionItem title="員工準備清單" iconName="list-checks" onClick={()=>setCurrentPage('onboard-list')} />
+                            <SectionItem title="停車資訊指引" iconName="car" onClick={()=>setCurrentPage('onboard-parking')} />
+                            <SectionItem title="上班動線引導" iconName="navigation" onClick={()=>setCurrentPage('workRoute')} />
+                        </div>
+                    );
                     case 'onboard-list': return <ListDetailPage onBack={()=>setCurrentPage('onboarding')} title="準備清單" list={onboardingData?.list} />;
                     case 'onboard-parking': return <ListDetailPage onBack={()=>setCurrentPage('onboarding')} title="停車資訊" list={onboardingData?.parking} />;
                     case 'workRoute': return (
@@ -780,78 +1503,88 @@
                             <BackButton onClick={()=>setCurrentPage('onboarding')} title="上班動線" />
                             <div className="space-y-4">
                                 {[{l:'大眾運輸引導',u:onboardingData?.routeBusUrl, icon:'bus'}, {l:'自行前往引導',u:onboardingData?.routeCarUrl, icon:'car'}].map(x => (
-                                    <div key={x.l} onClick={() => x.u && window.open(x.u, '_blank')} className="glass-panel p-6 rounded-[2.5rem] bg-white border border-slate-100 shadow-sm flex items-center justify-between active:bg-slate-50 cursor-pointer group transition-all font-bold">
-                                        <div className="flex items-center gap-4 font-bold">
-                                            <div className="w-12 h-12 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center shadow-inner font-bold"><Icon name={x.icon} size={22} className="font-bold" /></div>
-                                            <div><p className="text-[10px] font-black text-slate-400 uppercase mb-1 font-bold">Movement Guide</p><h3 className="text-sm font-black text-slate-800 uppercase tracking-tighter font-bold">{x.l}</h3></div>
+                                    <div key={x.l} onClick={() => x.u && window.open(x.u, '_blank')} className="glass-panel p-6 rounded-[2.5rem] bg-white border flex items-center justify-between active:bg-slate-50 cursor-pointer group transition-all">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 bg-rose-50 text-brand-red rounded-2xl flex items-center justify-center shadow-inner"><Icon name={x.icon} size={22} /></div>
+                                            <div><p className="text-[10px] font-black text-slate-400 uppercase mb-1">Guide</p><h3 className="text-sm font-black text-slate-800">{x.l}</h3></div>
                                         </div>
-                                        <div className="flex items-center gap-2 text-slate-300 group-active:text-orange-500 font-bold uppercase font-bold"><span className="text-[10px] font-black uppercase font-bold">查看影片</span><Icon name="chevron-right" size={18} className="font-bold" /></div>
+                                        <Icon name="chevron-right" size={18} className="text-slate-300 group-active:text-brand-red" />
                                     </div>
                                 ))}
                             </div>
                         </div>
                     );
-                    case 'benefits': return (<div className="p-4 space-y-4 page-enter text-left font-bold"><BackButton onClick={()=>setCurrentPage('home')} title="薪資福利" /><SectionItem title="考核加給標準" iconName="coins" onClick={()=>setCurrentPage('benefit-eval')} /><SectionItem title="員工相關福利" iconName="heart" onClick={()=>setCurrentPage('benefit-wel')} /></div>);
+                    case 'benefits': return (
+                        <div className="p-4 space-y-4 page-enter text-left">
+                            <BackButton onClick={()=>setCurrentPage('home')} title="薪資福利" />
+                            <SectionItem title="考核加給標準" iconName="coins" onClick={()=>setCurrentPage('benefit-eval')} />
+                            <SectionItem title="員工相關福利" iconName="heart" onClick={()=>setCurrentPage('benefit-wel')} />
+                        </div>
+                    );
                     case 'benefit-eval': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="考核標準" list={benefitsData?.evaluation} />;
                     case 'benefit-wel': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="福利項目" list={benefitsData?.welfare} />;
-                    case 'menu': return <ListDetailPage onBack={()=>setCurrentPage('home')} title="本季菜單" list={menuData?.items} />;
                     case 'schedule': return (
-                        <div className="p-4 space-y-6 page-enter text-left pb-20 font-bold">
-                            <BackButton onClick={()=>setCurrentPage('home')} title="每月班表" />
+                        <div className="p-4 space-y-6 page-enter text-left pb-20">
+                            <BackButton onClick={()=>setCurrentPage('home')} title={`${currentBranch} 每月班表`} />
                             <div className="space-y-4">
                                 {Object.entries(schedules).length > 0 ? Object.entries(schedules).sort((a,b)=>b[0].localeCompare(a[0])).map(([m, url]) => (
-                                    <div key={m} onClick={() => url && window.open(url, '_blank')} className="glass-panel p-6 rounded-[2rem] flex items-center justify-between bg-white shadow-sm active:scale-[0.98] transition-all cursor-pointer group shadow-sm font-bold">
-                                        <div className="flex items-center gap-4 font-bold">
-                                            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex flex-col items-center justify-center font-black uppercase tracking-tighter font-bold">
-                                                <span className="text-[14px] font-bold">{m.split('-')[1]}月</span>
-                                            </div>
-                                            <div><p className="text-[10px] font-black text-slate-400 uppercase leading-none mb-1 uppercase font-bold tracking-widest font-bold">Schedule Link</p><p className="text-sm font-black text-slate-800 uppercase tracking-tighter font-bold">{m.replace('-','年')}月 班表網址</p></div>
+                                    <div key={m} onClick={() => url && window.open(url, '_blank')} className="glass-panel p-6 rounded-[2rem] flex items-center justify-between bg-white shadow-sm active:scale-[0.98] transition-all cursor-pointer group">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center font-bold">{m.split('-')[1]}月</div>
+                                            <div><p className="text-[10px] font-black text-slate-400">Schedule Link</p><p className="text-sm font-black text-slate-800">{m.replace('-','年')}月 班表</p></div>
                                         </div>
-                                        <Icon name="external-link" size={18} className="text-slate-300 group-active:text-indigo-500 font-bold" />
+                                        <Icon name="external-link" size={18} className="text-slate-300 group-active:text-indigo-600" />
                                     </div>
-                                )) : <div className="py-20 text-center glass-panel rounded-3xl bg-white text-slate-300 font-bold uppercase text-[10px] shadow-inner font-bold uppercase font-bold">尚未設定班表網址</div>}
+                                )) : <div className="py-20 text-center glass-panel rounded-3xl bg-white text-slate-300">尚未設定班表</div>}
                             </div>
                         </div>
                     );
-                    case 'unifiedRules': return <UnifiedRulesPage rulesData={rulesData} onBack={()=>setCurrentPage('home')} user={currentUser} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />;
-                    case 'inspection': return <InspectionPage onBack={()=>setCurrentPage('home')} standards={standards} completedZones={completedZones} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />;
-                    case 'admin': return <AdminPage onBack={()=>setCurrentPage('home')} onLogout={logout} announcements={announcements} schedules={schedules} standards={standards} users={users} triggerNotify={triggerNotify} menu={menuData} onboarding={onboardingData} benefits={benefitsData} rulesData={rulesData} getPublicPath={getPublicPath} signatures={signatures} tickerText={tickerText} setTickerText={setTickerText} />;
-                    case 'annDetail': return (<div className="p-4 page-enter text-left pb-10 font-bold"><BackButton onClick={()=>setCurrentPage('home')} title="公告詳情" /><div className="glass-panel p-8 rounded-[3rem] border-l-4 border-orange-500 bg-white shadow-2xl shadow-orange-500/10 font-bold"><h1 className="text-2xl font-black mb-2 text-slate-800 leading-tight font-bold">{selectedAnn?.title}</h1><p className="text-[10px] text-slate-400 mb-8 pb-4 border-b uppercase tracking-widest font-bold uppercase">{new Date(selectedAnn?.timestamp).toLocaleDateString()}</p><div className="text-sm text-black leading-relaxed font-bold">{selectedAnn?.content}</div></div><button onClick={()=>setCurrentPage('home')} className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl uppercase tracking-widest shadow-xl mt-4 active:scale-95 transition-all font-bold">返回首頁</button></div>);
-                    default: return <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4 font-bold uppercase tracking-widest"><Icon name="loader-2" className="animate-spin text-orange-500" size={32}/> 系統啟動中...</div>;
+                    case 'admin': return <AdminPage onBack={()=>setCurrentPage('home')} onLogout={logout} announcements={announcements} schedules={schedules} standards={standards} users={users} triggerNotify={triggerNotify} menu={menuData} onboarding={onboardingData} benefits={benefitsData} rulesData={rulesData} isSuperAdmin={isSuperAdmin} currentBranch={currentBranch} setCurrentBranch={setCurrentBranch} globalBranches={globalBranches} branchZones={branchZones} getPublicPath={getPublicPath} signatures={signatures} tickerText={tickerText} setTickerText={setTickerText} />;
+                    default: return <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><Icon name="loader-2" className="animate-spin text-brand-red" size={32}/> 系統啟動中...</div>;
                 }
             };
 
             return (
-                <div className="min-h-screen flex flex-col bg-[#fff5f5]">
-                    <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[1000] w-full max-w-xs space-y-3 pointer-events-none px-4 text-left font-bold">
-                        {notifications.map(n => (
-                            <div key={n.id} className={`toast-enter p-5 rounded-[2rem] shadow-2xl flex items-center gap-4 glass-panel border-l-4 ${n.type === 'success' ? 'border-l-emerald-500 text-emerald-700' : 'border-l-orange-500 text-orange-700'} shadow-sm`}>
-                                <Icon name={n.type === 'success' ? 'check-circle' : 'alert-triangle'} size={24} /><span className="font-bold text-xs leading-tight">{n.msg}</span>
-                            </div>
-                        ))}
+                <div className="min-h-screen flex flex-col">
+                    <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[1000] w-full max-w-xs space-y-3 px-4">
+                        {notifications.map(n => (<div key={n.id} className={`toast-enter p-5 rounded-[2rem] shadow-2xl flex items-center gap-4 glass-panel border-l-4 ${n.type === 'success' ? 'border-l-emerald-500 text-emerald-700' : 'border-l-brand-red text-brand-red'}`}><Icon name={n.type === 'success' ? 'check-circle' : 'alert-triangle'} size={24} /><span className="font-bold text-xs leading-tight">{n.msg}</span></div>))}
                     </div>
-
-                    <header className="p-5 sticky top-0 z-50 flex justify-between items-center bg-white/80 backdrop-blur-md border-b border-slate-100 shadow-sm font-bold">
-                        <div className="flex items-center gap-3 cursor-pointer" onClick={() => (isManager || currentUser?.status === 'approved') && setCurrentPage('home')}>
-                            <div className="bg-orange-600 p-2 rounded-xl text-white shadow-lg shadow-orange-100 shadow-sm"><ChefHatIcon size={20}/></div>
-                            <span className="font-black text-xl text-slate-800 uppercase leading-none tracking-tighter font-bold uppercase">Kitchen OS</span>
-                        </div>
-                        <div className="flex gap-4 font-bold">
-                            <button onClick={() => isManager ? setCurrentPage('admin') : (currentUser?.status === 'approved' && setCurrentPage('home'))} className="text-slate-400 active:scale-90 hover:text-slate-600 transition-all"><Icon name={isManager ? "settings" : "bell"} size={22} /></button>
-                            {(currentUser || isManager) && <button onClick={logout} className="p-1 text-slate-300 active:scale-90 hover:text-red-500 transition-all"><Icon name="log-out" size={20} /></button>}
-                        </div>
-                    </header>
-
+                    {currentPage !== 'auth' && (
+                        <header className="p-5 sticky top-0 z-50 flex justify-between items-center bg-white/80 backdrop-blur-md border-b">
+                            <div className="flex items-center gap-3 cursor-pointer" onClick={() => (isManager || currentUser?.status === 'approved') && setCurrentPage('home')}>
+                                <div className="bg-brand-red p-2 rounded-xl text-white shadow-lg"><ChefHatIcon size={20}/></div>
+                                <div>
+                                    <span className="font-black text-xl text-slate-800 tracking-tighter leading-none block">EATJOY <span className="text-brand-red">OS</span></span>
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase">{currentBranch}</span>
+                                </div>
+                            </div>
+                            <div className="flex gap-4">
+                                <button onClick={() => isManager ? setCurrentPage('admin') : (currentUser?.status === 'approved' && setCurrentPage('home'))} className={`text-slate-400 active:scale-90 hover:text-slate-600 transition-all ${isSuperAdmin ? 'text-brand-red' : ''}`}><Icon name={isManager ? "settings" : "bell"} size={22} /></button>
+                                {(currentUser || isManager) && <button onClick={logout} className="p-1 text-slate-300 active:scale-90 hover:text-red-500 transition-all"><Icon name="log-out" size={20} /></button>}
+                            </div>
+                        </header>
+                    )}
                     <main className="flex-grow max-w-lg mx-auto w-full font-bold">
-                        {!fbReady ? (
-                            <div className="p-20 text-center flex flex-col items-center gap-4 h-screen justify-center font-bold"><Icon name="loader-2" className="animate-spin text-orange-500" size={48}/><p className="text-slate-400 font-black text-xs uppercase tracking-widest">同步雲端連線中...</p></div>
-                        ) : (!isManager && !currentUser) ? (
-                            <AuthPage users={users} setCurrentUser={setCurrentUser} setCurrentPage={setCurrentPage} setIsManager={setIsManager} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />
-                        ) : (isManager || currentUser?.status === 'approved') ? renderPage() : (
-                            <div className="p-10 pt-32 text-center h-screen space-y-8 page-enter font-bold">
-                                <div className="bg-white w-24 h-24 rounded-full flex items-center justify-center mx-auto shadow-lg shadow-orange-100 shadow-sm"><Icon name="clock" size={48} className="text-orange-500 animate-pulse" /></div>
-                                <div className="space-y-2 text-center px-4 font-bold"><h3 className="text-2xl font-black text-slate-800 tracking-tighter uppercase font-bold">授權等待中</h3><p className="text-slate-500 text-sm font-bold leading-relaxed px-10 font-bold">註冊申請已提交。請聯繫現場主管核准授權以進入系統。</p></div>
-                                <button onClick={logout} className="text-slate-400 font-bold border-b border-slate-200 pb-1 text-sm uppercase font-bold tracking-widest active:text-orange-500 transition-all uppercase">登出並返回</button>
+                        {!fbReady ? <div className="p-20 text-center h-screen flex flex-col items-center justify-center gap-4 font-bold"><Icon name="loader-2" className="animate-spin text-brand-red" size={48}/><p className="text-slate-400 font-black text-xs">連線中...</p></div>
+                        : (!isManager && !currentUser) ? <AuthPage users={users} setCurrentUser={setCurrentUser} setCurrentPage={setCurrentPage} setIsManager={setIsManager} setIsSuperAdmin={setIsSuperAdmin} setCurrentBranch={setCurrentBranch} globalBranches={globalBranches} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />
+                        : (isManager || currentUser?.status === 'approved') ? renderPage() : (
+                            <div className="p-10 pt-32 text-center h-screen space-y-8 font-bold">
+                                <div className="bg-white w-24 h-24 rounded-full flex items-center justify-center mx-auto shadow-lg"><Icon name="clock" size={48} className="text-brand-red animate-pulse" /></div>
+                                <div className="space-y-2 text-center px-4"><h3 className="text-2xl font-black text-slate-800">授權等待中</h3><p className="text-slate-500 text-sm">註冊申請已提交。請聯繫您的主管進行核准。</p></div>
+                                <button onClick={logout} className="text-slate-400 font-bold border-b pb-1 text-sm">登出</button>
+                            </div>
+                        )}
+                        
+                        {/* 獨立公告彈出視窗 */}
+                        {activeAnnouncement && (
+                            <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 page-enter">
+                                <div className="bg-white rounded-[2.5rem] p-6 w-full max-w-sm shadow-2xl max-h-[85vh] overflow-y-auto font-bold text-left">
+                                    <h2 className="text-xl font-black text-slate-800 mb-2 leading-tight">{activeAnnouncement.title}</h2>
+                                    <p className="text-[10px] text-slate-400 mb-4 flex items-center gap-1"><Icon name="clock" size={12}/> {new Date(activeAnnouncement.timestamp).toLocaleString()}</p>
+                                    {activeAnnouncement.img && <img src={activeAnnouncement.img} className="w-full rounded-2xl mb-5 object-cover border shadow-sm" alt="公告圖片" />}
+                                    <p className="text-sm font-bold text-slate-600 whitespace-pre-wrap leading-relaxed">{activeAnnouncement.content}</p>
+                                    <button onClick={() => setActiveAnnouncement(null)} className="mt-8 w-full bg-brand-red text-white font-black py-4 rounded-2xl active:scale-95 transition-all shadow-lg">關閉</button>
+                                </div>
                             </div>
                         )}
                     </main>
@@ -864,8 +1597,3 @@
     </script>
 </body>
 </html>
-
-
-
-
-
