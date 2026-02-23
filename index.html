@@ -506,7 +506,7 @@
             const handleSign = async (img) => {
                 if (!user) return;
                 try {
-                    await db.collection(getPublicPath('signatures')).add({ userName: user.name, phone: user.phone, branch: currentBranch, category: `守則簽署 - ${activeTab}`, signature: img, timestamp: Date.now() });
+                    await db.collection(getPublicPath(`signatures_${currentBranch}`)).add({ userName: user.name, phone: user.phone, branch: currentBranch, category: `守則簽署 - ${activeTab}`, signature: img, timestamp: Date.now() });
                     setSignedTabs(prev => ({ ...prev, [activeTab]: true }));
                     triggerNotify(`[${activeTab}] 簽名成功`, "success");
                 } catch (e) { triggerNotify("簽署失敗", "error"); }
@@ -1175,7 +1175,7 @@
                             </div>
                         )}
                         
-                        {tab === 'menu' && <UniversalListManager docPath="system/menu_list" items={menu?.items || []} titleLabel="菜單名稱" triggerNotify={triggerNotify} />}
+                        {tab === 'menu' && <UniversalListManager docPath={`menu/list_${currentBranch}`} items={menu?.items || []} titleLabel="菜單名稱" triggerNotify={triggerNotify} />}
                         
                         {tab === 'content' && (
                             <div className="space-y-6">
@@ -1200,11 +1200,11 @@
                                         {[{f:'routeBusUrl', l:'大眾運輸引導影片連結'}, {f:'routeCarUrl', l:'自行前往引導影片連結'}].map(x => (
                                             <div key={x.f} className="space-y-2">
                                                 <p className="text-[10px] font-black text-slate-400 ml-1 uppercase">{x.l}</p>
-                                                <input placeholder="貼上外部連結..." className="w-full input-light p-4 rounded-xl text-xs outline-none" onBlur={(e) => db.doc(getPublicPath('system/onboarding')).set({ [x.f]: e.target.value }, {merge:true}).then(()=>triggerNotify("網址儲存成功","success"))} defaultValue={onboarding?.[x.f] || ''} />
+                                                <input placeholder="貼上外部連結..." className="w-full input-light p-4 rounded-xl text-xs outline-none" onBlur={(e) => db.doc(getPublicPath(`onboarding/settings_${currentBranch}`)).set({ [x.f]: e.target.value }, {merge:true}).then(()=>triggerNotify("網址儲存成功","success"))} defaultValue={onboarding?.[x.f] || ''} />
                                             </div>
                                         ))}
                                     </div>
-                                ) : <UniversalListManager docPath={subCat==='list'?'system/onboarding_list':'system/onboarding_parking'} items={subCat==='list'?(onboarding?.list || []):(onboarding?.parking || [])} triggerNotify={triggerNotify} />}
+                                ) : <UniversalListManager docPath={subCat==='list'?`onboarding/list_${currentBranch}`:`onboarding/parking_${currentBranch}`} items={subCat==='list'?(onboarding?.list || []):(onboarding?.parking || [])} triggerNotify={triggerNotify} />}
                             </div>
                         )}
 
@@ -1215,11 +1215,11 @@
                                         <button key={c.id} onClick={()=>setSubCat(c.id)} className={`flex-1 py-2 rounded-lg text-[10px] font-bold ${subCat===c.id?'bg-white text-brand-red shadow-sm':'text-slate-400'}`}>{c.n}</button>
                                     ))}
                                 </div>
-                                <UniversalListManager docPath={subCat==='eval'?'system/benefits_eval':'system/benefits_welfare'} items={subCat==='eval'?(benefits?.evaluation || []):(benefits?.welfare || [])} triggerNotify={triggerNotify} />
+                                <UniversalListManager docPath={subCat==='eval'?`benefits/eval_${currentBranch}`:`benefits/welfare_${currentBranch}`} items={subCat==='eval'?(benefits?.evaluation || []):(benefits?.welfare || [])} triggerNotify={triggerNotify} />
                             </div>
                         )}
 
-                        {tab === 'rules' && (<div><div className="flex bg-slate-100 p-1 rounded-xl mb-4 overflow-x-auto no-scrollbar">{RULE_CATEGORIES.map(c=>(<button key={c} onClick={()=>setSubCat(c)} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-bold ${subCat===c?'bg-white text-brand-red shadow-sm':'text-slate-400'}`}>{c}</button>))}</div><UniversalListManager docPath={`rules/${subCat}`} items={rulesData[subCat] || []} triggerNotify={triggerNotify} /></div>)}
+                        {tab === 'rules' && (<div><div className="flex bg-slate-100 p-1 rounded-xl mb-4 overflow-x-auto no-scrollbar">{RULE_CATEGORIES.map(c=>(<button key={c} onClick={()=>setSubCat(c)} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-bold ${subCat===c?'bg-white text-brand-red shadow-sm':'text-slate-400'}`}>{c}</button>))}</div><UniversalListManager docPath={`rules/${subCat}_${currentBranch}`} items={rulesData[subCat] || []} triggerNotify={triggerNotify} /></div>)}
                         
                         {tab === 'schedules' && (
                             <div className="glass-panel p-6 rounded-[2.5rem] space-y-4 bg-white border shadow-sm">
@@ -1276,7 +1276,7 @@
                             <div className="space-y-4">
                                 <div className="flex bg-slate-100 p-1 rounded-xl mb-4 overflow-x-auto no-scrollbar">{RULE_CATEGORIES.map(c => (<button key={c} onClick={() => setSignSubCat(c)} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-bold transition-all ${signSubCat === c ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>{c}</button>))}</div>
                                 <div className="space-y-2">
-                                    {signatures.filter(s => s.category === `守則簽署 - ${signSubCat}` && (isSuperAdmin ? true : s.branch === currentBranch)).map((s, i) => (
+                                    {signatures.filter(s => s.category === `守則簽署 - ${signSubCat}`).map((s, i) => (
                                         <div key={i} className="bg-white rounded-[2rem] border shadow-sm overflow-hidden transition-all">
                                             <div onClick={()=>setExpandedSig(expandedSig === i ? null : i)} className="p-5 flex justify-between items-center cursor-pointer active:bg-slate-50">
                                                 <div className="flex items-center gap-3">
@@ -1295,7 +1295,7 @@
                                             )}
                                         </div>
                                     ))}
-                                    {signatures.filter(s => s.category === `守則簽署 - ${signSubCat}` && (isSuperAdmin ? true : s.branch === currentBranch)).length === 0 && <p className="text-center py-10 text-slate-400 text-xs">目前無簽署紀錄</p>}
+                                    {signatures.filter(s => s.category === `守則簽署 - ${signSubCat}`).length === 0 && <p className="text-center py-10 text-slate-400 text-xs">目前無簽署紀錄</p>}
                                 </div>
                             </div>
                         )}
@@ -1384,7 +1384,7 @@
                 initAuth(); return auth.onAuthStateChanged(u => setUser(u));
             }, []);
 
-            // 全域系統資料監聽
+            // 全域系統資料監聽 (僅保留使用者清單與分店清單)
             useEffect(() => {
                 if (!user) return;
                 const errH = () => triggerNotify("讀取失敗", "error");
@@ -1399,36 +1399,43 @@
                                 if(upd.status === 'approved' && upd.role === '主管') setIsManager(true);
                             } 
                         } 
-                    }, errH),
-                    db.doc(getPublicPath('system/menu_list')).onSnapshot(d => d.exists && setMenuData({items: d.data().items}), errH),
-                    db.doc(getPublicPath('system/onboarding_list')).onSnapshot(d => d.exists && setOnboardingData(p => ({...p, list: d.data().items})), errH),
-                    db.doc(getPublicPath('system/onboarding_parking')).onSnapshot(d => d.exists && setOnboardingData(p => ({...p, parking: d.data().items})), errH),
-                    db.doc(getPublicPath('system/onboarding')).onSnapshot(d => d.exists && setOnboardingData(p => ({...p, ...d.data()})), errH),
-                    db.doc(getPublicPath('system/benefits_eval')).onSnapshot(d => d.exists && setBenefitsData(p => ({...p, evaluation: d.data().items})), errH),
-                    db.doc(getPublicPath('system/benefits_welfare')).onSnapshot(d => d.exists && setBenefitsData(p => ({...p, welfare: d.data().items})), errH),
-                    db.collection(getPublicPath('signatures')).onSnapshot(s => setSignatures(s.docs.map(d => d.data()).sort((a,b)=>b.timestamp-a.timestamp)), errH)
+                    }, errH)
                 ];
-                RULE_CATEGORIES.forEach(cat => subs.push(db.doc(getPublicPath(`rules/${cat}`)).onSnapshot(d => d.exists && setRulesData(prev => ({ ...prev, [cat]: d.data().items || [] })), errH)));
                 return () => subs.forEach(un => un());
             }, [user, currentUser]);
 
-            // 依據目前選擇的分店 (currentBranch) 動態切換資料監聽
+            // 依據目前選擇的分店 (currentBranch) 動態切換資料庫監聽 (全面分流)
             useEffect(() => {
                 if(!user || !currentBranch) return;
                 const errH = () => {};
                 
-                const subZone = db.doc(getPublicPath(`config/zones_${currentBranch}`)).onSnapshot(d => {
-                    if(d.exists && d.data().zones) { setBranchZones(d.data().zones); } 
-                    else { setBranchZones(DEFAULT_ZONES); }
-                }, errH);
-
-                const subProg = db.doc(getPublicPath(`system/progress_${currentBranch}`)).onSnapshot(d => d.exists && setCompletedZones(d.data().completedZones || []), errH);
+                const subZone = db.doc(getPublicPath(`config/zones_${currentBranch}`)).onSnapshot(d => { setBranchZones(d.exists && d.data().zones ? d.data().zones : DEFAULT_ZONES); }, errH);
+                const subProg = db.doc(getPublicPath(`system/progress_${currentBranch}`)).onSnapshot(d => setCompletedZones(d.exists ? (d.data().completedZones || []) : []), errH);
                 const subStd = db.collection(getPublicPath(`standards_${currentBranch}`)).onSnapshot(s => { const m = {}; s.forEach(doc => { const d = doc.data(); if (!m[d.zoneId]) m[d.zoneId] = []; m[d.zoneId].push({...d, id: doc.id}); }); setStandards(m); }, errH);
                 const subSch = db.collection(getPublicPath(`schedules_links_${currentBranch}`)).onSnapshot(s => { const l = {}; s.forEach(doc => l[doc.id] = doc.data().url); setSchedules(l); }, errH);
-                const subAnn = db.doc(getPublicPath(`announcements/branch_${currentBranch}`)).onSnapshot(d => { if(d.exists && d.data().items) setAnnouncements(d.data().items); else setAnnouncements([]); }, errH);
+                const subAnn = db.doc(getPublicPath(`announcements/branch_${currentBranch}`)).onSnapshot(d => { setAnnouncements(d.exists && d.data().items ? d.data().items : []); }, errH);
                 const subTicker = db.doc(getPublicPath(`ticker/branch_${currentBranch}`)).onSnapshot(d => { setTickerText(d.exists ? d.data().text || '' : ''); }, errH);
 
-                return () => { subZone(); subProg(); subStd(); subSch(); subAnn(); subTicker(); };
+                // 新增：其餘所有模組全數改為綁定各分店
+                const subMenu = db.doc(getPublicPath(`menu/list_${currentBranch}`)).onSnapshot(d => setMenuData(d.exists ? {items: d.data().items} : {}), errH);
+                const subOnboardList = db.doc(getPublicPath(`onboarding/list_${currentBranch}`)).onSnapshot(d => setOnboardingData(p => ({...p, list: d.exists ? d.data().items : []})), errH);
+                const subOnboardPark = db.doc(getPublicPath(`onboarding/parking_${currentBranch}`)).onSnapshot(d => setOnboardingData(p => ({...p, parking: d.exists ? d.data().items : []})), errH);
+                const subOnboardVid = db.doc(getPublicPath(`onboarding/settings_${currentBranch}`)).onSnapshot(d => setOnboardingData(p => ({...p, ...(d.exists ? d.data() : {})})), errH);
+                const subBenEval = db.doc(getPublicPath(`benefits/eval_${currentBranch}`)).onSnapshot(d => setBenefitsData(p => ({...p, evaluation: d.exists ? d.data().items : []})), errH);
+                const subBenWel = db.doc(getPublicPath(`benefits/welfare_${currentBranch}`)).onSnapshot(d => setBenefitsData(p => ({...p, welfare: d.exists ? d.data().items : []})), errH);
+                const subSigs = db.collection(getPublicPath(`signatures_${currentBranch}`)).onSnapshot(s => setSignatures(s.docs.map(d => d.data()).sort((a,b)=>b.timestamp-a.timestamp)), errH);
+
+                const ruleSubs = RULE_CATEGORIES.map(cat => 
+                    db.doc(getPublicPath(`rules/${cat}_${currentBranch}`)).onSnapshot(d => {
+                        setRulesData(prev => ({ ...prev, [cat]: d.exists ? (d.data().items || []) : [] }));
+                    }, errH)
+                );
+
+                return () => { 
+                    subZone(); subProg(); subStd(); subSch(); subAnn(); subTicker();
+                    subMenu(); subOnboardList(); subOnboardPark(); subOnboardVid(); subBenEval(); subBenWel(); subSigs();
+                    ruleSubs.forEach(un => un());
+                };
             }, [user, currentBranch]);
 
             // 確保非最高權限者強制綁定自己的分店
