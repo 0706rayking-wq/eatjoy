@@ -281,7 +281,7 @@
                 const newItem = { id: crypto.randomUUID(), title: newT.trim(), content: newC.trim(), img: imgToSave, timestamp: Date.now(), readBy: [] };
                 db.doc(getPublicPath(`announcements/branch_${currentBranch}`)).set({ items: [newItem, ...(announcements||[])] }).then(() => {
                     setNewT(''); setNewC(''); setNewI(null); triggerNotify(`公告已發佈至 ${currentBranch}`, "success");
-                    triggerLineAlert("ANNOUNCEMENT", { title: newT.trim(), content: newC.trim() });
+                    triggerLineAlert("ANNOUNCEMENT", { branch: currentBranch, title: newT.trim(), content: newC.trim() });
                 }).catch(() => triggerNotify("發佈失敗", "error"));
             };
 
@@ -569,7 +569,12 @@
                 setTimeout(() => {
                     if (!completedZones.includes(activeZone.id)) {
                         const newCompleted = [...completedZones, activeZone.id];
-                        db.doc(getPublicPath(`system/progress_${currentBranch}`)).set({ completedZones: newCompleted }, {merge: true}).then(() => { if (newCompleted.length >= branchZones.length && branchZones.length > 0) triggerLineAlert("COMPLETION"); });
+                        db.doc(getPublicPath(`system/progress_${currentBranch}`)).set({ completedZones: newCompleted }, {merge: true}).then(() => { 
+                            const currentHour = new Date().getHours();
+                            if (newCompleted.length >= branchZones.length && branchZones.length > 0 && currentHour < 23) {
+                                triggerLineAlert("COMPLETION", { branch: currentBranch, time: new Date().toLocaleTimeString() });
+                            }
+                        });
                     }
                     setLoading(false); setIsSubmitted(true); triggerNotify("巡視結果提交成功", "success");
                 }, 800);
@@ -1277,7 +1282,7 @@
                                 <div className="flex bg-slate-100 p-1 rounded-xl mb-4 overflow-x-auto no-scrollbar">{RULE_CATEGORIES.map(c => (<button key={c} onClick={() => setSignSubCat(c)} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-bold transition-all ${signSubCat === c ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400'}`}>{c}</button>))}</div>
                                 <div className="space-y-2">
                                     {signatures.filter(s => s.category === `守則簽署 - ${signSubCat}`).map((s, i) => (
-                                        <div key={i} className="bg-white rounded-[2rem] border shadow-sm overflow-hidden transition-all">
+                                        <div key={s.id || i} className="bg-white rounded-[2rem] border shadow-sm overflow-hidden transition-all">
                                             <div onClick={()=>setExpandedSig(expandedSig === i ? null : i)} className="p-5 flex justify-between items-center cursor-pointer active:bg-slate-50">
                                                 <div className="flex items-center gap-3">
                                                     <span className="font-bold text-slate-800">{s.userName}</span>
@@ -1285,7 +1290,10 @@
                                                 </div>
                                                 <div className="flex items-center gap-3">
                                                     <span className="text-[10px] text-slate-400">{new Date(s.timestamp).toLocaleDateString()}</span>
-                                                    <Icon name={expandedSig === i ? "chevron-up" : "chevron-down"} size={16} className="text-slate-300" />
+                                                    <button onClick={(e) => { e.stopPropagation(); db.collection(getPublicPath(`signatures_${s.branch}`)).doc(s.id).delete().then(()=>triggerNotify("簽名紀錄已刪除","info")); }} className="p-1.5 text-slate-300 hover:text-red-500 transition-all rounded-lg active:bg-red-50">
+                                                        <Icon name="trash-2" size={16} />
+                                                    </button>
+                                                    <Icon name={expandedSig === i ? "chevron-up" : "chevron-down"} size={16} className="text-slate-300 ml-1" />
                                                 </div>
                                             </div>
                                             {expandedSig === i && (
@@ -1379,6 +1387,51 @@
                 }
             };
 
+            // 新增：前端定時排程檢查 (20:00 重置 與 23:00 未完成推播)
+            useEffect(() => {
+                if (!currentUser || !currentBranch) return;
+
+                const checkCronTasks = async () => {
+                    try {
+                        const now = new Date();
+                        const h = now.getHours();
+                        const todayStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
+
+                        const cronRef = db.doc(getPublicPath(`system/cron_${currentBranch}`));
+                        const docSnap = await cronRef.get();
+                        const data = docSnap.exists ? docSnap.data() : {};
+
+                        // 1. 每天 20:00 重置巡視進度與照片
+                        if (h >= 20 && data.lastReset !== todayStr) {
+                            const photos = await db.collection(getPublicPath(`daily_photos_${currentBranch}`)).get();
+                            const batch = db.batch();
+                            photos.forEach(d => batch.delete(d.ref));
+                            await batch.commit();
+                            await db.doc(getPublicPath(`system/progress_${currentBranch}`)).set({ completedZones: [] });
+                            await cronRef.set({ lastReset: todayStr }, {merge: true});
+                        }
+
+                        // 2. 每天 23:00 檢查未完成區站並推播
+                        if (h >= 23 && data.lastMissingAlert !== todayStr) {
+                            const progSnap = await db.doc(getPublicPath(`system/progress_${currentBranch}`)).get();
+                            const completed = progSnap.exists ? (progSnap.data().completedZones || []) : [];
+                            const zoneSnap = await db.doc(getPublicPath(`config/zones_${currentBranch}`)).get();
+                            const zones = zoneSnap.exists ? (zoneSnap.data().zones || []) : [];
+
+                            if (zones.length > 0 && completed.length < zones.length) {
+                                const missing = zones.filter(z => !completed.includes(z.id)).map(z => z.name);
+                                triggerLineAlert("INCOMPLETE_ALERT", { branch: currentBranch, missingZones: missing.join(', ') });
+                            }
+                            await cronRef.set({ lastMissingAlert: todayStr }, {merge: true});
+                        }
+                    } catch(e) { console.error("定時排程錯誤:", e); }
+                };
+
+                checkCronTasks(); // 啟動時檢查一次
+                const interval = setInterval(checkCronTasks, 60000); // 每分鐘定期檢查一次
+                return () => clearInterval(interval);
+            }, [currentUser, currentBranch]);
+
             useEffect(() => {
                 const initAuth = async () => { try { await auth.signInAnonymously(); setFbReady(true); if (currentUser) setCurrentPage('home'); } catch (e) { triggerNotify("連線失敗", "error"); } };
                 initAuth(); return auth.onAuthStateChanged(u => setUser(u));
@@ -1423,7 +1476,7 @@
                 const subOnboardVid = db.doc(getPublicPath(`onboarding/settings_${currentBranch}`)).onSnapshot(d => setOnboardingData(p => ({...p, ...(d.exists ? d.data() : {})})), errH);
                 const subBenEval = db.doc(getPublicPath(`benefits/eval_${currentBranch}`)).onSnapshot(d => setBenefitsData(p => ({...p, evaluation: d.exists ? d.data().items : []})), errH);
                 const subBenWel = db.doc(getPublicPath(`benefits/welfare_${currentBranch}`)).onSnapshot(d => setBenefitsData(p => ({...p, welfare: d.exists ? d.data().items : []})), errH);
-                const subSigs = db.collection(getPublicPath(`signatures_${currentBranch}`)).onSnapshot(s => setSignatures(s.docs.map(d => d.data()).sort((a,b)=>b.timestamp-a.timestamp)), errH);
+                const subSigs = db.collection(getPublicPath(`signatures_${currentBranch}`)).onSnapshot(s => setSignatures(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b)=>b.timestamp-a.timestamp)), errH);
 
                 const ruleSubs = RULE_CATEGORIES.map(cat => 
                     db.doc(getPublicPath(`rules/${cat}_${currentBranch}`)).onSnapshot(d => {
