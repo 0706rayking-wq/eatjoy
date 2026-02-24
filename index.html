@@ -37,8 +37,8 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         
         :root { 
-            /* 預設配色 (根據您提供的圖片調整的深紅色) */
-            --brand-red: 190 15 20; 
+            /* 預設配色 (已改為您圖片中沉穩的深紅色) */
+            --brand-red: 185 18 27; 
             --app-bg: #f8fafc; 
         }
         
@@ -155,30 +155,6 @@
         ];
 
         const DEFAULT_UNITS = ["件", "箱", "包", "斤", "顆", "條", "罐", "桶", "籃", "袋", "捲", "盒", "兩", "串", "瓶", "滿", "組"];
-
-        // 外觀主題設定清單
-        const THEME_BGS = [
-            { id: 'white', color: '#f8fafc', mode: 'light', name: '白' },
-            { id: 'black', color: '#0f172a', mode: 'dark', name: '黑' },
-            { id: 'pink', color: '#fdf2f8', mode: 'light', name: '粉紅' },
-            { id: 'blue', color: '#f0f9ff', mode: 'light', name: '粉藍' },
-            { id: 'gray', color: '#e2e8f0', mode: 'light', name: '灰' },
-            { id: 'brown', color: '#fef3c7', mode: 'light', name: '棕色' }
-        ];
-
-        // 十種粉色系主題配色
-        const THEME_ACCENTS = [
-            { id: 'pink-1', rgb: '255 182 193', name: '櫻花粉' },   // Light Pink #ffb6c1
-            { id: 'pink-2', rgb: '255 105 180', name: '熱情粉' },   // Hot Pink #ff69b4
-            { id: 'pink-3', rgb: '255 20 147', name: '深粉紅' },    // Deep Pink #ff1493
-            { id: 'pink-4', rgb: '219 39 119', name: '玫瑰粉' },    // Rose Pink #db2777
-            { id: 'pink-5', rgb: '244 114 182', name: '蜜桃粉' },   // Peach Pink #f472b6
-            { id: 'pink-6', rgb: '236 72 153', name: '法式粉' },    // French Pink #ec4899
-            { id: 'pink-7', rgb: '225 29 72', name: '胭脂紅' },     // Rose #e11d48
-            { id: 'pink-8', rgb: '190 24 93', name: '莓果粉' },     // Berry Pink #be185d
-            { id: 'pink-9', rgb: '157 23 77', name: '酒紅粉' },     // Wine Pink #9d174d
-            { id: 'pink-10', rgb: '253 164 175', name: '柔和粉' }   // Soft Pink #fda4af
-        ];
 
         // --- 工具函式 ---
         const compressImage = (base64Str, maxWidth = 800, quality = 0.5) => {
@@ -411,43 +387,6 @@
                     </div>
                 </div>
             );
-        };
-
-        // --- 外觀設定對話框 ---
-        const ThemeModal = ({ currentTheme, setCurrentTheme, onClose }) => {
-            return (
-                <div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-end justify-center sm:items-center p-4 page-enter">
-                    <div className="bg-white w-full sm:max-w-md rounded-[2.5rem] p-6 shadow-2xl relative border border-slate-100">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-xl font-black text-slate-800 flex items-center gap-2"><Icon name="palette" size={24} className="text-brand-red"/> 系統外觀設定</h3>
-                            <button onClick={onClose} className="p-2 text-slate-400 bg-slate-100 rounded-full active:scale-90"><Icon name="x" size={20}/></button>
-                        </div>
-                        
-                        <div className="mb-8">
-                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">選擇背景</p>
-                            <div className="grid grid-cols-6 gap-2">
-                                {THEME_BGS.map(bg => (
-                                    <button onClick={() => setCurrentTheme(p => ({...p, bg: bg.id}))} key={bg.id} className={`aspect-square rounded-2xl shrink-0 border-2 transition-all flex flex-col items-center justify-center gap-1 ${currentTheme.bg === bg.id ? 'border-brand-red scale-110 shadow-md' : 'border-slate-200 scale-100 shadow-sm'}`} style={{backgroundColor: bg.color}}>
-                                        {currentTheme.bg === bg.id && <Icon name="check" className={bg.mode === 'dark' ? 'text-white' : 'text-slate-800'} size={18} />}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                        
-                        <div className="mb-6">
-                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">選擇主體配色</p>
-                            <div className="grid grid-cols-5 gap-3">
-                                {THEME_ACCENTS.map(ac => (
-                                    <button onClick={() => setCurrentTheme(p => ({...p, accent: ac.id}))} key={ac.id} className={`w-full aspect-square rounded-2xl border-2 transition-all flex flex-col items-center justify-center ${currentTheme.accent === ac.id ? 'border-slate-800 scale-110 shadow-md' : 'border-transparent scale-100 shadow-sm'}`} style={{backgroundColor: `rgb(${ac.rgb})`}}>
-                                        {currentTheme.accent === ac.id && <Icon name="check" className="text-white" size={20} />}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                        <button onClick={onClose} className="mt-4 w-full bg-brand-red text-white font-black py-4 rounded-2xl active:scale-95 transition-all shadow-lg flex justify-center items-center gap-2">完成設定</button>
-                    </div>
-                </div>
-            )
         };
 
         // --- 4. 頁面功能組件 ---
@@ -721,7 +660,8 @@
             useEffect(() => {
                 if (!selectedBranch) return;
                 
-                const docPath = getPublicPath(`ordering_db_${selectedBranch}`);
+                // 【修正：路徑區段數必須是偶數】改為 `ordering/db_${selectedBranch}` (2個區段)
+                const docPath = getPublicPath(`ordering/db_${selectedBranch}`);
                 const unsubscribe = db.doc(docPath).onSnapshot(docSnap => {
                     if (docSnap.exists) {
                         setStoreDatabases(prev => ({
@@ -780,8 +720,8 @@
                     [selectedBranch]: updatedDb
                 }));
                 
-                // 寫入 Firebase
-                db.doc(getPublicPath(`ordering_db_${selectedBranch}`)).set(updatedDb, { merge: true }).catch(e => {
+                // 【修正：路徑區段數必須是偶數】改為 `ordering/db_${selectedBranch}`
+                db.doc(getPublicPath(`ordering/db_${selectedBranch}`)).set(updatedDb, { merge: true }).catch(e => {
                     console.error("更新叫貨資料失敗", e);
                     triggerNotify("儲存失敗，請檢查網路連線", "error");
                 });
@@ -1482,13 +1422,6 @@
             const [user, setUser] = useState(null);
             const [notifications, setNotifications] = useState([]);
             const [users, setUsers] = useState([]);
-            
-            // 主題設定 State
-            const [theme, setCurrentTheme] = useState(() => {
-                const saved = localStorage.getItem('eatjoy_theme');
-                return saved ? JSON.parse(saved) : { bg: 'white', accent: 'pink-4' };
-            });
-            const [showThemeModal, setShowThemeModal] = useState(false);
 
             const [currentUser, setCurrentUser] = useState(() => { const saved = localStorage.getItem('k_active_user'); return saved ? JSON.parse(saved) : null; });
             const [activeAnnouncement, setActiveAnnouncement] = useState(null);
@@ -1524,23 +1457,6 @@
                     db.doc(getPublicPath(`announcements/branch_${currentBranch}`)).set({ items: newItems });
                 }
             };
-
-            // 套用自訂外觀設定 (CSS Variables + 深色模式)
-            useEffect(() => {
-                const activeBg = THEME_BGS.find(b => b.id === theme.bg) || THEME_BGS[0];
-                const activeAccent = THEME_ACCENTS.find(a => a.id === theme.accent) || THEME_ACCENTS[0];
-
-                document.documentElement.style.setProperty('--app-bg', activeBg.color);
-                document.documentElement.style.setProperty('--brand-red', activeAccent.rgb);
-                
-                if (activeBg.mode === 'dark') {
-                    document.body.classList.add('theme-dark');
-                } else {
-                    document.body.classList.remove('theme-dark');
-                }
-
-                localStorage.setItem('eatjoy_theme', JSON.stringify(theme));
-            }, [theme]);
 
             // 前端定時排程檢查 (20:00 重置 與 23:00 未完成推播)
             useEffect(() => {
@@ -1780,9 +1696,6 @@
                     <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[1000] w-full max-w-xs space-y-3 px-4">
                         {notifications.map(n => (<div key={n.id} className={`toast-enter p-5 rounded-[2rem] shadow-2xl flex items-center gap-4 glass-panel border-l-4 ${n.type === 'success' ? 'border-l-emerald-500 text-emerald-700' : 'border-l-brand-red text-brand-red'}`}><Icon name={n.type === 'success' ? 'check-circle' : 'alert-triangle'} size={24} /><span className="font-bold text-xs leading-tight">{n.msg}</span></div>))}
                     </div>
-                    
-                    {/* 外觀設定對話框 */}
-                    {showThemeModal && <ThemeModal currentTheme={theme} setCurrentTheme={setCurrentTheme} onClose={() => setShowThemeModal(false)} />}
 
                     {currentPage !== 'auth' && (
                         <header className="p-5 sticky top-0 z-50 flex justify-between items-center bg-white/80 backdrop-blur-md border-b">
@@ -1796,10 +1709,6 @@
                                 </div>
                             </div>
                             <div className="flex gap-2">
-                                <button onClick={() => setShowThemeModal(true)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black active:scale-95 transition-all shadow-sm bg-slate-100 text-slate-600 hover:bg-slate-200">
-                                    <Icon name="palette" size={16} />
-                                    外觀
-                                </button>
                                 <button onClick={() => isManager ? setCurrentPage('admin') : (currentUser?.status === 'approved' && setCurrentPage('home'))} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap ${isSuperAdmin ? 'bg-brand-red text-white' : (isManager ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}`}>
                                     <Icon name={isManager ? "settings" : "bell"} size={16} />
                                     {isManager ? "後台" : "通知"}
