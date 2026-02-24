@@ -1051,7 +1051,7 @@
                                     { id: 'vendors', label: '廠商', icon: 'Filter' }, 
                                     { id: 'zones', label: '區站', icon: 'LayoutGrid' }
                                 ].map(tab => (
-                                    <button key={tab.id} onClick={() => setAdminTab(tab.id)} className={`px-5 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap ${adminTab === tab.id ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-100'}`}>
+                                    <button key={tab.id} onClick={() => setAdminTab(tab.id)} className={`shrink-0 px-5 py-2.5 rounded-2xl text-xs font-black transition-all flex items-center gap-2 whitespace-nowrap ${adminTab === tab.id ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-100'}`}>
                                         <OrderSymbolIcon name={tab.icon} /> {tab.label}
                                     </button>
                                 ))}
@@ -1096,8 +1096,8 @@
                                 {adminTab === 'vendors' && (
                                     <div className="space-y-6">
                                         <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex gap-3">
-                                            <input placeholder="新廠商名稱" className="flex-1 bg-slate-50 rounded-2xl p-4.5 font-bold outline-none ring-1 ring-slate-100 border-none" value={newVendorName} onChange={e => setNewVendorName(e.target.value)} />
-                                            <button onClick={() => { if(newVendorName) { updateCurrentDb({ vendors: [...currentDb.vendors, newVendorName] }); setNewVendorName(''); triggerNotify('新增廠商成功', 'success'); } }} className="bg-slate-900 text-white px-8 rounded-2xl font-black">新增</button>
+                                            <input placeholder="新廠商名稱" className="flex-1 bg-slate-50 rounded-2xl p-4.5 font-bold outline-none ring-1 ring-slate-100 border-none min-w-0" value={newVendorName} onChange={e => setNewVendorName(e.target.value)} />
+                                            <button onClick={() => { if(newVendorName) { updateCurrentDb({ vendors: [...currentDb.vendors, newVendorName] }); setNewVendorName(''); triggerNotify('新增廠商成功', 'success'); } }} className="bg-slate-900 text-white px-8 rounded-2xl font-black shrink-0 whitespace-nowrap">新增</button>
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">{currentDb.vendors.map(v => (<div key={v} className="bg-white p-5 rounded-[1.5rem] flex justify-between items-center shadow-sm border border-slate-50"><span className="font-bold text-sm truncate">{v}</span><button onClick={() => updateCurrentDb({ vendors: currentDb.vendors.filter(i => i !== v) })} className="text-slate-300 hover:text-rose-500 font-black px-2"><OrderSymbolIcon name="X" /></button></div>))}</div>
                                     </div>
@@ -1106,7 +1106,7 @@
                                     <div className="space-y-8">
                                         <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
                                             <h3 className="font-black text-slate-800 flex items-center gap-2"><OrderSymbolIcon name="LayoutGrid" className="text-brand-red" /> 叫貨區站管理</h3>
-                                            <div className="flex gap-2"><input placeholder="新區站名稱" className="flex-1 bg-slate-50 rounded-xl p-4 font-bold outline-none" value={newZoneName} onChange={e => setNewZoneName(e.target.value)} /><button onClick={() => { if(newZoneName) { updateCurrentDb({ zones: [...currentDb.zones, { name: newZoneName, icon: 'Package', color: 'bg-slate-500' }] }); setNewZoneName(''); triggerNotify('區站新增成功', 'success'); } }} className="bg-slate-900 text-white px-6 rounded-xl font-black">新增</button></div>
+                                            <div className="flex gap-2"><input placeholder="新區站名稱" className="flex-1 bg-slate-50 rounded-xl p-4 font-bold outline-none min-w-0" value={newZoneName} onChange={e => setNewZoneName(e.target.value)} /><button onClick={() => { if(newZoneName) { updateCurrentDb({ zones: [...currentDb.zones, { name: newZoneName, icon: 'Package', color: 'bg-slate-500' }] }); setNewZoneName(''); triggerNotify('區站新增成功', 'success'); } }} className="bg-slate-900 text-white px-6 rounded-xl font-black shrink-0 whitespace-nowrap">新增</button></div>
                                             <div className="grid grid-cols-2 gap-2">{currentDb.zones.map(z => (<div key={z.name} className="bg-slate-50 px-4 py-3 rounded-xl flex justify-between items-center text-xs font-bold text-slate-700 border border-slate-100"><span>{z.name}</span><button onClick={() => updateCurrentDb({ zones: currentDb.zones.filter(i => i.name !== z.name) })} className="text-slate-300 font-black px-2 hover:text-rose-500"><OrderSymbolIcon name="X" /></button></div>))}</div>
                                         </div>
                                     </div>
@@ -1248,12 +1248,12 @@
                                 <div className="glass-panel p-6 rounded-[2.5rem] bg-white border shadow-sm space-y-4">
                                     <h3 className="font-black text-brand-red text-sm flex items-center gap-2"><Icon name="layout-grid" size={18} /> {currentBranch} 區站管理</h3>
                                     <div className="flex gap-2">
-                                        <input placeholder="新區站名稱..." value={newZoneName} onChange={e=>setNewZoneName(e.target.value)} className="flex-1 input-light p-3 rounded-xl text-sm" />
+                                        <input placeholder="新區站名稱..." value={newZoneName} onChange={e=>setNewZoneName(e.target.value)} className="flex-1 input-light p-3 rounded-xl text-sm min-w-0" />
                                         <button onClick={()=>{
                                             if(!newZoneName.trim()) return;
                                             const newZ = [...branchZones, { id: Date.now().toString(), name: newZoneName }];
                                             db.doc(getPublicPath(`config/zones_${currentBranch}`)).set({ zones: newZ }).then(()=>{setNewZoneName(''); triggerNotify("區站新增成功", "success");});
-                                        }} className="bg-slate-900 text-white px-5 rounded-xl text-xs">新增</button>
+                                        }} className="bg-slate-900 text-white px-5 rounded-xl text-xs shrink-0 whitespace-nowrap">新增</button>
                                     </div>
                                     <div className="grid grid-cols-2 gap-2 mt-2">
                                         {branchZones.map(z => (
@@ -1317,7 +1317,7 @@
                             <div className="glass-panel p-6 rounded-[2.5rem] bg-white border shadow-sm space-y-4">
                                 <h3 className="font-black text-brand-red text-sm flex items-center gap-2"><Icon name="building-2" size={18} /> 全域分店管理</h3>
                                 <div className="flex gap-2">
-                                    <input placeholder="新分店名稱..." value={newBranchName} onChange={e=>setNewBranchName(e.target.value)} className="flex-1 input-light p-3 rounded-xl text-sm" />
+                                    <input placeholder="新分店名稱..." value={newBranchName} onChange={e=>setNewBranchName(e.target.value)} className="flex-1 input-light p-3 rounded-xl text-sm min-w-0" />
                                     <button onClick={()=>{
                                         if(!newBranchName.trim() || globalBranches.includes(newBranchName)) return;
                                         const newB = [...globalBranches, newBranchName.trim()];
@@ -1325,7 +1325,7 @@
                                             setNewBranchName(''); 
                                             triggerNotify("分店新增成功", "success");
                                         });
-                                    }} className="bg-slate-900 text-white px-5 rounded-xl text-xs">新增分店</button>
+                                    }} className="bg-slate-900 text-white px-5 rounded-xl text-xs shrink-0 whitespace-nowrap">新增分店</button>
                                 </div>
                                 <div className="space-y-2 mt-4">
                                     {globalBranches.map(b => (
@@ -1644,12 +1644,12 @@
                                 </div>
                             </div>
                             <div className="flex gap-2">
-                                <button onClick={() => isManager ? setCurrentPage('admin') : (currentUser?.status === 'approved' && setCurrentPage('home'))} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black active:scale-95 transition-all shadow-sm ${isSuperAdmin ? 'bg-brand-red text-white' : (isManager ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}`}>
+                                <button onClick={() => isManager ? setCurrentPage('admin') : (currentUser?.status === 'approved' && setCurrentPage('home'))} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap ${isSuperAdmin ? 'bg-brand-red text-white' : (isManager ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}`}>
                                     <Icon name={isManager ? "settings" : "bell"} size={16} />
                                     {isManager ? "後台" : "通知"}
                                 </button>
                                 {(currentUser || isManager) && (
-                                    <button onClick={logout} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-rose-50 text-brand-red border border-rose-100 active:scale-95 transition-all shadow-sm">
+                                    <button onClick={logout} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-rose-50 text-brand-red border border-rose-100 active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap">
                                         <Icon name="log-out" size={16} />
                                         登出
                                     </button>
