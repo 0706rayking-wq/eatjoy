@@ -12,8 +12,9 @@
                 extend: {
                     colors: {
                         brand: {
-                            red: '#9b1c31', // 主色：深酒紅
-                            dark: '#821628', // 互動深色
+                            // 改為動態 CSS 變數，支援透過透明度語法 (如 bg-brand-red/20) 使用
+                            red: 'rgb(var(--brand-red) / <alpha-value>)',
+                            dark: 'rgb(var(--brand-red) / <alpha-value>)', 
                             light: '#f8fafc'
                         }
                     }
@@ -34,16 +35,50 @@
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        
         :root { 
-            --bg-light: #f8fafc; 
+            /* 預設配色 (玫瑰粉) */
+            --brand-red: 219 39 119; 
+            --app-bg: #f8fafc; 
         }
+        
         body { 
             font-family: 'Noto Sans TC', sans-serif; 
             -webkit-tap-highlight-color: transparent; 
-            background-color: var(--bg-light); 
+            background-color: var(--app-bg) !important; 
             color: #1e293b; 
             overflow-x: hidden; 
+            transition: background-color 0.4s ease;
         }
+        
+        /* 動態深色模式支援 (Dark Mode Overrides) */
+        body.theme-dark .bg-white { background-color: #1e293b !important; border-color: #334155 !important; }
+        body.theme-dark .text-slate-800 { color: #f8fafc !important; }
+        body.theme-dark .text-slate-700 { color: #e2e8f0 !important; }
+        body.theme-dark .text-slate-600 { color: #cbd5e1 !important; }
+        body.theme-dark .text-slate-500 { color: #94a3b8 !important; }
+        body.theme-dark .text-slate-400 { color: #64748b !important; }
+        body.theme-dark .text-slate-300 { color: #475569 !important; }
+        body.theme-dark .bg-slate-50 { background-color: #0f172a !important; border-color: #1e293b !important; }
+        body.theme-dark .bg-slate-100 { background-color: #1e293b !important; }
+        body.theme-dark .border-slate-100, body.theme-dark .border-slate-200 { border-color: #334155 !important; }
+        body.theme-dark .glass-panel { background: rgba(30, 41, 59, 0.95) !important; border-color: rgba(255,255,255,0.1) !important; }
+        body.theme-dark .input-light { background-color: #0f172a !important; color: #f8fafc !important; border-color: #334155 !important; }
+        body.theme-dark input, body.theme-dark textarea, body.theme-dark select { color: #f8fafc !important; background-color: #0f172a !important; }
+        body.theme-dark .text-white { color: #ffffff !important; }
+        body.theme-dark .bg-slate-900 { background-color: #020617 !important; border-color: #1e293b !important; }
+        body.theme-dark .shadow-sm, body.theme-dark .shadow-md, body.theme-dark .shadow-lg, body.theme-dark .shadow-xl, body.theme-dark .shadow-2xl { box-shadow: 0 4px 12px -1px rgba(0,0,0,0.5) !important; }
+        
+        /* 特殊漸層柔和背景色，在深色模式強制壓暗 */
+        body.theme-dark .bg-rose-50\/80, body.theme-dark .bg-rose-50\/50, 
+        body.theme-dark .bg-emerald-50\/50, body.theme-dark .bg-indigo-50\/50, 
+        body.theme-dark .bg-blue-50\/50, body.theme-dark .bg-yellow-50\/50,
+        body.theme-dark .bg-rose-50, body.theme-dark .bg-emerald-50, body.theme-dark .bg-emerald-100,
+        body.theme-dark .bg-blue-50, body.theme-dark .bg-indigo-50 {
+            background-color: #1e293b !important; 
+            border-color: #334155 !important;
+        }
+
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         .page-enter { animation: fadeIn 0.4s ease-out; }
@@ -57,7 +92,7 @@
             box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05); 
         }
         .input-light { background: #ffffff; border: 1px solid #e2e8f0; color: #1e293b; transition: all 0.2s; }
-        .input-light:focus { border-color: #9b1c31; outline: none; box-shadow: 0 0 0 3px rgba(155, 28, 49, 0.1); }
+        .input-light:focus { border-color: rgb(var(--brand-red)); outline: none; box-shadow: 0 0 0 3px rgba(var(--brand-red) / 0.1); }
         .ticker-wrap { overflow: hidden; white-space: nowrap; }
         .ticker-move { display: inline-block; animation: ticker 25s linear infinite; }
         @keyframes ticker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
@@ -65,7 +100,7 @@
         
         /* 點貨系統進階樣式 */
         .active-scale:active { transform: scale(0.95); }
-        .drag-ghost { opacity: 0.2; transform: scale(0.95); border: 2px dashed #9b1c31 !important; background-color: #fff1f2 !important; }
+        .drag-ghost { opacity: 0.2; transform: scale(0.95); border: 2px dashed rgb(var(--brand-red)) !important; background-color: rgba(var(--brand-red)/0.05) !important; }
         .drag-handle { cursor: grab; }
         .drag-handle:active { cursor: grabbing; }
         .btn-touch { min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
@@ -74,7 +109,7 @@
             background-color: #1e293b; color: #f8fafc; font-family: ui-monospace, monospace;
             line-height: 1.625; width: 100%; border-radius: 1.5rem; padding: 1.25rem; resize: none; outline: none; border: 2px solid transparent; transition: border-color 0.2s;
         }
-        .editable-order-text:focus { border-color: #9b1c31; }
+        .editable-order-text:focus { border-color: rgb(var(--brand-red)); }
     </style>
 </head>
 <body class="pb-12">
@@ -109,24 +144,271 @@
 
         const RULE_CATEGORIES = ['廚房規則', '食品衛生安全', '設備操作安全', '出缺勤規範'];
 
+        // --- 100+ 食材庫 ---
         const TEMPLATE_INGREDIENTS = [
-            { id: 1001, name: "高麗菜", vendor: "鑫羿", unit: "件", zone: "菜區" },
-            { id: 1002, name: "黑木耳", vendor: "大台北", unit: "盒", zone: "菜區" },
-            { id: 2001, name: "鱸魚", vendor: "元家", unit: "箱", zone: "海鮮" },
-            { id: 3001, name: "豆漿", vendor: "美食家", unit: "籃", zone: "湯區" }
+            // 菜區
+            { id: 101, name: "高麗菜", vendor: "鑫羿2-7", unit: "件", zone: "菜區" },
+            { id: 102, name: "大陸妹", vendor: "鑫羿2-7", unit: "斤", zone: "菜區" },
+            { id: 103, name: "大白菜", vendor: "鑫羿2-7", unit: "顆", zone: "菜區" },
+            { id: 104, name: "青江菜", vendor: "鑫羿2-7", unit: "斤", zone: "菜區" },
+            { id: 105, name: "山茼蒿", vendor: "鑫羿2-7", unit: "斤", zone: "菜區" },
+            { id: 106, name: "油菜", vendor: "鑫羿2-7", unit: "斤", zone: "菜區" },
+            { id: 107, name: "水蓮", vendor: "鑫羿2-7", unit: "斤", zone: "菜區" },
+            { id: 108, name: "南瓜", vendor: "鑫羿2-7", unit: "顆", zone: "菜區" },
+            { id: 109, name: "絲瓜", vendor: "鑫羿2-7", unit: "條", zone: "菜區" },
+            { id: 110, name: "玉米", vendor: "鑫羿2-7", unit: "斤", zone: "菜區" },
+            { id: 111, name: "玉米筍", vendor: "鑫羿2-7", unit: "盒", zone: "菜區" },
+            { id: 112, name: "黑木耳", vendor: "大台北2-7", unit: "斤", zone: "菜區" },
+            { id: 113, name: "金針菇", vendor: "大台北2-7", unit: "包", zone: "菜區" },
+            { id: 114, name: "秀珍菇", vendor: "大台北2-7", unit: "包", zone: "菜區" },
+            { id: 115, name: "鴻禧菇", vendor: "大台北2-7", unit: "包", zone: "菜區" },
+            { id: 116, name: "巴西里", vendor: "大台北2-7", unit: "兩", zone: "菜區" },
+            { id: 117, name: "辣椒", vendor: "大台北2-7", unit: "斤", zone: "菜區" },
+            { id: 118, name: "白蘿蔔泥", vendor: "大台北2-7", unit: "根", zone: "菜區" },
+            { id: 119, name: "牛筋", vendor: "裕明1-5送", unit: "箱", zone: "菜區" },
+            { id: 120, name: "牛肚", vendor: "裕明1-5送", unit: "箱", zone: "菜區" },
+            { id: 121, name: "檸檬", vendor: "良鮮水果2-7", unit: "顆", zone: "菜區" },
+            { id: 122, name: "西瓜", vendor: "良鮮水果2-7", unit: "顆", zone: "菜區" },
+            { id: 123, name: "香蕉", vendor: "良鮮水果2-7", unit: "斤", zone: "菜區" },
+            { id: 124, name: "芭樂", vendor: "良鮮水果2-7", unit: "顆", zone: "菜區" },
+            { id: 125, name: "蘋果", vendor: "良鮮水果2-7", unit: "顆", zone: "菜區" },
+            { id: 126, name: "鳳梨", vendor: "良鮮水果2-7", unit: "件", zone: "菜區" },
+            { id: 127, name: "香吉士", vendor: "良鮮水果2-7", unit: "顆", zone: "菜區" },
+            { id: 128, name: "哈密瓜", vendor: "良鮮水果2-7", unit: "件", zone: "菜區" },
+            { id: 129, name: "葡萄柚", vendor: "良鮮水果2-7", unit: "顆", zone: "菜區" },
+            { id: 130, name: "小番茄", vendor: "良鮮水果2-7", unit: "斤", zone: "菜區" },
+            { id: 131, name: "蛋餃", vendor: "中華2.5送", unit: "箱", zone: "菜區" },
+            { id: 132, name: "芋心", vendor: "中華2.5送", unit: "包", zone: "菜區" },
+            { id: 133, name: "蟹味腿", vendor: "中華2.5送", unit: "包", zone: "菜區" },
+            { id: 134, name: "鑫鑫腸", vendor: "中華2.5送", unit: "包", zone: "菜區" },
+            { id: 135, name: "芝心包", vendor: "中華2.5送", unit: "包", zone: "菜區" },
+            { id: 136, name: "龍蝦沙拉", vendor: "中華2.5送", unit: "包", zone: "菜區" },
+            { id: 137, name: "西北麻吉燒", vendor: "中華2.5送", unit: "包", zone: "菜區" },
+            { id: 138, name: "芝麻麻吉燒", vendor: "中華2.5送", unit: "包", zone: "菜區" },
+            { id: 139, name: "花生麻吉燒", vendor: "中華2.5送", unit: "包", zone: "菜區" },
+
+            // 海鮮
+            { id: 201, name: "鱸魚/1", vendor: "元家1.3.5.6送", unit: "箱", zone: "海鮮" },
+            { id: 202, name: "巴沙魚/3", vendor: "元家1.3.5.6送", unit: "箱", zone: "海鮮" },
+            { id: 203, name: "魚餃/5", vendor: "基隆魚餃/6箱", unit: "箱", zone: "海鮮" },
+            { id: 204, name: "蝦餃/5", vendor: "基隆魚餃/6箱", unit: "箱", zone: "海鮮" },
+            { id: 205, name: "蛤蠣/5", vendor: "大台北2-7送", unit: "斤", zone: "海鮮" },
+            { id: 206, name: "蚵仔/10", vendor: "大台北2-7送", unit: "斤", zone: "海鮮" },
+            { id: 207, name: "粗鹽", vendor: "津鼎1-5送", unit: "袋", zone: "海鮮" },
+            { id: 208, name: "雞心/2", vendor: "崎彩/3.7下單", unit: "箱", zone: "海鮮" },
+            { id: 209, name: "螃蟹", vendor: "崎彩/3.7下單", unit: "箱", zone: "海鮮" },
+            { id: 210, name: "熟凍海螺", vendor: "崎彩/3.7下單", unit: "箱", zone: "海鮮" },
+            { id: 211, name: "台灣切卷", vendor: "崎彩/3.7下單", unit: "包", zone: "海鮮" },
+            { id: 212, name: "胭脂蝦(晚.假)", vendor: "崎彩/3.7下單", unit: "箱", zone: "海鮮" },
+            { id: 213, name: "凍蝦", vendor: "愛吃鬼1.4送", unit: "箱", zone: "海鮮" },
+            { id: 214, name: "草蝦(假)", vendor: "愛吃鬼1.4送", unit: "箱", zone: "海鮮" },
+            { id: 215, name: "石狗公", vendor: "愛吃鬼1.4送", unit: "箱", zone: "海鮮" },
+            { id: 216, name: "干貝5s", vendor: "愛吃鬼1.4送", unit: "箱", zone: "海鮮" },
+            { id: 217, name: "鳥蛋", vendor: "紘吉2.5.7送", unit: "斤", zone: "海鮮" },
+            { id: 218, name: "豬肚", vendor: "紘吉2.5.7送", unit: "斤", zone: "海鮮" },
+            { id: 219, name: "鴨腸", vendor: "紘吉2.5.7送", unit: "斤", zone: "海鮮" },
+            { id: 220, name: "雪螺", vendor: "紘吉2.5.7送", unit: "斤", zone: "海鮮" },
+            { id: 221, name: "花膠", vendor: "紘吉2.5.7送", unit: "斤", zone: "海鮮" },
+            { id: 222, name: "黑毛肚", vendor: "紘吉2.5.7送", unit: "斤", zone: "海鮮" },
+            { id: 223, name: "豬脆管", vendor: "紘吉2.5.7送", unit: "斤", zone: "海鮮" },
+            { id: 224, name: "虱目魚柳", vendor: "紘吉2.5.7送", unit: "包", zone: "海鮮" },
+            { id: 225, name: "虱目魚皮", vendor: "紘吉2.5.7送", unit: "包", zone: "海鮮" },
+            { id: 226, name: "龍虎班切片", vendor: "其它海鮮", unit: "箱", zone: "海鮮" },
+            { id: 227, name: "小章魚(晚)", vendor: "其它海鮮", unit: "箱", zone: "海鮮" },
+            { id: 228, name: "鮭魚下巴", vendor: "其它海鮮", unit: "箱", zone: "海鮮" },
+            { id: 229, name: "馬加皮(魚翅)", vendor: "其它海鮮", unit: "斤", zone: "海鮮" },
+
+            // 冷台
+            { id: 301, name: "烤鰻醬", vendor: "鼎津(1-5送)", unit: "罐", zone: "冷台" },
+            { id: 302, name: "洋香菜", vendor: "鼎津(1-5送)", unit: "罐", zone: "冷台" },
+            { id: 303, name: "化應子", vendor: "鼎津(1-5送)", unit: "包", zone: "冷台" },
+            { id: 304, name: "瓦斯罐", vendor: "鼎津(1-5送)", unit: "組", zone: "冷台" },
+            { id: 305, name: "白芝麻", vendor: "鼎津(1-5送)", unit: "包", zone: "冷台" },
+            { id: 306, name: "蘆薈片", vendor: "鼎津(1-5送)", unit: "罐", zone: "冷台" },
+            { id: 307, name: "黑魚子醬", vendor: "鼎津(1-5送)", unit: "罐", zone: "冷台" },
+            { id: 308, name: "玉米罐頭", vendor: "鼎津(1-5送)", unit: "罐", zone: "冷台" },
+            { id: 309, name: "熱那亞青醬", vendor: "鼎津(1-5送)", unit: "包", zone: "冷台" },
+            { id: 310, name: "松井芥末醬2g", vendor: "典佑1.4送", unit: "包", zone: "冷台" },
+            { id: 311, name: "耐熱袋1/3/5斤", vendor: "典佑1.4送", unit: "捲", zone: "冷台" },
+            { id: 312, name: "手套(S/M/L)", vendor: "開元1.3.5送", unit: "箱", zone: "冷台" },
+            { id: 313, name: "烤盤油", vendor: "德麥2.4", unit: "罐", zone: "冷台" },
+            { id: 314, name: "赤貝", vendor: "崎彩", unit: "箱", zone: "冷台" },
+            { id: 315, name: "壽司旗魚", vendor: "崎彩", unit: "箱", zone: "冷台" },
+            { id: 316, name: "櫻花蘿蔔片", vendor: "天誠2-7送", unit: "包", zone: "冷台" },
+            { id: 317, name: "辣味明太子", vendor: "天誠2-7送", unit: "包", zone: "冷台" },
+            { id: 318, name: "玉子燒切片", vendor: "天誠2-7送", unit: "包", zone: "冷台" },
+            { id: 319, name: "栗子地瓜", vendor: "天誠2-7送", unit: "包", zone: "冷台" },
+            { id: 320, name: "花枝片", vendor: "天誠2-7送", unit: "箱", zone: "冷台" },
+            { id: 321, name: "黃金泡菜", vendor: "天誠2-7送", unit: "包", zone: "冷台" },
+            { id: 322, name: "韓式泡菜", vendor: "天誠2-7送", unit: "包", zone: "冷台" },
+            { id: 323, name: "山葵醬", vendor: "美食家1-6送", unit: "包", zone: "冷台" },
+            { id: 324, name: "壽司米", vendor: "美食家1-6送", unit: "包", zone: "冷台" },
+            { id: 325, name: "紅魚子", vendor: "美食家1-6送", unit: "包", zone: "冷台" },
+            { id: 326, name: "七切海苔", vendor: "美食家1-6送", unit: "包", zone: "冷台" },
+            { id: 327, name: "四角豆皮", vendor: "美食家1-6送", unit: "包", zone: "冷台" },
+
+            // 飲調
+            { id: 401, name: "柳橙汁", vendor: "米可可2.5送", unit: "箱", zone: "飲調" },
+            { id: 402, name: "阿華田", vendor: "米可可2.5送", unit: "包", zone: "飲調" },
+            { id: 403, name: "奶蓋粉", vendor: "米可可2.5送", unit: "包", zone: "飲調" },
+            { id: 404, name: "芭樂糖漿", vendor: "米可可2.5送", unit: "箱", zone: "飲調" },
+            { id: 405, name: "抹茶歐蕾", vendor: "米可可2.5送", unit: "包", zone: "飲調" },
+            { id: 406, name: "紅玉紅茶", vendor: "米可可2.5送", unit: "箱", zone: "飲調" },
+            { id: 407, name: "葡萄果粒罐", vendor: "米可可2.5送", unit: "箱", zone: "飲調" },
+            { id: 408, name: "威士忌糖漿", vendor: "米可可2.5送", unit: "罐", zone: "飲調" },
+            { id: 409, name: "大苑子草莓", vendor: "米可可2.5送", unit: "箱", zone: "飲調" },
+            { id: 410, name: "純糖粉", vendor: "美食家1-6送", unit: "包", zone: "飲調" },
+            { id: 411, name: "柚子醬", vendor: "美食家1-6送", unit: "瓶", zone: "飲調" },
+            { id: 412, name: "氣泡水", vendor: "美食家1-6送", unit: "箱", zone: "飲調" },
+            { id: 413, name: "柳橙汁(瓶)", vendor: "美食家1-6送", unit: "瓶", zone: "飲調" },
+            { id: 414, name: "檸檬原汁", vendor: "美食家1-6送", unit: "瓶", zone: "飲調" },
+            { id: 415, name: "蜜柑罐頭", vendor: "美食家1-6送", unit: "罐", zone: "飲調" },
+            { id: 416, name: "葡萄濃縮", vendor: "美食家1-6送", unit: "罐", zone: "飲調" },
+            { id: 417, name: "荔枝濃縮", vendor: "美食家1-6送", unit: "罐", zone: "飲調" },
+            { id: 418, name: "芒果濃縮", vendor: "美食家1-6送", unit: "罐", zone: "飲調" },
+            { id: 419, name: "蔓越莓濃縮", vendor: "美食家1-6送", unit: "罐", zone: "飲調" },
+            { id: 420, name: "牛奶", vendor: "開元1.3.5送", unit: "籃", zone: "飲調" },
+            { id: 421, name: "鮮奶油", vendor: "開元1.3.5送", unit: "箱", zone: "飲調" },
+            { id: 422, name: "接骨木", vendor: "開元1.3.5送", unit: "瓶", zone: "飲調" },
+            { id: 423, name: "鳳梨糖漿", vendor: "開元1.3.5送", unit: "罐", zone: "飲調" },
+            { id: 424, name: "百香果糖漿", vendor: "開元1.3.5送", unit: "罐", zone: "飲調" },
+            { id: 425, name: "蔓越莓糖漿", vendor: "開元1.3.5送", unit: "罐", zone: "飲調" },
+            { id: 426, name: "藍柑橘糖漿", vendor: "開元1.3.5送", unit: "罐", zone: "飲調" },
+            { id: 427, name: "紅石榴糖漿", vendor: "開元1.3.5送", unit: "罐", zone: "飲調" },
+            { id: 428, name: "濃縮冰咖啡", vendor: "開元1.3.5送", unit: "瓶", zone: "飲調" },
+            { id: 429, name: "原味奶酪粉", vendor: "開元1.3.5送", unit: "包", zone: "飲調" },
+
+            // 輕食區
+            { id: 501, name: "奶酒(假)", vendor: "津鼎1-5送", unit: "罐", zone: "輕食區" },
+            { id: 502, name: "蘭姆酒", vendor: "津鼎1-5送", unit: "瓶", zone: "輕食區" },
+            { id: 503, name: "煉乳", vendor: "津鼎1-5送", unit: "袋", zone: "輕食區" },
+            { id: 504, name: "二砂糖", vendor: "津鼎1-5送", unit: "袋", zone: "輕食區" },
+            { id: 505, name: "防潮糖粉", vendor: "津鼎1-5送", unit: "包", zone: "輕食區" },
+            { id: 506, name: "香草莢醬", vendor: "津鼎1-5送", unit: "罐", zone: "輕食區" },
+            { id: 507, name: "烏龍茶葉", vendor: "津鼎1-5送", unit: "箱", zone: "輕食區" },
+            { id: 508, name: "果糖1.5kg", vendor: "津鼎1-5送", unit: "罐", zone: "輕食區" },
+            { id: 509, name: "卡士達粉", vendor: "德麥2.4送", unit: "包", zone: "輕食區" },
+            { id: 510, name: "金色雪花片", vendor: "德麥2.4送", unit: "罐", zone: "輕食區" },
+            { id: 511, name: "SKII鏡面果膠", vendor: "德麥2.4送", unit: "桶", zone: "輕食區" },
+            { id: 512, name: "袋鼠奶油乳酪", vendor: "德麥2.4送", unit: "箱", zone: "輕食區" },
+            { id: 513, name: "迷你三色脆球", vendor: "德麥2.4送", unit: "罐", zone: "輕食區" },
+            { id: 514, name: "愛迪亞黑櫻桃", vendor: "德麥2.4送", unit: "罐", zone: "輕食區" },
+            { id: 515, name: "楓糖", vendor: "德麥2.4送", unit: "罐", zone: "輕食區" },
+            { id: 516, name: "果凍粉", vendor: "德麥2.4送", unit: "盒", zone: "輕食區" },
+            { id: 517, name: "泡芙殼", vendor: "德麥2.4送", unit: "箱", zone: "輕食區" },
+            { id: 518, name: "抹茶粉", vendor: "德麥2.4送", unit: "包", zone: "輕食區" },
+            { id: 519, name: "布蕾粉", vendor: "德麥2.4送", unit: "箱", zone: "輕食區" },
+            { id: 520, name: "可可粉", vendor: "德麥2.4送", unit: "包", zone: "輕食區" },
+            { id: 521, name: "蜂蜜蛋糕", vendor: "福市(宅配)", unit: "盒", zone: "輕食區" },
+            { id: 522, name: "堅果塔", vendor: "國賓點心坊", unit: "盒", zone: "輕食區" },
+            { id: 523, name: "乳酪塔", vendor: "國賓點心坊", unit: "盒", zone: "輕食區" },
+            { id: 524, name: "檸檬塔", vendor: "國賓點心坊", unit: "盒", zone: "輕食區" },
+            { id: 525, name: "布朗尼", vendor: "國賓點心坊", unit: "盒", zone: "輕食區" },
+            { id: 526, name: "提拉米蘇", vendor: "國賓點心坊", unit: "盒", zone: "輕食區" },
+            { id: 527, name: "莓香花語", vendor: "國賓點心坊", unit: "盒", zone: "輕食區" },
+
+            // 熟食區
+            { id: 601, name: "粽葉", vendor: "美食家1-6送", unit: "包", zone: "熟食" },
+            { id: 602, name: "酥皮", vendor: "美食家1-6送", unit: "箱", zone: "熟食" },
+            { id: 603, name: "培根", vendor: "美食家1-6送", unit: "包", zone: "熟食" },
+            { id: 604, name: "洋蔥圈", vendor: "美食家1-6送", unit: "包", zone: "熟食" },
+            { id: 605, name: "起司粉/片", vendor: "美食家1-6送", unit: "包", zone: "熟食" },
+            { id: 606, name: "雞南佛", vendor: "美食家1-6送", unit: "箱", zone: "熟食" },
+            { id: 607, name: "炸雞粉", vendor: "美食家1-6送", unit: "包", zone: "熟食" },
+            { id: 608, name: "天婦羅粉", vendor: "美食家1-6送", unit: "包", zone: "熟食" },
+            { id: 609, name: "塔塔醬", vendor: "美食家1-6送", unit: "包", zone: "熟食" },
+            { id: 610, name: "味琳", vendor: "津鼎1-5.典佑1.4", unit: "罐", zone: "熟食" },
+            { id: 611, name: "酥炸油", vendor: "津鼎1-5.典佑1.4", unit: "桶", zone: "熟食" },
+            { id: 612, name: "沙拉油", vendor: "津鼎1-5.典佑1.4", unit: "桶", zone: "熟食" },
+            { id: 613, name: "太白粉", vendor: "津鼎1-5.典佑1.4", unit: "包", zone: "熟食" },
+            { id: 614, name: "奧勒岡", vendor: "津鼎1-5.典佑1.4", unit: "罐", zone: "熟食" },
+            { id: 615, name: "洋香菜", vendor: "津鼎1-5.典佑1.4", unit: "罐", zone: "熟食" },
+            { id: 616, name: "迷迭香", vendor: "津鼎1-5.典佑1.4", unit: "罐", zone: "熟食" },
+            { id: 617, name: "鰹魚粉", vendor: "津鼎1-5.典佑1.4", unit: "包", zone: "熟食" },
+            { id: 618, name: "橄欖油", vendor: "津鼎1-5.典佑1.4", unit: "罐", zone: "熟食" },
+            { id: 619, name: "雞粉", vendor: "康寶(津鼎)", unit: "包", zone: "熟食" },
+            { id: 620, name: "卡非醬", vendor: "康寶(津鼎)", unit: "盒", zone: "熟食" },
+            { id: 621, name: "牛肝菌", vendor: "康寶(津鼎)", unit: "包", zone: "熟食" },
+            { id: 622, name: "龍蝦汁粉", vendor: "康寶(津鼎)", unit: "盒", zone: "熟食" },
+            { id: 623, name: "香甜沙拉", vendor: "康寶(津鼎)", unit: "包", zone: "熟食" },
+            { id: 624, name: "濃縮番茄", vendor: "康寶(津鼎)", unit: "罐", zone: "熟食" },
+            { id: 625, name: "乳酪條", vendor: "天誠2-7送", unit: "包", zone: "熟食" },
+            { id: 626, name: "肉丸", vendor: "怪獸披薩(宅配)", unit: "箱", zone: "熟食" },
+            { id: 627, name: "酥皮肉捲", vendor: "怪獸披薩(宅配)", unit: "箱", zone: "熟食" },
+            { id: 628, name: "蒜碎", vendor: "(菜商)2-7送", unit: "斤", zone: "熟食" },
+            { id: 629, name: "紅椒", vendor: "(菜商)2-7送", unit: "顆", zone: "熟食" },
+            { id: 630, name: "黃椒", vendor: "(菜商)2-7送", unit: "顆", zone: "熟食" },
+            { id: 631, name: "櫛瓜", vendor: "(菜商)2-7送", unit: "條", zone: "熟食" },
+            { id: 632, name: "茄子", vendor: "(菜商)2-7送", unit: "條", zone: "熟食" },
+
+            // 湯區
+            { id: 701, name: "豆漿", vendor: "美食家1-6送", unit: "籃", zone: "湯區" },
+            { id: 702, name: "乳瑪琳", vendor: "美食家1-6送", unit: "罐", zone: "湯區" },
+            { id: 703, name: "香豬油", vendor: "美食家1-6送", unit: "桶", zone: "湯區" },
+            { id: 704, name: "番茄火鍋湯底", vendor: "美食家1-6送", unit: "箱", zone: "湯區" },
+            { id: 705, name: "雞骨", vendor: "天誠2-7送", unit: "件", zone: "湯區" },
+            { id: 706, name: "豬大骨", vendor: "天誠2-7送", unit: "件", zone: "湯區" },
+            { id: 707, name: "澳和胸腹肉", vendor: "天誠2-7送", unit: "箱", zone: "湯區" },
+            { id: 708, name: "辣油", vendor: "合將週三送", unit: "罐", zone: "湯區" },
+            { id: 709, name: "藥膳湯粉", vendor: "象牙(宅配)", unit: "包", zone: "湯區" },
+            { id: 710, name: "帝霸薑母鴨炒料粉", vendor: "象牙(宅配)", unit: "包", zone: "湯區" },
+            { id: 711, name: "蔥", vendor: "(菜商)2-7送", unit: "斤", zone: "湯區" },
+            { id: 712, name: "洋蔥", vendor: "(菜商)2-7送", unit: "顆", zone: "湯區" },
+            { id: 713, name: "西芹", vendor: "(菜商)2-7送", unit: "包", zone: "湯區" },
+            { id: 714, name: "老薑", vendor: "(菜商)2-7送", unit: "斤", zone: "湯區" },
+            { id: 715, name: "紅棗", vendor: "興聯發(宅配)", unit: "包", zone: "湯區" },
+            { id: 716, name: "枸杞", vendor: "興聯發(宅配)", unit: "包", zone: "湯區" },
+            { id: 717, name: "黃耆", vendor: "興聯發(宅配)", unit: "包", zone: "湯區" },
+            { id: 718, name: "川芎", vendor: "興聯發(宅配)", unit: "包", zone: "湯區" },
+            { id: 719, name: "甘草", vendor: "興聯發(宅配)", unit: "包", zone: "湯區" },
+            { id: 720, name: "桂枝", vendor: "興聯發(宅配)", unit: "包", zone: "湯區" },
+            { id: 721, name: "月桂葉", vendor: "興聯發(宅配)", unit: "包", zone: "湯區" },
+            { id: 722, name: "白荳蔻", vendor: "興聯發(宅配)", unit: "包", zone: "湯區" },
+            { id: 723, name: "米酒", vendor: "津鼎1-5.典佑1.4", unit: "罐", zone: "湯區" },
+            { id: 724, name: "麻油", vendor: "津鼎1-5.典佑1.4", unit: "罐", zone: "湯區" },
+            { id: 725, name: "鹽巴", vendor: "津鼎1-5.典佑1.4", unit: "包", zone: "湯區" },
+            { id: 726, name: "老抽", vendor: "津鼎1-5.典佑1.4", unit: "罐", zone: "湯區" },
+            { id: 727, name: "花椒油", vendor: "津鼎1-5.典佑1.4", unit: "罐", zone: "湯區" },
+            { id: 728, name: "細砂糖", vendor: "津鼎1-5.典佑1.4", unit: "包", zone: "湯區" },
+            { id: 729, name: "五香粉", vendor: "津鼎1-5.典佑1.4", unit: "盒", zone: "湯區" },
+            { id: 730, name: "麻辣湯醬", vendor: "津鼎1-5.典佑1.4", unit: "桶", zone: "湯區" }
         ];
 
         const INITIAL_ORDER_ZONES = [
             { name: "菜區", icon: 'Carrot', color: "bg-emerald-500" },
             { name: "海鮮", icon: 'Fish', color: "bg-blue-500" },
-            { name: "湯區", icon: 'Soup', color: "bg-[#9b1c31]" },
+            { name: "湯區", icon: 'Soup', color: "bg-brand-red" }, // 綁定動態變色
             { name: "熟食", icon: 'UtensilsCrossed', color: "bg-rose-500" },
             { name: "冷台", icon: 'IceCream', color: "bg-cyan-500" },
             { name: "飲調", icon: 'Coffee', color: "bg-amber-600" },
             { name: "輕食區", icon: 'Timer', color: "bg-pink-500" }
         ];
 
-        const DEFAULT_UNITS = ["件", "箱", "包", "斤", "公斤", "顆", "條", "罐", "桶", "籃", "袋", "捲", "盒", "兩", "串", "瓶",  "組"];
+        const DEFAULT_UNITS = ["件", "箱", "包", "斤", "顆", "條", "罐", "桶", "籃", "袋", "捲", "盒", "兩", "串", "瓶", "滿", "組"];
+
+        // 外觀主題設定清單
+        const THEME_BGS = [
+            { id: 'white', color: '#f8fafc', mode: 'light', name: '白' },
+            { id: 'black', color: '#0f172a', mode: 'dark', name: '黑' },
+            { id: 'pink', color: '#fdf2f8', mode: 'light', name: '粉紅' },
+            { id: 'blue', color: '#f0f9ff', mode: 'light', name: '粉藍' },
+            { id: 'gray', color: '#e2e8f0', mode: 'light', name: '灰' },
+            { id: 'brown', color: '#fef3c7', mode: 'light', name: '棕色' }
+        ];
+
+        // 十種粉色系主題配色
+        const THEME_ACCENTS = [
+            { id: 'pink-1', rgb: '255 182 193', name: '櫻花粉' },   // Light Pink #ffb6c1
+            { id: 'pink-2', rgb: '255 105 180', name: '熱情粉' },   // Hot Pink #ff69b4
+            { id: 'pink-3', rgb: '255 20 147', name: '深粉紅' },    // Deep Pink #ff1493
+            { id: 'pink-4', rgb: '219 39 119', name: '玫瑰粉' },    // Rose Pink #db2777
+            { id: 'pink-5', rgb: '244 114 182', name: '蜜桃粉' },   // Peach Pink #f472b6
+            { id: 'pink-6', rgb: '236 72 153', name: '法式粉' },    // French Pink #ec4899
+            { id: 'pink-7', rgb: '225 29 72', name: '胭脂紅' },     // Rose #e11d48
+            { id: 'pink-8', rgb: '190 24 93', name: '莓果粉' },     // Berry Pink #be185d
+            { id: 'pink-9', rgb: '157 23 77', name: '酒紅粉' },     // Wine Pink #9d174d
+            { id: 'pink-10', rgb: '253 164 175', name: '柔和粉' }   // Soft Pink #fda4af
+        ];
 
         // --- 工具函式 ---
         const compressImage = (base64Str, maxWidth = 800, quality = 0.5) => {
@@ -296,7 +578,7 @@
                         <input placeholder="公告標題" value={newT} onChange={e=>setNewT(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none" />
                         <textarea placeholder="詳細描述..." rows="3" value={newC} onChange={e=>setNewC(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm outline-none" />
                         <label className="block w-full bg-slate-50 border border-slate-200 py-3 rounded-xl text-[10px] font-black text-center cursor-pointer">{newI ? "✅ 圖片已就緒" : "+ 上傳附圖"}<input type="file" className="hidden" accept="image/*" onChange={e=>{const file = e.target.files[0]; if (file) { const r=new FileReader(); r.onloadend=()=>setNewI(r.result); r.readAsDataURL(file); }}}/></label>
-                        <button onClick={addItem} className="w-full bg-brand-red text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all">發佈至本店</button>
+                        <button onClick={addItem} className="w-full bg-brand-red text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all">發佈至本分店</button>
                     </div>
                     <div className="space-y-3">
                         {(announcements||[]).map((a) => (
@@ -361,6 +643,43 @@
             );
         };
 
+        // --- 外觀設定對話框 ---
+        const ThemeModal = ({ currentTheme, setCurrentTheme, onClose }) => {
+            return (
+                <div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-end justify-center sm:items-center p-4 page-enter">
+                    <div className="bg-white w-full sm:max-w-md rounded-[2.5rem] p-6 shadow-2xl relative border border-slate-100">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-black text-slate-800 flex items-center gap-2"><Icon name="palette" size={24} className="text-brand-red"/> 系統外觀設定</h3>
+                            <button onClick={onClose} className="p-2 text-slate-400 bg-slate-100 rounded-full active:scale-90"><Icon name="x" size={20}/></button>
+                        </div>
+                        
+                        <div className="mb-8">
+                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">選擇背景</p>
+                            <div className="grid grid-cols-6 gap-2">
+                                {THEME_BGS.map(bg => (
+                                    <button onClick={() => setCurrentTheme(p => ({...p, bg: bg.id}))} key={bg.id} className={`aspect-square rounded-2xl shrink-0 border-2 transition-all flex flex-col items-center justify-center gap-1 ${currentTheme.bg === bg.id ? 'border-brand-red scale-110 shadow-md' : 'border-slate-200 scale-100 shadow-sm'}`} style={{backgroundColor: bg.color}}>
+                                        {currentTheme.bg === bg.id && <Icon name="check" className={bg.mode === 'dark' ? 'text-white' : 'text-slate-800'} size={18} />}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        <div className="mb-6">
+                            <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">選擇主體配色</p>
+                            <div className="grid grid-cols-5 gap-3">
+                                {THEME_ACCENTS.map(ac => (
+                                    <button onClick={() => setCurrentTheme(p => ({...p, accent: ac.id}))} key={ac.id} className={`w-full aspect-square rounded-2xl border-2 transition-all flex flex-col items-center justify-center ${currentTheme.accent === ac.id ? 'border-slate-800 scale-110 shadow-md' : 'border-transparent scale-100 shadow-sm'}`} style={{backgroundColor: `rgb(${ac.rgb})`}}>
+                                        {currentTheme.accent === ac.id && <Icon name="check" className="text-white" size={20} />}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <button onClick={onClose} className="mt-4 w-full bg-brand-red text-white font-black py-4 rounded-2xl active:scale-95 transition-all shadow-lg flex justify-center items-center gap-2">完成設定</button>
+                    </div>
+                </div>
+            )
+        };
+
         // --- 4. 頁面功能組件 ---
 
         const AuthPage = ({ users, setCurrentUser, setCurrentPage, setIsManager, setIsSuperAdmin, setCurrentBranch, globalBranches, triggerNotify, getPublicPath }) => {
@@ -369,7 +688,7 @@
             const [role, setRole] = useState('正職人員'); 
             const [mode, setMode] = useState('login'); 
             const [adminPass, setAdminPass] = useState('');
-            const [branch, setBranch] = useState(globalBranches[0] || '南港Lalaport');
+            const [branch, setBranch] = useState(globalBranches[0] || '南港旗艦店');
 
             useEffect(() => {
                 if(globalBranches.length > 0 && !globalBranches.includes(branch)) setBranch(globalBranches[0]);
@@ -382,7 +701,7 @@
                         setIsManager(true); 
                         setCurrentBranch(branch);
                         setCurrentPage('home'); 
-                        triggerNotify("行政主廚權限啟動", "success"); 
+                        triggerNotify("最高權限管理員模式啟動", "success"); 
                     }
                     else {
                         triggerNotify("驗證碼錯誤", "error"); 
@@ -433,8 +752,8 @@
             
             return (
                 <div className="p-6 pt-16 text-center page-enter min-h-screen flex flex-col items-center justify-center -mt-20">
-                    <div className="bg-brand-red w-[72px] h-[72px] rounded-[1.5rem] flex items-center justify-center mx-auto mb-6 text-white shadow-xl shadow-brand-red/20">
-                        <ChefHatIcon size={36} />
+                    <div className="w-[84px] h-[84px] bg-brand-red rounded-[1.5rem] shadow-xl shadow-brand-red/20 flex items-center justify-center mx-auto mb-6 text-white text-[40px] font-black leading-none">
+                        饗
                     </div>
                     
                     <h2 className="text-[28px] font-black text-[#1e293b] mb-10 tracking-tight uppercase">
@@ -463,7 +782,7 @@
                                         <select value={role} onChange={e => setRole(e.target.value)} className="w-full input-light p-4 rounded-xl outline-none font-bold text-sm appearance-none text-slate-700 px-5 text-left bg-white">
                                             <option value="正職人員">正職人員</option>
                                             <option value="計時人員">計時人員</option>
-                                            <option value="主管">主管 (需行政主廚審核)</option>
+                                            <option value="主管">主管 (需最高權限審核)</option>
                                         </select>
                                         <Icon name="chevron-down" size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-800 pointer-events-none" />
                                     </div>
@@ -606,7 +925,7 @@
             return (
                 <div className="p-4 space-y-4 page-enter pb-20 text-left font-bold">
                     <BackButton onClick={onBack} title="巡視崗位清單" />
-                    <div className="bg-gradient-to-r from-brand-red to-[#c22946] p-7 rounded-[2.5rem] text-white shadow-lg flex justify-between items-center mb-6 shadow-rose-100/50">
+                    <div className="bg-brand-red p-7 rounded-[2.5rem] text-white shadow-lg flex justify-between items-center mb-6">
                         <div><p className="text-[10px] font-black uppercase opacity-60 mb-1 leading-none tracking-widest">巡視進度 (20:00刷新)</p><p className="text-3xl font-black mt-2 font-bold">{completedZones.length} / {branchZones.length || 1}</p></div>
                         <div className="w-14 h-14 rounded-full border-4 border-white/20 flex items-center justify-center font-bold text-xs">{branchZones.length > 0 ? Math.round((completedZones.length/branchZones.length)*100) : 0}%</div>
                     </div>
@@ -622,7 +941,11 @@
             const [storeDatabases, setStoreDatabases] = useState(() => {
                 const dbMap = {};
                 globalBranches.forEach(b => {
-                    dbMap[b] = { ingredients: [...TEMPLATE_INGREDIENTS], zones: [...INITIAL_ORDER_ZONES], vendors: ["鑫羿", "大台北", "元家", "美食家"], history: [] };
+                    // 南港旗艦店載入預設資料表
+                    const defaultIngredients = b === '南港旗艦店' ? [...TEMPLATE_INGREDIENTS] : [];
+                    const defaultVendors = b === '南港旗艦店' ? [...new Set(TEMPLATE_INGREDIENTS.map(i => i.vendor))] : ["鑫羿", "大台北", "元家", "美食家"];
+                    
+                    dbMap[b] = { ingredients: defaultIngredients, zones: [...INITIAL_ORDER_ZONES], vendors: defaultVendors, history: [] };
                 });
                 return dbMap;
             });
@@ -758,6 +1081,8 @@
             const handleShare = async (vendorName) => {
                 saveOrderToHistory(); 
                 const text = editedOrderTexts[vendorName] || "";
+                
+                // Copy to clipboard fallback
                 const el = document.createElement('textarea');
                 el.value = text;
                 document.body.appendChild(el);
@@ -766,14 +1091,19 @@
                 document.body.removeChild(el);
                 
                 setCopyStatus({ ...copyStatus, [vendorName]: true });
-                triggerNotify(`${vendorName} 訂單已保存並複製`, "success");
+                triggerNotify(`${vendorName} 訂單已複製內容！請直接貼上分享`, "success");
                 
                 setTimeout(() => setCopyStatus(prev => ({ ...prev, [vendorName]: false })), 3000);
                 
                 if (navigator.share) {
-                    try { await navigator.share({ title: `訂貨單-${vendorName}`, text }); return; } catch (err) {}
+                    try { 
+                        await navigator.share({ title: `訂貨單-${vendorName}`, text }); 
+                        return; 
+                    } catch (err) {
+                        console.log("Share cancelled or failed", err);
+                    }
                 }
-                window.location.href = `https://line.me/R/msg/text/?${encodeURIComponent(text)}`;
+                // 移除自動跳轉到 LINE APP，改為原生分享或複製剪貼簿
             };
 
             const Nav = ({ title, onBackAction, rightAction }) => (
@@ -800,8 +1130,8 @@
                                     <OrderSymbolIcon name="Package" className="text-4xl" />
                                 </div>
                             </div>
-                            <h2 className="text-3xl font-black text-center text-slate-800 mb-1">自動分廠商下單</h2>
-                            <p className="text-center text-slate-400 text-sm mb-8 font-medium">獨立資料庫</p>
+                            <h2 className="text-3xl font-black text-center text-slate-800 mb-1">智能分商點貨</h2>
+                            <p className="text-center text-slate-400 text-sm mb-8 font-medium">數據驅動 • 獨立資料庫</p>
 
                             <div className="bg-white rounded-[3rem] shadow-xl border border-white overflow-hidden">
                                 <div className="flex flex-col">
@@ -830,10 +1160,10 @@
                                                 <OrderSymbolIcon name="Chart" /> 數據分析報表
                                             </button>
                                             <button onClick={() => { setView('admin'); setAdminTab('ingredients'); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
-                                                <OrderSymbolIcon name="Settings" /> 食材管理後台
+                                                <OrderSymbolIcon name="Settings" /> 店務管理後台
                                             </button>
                                         </div>
-                                        <button onClick={onBack} className="w-full py-4 text-slate-400 font-bold text-xs uppercase mt-4">返回主頁</button>
+                                        <button onClick={onBack} className="w-full py-4 text-slate-400 font-bold text-xs uppercase mt-4">返回主系統</button>
                                     </div>
                                 </div>
                             </div>
@@ -1309,7 +1639,7 @@
                         )}
                         {tab === 'system' && isSuperAdmin && (
                             <div className="glass-panel p-6 rounded-[2.5rem] bg-white border shadow-sm space-y-4">
-                                <h3 className="font-black text-brand-red text-sm flex items-center gap-2"><Icon name="building-2" size={18} /> 分店管理</h3>
+                                <h3 className="font-black text-brand-red text-sm flex items-center gap-2"><Icon name="building-2" size={18} /> 全域分店管理</h3>
                                 <div className="flex gap-2">
                                     <input placeholder="新分店名稱..." value={newBranchName} onChange={e=>setNewBranchName(e.target.value)} className="flex-1 input-light p-3 rounded-xl text-sm" />
                                     <button onClick={()=>{
@@ -1352,12 +1682,20 @@
             const [user, setUser] = useState(null);
             const [notifications, setNotifications] = useState([]);
             const [users, setUsers] = useState([]);
+            
+            // 主題設定 State
+            const [theme, setCurrentTheme] = useState(() => {
+                const saved = localStorage.getItem('eatjoy_theme');
+                return saved ? JSON.parse(saved) : { bg: 'white', accent: 'pink-4' };
+            });
+            const [showThemeModal, setShowThemeModal] = useState(false);
+
             const [currentUser, setCurrentUser] = useState(() => { const saved = localStorage.getItem('k_active_user'); return saved ? JSON.parse(saved) : null; });
             const [activeAnnouncement, setActiveAnnouncement] = useState(null);
             
             // 全域資料
-            const [globalBranches, setGlobalBranches] = useState(['南港Lalaport', '台中Lalaport']);
-            const [currentBranch, setCurrentBranch] = useState('南港Lalaport');
+            const [globalBranches, setGlobalBranches] = useState(['南港旗艦店', '信義本店']);
+            const [currentBranch, setCurrentBranch] = useState('南港旗艦店');
             const [branchZones, setBranchZones] = useState([]);
             const [announcements, setAnnouncements] = useState([]);
             const [tickerText, setTickerText] = useState('');
@@ -1387,7 +1725,24 @@
                 }
             };
 
-            // 新增：前端定時排程檢查 (20:00 重置 與 23:00 未完成推播)
+            // 套用自訂外觀設定 (CSS Variables + 深色模式)
+            useEffect(() => {
+                const activeBg = THEME_BGS.find(b => b.id === theme.bg) || THEME_BGS[0];
+                const activeAccent = THEME_ACCENTS.find(a => a.id === theme.accent) || THEME_ACCENTS[0];
+
+                document.documentElement.style.setProperty('--app-bg', activeBg.color);
+                document.documentElement.style.setProperty('--brand-red', activeAccent.rgb);
+                
+                if (activeBg.mode === 'dark') {
+                    document.body.classList.add('theme-dark');
+                } else {
+                    document.body.classList.remove('theme-dark');
+                }
+
+                localStorage.setItem('eatjoy_theme', JSON.stringify(theme));
+            }, [theme]);
+
+            // 前端定時排程檢查 (20:00 重置 與 23:00 未完成推播)
             useEffect(() => {
                 if (!currentUser || !currentBranch) return;
 
@@ -1524,7 +1879,7 @@
 
                                     <div onClick={() => setCurrentPage('inspection')} className="glass-panel p-6 rounded-[2.5rem] border-l-4 border-l-brand-red bg-white shadow-sm active-scale cursor-pointer">
                                         <div className="flex justify-between items-end mb-4 px-1"><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">巡視進度 (20:00刷新)</p><h3 className="text-lg font-black text-slate-800 leading-tight">{completedZones.length >= branchZones.length && branchZones.length > 0 ? "✅ 全數巡視完成" : `進度：${completedZones.length} / ${branchZones.length || 1}`}</h3></div><span className="text-sm font-black text-brand-red">{progressPercent}%</span></div>
-                                        <div className="bg-slate-100 h-3.5 rounded-full overflow-hidden border shadow-inner"><div className="h-full bg-gradient-to-r from-[#c22946] to-brand-red transition-all duration-700" style={{ width: `${progressPercent}%` }}></div></div>
+                                        <div className="bg-slate-100 h-3.5 rounded-full overflow-hidden border shadow-inner"><div className="h-full bg-brand-red opacity-80 transition-all duration-700" style={{ width: `${progressPercent}%` }}></div></div>
                                     </div>
                                     
                                     {/* 最新公告區塊 */}
@@ -1567,7 +1922,7 @@
                     case 'onboarding': return (
                         <div className="p-4 space-y-4 page-enter text-left">
                             <BackButton onClick={()=>setCurrentPage('home')} title="入職相關" />
-                            <SectionItem title="工作準備清單" iconName="list-checks" onClick={()=>setCurrentPage('onboard-list')} />
+                            <SectionItem title="員工準備清單" iconName="list-checks" onClick={()=>setCurrentPage('onboard-list')} />
                             <SectionItem title="停車資訊指引" iconName="car" onClick={()=>setCurrentPage('onboard-parking')} />
                             <SectionItem title="上班動線引導" iconName="navigation" onClick={()=>setCurrentPage('workRoute')} />
                         </div>
@@ -1593,8 +1948,8 @@
                     case 'benefits': return (
                         <div className="p-4 space-y-4 page-enter text-left">
                             <BackButton onClick={()=>setCurrentPage('home')} title="薪資福利" />
-                            <SectionItem title="考核標準及加給" iconName="coins" onClick={()=>setCurrentPage('benefit-eval')} />
-                            <SectionItem title="員工福利" iconName="heart" onClick={()=>setCurrentPage('benefit-wel')} />
+                            <SectionItem title="考核加給標準" iconName="coins" onClick={()=>setCurrentPage('benefit-eval')} />
+                            <SectionItem title="員工相關福利" iconName="heart" onClick={()=>setCurrentPage('benefit-wel')} />
                         </div>
                     );
                     case 'benefit-eval': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="考核標準" list={benefitsData?.evaluation} />;
@@ -1625,16 +1980,26 @@
                     <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[1000] w-full max-w-xs space-y-3 px-4">
                         {notifications.map(n => (<div key={n.id} className={`toast-enter p-5 rounded-[2rem] shadow-2xl flex items-center gap-4 glass-panel border-l-4 ${n.type === 'success' ? 'border-l-emerald-500 text-emerald-700' : 'border-l-brand-red text-brand-red'}`}><Icon name={n.type === 'success' ? 'check-circle' : 'alert-triangle'} size={24} /><span className="font-bold text-xs leading-tight">{n.msg}</span></div>))}
                     </div>
+                    
+                    {/* 外觀設定對話框 */}
+                    {showThemeModal && <ThemeModal currentTheme={theme} setCurrentTheme={setCurrentTheme} onClose={() => setShowThemeModal(false)} />}
+
                     {currentPage !== 'auth' && (
                         <header className="p-5 sticky top-0 z-50 flex justify-between items-center bg-white/80 backdrop-blur-md border-b">
                             <div className="flex items-center gap-3 cursor-pointer shrink-0" onClick={() => (isManager || currentUser?.status === 'approved') && setCurrentPage('home')}>
-                                <div className="bg-brand-red p-2 rounded-xl text-white shadow-lg"><ChefHatIcon size={20}/></div>
+                                <div className="bg-brand-red w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg shrink-0 font-black text-xl leading-none">
+                                    饗
+                                </div>
                                 <div>
                                     <span className="font-black text-xl text-slate-800 tracking-tighter leading-none block">EATJOY <span className="text-brand-red">OS</span></span>
                                     <span className="text-[9px] text-slate-400 font-bold uppercase">{currentBranch}</span>
                                 </div>
                             </div>
                             <div className="flex gap-2">
+                                <button onClick={() => setShowThemeModal(true)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black active:scale-95 transition-all shadow-sm bg-slate-100 text-slate-600 hover:bg-slate-200">
+                                    <Icon name="palette" size={16} />
+                                    外觀
+                                </button>
                                 <button onClick={() => isManager ? setCurrentPage('admin') : (currentUser?.status === 'approved' && setCurrentPage('home'))} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black active:scale-95 transition-all shadow-sm ${isSuperAdmin ? 'bg-brand-red text-white' : (isManager ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}`}>
                                     <Icon name={isManager ? "settings" : "bell"} size={16} />
                                     {isManager ? "後台" : "通知"}
@@ -1681,5 +2046,3 @@
     </script>
 </body>
 </html>
-
-
