@@ -154,7 +154,7 @@
             { name: "輕食區", icon: 'Timer', color: "bg-pink-500" }
         ];
 
-        const DEFAULT_UNITS = ["件", "箱", "包", "斤", "顆", "條", "罐", "桶", "籃", "袋", "捲", "盒", "兩", "串", "瓶", "滿", "組"];
+        const DEFAULT_UNITS = ["件", "箱", "包", "斤", "公斤", "顆", "條", "罐", "桶", "籃", "袋", "捲", "盒", "兩", "串", "瓶", "組"];
 
         // --- 工具函式 ---
         const compressImage = (base64Str, maxWidth = 800, quality = 0.5) => {
@@ -221,8 +221,8 @@
         const Ticker = ({ text }) => (
             <div className="bg-slate-900 text-white py-2.5 px-4 ticker-wrap">
                 <div className="ticker-move flex gap-8 font-bold text-[11px] uppercase tracking-wider items-center">
-                    <span className="flex items-center gap-2 whitespace-nowrap"><span className="text-brand-red">●</span> {text || "歡迎使用 EATJOY OS 系統 ... "}</span>
-                    <span className="flex items-center gap-2 whitespace-nowrap"><span className="text-brand-red">●</span> {text || "歡迎使用 EATJOY OS 系統 ... "}</span>
+                    <span className="flex items-center gap-2 whitespace-nowrap"><span className="text-brand-red">●</span> {text || "歡迎使用 EATJOY廚務 OS 系統 ... "}</span>
+                    <span className="flex items-center gap-2 whitespace-nowrap"><span className="text-brand-red">●</span> {text || "使用上有BUG或優化建議可以私訊小雷神"}</span>
                 </div>
             </div>
         );
@@ -410,7 +410,7 @@
                         setIsManager(true); 
                         setCurrentBranch(branch);
                         setCurrentPage('home'); 
-                        triggerNotify("最高權限管理員模式啟動", "success"); 
+                        triggerNotify("行政主廚權限", "success"); 
                     }
                     else {
                         triggerNotify("驗證碼錯誤", "error"); 
@@ -466,7 +466,7 @@
                     </div>
                     
                     <h2 className="text-[28px] font-black text-[#1e293b] mb-10 tracking-tight uppercase">
-                        EATJOY <span className="text-brand-red">OS</span>
+                        EATJOY廚務 <span className="text-brand-red">OS</span>
                     </h2>
                     
                     <div className="glass-panel p-6 sm:p-8 rounded-[2rem] w-full max-w-[340px] border border-slate-100 bg-white">
@@ -491,7 +491,7 @@
                                         <select value={role} onChange={e => setRole(e.target.value)} className="w-full input-light p-4 rounded-xl outline-none font-bold text-sm appearance-none text-slate-700 px-5 text-left bg-white">
                                             <option value="正職人員">正職人員</option>
                                             <option value="計時人員">計時人員</option>
-                                            <option value="主管">主管 (需最高權限審核)</option>
+                                            <option value="主管">主管 (需行政主廚審核)</option>
                                         </select>
                                         <Icon name="chevron-down" size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-800 pointer-events-none" />
                                     </div>
@@ -604,7 +604,7 @@
                             }
                         });
                     }
-                    setLoading(false); setIsSubmitted(true); triggerNotify("巡視結果提交成功", "success");
+                    setLoading(false); setIsSubmitted(true); triggerNotify("善後巡視已上傳", "success");
                 }, 800);
             };
 
@@ -624,7 +624,7 @@
                     </div>
                     {!isSubmitted ? (
                         <div className="space-y-3">
-                            {!isAllUploaded && <p className="text-[10px] text-red-500 font-bold text-center animate-pulse"><Icon name="alert-circle" size={12} /> 請完成所有實拍照上傳</p>}
+                            {!isAllUploaded && <p className="text-[10px] text-red-500 font-bold text-center animate-pulse"><Icon name="alert-circle" size={12} /> 請完成所有善後巡視照上傳</p>}
                             <button onClick={handleSubmit} disabled={!isAllUploaded || loading} className={`w-full py-5 rounded-[2rem] font-black text-white shadow-xl flex items-center justify-center gap-2 ${isAllUploaded ? 'bg-brand-red active:scale-95' : 'bg-slate-300 cursor-not-allowed'}`}>{loading ? "提交中..." : "確認提交結果"}</button>
                         </div>
                     ) : <div className="p-8 rounded-[3rem] bg-emerald-50 text-emerald-700 text-center font-black">提交完成 ✅</div>}
@@ -870,8 +870,8 @@
                                     <OrderSymbolIcon name="Package" className="text-4xl" />
                                 </div>
                             </div>
-                            <h2 className="text-3xl font-black text-center text-slate-800 mb-1">智能分商點貨</h2>
-                            <p className="text-center text-slate-400 text-sm mb-8 font-medium">數據驅動 • 獨立資料庫</p>
+                            <h2 className="text-3xl font-black text-center text-slate-800 mb-1">簡易下單系統</h2>
+                            <p className="text-center text-slate-400 text-sm mb-8 font-medium">各區下單完成後整合送出</p>
 
                             <div className="bg-white rounded-[3rem] shadow-xl border border-white overflow-hidden">
                                 <div className="flex flex-col">
@@ -900,10 +900,10 @@
                                                 <OrderSymbolIcon name="Chart" /> 數據分析報表
                                             </button>
                                             <button onClick={() => { setView('admin'); setAdminTab('ingredients'); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
-                                                <OrderSymbolIcon name="Settings" /> 店務管理後台
+                                                <OrderSymbolIcon name="Settings" /> 食材廠商設定
                                             </button>
                                         </div>
-                                        <button onClick={onBack} className="w-full py-4 text-slate-400 font-bold text-xs uppercase mt-4">返回主系統</button>
+                                        <button onClick={onBack} className="w-full py-4 text-slate-400 font-bold text-xs uppercase mt-4">返回廚務OS</button>
                                     </div>
                                 </div>
                             </div>
@@ -1755,3 +1755,4 @@
     </script>
 </body>
 </html>
+
