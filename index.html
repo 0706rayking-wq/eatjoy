@@ -154,7 +154,7 @@
             { name: "輕食區", icon: 'Timer', color: "bg-pink-500" }
         ];
 
-        const DEFAULT_UNITS = ["件", "箱", "包", "斤", "公斤", "顆", "條", "罐", "桶", "籃", "袋", "捲", "盒", "兩", "串", "瓶", "組"];
+        const DEFAULT_UNITS = ["件", "箱", "包", "斤", "顆", "條", "罐", "桶", "籃", "袋", "捲", "盒", "兩", "串", "瓶", "滿", "組"];
 
         // --- 工具函式 ---
         const compressImage = (base64Str, maxWidth = 800, quality = 0.5) => {
@@ -221,8 +221,8 @@
         const Ticker = ({ text }) => (
             <div className="bg-slate-900 text-white py-2.5 px-4 ticker-wrap">
                 <div className="ticker-move flex gap-8 font-bold text-[11px] uppercase tracking-wider items-center">
-                    <span className="flex items-center gap-2 whitespace-nowrap"><span className="text-brand-red">●</span> {text || "歡迎使用 EATJOY廚務 OS 系統 ... "}</span>
-                    <span className="flex items-center gap-2 whitespace-nowrap"><span className="text-brand-red">●</span> {text || "使用上有BUG或優化建議可以私訊小雷神"}</span>
+                    <span className="flex items-center gap-2 whitespace-nowrap"><span className="text-brand-red">●</span> {text || "歡迎使用 EATJOY OS 系統 ... "}</span>
+                    <span className="flex items-center gap-2 whitespace-nowrap"><span className="text-brand-red">●</span> {text || "歡迎使用 EATJOY OS 系統 ... "}</span>
                 </div>
             </div>
         );
@@ -410,7 +410,7 @@
                         setIsManager(true); 
                         setCurrentBranch(branch);
                         setCurrentPage('home'); 
-                        triggerNotify("行政主廚權限", "success"); 
+                        triggerNotify("最高權限管理員模式啟動", "success"); 
                     }
                     else {
                         triggerNotify("驗證碼錯誤", "error"); 
@@ -466,7 +466,7 @@
                     </div>
                     
                     <h2 className="text-[28px] font-black text-[#1e293b] mb-10 tracking-tight uppercase">
-                        EATJOY廚務 <span className="text-brand-red">OS</span>
+                        EATJOY <span className="text-brand-red">OS</span>
                     </h2>
                     
                     <div className="glass-panel p-6 sm:p-8 rounded-[2rem] w-full max-w-[340px] border border-slate-100 bg-white">
@@ -491,7 +491,7 @@
                                         <select value={role} onChange={e => setRole(e.target.value)} className="w-full input-light p-4 rounded-xl outline-none font-bold text-sm appearance-none text-slate-700 px-5 text-left bg-white">
                                             <option value="正職人員">正職人員</option>
                                             <option value="計時人員">計時人員</option>
-                                            <option value="主管">主管 (需行政主廚審核)</option>
+                                            <option value="主管">主管 (需最高權限審核)</option>
                                         </select>
                                         <Icon name="chevron-down" size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-800 pointer-events-none" />
                                     </div>
@@ -604,7 +604,7 @@
                             }
                         });
                     }
-                    setLoading(false); setIsSubmitted(true); triggerNotify("善後巡視已上傳", "success");
+                    setLoading(false); setIsSubmitted(true); triggerNotify("巡視結果提交成功", "success");
                 }, 800);
             };
 
@@ -624,7 +624,7 @@
                     </div>
                     {!isSubmitted ? (
                         <div className="space-y-3">
-                            {!isAllUploaded && <p className="text-[10px] text-red-500 font-bold text-center animate-pulse"><Icon name="alert-circle" size={12} /> 請完成所有善後巡視照上傳</p>}
+                            {!isAllUploaded && <p className="text-[10px] text-red-500 font-bold text-center animate-pulse"><Icon name="alert-circle" size={12} /> 請完成所有實拍照上傳</p>}
                             <button onClick={handleSubmit} disabled={!isAllUploaded || loading} className={`w-full py-5 rounded-[2rem] font-black text-white shadow-xl flex items-center justify-center gap-2 ${isAllUploaded ? 'bg-brand-red active:scale-95' : 'bg-slate-300 cursor-not-allowed'}`}>{loading ? "提交中..." : "確認提交結果"}</button>
                         </div>
                     ) : <div className="p-8 rounded-[3rem] bg-emerald-50 text-emerald-700 text-center font-black">提交完成 ✅</div>}
@@ -709,6 +709,12 @@
             const [newItem, setNewItem] = useState({ name: '', vendor: '', unit: '包', zone: '菜區' });
             const [newVendorName, setNewVendorName] = useState('');
             const [newZoneName, setNewZoneName] = useState('');
+
+            // 編輯狀態
+            const [editingVendor, setEditingVendor] = useState(null);
+            const [editingVendorTemp, setEditingVendorTemp] = useState('');
+            const [editingIngredient, setEditingIngredient] = useState(null);
+            const [editingIngredientTemp, setEditingIngredientTemp] = useState(null);
 
             // 修改：不僅更新本地 State，同時寫入 Firebase 同步
             const updateCurrentDb = (newData) => {
@@ -819,6 +825,29 @@
                 setEditedOrderTexts(prev => ({ ...prev, [vendor]: newText }));
             };
 
+            const saveVendorEdit = (oldName) => {
+                const newName = editingVendorTemp.trim();
+                if (!newName) return triggerNotify('廠商名稱不能為空', 'error');
+                if (newName !== oldName && currentDb.vendors.includes(newName)) return triggerNotify('該廠商名稱已存在', 'error');
+                
+                // 同時更新廠商列表以及關聯該廠商的食材
+                const newVendors = currentDb.vendors.map(v => v === oldName ? newName : v);
+                const newIngredients = currentDb.ingredients.map(i => i.vendor === oldName ? { ...i, vendor: newName } : i);
+                
+                updateCurrentDb({ vendors: newVendors, ingredients: newIngredients });
+                setEditingVendor(null);
+                triggerNotify('廠商資料與關聯食材已同步更新', 'success');
+            };
+
+            const saveIngredientEdit = () => {
+                if (!editingIngredientTemp.name.trim()) return triggerNotify('食材名稱不能為空', 'error');
+                
+                const newIngredients = currentDb.ingredients.map(i => i.id === editingIngredient ? editingIngredientTemp : i);
+                updateCurrentDb({ ingredients: newIngredients });
+                setEditingIngredient(null);
+                triggerNotify('食材資料已更新', 'success');
+            };
+
             const handleShare = async (vendorName) => {
                 saveOrderToHistory(); 
                 const text = editedOrderTexts[vendorName] || "";
@@ -870,8 +899,8 @@
                                     <OrderSymbolIcon name="Package" className="text-4xl" />
                                 </div>
                             </div>
-                            <h2 className="text-3xl font-black text-center text-slate-800 mb-1">簡易下單系統</h2>
-                            <p className="text-center text-slate-400 text-sm mb-8 font-medium">各區下單完成後整合送出</p>
+                            <h2 className="text-3xl font-black text-center text-slate-800 mb-1">智能分商點貨</h2>
+                            <p className="text-center text-slate-400 text-sm mb-8 font-medium">數據驅動 • 獨立資料庫</p>
 
                             <div className="bg-white rounded-[3rem] shadow-xl border border-white overflow-hidden">
                                 <div className="flex flex-col">
@@ -900,10 +929,10 @@
                                                 <OrderSymbolIcon name="Chart" /> 數據分析報表
                                             </button>
                                             <button onClick={() => { setView('admin'); setAdminTab('ingredients'); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
-                                                <OrderSymbolIcon name="Settings" /> 食材廠商設定
+                                                <OrderSymbolIcon name="Settings" /> 店務管理後台
                                             </button>
                                         </div>
-                                        <button onClick={onBack} className="w-full py-4 text-slate-400 font-bold text-xs uppercase mt-4">返回廚務OS</button>
+                                        <button onClick={onBack} className="w-full py-4 text-slate-400 font-bold text-xs uppercase mt-4">返回主系統</button>
                                     </div>
                                 </div>
                             </div>
@@ -1146,13 +1175,37 @@
                                         </div>
                                         <div className="space-y-2">
                                             {currentDb.ingredients.filter(i => (adminZoneFilter === '全部' || i.zone === adminZoneFilter) && (adminVendorFilter === '全部' || i.vendor === adminVendorFilter)).slice().reverse().map(item => (
-                                                <div key={item.id} className="bg-white p-5 rounded-[2rem] flex justify-between items-center shadow-sm border border-slate-50">
-                                                    <div className="min-w-0 pr-4">
-                                                        <p className="font-black text-slate-700 truncate">{item.name}</p>
-                                                        <p className="text-[10px] font-bold text-slate-400 uppercase">{item.vendor} • {item.zone} • {item.unit}</p>
+                                                editingIngredient === item.id ? (
+                                                    <div key={item.id} className="bg-white p-5 rounded-[2rem] shadow-md border-2 border-brand-red/30 space-y-3">
+                                                        <input className="w-full bg-slate-50 rounded-xl p-3 font-bold outline-none border border-slate-200 text-sm" value={editingIngredientTemp.name} onChange={e => setEditingIngredientTemp({...editingIngredientTemp, name: e.target.value})} placeholder="食材名稱" />
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            <select className="bg-slate-50 rounded-xl p-3 font-bold outline-none border border-slate-200 text-xs" value={editingIngredientTemp.vendor} onChange={e => setEditingIngredientTemp({...editingIngredientTemp, vendor: e.target.value})}>
+                                                                {currentDb.vendors.map(v => <option key={v} value={v}>{v}</option>)}
+                                                            </select>
+                                                            <select className="bg-slate-50 rounded-xl p-3 font-bold outline-none border border-slate-200 text-xs" value={editingIngredientTemp.unit} onChange={e => setEditingIngredientTemp({...editingIngredientTemp, unit: e.target.value})}>
+                                                                {DEFAULT_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                                            </select>
+                                                        </div>
+                                                        <select className="w-full bg-slate-50 rounded-xl p-3 font-bold outline-none border border-slate-200 text-xs" value={editingIngredientTemp.zone} onChange={e => setEditingIngredientTemp({...editingIngredientTemp, zone: e.target.value})}>
+                                                            {currentDb.zones.map(z => <option key={z.name} value={z.name}>{z.name}</option>)}
+                                                        </select>
+                                                        <div className="flex gap-2 pt-2">
+                                                            <button onClick={saveIngredientEdit} className="flex-1 bg-brand-red text-white p-3 rounded-xl font-black text-xs active-scale">儲存變更</button>
+                                                            <button onClick={() => setEditingIngredient(null)} className="flex-1 bg-slate-100 text-slate-600 p-3 rounded-xl font-black text-xs active-scale border border-slate-200">取消</button>
+                                                        </div>
                                                     </div>
-                                                    <button onClick={() => updateCurrentDb({ ingredients: currentDb.ingredients.filter(i => i.id !== item.id) })} className="bg-rose-50 text-rose-400 p-2.5 rounded-xl"><OrderSymbolIcon name="Trash2" /></button>
-                                                </div>
+                                                ) : (
+                                                    <div key={item.id} className="bg-white p-5 rounded-[2rem] flex justify-between items-center shadow-sm border border-slate-50">
+                                                        <div className="min-w-0 pr-4">
+                                                            <p className="font-black text-slate-700 truncate">{item.name}</p>
+                                                            <p className="text-[10px] font-bold text-slate-400 uppercase">{item.vendor} • {item.zone} • {item.unit}</p>
+                                                        </div>
+                                                        <div className="flex gap-1 shrink-0">
+                                                            <button onClick={() => { setEditingIngredient(item.id); setEditingIngredientTemp({...item}); }} className="bg-slate-50 text-blue-500 p-2.5 rounded-xl hover:bg-blue-100 active-scale transition-colors"><OrderSymbolIcon name="Edit" /></button>
+                                                            <button onClick={() => updateCurrentDb({ ingredients: currentDb.ingredients.filter(i => i.id !== item.id) })} className="bg-rose-50 text-rose-500 p-2.5 rounded-xl hover:bg-rose-100 active-scale transition-colors"><OrderSymbolIcon name="Trash2" /></button>
+                                                        </div>
+                                                    </div>
+                                                )
                                             ))}
                                         </div>
                                     </div>
@@ -1163,7 +1216,27 @@
                                             <input placeholder="新廠商名稱" className="flex-1 bg-slate-50 rounded-2xl p-4 font-bold outline-none ring-1 ring-slate-100 border-none min-w-0" value={newVendorName} onChange={e => setNewVendorName(e.target.value)} />
                                             <button onClick={() => { if(newVendorName) { updateCurrentDb({ vendors: [...currentDb.vendors, newVendorName] }); setNewVendorName(''); triggerNotify('新增廠商成功', 'success'); } }} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black shrink-0 whitespace-nowrap shadow-sm">新增</button>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-3">{currentDb.vendors.map(v => (<div key={v} className="bg-white p-5 rounded-[1.5rem] flex justify-between items-center shadow-sm border border-slate-50"><span className="font-bold text-sm truncate">{v}</span><button onClick={() => updateCurrentDb({ vendors: currentDb.vendors.filter(i => i !== v) })} className="text-slate-300 hover:text-rose-500 font-black px-2"><OrderSymbolIcon name="X" /></button></div>))}</div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                            {currentDb.vendors.map(v => (
+                                                editingVendor === v ? (
+                                                    <div key={v} className="bg-white p-4 rounded-[1.5rem] shadow-md border-2 border-brand-red/30 flex gap-2 items-center w-full">
+                                                        <input className="flex-1 min-w-0 bg-slate-50 rounded-xl p-2.5 text-sm font-bold outline-none border border-slate-200" value={editingVendorTemp} onChange={e => setEditingVendorTemp(e.target.value)} autoFocus />
+                                                        <div className="flex gap-1 shrink-0">
+                                                            <button onClick={() => saveVendorEdit(v)} className="bg-brand-red text-white p-2.5 rounded-xl text-xs font-black active-scale shadow-sm"><OrderSymbolIcon name="CheckCircle2" /></button>
+                                                            <button onClick={() => setEditingVendor(null)} className="bg-slate-100 text-slate-500 p-2.5 rounded-xl text-xs font-black border border-slate-200 active-scale"><OrderSymbolIcon name="X" /></button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div key={v} className="bg-white p-5 rounded-[1.5rem] flex justify-between items-center shadow-sm border border-slate-50 w-full">
+                                                        <span className="font-bold text-sm truncate pr-2">{v}</span>
+                                                        <div className="flex gap-1 shrink-0">
+                                                            <button onClick={() => { setEditingVendor(v); setEditingVendorTemp(v); }} className="text-slate-300 hover:text-blue-500 font-black p-2 active-scale"><OrderSymbolIcon name="Edit" /></button>
+                                                            <button onClick={() => updateCurrentDb({ vendors: currentDb.vendors.filter(i => i !== v) })} className="text-slate-300 hover:text-rose-500 font-black p-2 active-scale"><OrderSymbolIcon name="Trash2" /></button>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
                                 {adminTab === 'zones' && (
@@ -1755,4 +1828,3 @@
     </script>
 </body>
 </html>
-
