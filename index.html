@@ -710,6 +710,14 @@
             const [newVendorName, setNewVendorName] = useState('');
             const [newZoneName, setNewZoneName] = useState('');
 
+            // 食材編輯 State
+            const [editingIngredientId, setEditingIngredientId] = useState(null);
+            const [editIngredientData, setEditIngredientData] = useState(null);
+
+            // 廠商編輯 State
+            const [editingVendorName, setEditingVendorName] = useState(null);
+            const [editVendorNewName, setEditVendorNewName] = useState('');
+
             // 修改：不僅更新本地 State，同時寫入 Firebase 同步
             const updateCurrentDb = (newData) => {
                 const updatedDb = { ...currentDb, ...newData };
@@ -1146,13 +1154,45 @@
                                         </div>
                                         <div className="space-y-2">
                                             {currentDb.ingredients.filter(i => (adminZoneFilter === '全部' || i.zone === adminZoneFilter) && (adminVendorFilter === '全部' || i.vendor === adminVendorFilter)).slice().reverse().map(item => (
-                                                <div key={item.id} className="bg-white p-5 rounded-[2rem] flex justify-between items-center shadow-sm border border-slate-50">
-                                                    <div className="min-w-0 pr-4">
-                                                        <p className="font-black text-slate-700 truncate">{item.name}</p>
-                                                        <p className="text-[10px] font-bold text-slate-400 uppercase">{item.vendor} • {item.zone} • {item.unit}</p>
+                                                editingIngredientId === item.id ? (
+                                                    <div key={item.id} className="bg-slate-50 p-5 rounded-[2.5rem] shadow-sm border border-brand-red/30 space-y-3">
+                                                        <input placeholder="食材名稱" className="w-full bg-white rounded-xl p-3.5 font-bold outline-none ring-1 ring-slate-200" value={editIngredientData.name} onChange={e => setEditIngredientData({...editIngredientData, name: e.target.value})} />
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            <select className="bg-white rounded-xl p-3.5 font-bold outline-none text-sm" value={editIngredientData.vendor} onChange={e => setEditIngredientData({...editIngredientData, vendor: e.target.value})}>
+                                                                <option value="">選擇廠商</option>
+                                                                {currentDb.vendors.map(v => <option key={v} value={v}>{v}</option>)}
+                                                            </select>
+                                                            <select className="bg-white rounded-xl p-3.5 font-bold outline-none text-sm" value={editIngredientData.unit} onChange={e => setEditIngredientData({...editIngredientData, unit: e.target.value})}>
+                                                                {DEFAULT_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                                            </select>
+                                                        </div>
+                                                        <select className="w-full bg-white rounded-xl p-3.5 font-bold outline-none text-sm" value={editIngredientData.zone} onChange={e => setEditIngredientData({...editIngredientData, zone: e.target.value})}>
+                                                            {currentDb.zones.map(z => <option key={z.name} value={z.name}>{z.name}</option>)}
+                                                        </select>
+                                                        <div className="flex gap-2 pt-2">
+                                                            <button onClick={() => setEditingIngredientId(null)} className="flex-1 bg-slate-200 text-slate-600 p-3 rounded-xl font-bold active:scale-95 transition-all">取消</button>
+                                                            <button onClick={() => {
+                                                                if(editIngredientData.name && editIngredientData.vendor) {
+                                                                    const newIngredients = currentDb.ingredients.map(i => i.id === item.id ? editIngredientData : i);
+                                                                    updateCurrentDb({ ingredients: newIngredients });
+                                                                    setEditingIngredientId(null);
+                                                                    triggerNotify('食材更新成功', 'success');
+                                                                }
+                                                            }} className="flex-1 bg-brand-red text-white p-3 rounded-xl font-bold active:scale-95 transition-all shadow-lg">儲存</button>
+                                                        </div>
                                                     </div>
-                                                    <button onClick={() => updateCurrentDb({ ingredients: currentDb.ingredients.filter(i => i.id !== item.id) })} className="bg-rose-50 text-rose-400 p-2.5 rounded-xl"><OrderSymbolIcon name="Trash2" /></button>
-                                                </div>
+                                                ) : (
+                                                    <div key={item.id} className="bg-white p-5 rounded-[2rem] flex justify-between items-center shadow-sm border border-slate-50">
+                                                        <div className="min-w-0 pr-4">
+                                                            <p className="font-black text-slate-700 truncate">{item.name}</p>
+                                                            <p className="text-[10px] font-bold text-slate-400 uppercase">{item.vendor} • {item.zone} • {item.unit}</p>
+                                                        </div>
+                                                        <div className="flex gap-1">
+                                                            <button onClick={() => { setEditingIngredientId(item.id); setEditIngredientData(item); }} className="bg-slate-50 text-slate-400 hover:text-blue-500 p-2.5 rounded-xl"><OrderSymbolIcon name="Edit" /></button>
+                                                            <button onClick={() => updateCurrentDb({ ingredients: currentDb.ingredients.filter(i => i.id !== item.id) })} className="bg-rose-50 text-rose-400 hover:text-rose-600 p-2.5 rounded-xl"><OrderSymbolIcon name="Trash2" /></button>
+                                                        </div>
+                                                    </div>
+                                                )
                                             ))}
                                         </div>
                                     </div>
@@ -1161,9 +1201,40 @@
                                     <div className="space-y-6">
                                         <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex gap-3">
                                             <input placeholder="新廠商名稱" className="flex-1 bg-slate-50 rounded-2xl p-4 font-bold outline-none ring-1 ring-slate-100 border-none min-w-0" value={newVendorName} onChange={e => setNewVendorName(e.target.value)} />
-                                            <button onClick={() => { if(newVendorName) { updateCurrentDb({ vendors: [...currentDb.vendors, newVendorName] }); setNewVendorName(''); triggerNotify('新增廠商成功', 'success'); } }} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black shrink-0 whitespace-nowrap shadow-sm">新增</button>
+                                            <button onClick={() => { if(newVendorName && !currentDb.vendors.includes(newVendorName)) { updateCurrentDb({ vendors: [...currentDb.vendors, newVendorName] }); setNewVendorName(''); triggerNotify('新增廠商成功', 'success'); } else if (currentDb.vendors.includes(newVendorName)) { triggerNotify('廠商已存在', 'error'); } }} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black shrink-0 whitespace-nowrap shadow-sm">新增</button>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-3">{currentDb.vendors.map(v => (<div key={v} className="bg-white p-5 rounded-[1.5rem] flex justify-between items-center shadow-sm border border-slate-50"><span className="font-bold text-sm truncate">{v}</span><button onClick={() => updateCurrentDb({ vendors: currentDb.vendors.filter(i => i !== v) })} className="text-slate-300 hover:text-rose-500 font-black px-2"><OrderSymbolIcon name="X" /></button></div>))}</div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {currentDb.vendors.map(v => (
+                                                editingVendorName === v ? (
+                                                    <div key={v} className="bg-slate-50 p-4 rounded-[1.5rem] flex gap-2 items-center shadow-sm border border-brand-red/30 w-full col-span-2">
+                                                        <input className="flex-1 bg-white rounded-xl p-3 font-bold outline-none ring-1 ring-slate-200 text-sm" value={editVendorNewName} onChange={e => setEditVendorNewName(e.target.value)} />
+                                                        <button onClick={() => setEditingVendorName(null)} className="text-slate-400 font-bold px-3 py-2 text-sm active:scale-95 transition-all">取消</button>
+                                                        <button onClick={() => {
+                                                            const newName = editVendorNewName.trim();
+                                                            if (newName && newName !== v && !currentDb.vendors.includes(newName)) {
+                                                                const newVendors = currentDb.vendors.map(vendor => vendor === v ? newName : vendor);
+                                                                const newIngredients = currentDb.ingredients.map(i => i.vendor === v ? { ...i, vendor: newName } : i);
+                                                                updateCurrentDb({ vendors: newVendors, ingredients: newIngredients });
+                                                                triggerNotify('廠商名稱已更新並同步至相關食材', 'success');
+                                                                setEditingVendorName(null);
+                                                            } else if (currentDb.vendors.includes(newName) && newName !== v) {
+                                                                triggerNotify('廠商名稱已存在', 'error');
+                                                            } else {
+                                                                setEditingVendorName(null);
+                                                            }
+                                                        }} className="bg-brand-red text-white px-4 py-2 rounded-xl font-bold text-sm shadow-sm active:scale-95 transition-all">儲存</button>
+                                                    </div>
+                                                ) : (
+                                                    <div key={v} className="bg-white p-5 rounded-[1.5rem] flex justify-between items-center shadow-sm border border-slate-50">
+                                                        <span className="font-bold text-sm truncate pr-2">{v}</span>
+                                                        <div className="flex gap-1 shrink-0">
+                                                            <button onClick={() => { setEditingVendorName(v); setEditVendorNewName(v); }} className="text-slate-300 hover:text-blue-500 font-black p-2"><OrderSymbolIcon name="Edit" /></button>
+                                                            <button onClick={() => updateCurrentDb({ vendors: currentDb.vendors.filter(i => i !== v) })} className="text-slate-300 hover:text-rose-500 font-black p-2"><OrderSymbolIcon name="Trash2" /></button>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
                                 {adminTab === 'zones' && (
@@ -1755,4 +1826,3 @@
     </script>
 </body>
 </html>
-
