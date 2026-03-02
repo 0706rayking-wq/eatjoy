@@ -154,7 +154,7 @@
             { name: "輕食區", icon: 'Timer', color: "bg-pink-500" }
         ];
 
-        const DEFAULT_UNITS = ["件", "箱", "包", "斤", "公斤", "兩" , "碗", "顆", "條", "罐", "桶", "籃", "袋", "捲", "盒", "兩", "串", "瓶", "組"];
+        const DEFAULT_UNITS = ["件", "箱", "包", "斤", "公斤", "碗","兩" ,"顆", "條", "罐", "桶", "籃", "袋", "捲", "盒", "兩", "串", "瓶", "組"];
 
         // --- 工具函式 ---
         const compressImage = (base64Str, maxWidth = 800, quality = 0.5) => {
@@ -1806,7 +1806,7 @@
                         
                         {/* 獨立公告彈出視窗 */}
                         {activeAnnouncement && (
-                            <div className  "fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 page-enter">
+                            <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 page-enter">
                                 <div className="bg-white rounded-[2.5rem] p-6 w-full max-w-sm shadow-2xl max-h-[85vh] overflow-y-auto font-bold text-left">
                                     <h2 className="text-xl font-black text-slate-800 mb-2 leading-tight">{activeAnnouncement.title}</h2>
                                     <p className="text-[10px] text-slate-400 mb-4 flex items-center gap-1"><Icon name="clock" size={12}/> {new Date(activeAnnouncement.timestamp).toLocaleString()}</p>
@@ -1826,4 +1826,3 @@
     </script>
 </body>
 </html>
-
