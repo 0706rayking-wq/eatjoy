@@ -144,6 +144,12 @@
 
         const RULE_CATEGORIES = ['廚房規則', '食品衛生安全', '設備操作安全', '出缺勤規範'];
 
+        const MENU_CATEGORIES = [
+            '湯頭', '前菜/小菜', '沙拉', '壽司', '炸物/烤物',
+            '披薩/濃湯', '主食', '熱道', '鐵板燒', '甜點',
+            '自助吧飲料', '吧檯調飲', '限時限量', '冰淇淋', '合作品牌'
+        ];
+
         const INITIAL_ORDER_ZONES = [
             { name: "菜區", icon: 'Carrot', color: "bg-emerald-500" },
             { name: "海鮮", icon: 'Fish', color: "bg-blue-500" },
@@ -154,7 +160,7 @@
             { name: "輕食區", icon: 'Timer', color: "bg-pink-500" }
         ];
 
-        const DEFAULT_UNITS = ["件", "箱", "包", "斤", "公斤","碗","兩" ,"顆", "條", "罐", "桶", "籃", "袋", "捲", "盒", "兩", "串", "瓶", "組"];
+        const DEFAULT_UNITS = ["件", "箱", "包", "斤", "公斤","兩" ,"顆", "條", "罐", "桶", "籃", "袋", "捲", "盒", "兩", "串", "瓶", "組"];
 
         // --- 工具函式 ---
         const compressImage = (base64Str, maxWidth = 800, quality = 0.5) => {
@@ -265,10 +271,11 @@
         );
 
         // --- 進階共用模組管理 (支援編輯、全域同步) ---
-        const UniversalListManager = ({ categoryPath, currentBranch, globalBranches, isSuperAdmin, items = [], titleLabel = "名稱", triggerNotify, getPublicPath }) => {
+        const UniversalListManager = ({ categoryPath, currentBranch, globalBranches, isSuperAdmin, items = [], titleLabel = "名稱", triggerNotify, getPublicPath, categories = null }) => {
             const [newT, setNewT] = useState(''); 
             const [newC, setNewC] = useState(''); 
             const [newI, setNewI] = useState(null);
+            const [newCat, setNewCat] = useState(categories ? categories[0] : '');
             const [editingId, setEditingId] = useState(null);
             const [syncToAll, setSyncToAll] = useState(false);
 
@@ -277,11 +284,13 @@
                 setNewT(item.title);
                 setNewC(item.content || '');
                 setNewI(item.img || null);
+                if (categories) setNewCat(item.category || categories[0]);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             };
 
             const cancelEdit = () => {
                 setEditingId(null); setNewT(''); setNewC(''); setNewI(null);
+                if (categories) setNewCat(categories[0]);
             };
 
             const handleSave = async () => {
@@ -300,15 +309,19 @@
                         const docSnap = await docRef.get();
                         let branchItems = docSnap.exists && docSnap.data().items ? docSnap.data().items : [];
                         
+                        const itemData = { id: sharedId, title: newT.trim(), content: newC.trim(), img: imgToSave, updateTime: now };
+                        itemData.timestamp = editingId ? (branchItems.find(i=>i.id===editingId)?.timestamp || now) : now;
+                        if (categories) itemData.category = newCat;
+
                         if (editingId) {
                             const idx = branchItems.findIndex(i => i.id === editingId);
                             if (idx > -1) {
-                                branchItems[idx] = { ...branchItems[idx], title: newT.trim(), content: newC.trim(), img: imgToSave, updateTime: now };
+                                branchItems[idx] = { ...branchItems[idx], ...itemData };
                             } else {
-                                branchItems.push({ id: sharedId, title: newT.trim(), content: newC.trim(), img: imgToSave, timestamp: now });
+                                branchItems.push(itemData);
                             }
                         } else {
-                            branchItems.push({ id: sharedId, title: newT.trim(), content: newC.trim(), img: imgToSave, timestamp: now });
+                            branchItems.push(itemData);
                         }
                         return docRef.set({ items: branchItems });
                     }));
@@ -350,6 +363,11 @@
                                 </label>
                             )}
                         </div>
+                        {categories && (
+                            <select value={newCat} onChange={e=>setNewCat(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none appearance-none">
+                                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        )}
                         <input placeholder={titleLabel} value={newT} onChange={e=>setNewT(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none" />
                         <textarea placeholder="詳細描述..." rows="3" value={newC} onChange={e=>setNewC(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm outline-none" />
                         
@@ -376,7 +394,10 @@
                             <div key={r.id} className="bg-white p-5 rounded-[1.5rem] border border-slate-100 flex gap-4 items-center shadow-sm">
                                 {r.img && <img src={r.img} className="w-12 h-12 rounded-xl object-cover border" alt="圖" />}
                                 <div className="flex-1 min-w-0 text-left">
-                                    <p className="font-bold text-slate-800 text-sm truncate">{r.title}</p>
+                                    <div className="flex items-center gap-2 mb-0.5">
+                                        <p className="font-bold text-slate-800 text-sm truncate">{r.title}</p>
+                                        {r.category && <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[9px] rounded-md font-bold whitespace-nowrap">{r.category}</span>}
+                                    </div>
                                     <p className="text-[10px] text-slate-400 mt-1 line-clamp-1">{r.content}</p>
                                 </div>
                                 <div className="flex gap-1.5 shrink-0 border-l pl-3 border-slate-100">
@@ -386,6 +407,167 @@
                             </div>
                         ))}
                         {items.length === 0 && <p className="text-center text-slate-400 text-xs py-10 glass-panel rounded-3xl">尚未發佈任何項目</p>}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 專屬食譜管理器 (支援食材、做法、備註與全域同步) ---
+        const RecipeAdminManager = ({ categoryPath, currentBranch, globalBranches, isSuperAdmin, items = [], triggerNotify, getPublicPath, categories }) => {
+            const [newT, setNewT] = useState(''); 
+            const [newCat, setNewCat] = useState(categories ? categories[0] : '');
+            const [newIng, setNewIng] = useState('');
+            const [newInst, setNewInst] = useState('');
+            const [newNote, setNewNote] = useState('');
+            const [newI, setNewI] = useState(null);
+            const [editingId, setEditingId] = useState(null);
+            const [syncToAll, setSyncToAll] = useState(false);
+
+            const startEdit = (item) => {
+                setEditingId(item.id);
+                setNewT(item.title || '');
+                setNewIng(item.ingredients || '');
+                setNewInst(item.instructions || item.content || ''); // 兼容舊版資料
+                setNewNote(item.notes || '');
+                setNewI(item.img || null);
+                if (categories) setNewCat(item.category || categories[0]);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
+
+            const cancelEdit = () => {
+                setEditingId(null); setNewT(''); setNewIng(''); setNewInst(''); setNewNote(''); setNewI(null);
+                if (categories) setNewCat(categories[0]);
+            };
+
+            const handleSave = async () => {
+                if (!newT.trim()) return triggerNotify("菜單名稱不能為空", "error");
+                let imgToSave = newI; 
+                if (newI && newI.startsWith('data:')) imgToSave = await compressImage(newI);
+                
+                const targetBranches = (isSuperAdmin && syncToAll) ? globalBranches : [currentBranch];
+                const sharedId = editingId || crypto.randomUUID();
+                const now = Date.now();
+
+                try {
+                    await Promise.all(targetBranches.map(async (branch) => {
+                        const path = getPublicPath(`${categoryPath}_${branch}`);
+                        const docRef = db.doc(path);
+                        const docSnap = await docRef.get();
+                        let branchItems = docSnap.exists && docSnap.data().items ? docSnap.data().items : [];
+                        
+                        const itemData = { 
+                            id: sharedId, 
+                            title: newT.trim(), 
+                            ingredients: newIng.trim(),
+                            instructions: newInst.trim(),
+                            notes: newNote.trim(),
+                            content: newInst.trim(), // 為了兼容舊版通用清單的防呆
+                            img: imgToSave, 
+                            updateTime: now 
+                        };
+                        itemData.timestamp = editingId ? (branchItems.find(i=>i.id===editingId)?.timestamp || now) : now;
+                        if (categories) itemData.category = newCat;
+
+                        if (editingId) {
+                            const idx = branchItems.findIndex(i => i.id === editingId);
+                            if (idx > -1) {
+                                branchItems[idx] = { ...branchItems[idx], ...itemData };
+                            } else {
+                                branchItems.push(itemData);
+                            }
+                        } else {
+                            branchItems.push(itemData);
+                        }
+                        return docRef.set({ items: branchItems });
+                    }));
+                    triggerNotify(editingId ? "更新成功" : "發佈成功", "success");
+                    cancelEdit();
+                } catch (e) { triggerNotify("存檔失敗 (可能是圖片太大)", "error"); }
+            };
+
+            const deleteItem = async (id) => {
+                const isConfirmed = window.confirm(syncToAll && isSuperAdmin ? "確定要刪除嗎？這會同時刪除所有分店的該食譜。" : "確定要刪除嗎？");
+                if(!isConfirmed) return;
+
+                const targetBranches = (isSuperAdmin && syncToAll) ? globalBranches : [currentBranch];
+                try {
+                    await Promise.all(targetBranches.map(async (branch) => {
+                        const path = getPublicPath(`${categoryPath}_${branch}`);
+                        const docRef = db.doc(path);
+                        const docSnap = await docRef.get();
+                        if(docSnap.exists && docSnap.data().items) {
+                            const newItems = docSnap.data().items.filter(i => i.id !== id);
+                            return docRef.set({ items: newItems });
+                        }
+                    }));
+                    triggerNotify("食譜已刪除", "info");
+                } catch(e) { triggerNotify("刪除失敗", "error"); }
+            };
+
+            return (
+                <div className="space-y-4">
+                    <div className={`glass-panel p-6 rounded-[2.5rem] space-y-4 bg-white shadow-sm border transition-all ${editingId ? 'border-blue-500/30 shadow-blue-500/10' : 'border-slate-100'}`}>
+                        <div className="flex justify-between items-center mb-2">
+                            <h3 className="font-black text-slate-800 text-xs flex items-center gap-2 uppercase tracking-widest">
+                                {editingId ? <><Icon name="edit" size={16} className="text-blue-500" /> 編輯食譜</> : <><Icon name="plus-circle" size={16} className="text-brand-red" /> 新增食譜</>}
+                            </h3>
+                            {isSuperAdmin && (
+                                <label className="flex items-center gap-2 text-[10px] font-bold text-slate-600 cursor-pointer bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200 hover:bg-slate-100 transition-colors">
+                                    <input type="checkbox" checked={syncToAll} onChange={e=>setSyncToAll(e.target.checked)} className="accent-brand-red w-3.5 h-3.5 rounded" />
+                                    套用至全部分店
+                                </label>
+                            )}
+                        </div>
+                        {categories && (
+                            <select value={newCat} onChange={e=>setNewCat(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none appearance-none">
+                                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        )}
+                        <input placeholder="輸入菜單名稱..." value={newT} onChange={e=>setNewT(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none border-brand-red/30 focus:border-brand-red" />
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <textarea placeholder="填寫食材清單 (例如: 牛油 4kg, 草果 10顆...)" rows="4" value={newIng} onChange={e=>setNewIng(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm outline-none" />
+                            <textarea placeholder="填寫詳細做法步驟..." rows="4" value={newInst} onChange={e=>setNewInst(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm outline-none" />
+                        </div>
+                        
+                        <textarea placeholder="填寫備註 (選填)..." rows="2" value={newNote} onChange={e=>setNewNote(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm outline-none" />
+                        
+                        <label className="block w-full bg-slate-50 border border-slate-200 py-3 rounded-xl text-[10px] font-black text-center cursor-pointer hover:bg-slate-100 transition-colors">
+                            {newI ? "✅ 已選擇圖片 (點擊更換)" : "+ 上傳菜色照片"}
+                            <input type="file" className="hidden" accept="image/*" onChange={e=>{const file = e.target.files[0]; if (file) { const r=new FileReader(); r.onloadend=()=>setNewI(r.result); r.readAsDataURL(file); }}}/>
+                        </label>
+                        {newI && (
+                            <div className="relative w-full h-32 rounded-xl overflow-hidden border">
+                                <img src={newI} className="w-full h-full object-cover" />
+                                <button onClick={(e)=>{e.preventDefault(); setNewI(null);}} className="absolute top-2 right-2 bg-black/50 hover:bg-red-500 text-white p-1.5 rounded-full transition-colors"><Icon name="x" size={14}/></button>
+                            </div>
+                        )}
+                        
+                        <div className="flex gap-3 pt-2">
+                            {editingId && <button onClick={cancelEdit} className="flex-1 bg-slate-100 text-slate-600 font-black py-4 rounded-2xl active:scale-95 transition-all text-sm">取消</button>}
+                            <button onClick={handleSave} className={`flex-[2] text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all text-sm ${editingId ? 'bg-blue-600 shadow-blue-500/20' : 'bg-brand-red shadow-brand-red/20'}`}>
+                                {editingId ? "儲存修改" : "確認發佈"}
+                            </button>
+                        </div>
+                    </div>
+                    <div className="space-y-3">
+                        {items.map((r) => (
+                            <div key={r.id} className="bg-white p-5 rounded-[1.5rem] border border-slate-100 flex gap-4 items-center shadow-sm">
+                                {r.img && <img src={r.img} className="w-12 h-12 rounded-xl object-cover border shrink-0" alt="圖" />}
+                                <div className="flex-1 min-w-0 text-left">
+                                    <div className="flex items-center gap-2 mb-0.5">
+                                        <p className="font-bold text-slate-800 text-sm truncate">{r.title}</p>
+                                        {r.category && <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[9px] rounded-md font-bold whitespace-nowrap">{r.category}</span>}
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 mt-1 line-clamp-1">{r.instructions || r.content || '無描述'}</p>
+                                </div>
+                                <div className="flex gap-1.5 shrink-0 border-l pl-3 border-slate-100">
+                                    <button onClick={() => startEdit(r)} className="text-slate-400 hover:text-blue-500 p-2 transition-colors bg-slate-50 hover:bg-blue-50 rounded-xl"><Icon name="edit-3" size={16} /></button>
+                                    <button onClick={() => deleteItem(r.id)} className="text-slate-400 hover:text-red-500 p-2 transition-colors bg-slate-50 hover:bg-red-50 rounded-xl"><Icon name="trash-2" size={16} /></button>
+                                </div>
+                            </div>
+                        ))}
+                        {items.length === 0 && <p className="text-center text-slate-400 text-xs py-10 glass-panel rounded-3xl">尚未發佈任何食譜</p>}
                     </div>
                 </div>
             );
@@ -703,6 +885,169 @@
                 </div>
             </div>
         );
+
+        // --- 進階菜單前台展示元件 ---
+        const MenuDisplayPage = ({ onBack, items = [] }) => {
+            const [expandedCats, setExpandedCats] = useState(
+                MENU_CATEGORIES.reduce((acc, cat) => ({...acc, [cat]: true}), {})
+            );
+            const [selectedRecipe, setSelectedRecipe] = useState(null);
+
+            const groupedItems = useMemo(() => {
+                const groups = { '未分類': [] };
+                MENU_CATEGORIES.forEach(c => groups[c] = []);
+                items.forEach(item => {
+                    const c = item.category && MENU_CATEGORIES.includes(item.category) ? item.category : '未分類';
+                    groups[c].push(item);
+                });
+                return groups;
+            }, [items]);
+
+            const handlePrint = (item) => {
+                const printWindow = window.open('', '_blank');
+                const htmlContent = `
+                    <!DOCTYPE html>
+                    <html>
+                        <head>
+                            <title>${item.title} - 食譜列印</title>
+                            <style>
+                                @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
+                                body { font-family: 'Noto Sans TC', sans-serif; margin: 0; padding: 0; color: #333; -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: #fff; }
+                                .print-container { max-width: 1000px; margin: 0 auto; }
+                                .header { background-color: #3b4252; padding: 50px 20px; text-align: center; }
+                                .title-wrapper { display: inline-block; border-bottom: 6px solid #ef4444; padding-bottom: 12px; }
+                                .title { font-size: 42px; font-weight: 900; color: #ffffff; margin: 0; letter-spacing: 2px; }
+                                .content { padding: 40px; display: flex; gap: 40px; align-items: flex-start; }
+                                .image-col { flex: 0 0 35%; }
+                                .image-col img { width: 100%; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); object-fit: cover; }
+                                .text-col { flex: 1; display: flex; gap: 40px; }
+                                .col-half { flex: 1; }
+                                h3 { font-size: 18px; font-weight: 900; color: #1e293b; margin-top: 0; margin-bottom: 15px; }
+                                pre { font-family: 'Noto Sans TC', sans-serif; font-size: 15px; line-height: 1.8; margin: 0; white-space: pre-wrap; color: #475569; }
+                                .notes-section { padding: 0 40px 40px 40px; }
+                                .footer-bar { border-bottom: 3px solid #ef4444; margin: 0 40px 20px 40px; }
+                                .print-footer { text-align: center; font-size: 12px; color: #94a3b8; padding-bottom: 20px; }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="print-container">
+                                <div class="header">
+                                    <div class="title-wrapper">
+                                        <h1 class="title">${item.title}</h1>
+                                    </div>
+                                </div>
+                                <div class="content">
+                                    ${item.img ? `<div class="image-col"><img src="${item.img}" alt="Recipe Image"/></div>` : ''}
+                                    <div class="text-col" style="${!item.img ? 'width: 100%;' : ''}">
+                                        <div class="col-half">
+                                            <h3>食材</h3>
+                                            <pre>${item.ingredients || '無提供'}</pre>
+                                        </div>
+                                        <div class="col-half">
+                                            <h3>做法：</h3>
+                                            <pre>${item.instructions || item.content || '無提供'}</pre>
+                                        </div>
+                                    </div>
+                                </div>
+                                ${item.notes ? `
+                                <div class="notes-section">
+                                    <h3>備註：</h3>
+                                    <pre>${item.notes}</pre>
+                                </div>` : ''}
+                                <div class="footer-bar"></div>
+                                <div class="print-footer">EATJOY 廚務管理系統 - 列印時間：${new Date().toLocaleString()}</div>
+                            </div>
+                            \x3Cscript>
+                                setTimeout(() => { window.print(); window.close(); }, 500);
+                            \x3C/script>
+                        </body>
+                    </html>
+                `;
+                printWindow.document.write(htmlContent);
+                printWindow.document.close();
+            };
+
+            return (
+                <div className="p-4 space-y-6 page-enter pb-24 text-left font-bold relative">
+                    <BackButton onClick={onBack} title="本季菜單與食譜" />
+                    
+                    <div className="space-y-6 mt-4">
+                        {MENU_CATEGORIES.concat('未分類').filter(c => groupedItems[c].length > 0).map(cat => (
+                            <div key={cat} className="space-y-4">
+                                <div 
+                                    className="flex justify-between items-center border-b border-dashed border-slate-300 pb-3 cursor-pointer group px-2"
+                                    onClick={() => setExpandedCats(p => ({...p, [cat]: !p[cat]}))}
+                                >
+                                    <h3 className="text-lg font-black text-slate-800 tracking-tight">{cat}</h3>
+                                    <Icon name={expandedCats[cat] ? "chevron-up" : "chevron-down"} className="text-slate-400 group-hover:text-brand-red transition-colors" size={20} />
+                                </div>
+                                {expandedCats[cat] && (
+                                    <div className="flex flex-wrap gap-2.5 px-2 mb-4">
+                                        {groupedItems[cat].map(item => (
+                                            <button 
+                                                key={item.id} 
+                                                onClick={() => setSelectedRecipe(item)}
+                                                className="bg-[#cc4242] hover:bg-[#b9121b] text-white px-5 py-2 rounded-md font-bold text-sm shadow-sm transition-all active:scale-95 border border-[#ab2d2d]"
+                                            >
+                                                {item.title}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                        {items.length === 0 && <div className="py-20 text-center glass-panel rounded-[3rem] border border-slate-100 bg-white text-slate-300 font-bold uppercase text-[10px]">目前尚未發佈任何菜單</div>}
+                    </div>
+
+                    {/* 食譜彈跳視窗 */}
+                    {selectedRecipe && (
+                        <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 page-enter">
+                            <div className="bg-white rounded-[2rem] w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-slate-100">
+                                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50 shrink-0">
+                                    <h2 className="text-2xl font-black text-slate-800 truncate pr-4 flex items-center gap-2">
+                                        <Icon name="utensils" className="text-brand-red" />
+                                        {selectedRecipe.title}
+                                    </h2>
+                                    <button onClick={() => setSelectedRecipe(null)} className="text-slate-400 hover:text-brand-red transition-colors p-1 bg-white rounded-lg border shadow-sm active:scale-90"><Icon name="x" size={24} /></button>
+                                </div>
+                                <div className="p-6 overflow-y-auto no-scrollbar font-bold text-left space-y-6 flex-1">
+                                    <div className="flex flex-col md:flex-row gap-6">
+                                        {selectedRecipe.img && (
+                                            <div className="md:w-1/3 shrink-0">
+                                                <img src={selectedRecipe.img} className="w-full rounded-2xl object-cover border shadow-sm max-h-64 md:max-h-full" alt="菜色圖片" />
+                                            </div>
+                                        )}
+                                        <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${selectedRecipe.img ? 'md:w-2/3' : 'w-full'}`}>
+                                            <div className="bg-orange-50 p-5 rounded-2xl border border-orange-100 shadow-inner">
+                                                <h4 className="text-xs font-black text-orange-600 uppercase tracking-widest mb-3 flex items-center gap-1.5 border-b border-orange-200 pb-2"><Icon name="shopping-bag" size={16} /> 食材清單</h4>
+                                                <p className="text-sm font-bold text-slate-700 whitespace-pre-wrap leading-relaxed">{selectedRecipe.ingredients || '未提供'}</p>
+                                            </div>
+                                            <div className="bg-emerald-50 p-5 rounded-2xl border border-emerald-100 shadow-inner">
+                                                <h4 className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-3 flex items-center gap-1.5 border-b border-emerald-200 pb-2"><Icon name="chef-hat" size={16} /> 詳細作法</h4>
+                                                <p className="text-sm font-bold text-slate-700 whitespace-pre-wrap leading-relaxed">{selectedRecipe.instructions || selectedRecipe.content || '未提供'}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    {(selectedRecipe.notes || (!selectedRecipe.ingredients && !selectedRecipe.instructions && !selectedRecipe.content)) && (
+                                         <div className="bg-slate-50 p-5 rounded-2xl border shadow-inner">
+                                            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-1.5"><Icon name="info" size={14} /> 備註</h4>
+                                            <p className="text-sm font-bold text-slate-700 whitespace-pre-wrap leading-relaxed">{selectedRecipe.notes || selectedRecipe.content}</p>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="p-5 border-t border-slate-100 bg-white shrink-0 flex justify-end gap-3">
+                                    <button onClick={() => setSelectedRecipe(null)} className="px-8 py-3.5 rounded-xl bg-slate-100 text-slate-600 font-black text-sm active:scale-95 transition-all">關閉</button>
+                                    <button onClick={() => handlePrint(selectedRecipe)} className="px-8 py-3.5 rounded-xl bg-blue-600 text-white font-black text-sm shadow-lg shadow-blue-600/20 active:scale-95 transition-all flex items-center justify-center gap-2">
+                                        <Icon name="printer" size={16} /> 列印食譜
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
 
         const UnifiedRulesPage = ({ rulesData, onBack, user, currentBranch, triggerNotify, getPublicPath }) => {
             const [activeTab, setActiveTab] = useState('廚房規則');
@@ -1497,7 +1842,7 @@
                             </div>
                         )}
                         
-                        {tab === 'menu' && <UniversalListManager categoryPath="menu/list" currentBranch={currentBranch} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} items={menu?.items || []} titleLabel="菜單名稱" triggerNotify={triggerNotify} getPublicPath={getPublicPath} />}
+                        {tab === 'menu' && <RecipeAdminManager categoryPath="menu/list" currentBranch={currentBranch} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} items={menu?.items || []} titleLabel="菜單名稱" triggerNotify={triggerNotify} getPublicPath={getPublicPath} categories={MENU_CATEGORIES} />}
                         
                         {tab === 'content' && (
                             <div className="space-y-6">
@@ -1888,7 +2233,7 @@
                     case 'ordering': return <OrderingSystem onBack={()=>setCurrentPage('home')} triggerNotify={triggerNotify} globalBranches={globalBranches} currentBranch={currentBranch} isSuperAdmin={isSuperAdmin} getPublicPath={getPublicPath} />;
                     case 'inspection': return <InspectionPage onBack={()=>setCurrentPage('home')} standards={standards} completedZones={completedZones} triggerNotify={triggerNotify} branchZones={branchZones} currentBranch={currentBranch} getPublicPath={getPublicPath} />;
                     case 'unifiedRules': return <UnifiedRulesPage rulesData={rulesData} onBack={()=>setCurrentPage('home')} user={currentUser} currentBranch={currentBranch} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />;
-                    case 'menu': return <ListDetailPage onBack={()=>setCurrentPage('home')} title="本季菜單" list={menuData?.items} />;
+                    case 'menu': return <MenuDisplayPage onBack={()=>setCurrentPage('home')} items={menuData?.items} />;
                     case 'onboarding': return (
                         <div className="p-4 space-y-4 page-enter text-left">
                             <BackButton onClick={()=>setCurrentPage('home')} title="入職相關" />
@@ -2009,4 +2354,3 @@
     </script>
 </body>
 </html>
-
