@@ -416,7 +416,7 @@
         const RecipeAdminManager = ({ categoryPath, currentBranch, globalBranches, isSuperAdmin, items = [], triggerNotify, getPublicPath, categories }) => {
             const [newT, setNewT] = useState(''); 
             const [newCat, setNewCat] = useState(categories ? categories[0] : '');
-            const [newIng, setNewIng] = useState('');
+            const [newIngList, setNewIngList] = useState([{ name: '', qty: '' }]);
             const [newInst, setNewInst] = useState('');
             const [newNote, setNewNote] = useState('');
             const [newI, setNewI] = useState(null);
@@ -426,7 +426,16 @@
             const startEdit = (item) => {
                 setEditingId(item.id);
                 setNewT(item.title || '');
-                setNewIng(item.ingredients || '');
+                
+                // 兼容舊版純文字食材與新版結構化食材
+                if (item.ingredientsList && item.ingredientsList.length > 0) {
+                    setNewIngList(item.ingredientsList);
+                } else if (item.ingredients) {
+                    setNewIngList([{ name: item.ingredients, qty: '' }]);
+                } else {
+                    setNewIngList([{ name: '', qty: '' }]);
+                }
+
                 setNewInst(item.instructions || item.content || ''); // 兼容舊版資料
                 setNewNote(item.notes || '');
                 setNewI(item.img || null);
@@ -435,7 +444,7 @@
             };
 
             const cancelEdit = () => {
-                setEditingId(null); setNewT(''); setNewIng(''); setNewInst(''); setNewNote(''); setNewI(null);
+                setEditingId(null); setNewT(''); setNewIngList([{ name: '', qty: '' }]); setNewInst(''); setNewNote(''); setNewI(null);
                 if (categories) setNewCat(categories[0]);
             };
 
@@ -447,6 +456,9 @@
                 const targetBranches = (isSuperAdmin && syncToAll) ? globalBranches : [currentBranch];
                 const sharedId = editingId || crypto.randomUUID();
                 const now = Date.now();
+                
+                // 過濾掉未填寫名稱的空列
+                const validIngList = newIngList.filter(i => i.name.trim() !== '');
 
                 try {
                     await Promise.all(targetBranches.map(async (branch) => {
@@ -458,7 +470,7 @@
                         const itemData = { 
                             id: sharedId, 
                             title: newT.trim(), 
-                            ingredients: newIng.trim(),
+                            ingredientsList: validIngList, // 改為儲存陣列格式
                             instructions: newInst.trim(),
                             notes: newNote.trim(),
                             content: newInst.trim(), // 為了兼容舊版通用清單的防呆
@@ -525,11 +537,21 @@
                         )}
                         <input placeholder="輸入菜單名稱..." value={newT} onChange={e=>setNewT(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none border-brand-red/30 focus:border-brand-red" />
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <textarea placeholder="填寫食材清單 (例如: 牛油 4kg, 草果 10顆...)" rows="4" value={newIng} onChange={e=>setNewIng(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm outline-none" />
-                            <textarea placeholder="填寫詳細做法步驟..." rows="4" value={newInst} onChange={e=>setNewInst(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm outline-none" />
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 shadow-inner space-y-3">
+                            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><Icon name="shopping-bag" size={14}/> 食材清單配置</h4>
+                            {newIngList.map((ing, idx) => (
+                                <div key={idx} className="flex gap-2 items-center">
+                                    <input placeholder="食材 (例: 牛油)" value={ing.name} onChange={e => { const l = [...newIngList]; l[idx].name = e.target.value; setNewIngList(l); }} className="flex-1 input-light p-3 rounded-lg text-sm font-bold outline-none" />
+                                    <input placeholder="數量單位 (例: 4 kg)" value={ing.qty} onChange={e => { const l = [...newIngList]; l[idx].qty = e.target.value; setNewIngList(l); }} className="w-2/5 input-light p-3 rounded-lg text-sm font-bold outline-none" />
+                                    <button onClick={() => { if(newIngList.length > 1) setNewIngList(newIngList.filter((_, i) => i !== idx)) }} className={`p-2 rounded-lg transition-colors ${newIngList.length > 1 ? 'text-slate-400 hover:bg-red-50 hover:text-red-500' : 'text-slate-200 cursor-not-allowed'}`} disabled={newIngList.length === 1}><Icon name="x" size={18}/></button>
+                                </div>
+                            ))}
+                            <button onClick={() => setNewIngList([...newIngList, {name: '', qty: ''}])} className="w-full py-3 rounded-lg border-2 border-dashed border-slate-200 text-slate-500 font-bold text-xs hover:border-brand-red/50 hover:text-brand-red transition-colors flex items-center justify-center gap-2">
+                                <Icon name="plus" size={14} /> 新增一列食材
+                            </button>
                         </div>
                         
+                        <textarea placeholder="填寫詳細做法步驟..." rows="4" value={newInst} onChange={e=>setNewInst(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm outline-none" />
                         <textarea placeholder="填寫備註 (選填)..." rows="2" value={newNote} onChange={e=>setNewNote(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm outline-none" />
                         
                         <label className="block w-full bg-slate-50 border border-slate-200 py-3 rounded-xl text-[10px] font-black text-center cursor-pointer hover:bg-slate-100 transition-colors">
@@ -905,6 +927,18 @@
 
             const handlePrint = (item) => {
                 const printWindow = window.open('', '_blank');
+                
+                const ingredientsHtml = item.ingredientsList && item.ingredientsList.length > 0
+                    ? `<table style="width:100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed;">
+                        ${item.ingredientsList.map(ing => `
+                            <tr>
+                                <td style="padding: 8px 0; border-bottom: 1px dashed #cbd5e1; font-size: 15px; color: #334155; word-break: break-word;">${ing.name}</td>
+                                <td style="padding: 8px 0; border-bottom: 1px dashed #cbd5e1; font-size: 15px; font-weight: 900; color: #d97706; text-align: right; width: 35%; white-space: nowrap;">${ing.qty}</td>
+                            </tr>
+                        `).join('')}
+                       </table>`
+                    : `<pre>${item.ingredients || '無提供'}</pre>`;
+
                 const htmlContent = `
                     <!DOCTYPE html>
                     <html>
@@ -913,18 +947,18 @@
                             <style>
                                 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
                                 body { font-family: 'Noto Sans TC', sans-serif; margin: 0; padding: 0; color: #333; -webkit-print-color-adjust: exact; print-color-adjust: exact; background-color: #fff; }
-                                .print-container { max-width: 1000px; margin: 0 auto; }
+                                .print-container { max-width: 1000px; margin: 0 auto; overflow-x: hidden; }
                                 .header { background-color: #3b4252; padding: 50px 20px; text-align: center; }
-                                .title-wrapper { display: inline-block; border-bottom: 6px solid #ef4444; padding-bottom: 12px; }
+                                .title-wrapper { display: inline-block; border-bottom: 6px solid #ef4444; padding-bottom: 12px; max-width: 100%; word-break: break-word; }
                                 .title { font-size: 42px; font-weight: 900; color: #ffffff; margin: 0; letter-spacing: 2px; }
-                                .content { padding: 40px; display: flex; gap: 40px; align-items: flex-start; }
-                                .image-col { flex: 0 0 35%; }
+                                .content { padding: 40px; display: flex; gap: 40px; align-items: flex-start; max-width: 100%; }
+                                .image-col { flex: 0 0 35%; max-width: 35%; }
                                 .image-col img { width: 100%; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); object-fit: cover; }
-                                .text-col { flex: 1; display: flex; gap: 40px; }
-                                .col-half { flex: 1; }
+                                .text-col { flex: 1; display: flex; gap: 40px; min-width: 0; }
+                                .col-half { flex: 1; min-width: 0; }
                                 h3 { font-size: 18px; font-weight: 900; color: #1e293b; margin-top: 0; margin-bottom: 15px; }
-                                pre { font-family: 'Noto Sans TC', sans-serif; font-size: 15px; line-height: 1.8; margin: 0; white-space: pre-wrap; color: #475569; }
-                                .notes-section { padding: 0 40px 40px 40px; }
+                                pre { font-family: 'Noto Sans TC', sans-serif; font-size: 15px; line-height: 1.8; margin: 0; white-space: pre-wrap; word-break: break-all; overflow-wrap: break-word; color: #475569; max-width: 100%; }
+                                .notes-section { padding: 0 40px 40px 40px; min-width: 0; }
                                 .footer-bar { border-bottom: 3px solid #ef4444; margin: 0 40px 20px 40px; }
                                 .print-footer { text-align: center; font-size: 12px; color: #94a3b8; padding-bottom: 20px; }
                             </style>
@@ -941,7 +975,7 @@
                                     <div class="text-col" style="${!item.img ? 'width: 100%;' : ''}">
                                         <div class="col-half">
                                             <h3>食材</h3>
-                                            <pre>${item.ingredients || '無提供'}</pre>
+                                            ${ingredientsHtml}
                                         </div>
                                         <div class="col-half">
                                             <h3>做法：</h3>
@@ -957,14 +991,18 @@
                                 <div class="footer-bar"></div>
                                 <div class="print-footer">EATJOY 廚務管理系統 - 列印時間：${new Date().toLocaleString()}</div>
                             </div>
-                            \x3Cscript>
-                                setTimeout(() => { window.print(); window.close(); }, 500);
-                            \x3C/script>
                         </body>
                     </html>
                 `;
                 printWindow.document.write(htmlContent);
                 printWindow.document.close();
+                printWindow.focus();
+                
+                // 改用父視窗控制延遲列印，避免插入 <script> 被 Babel 解析時截斷
+                setTimeout(() => { 
+                    printWindow.print(); 
+                    printWindow.close(); 
+                }, 500);
             };
 
             return (
@@ -1018,21 +1056,33 @@
                                             </div>
                                         )}
                                         <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${selectedRecipe.img ? 'md:w-2/3' : 'w-full'}`}>
-                                            <div className="bg-orange-50 p-5 rounded-2xl border border-orange-100 shadow-inner">
+                                            <div className="bg-orange-50 p-5 rounded-2xl border border-orange-100 shadow-inner min-w-0">
                                                 <h4 className="text-xs font-black text-orange-600 uppercase tracking-widest mb-3 flex items-center gap-1.5 border-b border-orange-200 pb-2"><Icon name="shopping-bag" size={16} /> 食材清單</h4>
-                                                <p className="text-sm font-bold text-slate-700 whitespace-pre-wrap leading-relaxed">{selectedRecipe.ingredients || '未提供'}</p>
+                                                
+                                                {selectedRecipe.ingredientsList && selectedRecipe.ingredientsList.length > 0 ? (
+                                                    <div className="space-y-1.5 mt-3">
+                                                        {selectedRecipe.ingredientsList.map((ing, idx) => (
+                                                            <div key={idx} className="flex justify-between items-end border-b border-orange-200/50 pb-1.5 gap-2">
+                                                                <span className="text-sm font-bold text-slate-700 break-words flex-1 min-w-0">{ing.name}</span>
+                                                                <span className="text-sm font-black text-orange-600 bg-orange-100/50 px-2 py-0.5 rounded-md shrink-0 whitespace-nowrap">{ing.qty}</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-sm font-bold text-slate-700 whitespace-pre-wrap break-all leading-relaxed">{selectedRecipe.ingredients || '未提供'}</p>
+                                                )}
                                             </div>
-                                            <div className="bg-emerald-50 p-5 rounded-2xl border border-emerald-100 shadow-inner">
+                                            <div className="bg-emerald-50 p-5 rounded-2xl border border-emerald-100 shadow-inner min-w-0">
                                                 <h4 className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-3 flex items-center gap-1.5 border-b border-emerald-200 pb-2"><Icon name="chef-hat" size={16} /> 詳細作法</h4>
-                                                <p className="text-sm font-bold text-slate-700 whitespace-pre-wrap leading-relaxed">{selectedRecipe.instructions || selectedRecipe.content || '未提供'}</p>
+                                                <p className="text-sm font-bold text-slate-700 whitespace-pre-wrap break-all leading-relaxed w-full">{selectedRecipe.instructions || selectedRecipe.content || '未提供'}</p>
                                             </div>
                                         </div>
                                     </div>
                                     
                                     {(selectedRecipe.notes || (!selectedRecipe.ingredients && !selectedRecipe.instructions && !selectedRecipe.content)) && (
-                                         <div className="bg-slate-50 p-5 rounded-2xl border shadow-inner">
+                                         <div className="bg-slate-50 p-5 rounded-2xl border shadow-inner min-w-0">
                                             <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-1.5"><Icon name="info" size={14} /> 備註</h4>
-                                            <p className="text-sm font-bold text-slate-700 whitespace-pre-wrap leading-relaxed">{selectedRecipe.notes || selectedRecipe.content}</p>
+                                            <p className="text-sm font-bold text-slate-700 whitespace-pre-wrap break-all leading-relaxed">{selectedRecipe.notes || selectedRecipe.content}</p>
                                         </div>
                                     )}
                                 </div>
