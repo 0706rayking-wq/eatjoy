@@ -270,7 +270,7 @@
             </div>
         );
 
-        // --- 進階共用模組管理 (支援編輯、全域同步) ---
+        // --- 進階共用模組管理 (支援編輯、全域同步、拖曳排序) ---
         const UniversalListManager = ({ categoryPath, currentBranch, globalBranches, isSuperAdmin, items = [], titleLabel = "名稱", triggerNotify, getPublicPath, categories = null }) => {
             const [newT, setNewT] = useState(''); 
             const [newC, setNewC] = useState(''); 
@@ -278,6 +278,10 @@
             const [newCat, setNewCat] = useState(categories ? categories[0] : '');
             const [editingId, setEditingId] = useState(null);
             const [syncToAll, setSyncToAll] = useState(false);
+
+            // 拖曳狀態
+            const [draggedId, setDraggedId] = useState(null);
+            const [overId, setOverId] = useState(null);
 
             const startEdit = (item) => {
                 setEditingId(item.id);
@@ -299,31 +303,20 @@
                 if (newI && newI.startsWith('data:')) imgToSave = await compressImage(newI);
                 
                 const targetBranches = (isSuperAdmin && syncToAll) ? globalBranches : [currentBranch];
-                const sharedId = editingId || crypto.randomUUID();
+                const sharedId = editingId ? String(editingId) : crypto.randomUUID();
                 const now = Date.now();
 
                 try {
                     await Promise.all(targetBranches.map(async (branch) => {
-                        const path = getPublicPath(`${categoryPath}_${branch}`);
-                        const docRef = db.doc(path);
-                        const docSnap = await docRef.get();
-                        let branchItems = docSnap.exists && docSnap.data().items ? docSnap.data().items : [];
-                        
                         const itemData = { id: sharedId, title: newT.trim(), content: newC.trim(), img: imgToSave, updateTime: now };
-                        itemData.timestamp = editingId ? (branchItems.find(i=>i.id===editingId)?.timestamp || now) : now;
+                        if (!editingId) {
+                            itemData.timestamp = now;
+                            itemData.sortOrder = items.length; // 預設放在最後面
+                        }
                         if (categories) itemData.category = newCat;
 
-                        if (editingId) {
-                            const idx = branchItems.findIndex(i => i.id === editingId);
-                            if (idx > -1) {
-                                branchItems[idx] = { ...branchItems[idx], ...itemData };
-                            } else {
-                                branchItems.push(itemData);
-                            }
-                        } else {
-                            branchItems.push(itemData);
-                        }
-                        return docRef.set({ items: branchItems });
+                        const colPath = getPublicPath(`${categoryPath}_${branch}/items`);
+                        return db.collection(colPath).doc(sharedId).set(itemData, { merge: true });
                     }));
                     triggerNotify(editingId ? "更新成功" : "發佈成功", "success");
                     cancelEdit();
@@ -337,16 +330,48 @@
                 const targetBranches = (isSuperAdmin && syncToAll) ? globalBranches : [currentBranch];
                 try {
                     await Promise.all(targetBranches.map(async (branch) => {
-                        const path = getPublicPath(`${categoryPath}_${branch}`);
-                        const docRef = db.doc(path);
-                        const docSnap = await docRef.get();
-                        if(docSnap.exists && docSnap.data().items) {
-                            const newItems = docSnap.data().items.filter(i => i.id !== id);
-                            return docRef.set({ items: newItems });
+                        const idStr = String(id);
+                        // 從新的獨立 Collection 刪除
+                        await db.collection(getPublicPath(`${categoryPath}_${branch}/items`)).doc(idStr).delete();
+                        
+                        // 為了向下相容，同時也清空舊版陣列裡可能殘留的同名資料
+                        const oldDocRef = db.doc(getPublicPath(`${categoryPath}_${branch}`));
+                        const oldSnap = await oldDocRef.get();
+                        if(oldSnap.exists && oldSnap.data().items) {
+                            const newItems = oldSnap.data().items.filter(i => String(i.id) !== idStr);
+                            await oldDocRef.set({ items: newItems });
                         }
                     }));
                     triggerNotify("項目已刪除", "info");
-                } catch(e) { triggerNotify("刪除失敗", "error"); }
+                } catch(e) { triggerNotify("刪除失敗", "error"); console.error(e); }
+            };
+
+            const handleDragStart = (id) => setDraggedId(id);
+            const handleDragOver = (e, id) => { e.preventDefault(); if (id !== draggedId) setOverId(id); };
+            const handleDragEnd = async () => {
+                if (draggedId !== null && overId !== null && draggedId !== overId) {
+                    const newItems = [...items];
+                    const fromIndex = newItems.findIndex(i => String(i.id) === String(draggedId));
+                    const toIndex = newItems.findIndex(i => String(i.id) === String(overId));
+                    
+                    if (fromIndex !== -1 && toIndex !== -1) {
+                        const [movedItem] = newItems.splice(fromIndex, 1);
+                        newItems.splice(toIndex, 0, movedItem);
+
+                        try {
+                            const batch = db.batch();
+                            newItems.forEach((item, index) => {
+                                const docRef = db.collection(getPublicPath(`${categoryPath}_${currentBranch}/items`)).doc(String(item.id));
+                                batch.set(docRef, { ...item, sortOrder: index }, { merge: true });
+                            });
+                            await batch.commit();
+                        } catch(e) {
+                            triggerNotify("排序儲存失敗", "error");
+                        }
+                    }
+                }
+                setDraggedId(null);
+                setOverId(null);
             };
 
             return (
@@ -390,17 +415,28 @@
                         </div>
                     </div>
                     <div className="space-y-3">
+                        {items.length > 1 && <p className="text-center text-[10px] text-slate-400 mb-2 mt-4 font-bold flex items-center justify-center gap-1"><Icon name="arrow-up-down" size={12}/> 按住左側圖示可拖曳排序</p>}
                         {items.map((r) => (
-                            <div key={r.id} className="bg-white p-5 rounded-[1.5rem] border border-slate-100 flex gap-4 items-center shadow-sm">
-                                {r.img && <img src={r.img} className="w-12 h-12 rounded-xl object-cover border" alt="圖" />}
+                            <div 
+                                key={r.id} 
+                                draggable
+                                onDragStart={() => handleDragStart(r.id)}
+                                onDragOver={(e) => handleDragOver(e, r.id)}
+                                onDragEnd={handleDragEnd}
+                                className={`bg-white p-4 rounded-[1.5rem] border flex gap-3 items-center shadow-sm transition-all duration-200 ${draggedId === r.id ? 'opacity-40 scale-95 border-brand-red/50' : 'border-slate-100'} ${overId === r.id ? 'border-brand-red shadow-md -translate-y-1' : ''}`}
+                            >
+                                <div className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-brand-red shrink-0 p-1 flex items-center justify-center">
+                                    <Icon name="grip-vertical" size={18} />
+                                </div>
+                                {r.img && <img src={r.img} className="w-12 h-12 rounded-xl object-cover border shrink-0" alt="圖" />}
                                 <div className="flex-1 min-w-0 text-left">
                                     <div className="flex items-center gap-2 mb-0.5">
-                                        <p className="font-bold text-slate-800 text-sm truncate">{r.title}</p>
+                                        <p className="font-bold text-slate-800 text-sm truncate">{r.title || "(無標題)"}</p>
                                         {r.category && <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[9px] rounded-md font-bold whitespace-nowrap">{r.category}</span>}
                                     </div>
-                                    <p className="text-[10px] text-slate-400 mt-1 line-clamp-1">{r.content}</p>
+                                    <p className="text-[10px] text-slate-400 mt-1 line-clamp-1">{r.content || ""}</p>
                                 </div>
-                                <div className="flex gap-1.5 shrink-0 border-l pl-3 border-slate-100">
+                                <div className="flex gap-1.5 shrink-0 border-l pl-2 border-slate-100">
                                     <button onClick={() => startEdit(r)} className="text-slate-400 hover:text-blue-500 p-2 transition-colors bg-slate-50 hover:bg-blue-50 rounded-xl"><Icon name="edit-3" size={16} /></button>
                                     <button onClick={() => deleteItem(r.id)} className="text-slate-400 hover:text-red-500 p-2 transition-colors bg-slate-50 hover:bg-red-50 rounded-xl"><Icon name="trash-2" size={16} /></button>
                                 </div>
@@ -412,7 +448,7 @@
             );
         };
 
-        // --- 專屬食譜管理器 (支援食材、做法、備註與全域同步) ---
+        // --- 專屬食譜管理器 (支援食材、做法、備註與全域同步、拖曳排序) ---
         const RecipeAdminManager = ({ categoryPath, currentBranch, globalBranches, isSuperAdmin, items = [], triggerNotify, getPublicPath, categories }) => {
             const [newT, setNewT] = useState(''); 
             const [newCat, setNewCat] = useState(categories ? categories[0] : '');
@@ -423,11 +459,14 @@
             const [editingId, setEditingId] = useState(null);
             const [syncToAll, setSyncToAll] = useState(false);
 
+            // 拖曳狀態
+            const [draggedId, setDraggedId] = useState(null);
+            const [overId, setOverId] = useState(null);
+
             const startEdit = (item) => {
                 setEditingId(item.id);
                 setNewT(item.title || '');
                 
-                // 兼容舊版純文字食材與新版結構化食材
                 if (item.ingredientsList && item.ingredientsList.length > 0) {
                     setNewIngList(item.ingredientsList);
                 } else if (item.ingredients) {
@@ -436,7 +475,7 @@
                     setNewIngList([{ name: '', qty: '' }]);
                 }
 
-                setNewInst(item.instructions || item.content || ''); // 兼容舊版資料
+                setNewInst(item.instructions || item.content || ''); 
                 setNewNote(item.notes || '');
                 setNewI(item.img || null);
                 if (categories) setNewCat(item.category || categories[0]);
@@ -454,47 +493,38 @@
                 if (newI && newI.startsWith('data:')) imgToSave = await compressImage(newI);
                 
                 const targetBranches = (isSuperAdmin && syncToAll) ? globalBranches : [currentBranch];
-                const sharedId = editingId || crypto.randomUUID();
+                const sharedId = editingId ? String(editingId) : crypto.randomUUID();
                 const now = Date.now();
                 
-                // 過濾掉未填寫名稱的空列
                 const validIngList = newIngList.filter(i => i.name.trim() !== '');
 
                 try {
                     await Promise.all(targetBranches.map(async (branch) => {
-                        const path = getPublicPath(`${categoryPath}_${branch}`);
-                        const docRef = db.doc(path);
-                        const docSnap = await docRef.get();
-                        let branchItems = docSnap.exists && docSnap.data().items ? docSnap.data().items : [];
-                        
                         const itemData = { 
                             id: sharedId, 
                             title: newT.trim(), 
-                            ingredientsList: validIngList, // 改為儲存陣列格式
+                            ingredientsList: validIngList, 
                             instructions: newInst.trim(),
                             notes: newNote.trim(),
-                            content: newInst.trim(), // 為了兼容舊版通用清單的防呆
+                            content: newInst.trim(), 
                             img: imgToSave, 
                             updateTime: now 
                         };
-                        itemData.timestamp = editingId ? (branchItems.find(i=>i.id===editingId)?.timestamp || now) : now;
+                        if (!editingId) {
+                            itemData.timestamp = now;
+                            itemData.sortOrder = items.length;
+                        }
                         if (categories) itemData.category = newCat;
 
-                        if (editingId) {
-                            const idx = branchItems.findIndex(i => i.id === editingId);
-                            if (idx > -1) {
-                                branchItems[idx] = { ...branchItems[idx], ...itemData };
-                            } else {
-                                branchItems.push(itemData);
-                            }
-                        } else {
-                            branchItems.push(itemData);
-                        }
-                        return docRef.set({ items: branchItems });
+                        const colPath = getPublicPath(`${categoryPath}_${branch}/items`);
+                        return db.collection(colPath).doc(sharedId).set(itemData, { merge: true });
                     }));
                     triggerNotify(editingId ? "更新成功" : "發佈成功", "success");
                     cancelEdit();
-                } catch (e) { triggerNotify("存檔失敗 (可能是圖片太大)", "error"); }
+                } catch (e) { 
+                    console.error(e);
+                    triggerNotify("存檔失敗 (檔案太大或網路異常)", "error"); 
+                }
             };
 
             const deleteItem = async (id) => {
@@ -504,16 +534,46 @@
                 const targetBranches = (isSuperAdmin && syncToAll) ? globalBranches : [currentBranch];
                 try {
                     await Promise.all(targetBranches.map(async (branch) => {
-                        const path = getPublicPath(`${categoryPath}_${branch}`);
-                        const docRef = db.doc(path);
-                        const docSnap = await docRef.get();
-                        if(docSnap.exists && docSnap.data().items) {
-                            const newItems = docSnap.data().items.filter(i => i.id !== id);
-                            return docRef.set({ items: newItems });
+                        const idStr = String(id);
+                        await db.collection(getPublicPath(`${categoryPath}_${branch}/items`)).doc(idStr).delete();
+                        
+                        const oldDocRef = db.doc(getPublicPath(`${categoryPath}_${branch}`));
+                        const oldSnap = await oldDocRef.get();
+                        if(oldSnap.exists && oldSnap.data().items) {
+                            const newItems = oldSnap.data().items.filter(i => String(i.id) !== idStr);
+                            await oldDocRef.set({ items: newItems });
                         }
                     }));
                     triggerNotify("食譜已刪除", "info");
-                } catch(e) { triggerNotify("刪除失敗", "error"); }
+                } catch(e) { triggerNotify("刪除失敗", "error"); console.error(e); }
+            };
+
+            const handleDragStart = (id) => setDraggedId(id);
+            const handleDragOver = (e, id) => { e.preventDefault(); if (id !== draggedId) setOverId(id); };
+            const handleDragEnd = async () => {
+                if (draggedId !== null && overId !== null && draggedId !== overId) {
+                    const newItems = [...items];
+                    const fromIndex = newItems.findIndex(i => String(i.id) === String(draggedId));
+                    const toIndex = newItems.findIndex(i => String(i.id) === String(overId));
+                    
+                    if (fromIndex !== -1 && toIndex !== -1) {
+                        const [movedItem] = newItems.splice(fromIndex, 1);
+                        newItems.splice(toIndex, 0, movedItem);
+
+                        try {
+                            const batch = db.batch();
+                            newItems.forEach((item, index) => {
+                                const docRef = db.collection(getPublicPath(`${categoryPath}_${currentBranch}/items`)).doc(String(item.id));
+                                batch.set(docRef, { ...item, sortOrder: index }, { merge: true });
+                            });
+                            await batch.commit();
+                        } catch(e) {
+                            triggerNotify("排序儲存失敗", "error");
+                        }
+                    }
+                }
+                setDraggedId(null);
+                setOverId(null);
             };
 
             return (
@@ -573,17 +633,28 @@
                         </div>
                     </div>
                     <div className="space-y-3">
+                        {items.length > 1 && <p className="text-center text-[10px] text-slate-400 mb-2 mt-4 font-bold flex items-center justify-center gap-1"><Icon name="arrow-up-down" size={12}/> 按住左側圖示可拖曳排序</p>}
                         {items.map((r) => (
-                            <div key={r.id} className="bg-white p-5 rounded-[1.5rem] border border-slate-100 flex gap-4 items-center shadow-sm">
+                            <div 
+                                key={r.id} 
+                                draggable
+                                onDragStart={() => handleDragStart(r.id)}
+                                onDragOver={(e) => handleDragOver(e, r.id)}
+                                onDragEnd={handleDragEnd}
+                                className={`bg-white p-4 rounded-[1.5rem] border flex gap-3 items-center shadow-sm transition-all duration-200 ${draggedId === r.id ? 'opacity-40 scale-95 border-brand-red/50' : 'border-slate-100'} ${overId === r.id ? 'border-brand-red shadow-md -translate-y-1' : ''}`}
+                            >
+                                <div className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-brand-red shrink-0 p-1 flex items-center justify-center">
+                                    <Icon name="grip-vertical" size={18} />
+                                </div>
                                 {r.img && <img src={r.img} className="w-12 h-12 rounded-xl object-cover border shrink-0" alt="圖" />}
                                 <div className="flex-1 min-w-0 text-left">
                                     <div className="flex items-center gap-2 mb-0.5">
-                                        <p className="font-bold text-slate-800 text-sm truncate">{r.title}</p>
+                                        <p className="font-bold text-slate-800 text-sm truncate">{r.title || "(無標題)"}</p>
                                         {r.category && <span className="px-2 py-0.5 bg-slate-100 text-slate-500 text-[9px] rounded-md font-bold whitespace-nowrap">{r.category}</span>}
                                     </div>
                                     <p className="text-[10px] text-slate-400 mt-1 line-clamp-1">{r.instructions || r.content || '無描述'}</p>
                                 </div>
-                                <div className="flex gap-1.5 shrink-0 border-l pl-3 border-slate-100">
+                                <div className="flex gap-1.5 shrink-0 border-l pl-2 border-slate-100">
                                     <button onClick={() => startEdit(r)} className="text-slate-400 hover:text-blue-500 p-2 transition-colors bg-slate-50 hover:bg-blue-50 rounded-xl"><Icon name="edit-3" size={16} /></button>
                                     <button onClick={() => deleteItem(r.id)} className="text-slate-400 hover:text-red-500 p-2 transition-colors bg-slate-50 hover:bg-red-50 rounded-xl"><Icon name="trash-2" size={16} /></button>
                                 </div>
@@ -595,13 +666,16 @@
             );
         };
 
-        // --- 分店專用公告管理器 (支援編輯、全域同步、已讀名單保留) ---
+        // --- 分店專用公告管理器 (支援編輯、全域同步、拖曳排序、已讀名單) ---
         const AnnouncementAdminManager = ({ currentBranch, globalBranches, isSuperAdmin, announcements, triggerNotify, getPublicPath }) => {
             const [newT, setNewT] = useState('');
             const [newC, setNewC] = useState('');
             const [newI, setNewI] = useState(null);
             const [editingId, setEditingId] = useState(null);
             const [syncToAll, setSyncToAll] = useState(false);
+            
+            const [draggedId, setDraggedId] = useState(null);
+            const [overId, setOverId] = useState(null);
 
             const startEdit = (item) => {
                 setEditingId(item.id); setNewT(item.title); setNewC(item.content || ''); setNewI(item.img || null);
@@ -615,28 +689,19 @@
                 if (newI && newI.startsWith('data:')) imgToSave = await compressImage(newI);
                 
                 const targetBranches = (isSuperAdmin && syncToAll) ? globalBranches : [currentBranch];
-                const sharedId = editingId || crypto.randomUUID();
+                const sharedId = editingId ? String(editingId) : crypto.randomUUID();
                 const now = Date.now();
 
                 try {
                     await Promise.all(targetBranches.map(async (branch) => {
-                        const path = getPublicPath(`announcements/branch_${branch}`);
-                        const docRef = db.doc(path);
-                        const docSnap = await docRef.get();
-                        let branchItems = docSnap.exists && docSnap.data().items ? docSnap.data().items : [];
-                        
-                        if (editingId) {
-                            const idx = branchItems.findIndex(i => i.id === editingId);
-                            if (idx > -1) {
-                                // 保留原有的 readBy
-                                branchItems[idx] = { ...branchItems[idx], title: newT.trim(), content: newC.trim(), img: imgToSave };
-                            } else {
-                                branchItems = [{ id: sharedId, title: newT.trim(), content: newC.trim(), img: imgToSave, timestamp: now, readBy: [] }, ...branchItems];
-                            }
-                        } else {
-                            branchItems = [{ id: sharedId, title: newT.trim(), content: newC.trim(), img: imgToSave, timestamp: now, readBy: [] }, ...branchItems];
+                        const itemData = { id: sharedId, title: newT.trim(), content: newC.trim(), img: imgToSave, updateTime: now };
+                        if (!editingId) {
+                            itemData.timestamp = now;
+                            itemData.readBy = [];
+                            itemData.sortOrder = announcements.length;
                         }
-                        return docRef.set({ items: branchItems });
+                        const colPath = getPublicPath(`announcements/branch_${branch}/items`);
+                        return db.collection(colPath).doc(sharedId).set(itemData, { merge: true });
                     }));
 
                     if (!editingId && syncToAll === false) {
@@ -657,15 +722,45 @@
                 const targetBranches = (isSuperAdmin && syncToAll) ? globalBranches : [currentBranch];
                 try {
                     await Promise.all(targetBranches.map(async (branch) => {
-                        const path = getPublicPath(`announcements/branch_${branch}`);
-                        const docRef = db.doc(path);
-                        const docSnap = await docRef.get();
-                        if(docSnap.exists && docSnap.data().items) {
-                            return docRef.set({ items: docSnap.data().items.filter(i => i.id !== id) });
+                        const idStr = String(id);
+                        await db.collection(getPublicPath(`announcements/branch_${branch}/items`)).doc(idStr).delete();
+                        
+                        const oldDocRef = db.doc(getPublicPath(`announcements/branch_${branch}`));
+                        const oldSnap = await oldDocRef.get();
+                        if(oldSnap.exists && oldSnap.data().items) {
+                            await oldDocRef.set({ items: oldSnap.data().items.filter(i => String(i.id) !== idStr) });
                         }
                     }));
                     triggerNotify("公告已刪除", "info");
-                } catch(e) {}
+                } catch(e) { console.error(e); triggerNotify("刪除失敗", "error"); }
+            };
+
+            const handleDragStart = (id) => setDraggedId(id);
+            const handleDragOver = (e, id) => { e.preventDefault(); if (id !== draggedId) setOverId(id); };
+            const handleDragEnd = async () => {
+                if (draggedId !== null && overId !== null && draggedId !== overId) {
+                    const newItems = [...announcements];
+                    const fromIndex = newItems.findIndex(i => String(i.id) === String(draggedId));
+                    const toIndex = newItems.findIndex(i => String(i.id) === String(overId));
+                    
+                    if (fromIndex !== -1 && toIndex !== -1) {
+                        const [movedItem] = newItems.splice(fromIndex, 1);
+                        newItems.splice(toIndex, 0, movedItem);
+
+                        try {
+                            const batch = db.batch();
+                            newItems.forEach((item, index) => {
+                                const docRef = db.collection(getPublicPath(`announcements/branch_${currentBranch}/items`)).doc(String(item.id));
+                                batch.set(docRef, { ...item, sortOrder: index }, { merge: true });
+                            });
+                            await batch.commit();
+                        } catch(e) {
+                            triggerNotify("排序儲存失敗", "error");
+                        }
+                    }
+                }
+                setDraggedId(null);
+                setOverId(null);
             };
 
             return (
@@ -704,29 +799,42 @@
                         </div>
                     </div>
                     <div className="space-y-3">
+                        {announcements.length > 1 && <p className="text-center text-[10px] text-slate-400 mb-2 mt-4 font-bold flex items-center justify-center gap-1"><Icon name="arrow-up-down" size={12}/> 按住左側圖示可拖曳排序</p>}
                         {(announcements||[]).map((a) => (
-                            <div key={a.id} className="bg-white p-5 rounded-[1.5rem] border border-slate-100 shadow-sm space-y-3 text-left">
-                                <div className="flex justify-between items-start">
-                                    <div>
-                                        <h4 className="font-black text-slate-800">{a.title}</h4>
-                                        <p className="text-[10px] text-slate-400 mt-1">{new Date(a.timestamp).toLocaleString()}</p>
-                                    </div>
-                                    <div className="flex gap-1.5">
-                                        <button onClick={() => startEdit(a)} className="text-slate-400 hover:text-blue-500 p-1.5 transition-colors bg-slate-50 hover:bg-blue-50 rounded-xl"><Icon name="edit-3" size={16}/></button>
-                                        <button onClick={() => deleteItem(a.id)} className="text-slate-400 hover:text-red-500 p-1.5 transition-colors bg-slate-50 hover:bg-red-50 rounded-xl"><Icon name="trash-2" size={16}/></button>
-                                    </div>
+                            <div 
+                                key={a.id} 
+                                draggable
+                                onDragStart={() => handleDragStart(a.id)}
+                                onDragOver={(e) => handleDragOver(e, a.id)}
+                                onDragEnd={handleDragEnd}
+                                className={`bg-white p-4 rounded-[1.5rem] border flex gap-3 shadow-sm transition-all duration-200 text-left ${draggedId === a.id ? 'opacity-40 scale-95 border-brand-red/50' : 'border-slate-100'} ${overId === a.id ? 'border-brand-red shadow-md -translate-y-1' : ''}`}
+                            >
+                                <div className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-brand-red shrink-0 p-1 flex items-start justify-center pt-2">
+                                    <Icon name="grip-vertical" size={18} />
                                 </div>
-                                <div className="bg-slate-50 p-3 rounded-xl border shadow-inner">
-                                    <p className="text-[10px] font-black text-slate-500 mb-2 flex items-center gap-1"><Icon name="eye" size={12}/> 已讀取人員 ({a.readBy?.length || 0})</p>
-                                    <div className="flex flex-wrap gap-1">
-                                        {a.readBy && a.readBy.length > 0 ? a.readBy.map(name => (
-                                            <span key={name} className="text-[9px] bg-emerald-100 text-emerald-700 px-2 py-1 rounded-md font-bold">{name}</span>
-                                        )) : <span className="text-[10px] text-slate-400">尚未有人讀取</span>}
+                                <div className="flex-1 min-w-0 space-y-3">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <h4 className="font-black text-slate-800">{a.title || "(無標題)"}</h4>
+                                            <p className="text-[10px] text-slate-400 mt-1">{new Date(a.timestamp).toLocaleString()}</p>
+                                        </div>
+                                        <div className="flex gap-1.5 border-l pl-2 border-slate-100 shrink-0">
+                                            <button onClick={() => startEdit(a)} className="text-slate-400 hover:text-blue-500 p-1.5 transition-colors bg-slate-50 hover:bg-blue-50 rounded-xl"><Icon name="edit-3" size={16}/></button>
+                                            <button onClick={() => deleteItem(a.id)} className="text-slate-400 hover:text-red-500 p-1.5 transition-colors bg-slate-50 hover:bg-red-50 rounded-xl"><Icon name="trash-2" size={16}/></button>
+                                        </div>
+                                    </div>
+                                    <div className="bg-slate-50 p-3 rounded-xl border shadow-inner">
+                                        <p className="text-[10px] font-black text-slate-500 mb-2 flex items-center gap-1"><Icon name="eye" size={12}/> 已讀取人員 ({a.readBy?.length || 0})</p>
+                                        <div className="flex flex-wrap gap-1">
+                                            {a.readBy && a.readBy.length > 0 ? a.readBy.map(name => (
+                                                <span key={name} className="text-[9px] bg-emerald-100 text-emerald-700 px-2 py-1 rounded-md font-bold">{name}</span>
+                                            )) : <span className="text-[10px] text-slate-400">尚未有人讀取</span>}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         ))}
-                        {(announcements||[]).length === 0 && <p className="text-center text-slate-400 text-xs py-10">目前尚無分店公告</p>}
+                        {(announcements||[]).length === 0 && <p className="text-center text-slate-400 text-xs py-10 glass-panel rounded-3xl">目前尚無分店公告</p>}
                     </div>
                 </div>
             );
@@ -768,8 +876,6 @@
                 </div>
             );
         };
-
-        // --- 4. 頁面功能組件 ---
 
         const AuthPage = ({ users, setCurrentUser, setCurrentPage, setIsManager, setIsSuperAdmin, setCurrentBranch, globalBranches, triggerNotify, getPublicPath }) => {
             const [phone, setPhone] = useState(''); 
@@ -1725,45 +1831,13 @@
                                         </div>
                                         <div className="space-y-2">
                                             {currentDb.ingredients.filter(i => (adminZoneFilter === '全部' || i.zone === adminZoneFilter) && (adminVendorFilter === '全部' || i.vendor === adminVendorFilter)).slice().reverse().map(item => (
-                                                editingIngredientId === item.id ? (
-                                                    <div key={item.id} className="bg-slate-50 p-5 rounded-[2.5rem] shadow-sm border border-brand-red/30 space-y-3">
-                                                        <input placeholder="食材名稱" className="w-full bg-white rounded-xl p-3.5 font-bold outline-none ring-1 ring-slate-200" value={editIngredientData.name} onChange={e => setEditIngredientData({...editIngredientData, name: e.target.value})} />
-                                                        <div className="grid grid-cols-2 gap-2">
-                                                            <select className="bg-white rounded-xl p-3.5 font-bold outline-none text-sm" value={editIngredientData.vendor} onChange={e => setEditIngredientData({...editIngredientData, vendor: e.target.value})}>
-                                                                <option value="">選擇廠商</option>
-                                                                {currentDb.vendors.map(v => <option key={v} value={v}>{v}</option>)}
-                                                            </select>
-                                                            <select className="bg-white rounded-xl p-3.5 font-bold outline-none text-sm" value={editIngredientData.unit} onChange={e => setEditIngredientData({...editIngredientData, unit: e.target.value})}>
-                                                                {DEFAULT_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                                                            </select>
-                                                        </div>
-                                                        <select className="w-full bg-white rounded-xl p-3.5 font-bold outline-none text-sm" value={editIngredientData.zone} onChange={e => setEditIngredientData({...editIngredientData, zone: e.target.value})}>
-                                                            {currentDb.zones.map(z => <option key={z.name} value={z.name}>{z.name}</option>)}
-                                                        </select>
-                                                        <div className="flex gap-2 pt-2">
-                                                            <button onClick={() => setEditingIngredientId(null)} className="flex-1 bg-slate-200 text-slate-600 p-3 rounded-xl font-bold active:scale-95 transition-all">取消</button>
-                                                            <button onClick={() => {
-                                                                if(editIngredientData.name && editIngredientData.vendor) {
-                                                                    const newIngredients = currentDb.ingredients.map(i => i.id === item.id ? editIngredientData : i);
-                                                                    updateCurrentDb({ ingredients: newIngredients });
-                                                                    setEditingIngredientId(null);
-                                                                    triggerNotify('食材更新成功', 'success');
-                                                                }
-                                                            }} className="flex-1 bg-brand-red text-white p-3 rounded-xl font-bold active:scale-95 transition-all shadow-lg">儲存</button>
-                                                        </div>
+                                                <div key={item.id} className="bg-white p-5 rounded-[2rem] flex justify-between items-center shadow-sm border border-slate-50">
+                                                    <div className="min-w-0 pr-4">
+                                                        <p className="font-black text-slate-700 truncate">{item.name}</p>
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase">{item.vendor} • {item.zone} • {item.unit}</p>
                                                     </div>
-                                                ) : (
-                                                    <div key={item.id} className="bg-white p-5 rounded-[2rem] flex justify-between items-center shadow-sm border border-slate-50">
-                                                        <div className="min-w-0 pr-4">
-                                                            <p className="font-black text-slate-700 truncate">{item.name}</p>
-                                                            <p className="text-[10px] font-bold text-slate-400 uppercase">{item.vendor} • {item.zone} • {item.unit}</p>
-                                                        </div>
-                                                        <div className="flex gap-1">
-                                                            <button onClick={() => { setEditingIngredientId(item.id); setEditIngredientData(item); }} className="bg-slate-50 text-slate-400 hover:text-blue-500 p-2.5 rounded-xl"><OrderSymbolIcon name="Edit" /></button>
-                                                            <button onClick={() => updateCurrentDb({ ingredients: currentDb.ingredients.filter(i => i.id !== item.id) })} className="bg-rose-50 text-rose-400 hover:text-rose-600 p-2.5 rounded-xl"><OrderSymbolIcon name="Trash2" /></button>
-                                                        </div>
-                                                    </div>
-                                                )
+                                                    <button onClick={() => updateCurrentDb({ ingredients: currentDb.ingredients.filter(i => i.id !== item.id) })} className="bg-rose-50 text-rose-400 p-2.5 rounded-xl"><OrderSymbolIcon name="Trash2" /></button>
+                                                </div>
                                             ))}
                                         </div>
                                     </div>
@@ -1772,40 +1846,9 @@
                                     <div className="space-y-6">
                                         <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex gap-3">
                                             <input placeholder="新廠商名稱" className="flex-1 bg-slate-50 rounded-2xl p-4 font-bold outline-none ring-1 ring-slate-100 border-none min-w-0" value={newVendorName} onChange={e => setNewVendorName(e.target.value)} />
-                                            <button onClick={() => { if(newVendorName && !currentDb.vendors.includes(newVendorName)) { updateCurrentDb({ vendors: [...currentDb.vendors, newVendorName] }); setNewVendorName(''); triggerNotify('新增廠商成功', 'success'); } else if (currentDb.vendors.includes(newVendorName)) { triggerNotify('廠商已存在', 'error'); } }} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black shrink-0 whitespace-nowrap shadow-sm">新增</button>
+                                            <button onClick={() => { if(newVendorName) { updateCurrentDb({ vendors: [...currentDb.vendors, newVendorName] }); setNewVendorName(''); triggerNotify('新增廠商成功', 'success'); } }} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black shrink-0 whitespace-nowrap shadow-sm">新增</button>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            {currentDb.vendors.map(v => (
-                                                editingVendorName === v ? (
-                                                    <div key={v} className="bg-slate-50 p-4 rounded-[1.5rem] flex gap-2 items-center shadow-sm border border-brand-red/30 w-full col-span-2">
-                                                        <input className="flex-1 bg-white rounded-xl p-3 font-bold outline-none ring-1 ring-slate-200 text-sm" value={editVendorNewName} onChange={e => setEditVendorNewName(e.target.value)} />
-                                                        <button onClick={() => setEditingVendorName(null)} className="text-slate-400 font-bold px-3 py-2 text-sm active:scale-95 transition-all">取消</button>
-                                                        <button onClick={() => {
-                                                            const newName = editVendorNewName.trim();
-                                                            if (newName && newName !== v && !currentDb.vendors.includes(newName)) {
-                                                                const newVendors = currentDb.vendors.map(vendor => vendor === v ? newName : vendor);
-                                                                const newIngredients = currentDb.ingredients.map(i => i.vendor === v ? { ...i, vendor: newName } : i);
-                                                                updateCurrentDb({ vendors: newVendors, ingredients: newIngredients });
-                                                                triggerNotify('廠商名稱已更新並同步至相關食材', 'success');
-                                                                setEditingVendorName(null);
-                                                            } else if (currentDb.vendors.includes(newName) && newName !== v) {
-                                                                triggerNotify('廠商名稱已存在', 'error');
-                                                            } else {
-                                                                setEditingVendorName(null);
-                                                            }
-                                                        }} className="bg-brand-red text-white px-4 py-2 rounded-xl font-bold text-sm shadow-sm active:scale-95 transition-all">儲存</button>
-                                                    </div>
-                                                ) : (
-                                                    <div key={v} className="bg-white p-5 rounded-[1.5rem] flex justify-between items-center shadow-sm border border-slate-50">
-                                                        <span className="font-bold text-sm truncate pr-2">{v}</span>
-                                                        <div className="flex gap-1 shrink-0">
-                                                            <button onClick={() => { setEditingVendorName(v); setEditVendorNewName(v); }} className="text-slate-300 hover:text-blue-500 font-black p-2"><OrderSymbolIcon name="Edit" /></button>
-                                                            <button onClick={() => updateCurrentDb({ vendors: currentDb.vendors.filter(i => i !== v) })} className="text-slate-300 hover:text-rose-500 font-black p-2"><OrderSymbolIcon name="Trash2" /></button>
-                                                        </div>
-                                                    </div>
-                                                )
-                                            ))}
-                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">{currentDb.vendors.map(v => (<div key={v} className="bg-white p-5 rounded-[1.5rem] flex justify-between items-center shadow-sm border border-slate-50"><span className="font-bold text-sm truncate">{v}</span><button onClick={() => updateCurrentDb({ vendors: currentDb.vendors.filter(i => i !== v) })} className="text-slate-300 hover:text-rose-500 font-black px-2"><OrderSymbolIcon name="X" /></button></div>))}</div>
                                     </div>
                                 )}
                                 {adminTab === 'zones' && (
@@ -2061,8 +2104,6 @@
             );
         };
 
-        // --- 5. App 進入點 ---
-
         const App = () => {
             const [currentPage, setCurrentPage] = useState('auth');
             const [isManager, setIsManager] = useState(false);
@@ -2102,8 +2143,22 @@
                 setActiveAnnouncement(a);
                 const readBy = a.readBy || [];
                 if (currentUser && !readBy.includes(currentUser.name)) {
-                    const newItems = announcements.map(item => item.id === a.id ? { ...item, readBy: [...readBy, currentUser.name] } : item);
-                    db.doc(getPublicPath(`announcements/branch_${currentBranch}`)).set({ items: newItems });
+                    const newReadBy = [...readBy, currentUser.name];
+                    
+                    // 更新新的獨立文件結構
+                    db.collection(getPublicPath(`announcements/branch_${currentBranch}/items`)).doc(String(a.id)).set({ readBy: newReadBy }, { merge: true });
+                    
+                    // 為了向下相容，也同步更新舊版陣列中的已讀狀態
+                    db.doc(getPublicPath(`announcements/branch_${currentBranch}`)).get().then(doc => {
+                        if(doc.exists && doc.data().items) {
+                            const items = doc.data().items;
+                            const idx = items.findIndex(i => String(i.id) === String(a.id));
+                            if(idx > -1) {
+                                items[idx].readBy = newReadBy;
+                                db.doc(getPublicPath(`announcements/branch_${currentBranch}`)).set({ items });
+                            }
+                        }
+                    });
                 }
             };
 
@@ -2186,27 +2241,90 @@
                 const subProg = db.doc(getPublicPath(`system/progress_${currentBranch}`)).onSnapshot(d => setCompletedZones(d.exists ? (d.data().completedZones || []) : []), errH);
                 const subStd = db.collection(getPublicPath(`standards_${currentBranch}`)).onSnapshot(s => { const m = {}; s.forEach(doc => { const d = doc.data(); if (!m[d.zoneId]) m[d.zoneId] = []; m[d.zoneId].push({...d, id: doc.id}); }); setStandards(m); }, errH);
                 const subSch = db.collection(getPublicPath(`schedules_links_${currentBranch}`)).onSnapshot(s => { const l = {}; s.forEach(doc => l[doc.id] = doc.data().url); setSchedules(l); }, errH);
-                const subAnn = db.doc(getPublicPath(`announcements/branch_${currentBranch}`)).onSnapshot(d => { setAnnouncements(d.exists && d.data().items ? d.data().items : []); }, errH);
                 const subTicker = db.doc(getPublicPath(`ticker/branch_${currentBranch}`)).onSnapshot(d => { setTickerText(d.exists ? d.data().text || '' : ''); }, errH);
-
-                // 新增：其餘所有模組全數改為綁定各分店
-                const subMenu = db.doc(getPublicPath(`menu/list_${currentBranch}`)).onSnapshot(d => setMenuData(d.exists ? {items: d.data().items} : {}), errH);
-                const subOnboardList = db.doc(getPublicPath(`onboarding/list_${currentBranch}`)).onSnapshot(d => setOnboardingData(p => ({...p, list: d.exists ? d.data().items : []})), errH);
-                const subOnboardPark = db.doc(getPublicPath(`onboarding/parking_${currentBranch}`)).onSnapshot(d => setOnboardingData(p => ({...p, parking: d.exists ? d.data().items : []})), errH);
                 const subOnboardVid = db.doc(getPublicPath(`onboarding/settings_${currentBranch}`)).onSnapshot(d => setOnboardingData(p => ({...p, ...(d.exists ? d.data() : {})})), errH);
-                const subBenEval = db.doc(getPublicPath(`benefits/eval_${currentBranch}`)).onSnapshot(d => setBenefitsData(p => ({...p, evaluation: d.exists ? d.data().items : []})), errH);
-                const subBenWel = db.doc(getPublicPath(`benefits/welfare_${currentBranch}`)).onSnapshot(d => setBenefitsData(p => ({...p, welfare: d.exists ? d.data().items : []})), errH);
                 const subSigs = db.collection(getPublicPath(`signatures_${currentBranch}`)).onSnapshot(s => setSignatures(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b)=>b.timestamp-a.timestamp)), errH);
 
+                // --- 自動向下相容與新舊架構合併讀取，並支援拖曳排序與異常修復 ---
+                const createMergedListener = (colPath, docPath, setter, sortDesc = true) => {
+                    return db.collection(getPublicPath(colPath)).onSnapshot(s => {
+                        const newItemsMap = new Map();
+                        s.docs.forEach(doc => {
+                            const data = doc.data();
+                            if (!data.id) data.id = doc.id;
+                            newItemsMap.set(String(data.id), data);
+                        });
+                        
+                        db.doc(getPublicPath(docPath)).get().then(d => {
+                            const oldItems = d.exists && d.data().items ? d.data().items : [];
+                            const merged = [];
+                            const processedNewIds = new Set();
+
+                            // 合併舊資料與新資料 (如果新資料是不完整的空殼，就以舊資料為主並補上排序)
+                            oldItems.forEach(oldItem => {
+                                const oldIdStr = String(oldItem.id);
+                                if (newItemsMap.has(oldIdStr)) {
+                                    const newItem = newItemsMap.get(oldIdStr);
+                                    if (!newItem.title && !newItem.content && !newItem.img) {
+                                        merged.push({ ...oldItem, ...newItem });
+                                    } else {
+                                        merged.push(newItem);
+                                    }
+                                    processedNewIds.add(oldIdStr);
+                                } else {
+                                    merged.push(oldItem);
+                                }
+                            });
+
+                            // 把不在舊陣列中的全新資料加進來，並自動清理垃圾空殼
+                            newItemsMap.forEach((newItem, idStr) => {
+                                if (!processedNewIds.has(idStr)) {
+                                    if (newItem.title || newItem.img || newItem.content) {
+                                        merged.push(newItem);
+                                    } else {
+                                        // 自動清除純空殼異常資料
+                                        db.collection(getPublicPath(colPath)).doc(idStr).delete().catch(()=>{});
+                                    }
+                                }
+                            });
+                            
+                            merged.sort((a, b) => {
+                                const orderA = a.sortOrder !== undefined ? a.sortOrder : 999999;
+                                const orderB = b.sortOrder !== undefined ? b.sortOrder : 999999;
+                                if (orderA !== orderB) return orderA - orderB;
+                                if (sortDesc) return (b.timestamp || 0) - (a.timestamp || 0);
+                                return (a.timestamp || 0) - (b.timestamp || 0);
+                            });
+                            
+                            setter(merged);
+                        }).catch(() => {
+                            const pureNewItems = Array.from(newItemsMap.values()).filter(i => i.title || i.img || i.content);
+                            pureNewItems.sort((a, b) => {
+                                const orderA = a.sortOrder !== undefined ? a.sortOrder : 999999;
+                                const orderB = b.sortOrder !== undefined ? b.sortOrder : 999999;
+                                if (orderA !== orderB) return orderA - orderB;
+                                if (sortDesc) return (b.timestamp || 0) - (a.timestamp || 0);
+                                return (a.timestamp || 0) - (b.timestamp || 0);
+                            });
+                            setter(pureNewItems);
+                        });
+                    }, errH);
+                };
+
+                const subAnn = createMergedListener(`announcements/branch_${currentBranch}/items`, `announcements/branch_${currentBranch}`, items => setAnnouncements(items));
+                const subMenu = createMergedListener(`menu/list_${currentBranch}/items`, `menu/list_${currentBranch}`, items => setMenuData({items}));
+                const subOnboardList = createMergedListener(`onboarding/list_${currentBranch}/items`, `onboarding/list_${currentBranch}`, items => setOnboardingData(p => ({...p, list: items})));
+                const subOnboardPark = createMergedListener(`onboarding/parking_${currentBranch}/items`, `onboarding/parking_${currentBranch}`, items => setOnboardingData(p => ({...p, parking: items})));
+                const subBenEval = createMergedListener(`benefits/eval_${currentBranch}/items`, `benefits/eval_${currentBranch}`, items => setBenefitsData(p => ({...p, evaluation: items})));
+                const subBenWel = createMergedListener(`benefits/welfare_${currentBranch}/items`, `benefits/welfare_${currentBranch}`, items => setBenefitsData(p => ({...p, welfare: items})));
+                
                 const ruleSubs = RULE_CATEGORIES.map(cat => 
-                    db.doc(getPublicPath(`rules/${cat}_${currentBranch}`)).onSnapshot(d => {
-                        setRulesData(prev => ({ ...prev, [cat]: d.exists ? (d.data().items || []) : [] }));
-                    }, errH)
+                    createMergedListener(`rules/${cat}_${currentBranch}/items`, `rules/${cat}_${currentBranch}`, items => setRulesData(prev => ({ ...prev, [cat]: items })))
                 );
 
                 return () => { 
-                    subZone(); subProg(); subStd(); subSch(); subAnn(); subTicker();
-                    subMenu(); subOnboardList(); subOnboardPark(); subOnboardVid(); subBenEval(); subBenWel(); subSigs();
+                    subZone(); subProg(); subStd(); subSch(); subAnn(); subTicker(); subOnboardVid(); subSigs();
+                    subMenu(); subOnboardList(); subOnboardPark(); subBenEval(); subBenWel();
                     ruleSubs.forEach(un => un());
                 };
             }, [user, currentBranch]);
