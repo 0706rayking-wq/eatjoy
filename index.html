@@ -448,8 +448,8 @@
             );
         };
 
-        // --- 專屬食譜管理器 (支援食材、做法、備註與全域同步、拖曳排序) ---
-        const RecipeAdminManager = ({ categoryPath, currentBranch, globalBranches, isSuperAdmin, items = [], triggerNotify, getPublicPath, categories }) => {
+        // --- 專屬食譜管理器 (支援食材、做法、備註與全域同步、拖曳排序，以及從資料庫匯入) ---
+        const RecipeAdminManager = ({ categoryPath, currentBranch, globalBranches, isSuperAdmin, items = [], triggerNotify, getPublicPath, categories, globalRecipes = [] }) => {
             const [newT, setNewT] = useState(''); 
             const [newCat, setNewCat] = useState(categories ? categories[0] : '');
             const [newIngList, setNewIngList] = useState([{ name: '', qty: '' }]);
@@ -458,6 +458,7 @@
             const [newI, setNewI] = useState(null);
             const [editingId, setEditingId] = useState(null);
             const [syncToAll, setSyncToAll] = useState(false);
+            const [showLibrary, setShowLibrary] = useState(false);
 
             // 拖曳狀態
             const [draggedId, setDraggedId] = useState(null);
@@ -498,28 +499,37 @@
                 
                 const validIngList = newIngList.filter(i => i.name.trim() !== '');
 
+                const itemData = { 
+                    id: sharedId, 
+                    title: newT.trim(), 
+                    ingredientsList: validIngList, 
+                    instructions: newInst.trim(),
+                    notes: newNote.trim(),
+                    content: newInst.trim(), 
+                    img: imgToSave, 
+                    updateTime: now 
+                };
+
                 try {
+                    // 1. 儲存到所選的分店菜單中
                     await Promise.all(targetBranches.map(async (branch) => {
-                        const itemData = { 
-                            id: sharedId, 
-                            title: newT.trim(), 
-                            ingredientsList: validIngList, 
-                            instructions: newInst.trim(),
-                            notes: newNote.trim(),
-                            content: newInst.trim(), 
-                            img: imgToSave, 
-                            updateTime: now 
-                        };
+                        const branchItemData = { ...itemData };
                         if (!editingId) {
-                            itemData.timestamp = now;
-                            itemData.sortOrder = items.length;
+                            branchItemData.timestamp = now;
+                            branchItemData.sortOrder = items.length;
                         }
-                        if (categories) itemData.category = newCat;
+                        if (categories) branchItemData.category = newCat;
 
                         const colPath = getPublicPath(`${categoryPath}_${branch}/items`);
-                        return db.collection(colPath).doc(sharedId).set(itemData, { merge: true });
+                        return db.collection(colPath).doc(sharedId).set(branchItemData, { merge: true });
                     }));
-                    triggerNotify(editingId ? "更新成功" : "發佈成功", "success");
+
+                    // 2. 同步備份到全域的「菜色資料庫」(以菜色名稱為 ID 防止重複)
+                    const globalRecipeData = { ...itemData, timestamp: now };
+                    if (categories) globalRecipeData.category = newCat;
+                    await db.collection(getPublicPath('global_recipes')).doc(newT.trim()).set(globalRecipeData, { merge: true });
+
+                    triggerNotify(editingId ? "更新成功" : "發佈成功，已同步至資料庫", "success");
                     cancelEdit();
                 } catch (e) { 
                     console.error(e);
@@ -583,12 +593,19 @@
                             <h3 className="font-black text-slate-800 text-xs flex items-center gap-2 uppercase tracking-widest">
                                 {editingId ? <><Icon name="edit" size={16} className="text-blue-500" /> 編輯食譜</> : <><Icon name="plus-circle" size={16} className="text-brand-red" /> 新增食譜</>}
                             </h3>
-                            {isSuperAdmin && (
-                                <label className="flex items-center gap-2 text-[10px] font-bold text-slate-600 cursor-pointer bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200 hover:bg-slate-100 transition-colors">
-                                    <input type="checkbox" checked={syncToAll} onChange={e=>setSyncToAll(e.target.checked)} className="accent-brand-red w-3.5 h-3.5 rounded" />
-                                    套用至全部分店
-                                </label>
-                            )}
+                            <div className="flex items-center gap-3">
+                                {!editingId && (
+                                    <button onClick={() => setShowLibrary(true)} className="px-3 py-1.5 bg-rose-50 text-brand-red rounded-lg text-[10px] font-black flex items-center gap-1 hover:bg-brand-red hover:text-white transition-colors">
+                                        <Icon name="database" size={14} /> 從資料庫導入
+                                    </button>
+                                )}
+                                {isSuperAdmin && (
+                                    <label className="flex items-center gap-2 text-[10px] font-bold text-slate-600 cursor-pointer bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200 hover:bg-slate-100 transition-colors">
+                                        <input type="checkbox" checked={syncToAll} onChange={e=>setSyncToAll(e.target.checked)} className="accent-brand-red w-3.5 h-3.5 rounded" />
+                                        套用至全部分店
+                                    </label>
+                                )}
+                            </div>
                         </div>
                         {categories && (
                             <select value={newCat} onChange={e=>setNewCat(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none appearance-none">
@@ -632,6 +649,53 @@
                             </button>
                         </div>
                     </div>
+                    
+                    {/* 食譜資料庫彈窗 */}
+                    {showLibrary && (
+                        <div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 page-enter">
+                            <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-6 max-h-[85vh] overflow-y-auto relative shadow-2xl">
+                                <h3 className="font-black text-xl mb-6 text-slate-800 flex items-center gap-2 border-b pb-4"><Icon name="database" className="text-brand-red" /> 全域菜色資料庫</h3>
+                                <button onClick={()=>setShowLibrary(false)} className="absolute top-6 right-6 text-slate-400 hover:bg-slate-100 p-2 rounded-full transition-colors"><Icon name="x" size={20}/></button>
+                                
+                                {globalRecipes.length === 0 ? (
+                                    <div className="py-10 text-center text-slate-400 text-xs font-bold">目前資料庫中尚未建立任何食譜</div>
+                                ) : (
+                                    <div className="space-y-6">
+                                        {categories && categories.map(cat => {
+                                            const catRecipes = globalRecipes.filter(r => r.category === cat);
+                                            if (catRecipes.length === 0) return null;
+                                            return (
+                                                <div key={cat} className="space-y-3">
+                                                    <h4 className="font-black text-sm text-slate-700 border-l-4 border-brand-red pl-2">{cat}</h4>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {catRecipes.map(r => (
+                                                            <button 
+                                                                key={r.id} 
+                                                                onClick={() => {
+                                                                    setNewT(r.title); 
+                                                                    setNewCat(r.category); 
+                                                                    setNewIngList(r.ingredientsList || [{name: r.ingredients || '', qty: ''}]); 
+                                                                    setNewInst(r.instructions || r.content || ''); 
+                                                                    setNewNote(r.notes || ''); 
+                                                                    setNewI(r.img || null); 
+                                                                    setShowLibrary(false);
+                                                                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                                                                }} 
+                                                                className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-brand-red hover:text-white hover:border-brand-red active:scale-95 transition-all shadow-sm"
+                                                            >
+                                                                {r.title}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )
+                                        })}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
                     <div className="space-y-3">
                         {items.length > 1 && <p className="text-center text-[10px] text-slate-400 mb-2 mt-4 font-bold flex items-center justify-center gap-1"><Icon name="arrow-up-down" size={12}/> 按住左側圖示可拖曳排序</p>}
                         {items.map((r) => (
@@ -887,7 +951,7 @@
 
             useEffect(() => {
                 if(globalBranches.length > 0 && !globalBranches.includes(branch)) setBranch(globalBranches[0]);
-            }, [globalBranches]);
+            }, [globalBranches, branch]);
 
             const handleAuth = async () => {
                 if (mode === 'admin') {
@@ -1324,48 +1388,35 @@
         };
 
         const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, isSuperAdmin, getPublicPath }) => {
-            // 改為空物件，由 Firebase 動態載入
             const [storeDatabases, setStoreDatabases] = useState({});
-
             const branches = isSuperAdmin ? globalBranches : [currentBranch];
             const [selectedBranch, setSelectedBranch] = useState(currentBranch);
-            
-            // 安全的預設值，防止載入前崩潰
             const currentDb = storeDatabases[selectedBranch] || { ingredients: [], zones: [...INITIAL_ORDER_ZONES], vendors: [], history: [] };
 
-            // 新增：監聽 Firebase 叫貨專用資料庫
             useEffect(() => {
                 if (!selectedBranch) return;
-                
-                // 【修正：路徑區段數必須是偶數】改為 `ordering/db_${selectedBranch}` (2個區段)
                 const docPath = getPublicPath(`ordering/db_${selectedBranch}`);
                 const unsubscribe = db.doc(docPath).onSnapshot(docSnap => {
                     if (docSnap.exists) {
-                        setStoreDatabases(prev => ({
-                            ...prev,
-                            [selectedBranch]: docSnap.data()
-                        }));
+                        setStoreDatabases(prev => ({ ...prev, [selectedBranch]: docSnap.data() }));
                     } else {
-                        // 如果雲端尚無該分店的叫貨設定，幫他建立初始預設值
                         const defaultDb = { ingredients: [], zones: [...INITIAL_ORDER_ZONES], vendors: [], history: [] };
-                        setStoreDatabases(prev => ({
-                            ...prev,
-                            [selectedBranch]: defaultDb
-                        }));
-                        // 寫入回 Firebase 中
+                        setStoreDatabases(prev => ({ ...prev, [selectedBranch]: defaultDb }));
                         db.doc(docPath).set(defaultDb);
                     }
                 }, err => {
                     console.error("讀取叫貨資料庫失敗:", err);
                     triggerNotify("讀取叫貨資料庫失敗", "error");
                 });
-
                 return () => unsubscribe();
             }, [selectedBranch]);
 
             const [view, setView] = useState('setup'); 
             const [adminTab, setAdminTab] = useState('ingredients');
-            const [analyticsTab, setAnalyticsTab] = useState('monthly'); 
+            
+            // --- 數據報表狀態 ---
+            const [selectedItemName, setSelectedItemName] = useState('');
+            const [analyticsSearch, setAnalyticsSearch] = useState('');
             
             const [orderDate, setOrderDate] = useState(() => {
                 const d = new Date();
@@ -1387,25 +1438,15 @@
             const [newVendorName, setNewVendorName] = useState('');
             const [newZoneName, setNewZoneName] = useState('');
 
-            // 食材編輯 State
             const [editingIngredientId, setEditingIngredientId] = useState(null);
             const [editIngredientData, setEditIngredientData] = useState(null);
 
-            // 廠商編輯 State
             const [editingVendorName, setEditingVendorName] = useState(null);
             const [editVendorNewName, setEditVendorNewName] = useState('');
 
-            // 修改：不僅更新本地 State，同時寫入 Firebase 同步
             const updateCurrentDb = (newData) => {
                 const updatedDb = { ...currentDb, ...newData };
-                
-                // 樂觀更新 (立即顯示在畫面上)
-                setStoreDatabases(prev => ({
-                    ...prev,
-                    [selectedBranch]: updatedDb
-                }));
-                
-                // 【修正：路徑區段數必須是偶數】改為 `ordering/db_${selectedBranch}`
+                setStoreDatabases(prev => ({ ...prev, [selectedBranch]: updatedDb }));
                 db.doc(getPublicPath(`ordering/db_${selectedBranch}`)).set(updatedDb, { merge: true }).catch(e => {
                     console.error("更新叫貨資料失敗", e);
                     triggerNotify("儲存失敗，請檢查網路連線", "error");
@@ -1443,13 +1484,16 @@
                 return stats;
             }, [currentDb.history, orderDate]);
 
+            // 產生自動完成的選項陣列
+            const monthlyOrderedItems = useMemo(() => Object.keys(monthlyStats).sort(), [monthlyStats]);
+
             const getComparisonData = (itemName) => {
                 const currentMonth = orderDate.substring(0, 7);
                 return branches.map(branch => {
-                    const db = storeDatabases[branch];
+                    const dbData = storeDatabases[branch];
                     let total = 0;
-                    if (db && db.history) {
-                        db.history.forEach(record => {
+                    if (dbData && dbData.history) {
+                        dbData.history.forEach(record => {
                             if (record.date.startsWith(currentMonth)) {
                                 const match = record.items.find(i => i.name === itemName);
                                 if (match) total += match.qty;
@@ -1508,7 +1552,6 @@
                 saveOrderToHistory(); 
                 const text = editedOrderTexts[vendorName] || "";
                 
-                // Copy to clipboard fallback
                 const el = document.createElement('textarea');
                 el.value = text;
                 document.body.appendChild(el);
@@ -1581,7 +1624,7 @@
                                         </button>
                                         
                                         <div className="grid grid-cols-2 gap-3 mt-4">
-                                            <button onClick={() => setView('analytics')} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
+                                            <button onClick={() => { setView('analytics'); setSelectedItemName(''); setAnalyticsSearch(''); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
                                                 <OrderSymbolIcon name="Chart" /> 數據分析報表
                                             </button>
                                             <button onClick={() => { setView('admin'); setAdminTab('ingredients'); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
@@ -1716,74 +1759,98 @@
                         </div>
                     )}
 
-                    {/* 數據分析報表頁面 */}
+                    {/* 數據分析報表頁面 (精簡版) */}
                     {view === 'analytics' && (
                         <div className="max-w-md mx-auto">
                             <Nav title={`${selectedBranch} - 數據報表`} onBackAction={() => setView('setup')} />
-                            <div className="flex bg-white border-b border-slate-100 px-4 py-3 gap-2 sticky top-[61px] z-50 shadow-sm">
-                                <button onClick={() => setAnalyticsTab('monthly')} className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${analyticsTab === 'monthly' ? 'bg-brand-red text-white shadow-md' : 'text-slate-400'}`}>每月匯總</button>
-                                <button onClick={() => setAnalyticsTab('comparison')} className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${analyticsTab === 'comparison' ? 'bg-brand-red text-white shadow-md' : 'text-slate-400'}`}>分店需求比較</button>
-                            </div>
                             <div className="p-6 space-y-6">
-                                {analyticsTab === 'monthly' && (
+                                <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100 sticky top-[61px] z-50">
+                                    <div className="relative">
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"><OrderSymbolIcon name="Search" /></div>
+                                        <input 
+                                            type="text" 
+                                            placeholder="搜尋並選擇食材檢視報表..." 
+                                            value={analyticsSearch} 
+                                            onChange={e => {setAnalyticsSearch(e.target.value); setSelectedItemName('');}} 
+                                            className="w-full bg-slate-50 rounded-xl py-3 pl-10 pr-4 text-sm font-bold outline-none border border-slate-100 focus:border-brand-red/50" 
+                                        />
+                                    </div>
+                                    {/* 自動完成建議 */}
+                                    {analyticsSearch && !selectedItemName && (
+                                        <div className="mt-2 max-h-40 overflow-y-auto bg-slate-50 rounded-xl border border-slate-200 shadow-inner p-2 flex flex-wrap gap-2">
+                                            {monthlyOrderedItems.filter(i => i.includes(analyticsSearch)).map(name => (
+                                                <button key={name} onClick={() => {setSelectedItemName(name); setAnalyticsSearch(name);}} className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 hover:border-brand-red hover:text-brand-red">{name}</button>
+                                            ))}
+                                            {monthlyOrderedItems.filter(i => i.includes(analyticsSearch)).length === 0 && <p className="text-xs text-slate-400 p-2">找不到相關食材紀錄</p>}
+                                        </div>
+                                    )}
+                                    {/* 預設顯示熱門選項 */}
+                                    {!analyticsSearch && !selectedItemName && (
+                                         <div className="mt-4 flex flex-wrap gap-2">
+                                            <p className="w-full text-[10px] text-slate-400 font-bold mb-1">本月有叫貨的食材 (點擊檢視)</p>
+                                            {monthlyOrderedItems.slice(0, 15).map(name => (
+                                                <button key={name} onClick={() => {setSelectedItemName(name); setAnalyticsSearch(name);}} className="px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-bold text-slate-600 hover:border-brand-red hover:text-brand-red active:scale-95 transition-all">{name}</button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {selectedItemName ? (
                                     <div className="space-y-6 animate-in fade-in duration-300">
-                                        <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100">
-                                            <h3 className="font-black text-slate-800 text-lg mb-4 flex items-center gap-2"><OrderSymbolIcon name="Calendar" className="text-brand-red" /> {orderDate.substring(0,7)} 叫貨總量</h3>
-                                            <div className="space-y-3">
-                                                {Object.entries(monthlyStats).length === 0 ? (
-                                                    <p className="text-center py-10 text-slate-300 font-bold italic">本月尚無叫貨紀錄</p>
-                                                ) : (
-                                                    Object.entries(monthlyStats).map(([name, total]) => (
-                                                        <div key={name} className="flex justify-between items-center py-2 border-b border-slate-50 last:border-0">
-                                                            <span className="font-bold text-slate-600">{name}</span>
-                                                            <span className="font-black text-brand-red text-lg">{total} <span className="text-[10px] text-slate-400">當月累計</span></span>
-                                                        </div>
-                                                    ))
-                                                )}
+                                        {/* 總量卡片 */}
+                                        <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center justify-between">
+                                            <div>
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{orderDate.substring(0,7)} 累計叫貨</p>
+                                                <h3 className="text-2xl font-black text-slate-800 leading-none">{selectedItemName}</h3>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-3xl font-black text-brand-red">{monthlyStats[selectedItemName]}</p>
                                             </div>
                                         </div>
-                                        <div className="space-y-3">
-                                            <h4 className="px-4 font-black text-[10px] text-slate-400 uppercase tracking-widest">最近叫貨歷史</h4>
-                                            {currentDb.history.slice().reverse().map(record => (
-                                                <div key={record.id} className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
-                                                    <div className="flex justify-between items-center mb-3">
-                                                        <span className="font-black text-slate-800">{record.date}</span>
-                                                        <span className="text-[10px] bg-slate-100 px-2 py-1 rounded-full text-slate-400">{record.timestamp}</span>
-                                                    </div>
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {record.items.map((item, idx) => (<span key={idx} className="text-[10px] font-bold bg-rose-50 text-brand-red px-2 py-1 rounded-lg">{item.name}{item.qty}{item.unit}</span>))}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            {currentDb.history.length === 0 && <p className="text-center py-6 text-slate-300 text-sm font-bold">目前無任何歷史紀錄</p>}
+
+                                        {/* 跨店比較圖表 */}
+                                        <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
+                                            <h3 className="font-black text-slate-800 border-l-4 border-brand-red pl-3 text-sm">各分店需求對比</h3>
+                                            <div className="space-y-4">
+                                                {getComparisonData(selectedItemName).map(data => {
+                                                    const max = Math.max(...getComparisonData(selectedItemName).map(d => d.total)) || 1;
+                                                    const width = max === 0 ? 0 : (data.total / max) * 100;
+                                                    return (
+                                                        <div key={data.branch} className="space-y-1">
+                                                            <div className="flex justify-between text-[11px] font-black uppercase tracking-tight">
+                                                                <span className={data.branch === selectedBranch ? "text-brand-red" : "text-slate-400"}>{data.branch}</span>
+                                                                <span className="text-slate-800">{data.total}</span>
+                                                            </div>
+                                                            <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
+                                                                <div className={`h-full transition-all duration-1000 ${data.branch === selectedBranch ? 'bg-brand-red' : 'bg-slate-300'}`} style={{ width: `${width}%` }}></div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                        
+                                        {/* 本店近期叫貨歷史 */}
+                                        <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
+                                            <h3 className="font-black text-slate-800 border-l-4 border-slate-800 pl-3 text-sm">最近叫貨紀錄</h3>
+                                            <div className="space-y-3">
+                                                {currentDb.history.slice().reverse().filter(r => r.items.some(i => i.name === selectedItemName)).slice(0, 5).map(record => {
+                                                    const match = record.items.find(i => i.name === selectedItemName);
+                                                    return (
+                                                        <div key={record.id} className="flex justify-between items-center border-b border-slate-50 pb-2 last:border-0 last:pb-0">
+                                                            <span className="text-xs font-bold text-slate-500">{record.date}</span>
+                                                            <span className="font-black text-brand-red text-sm">{match.qty} <span className="text-[10px] text-slate-400">{match.unit}</span></span>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
                                         </div>
                                     </div>
-                                )}
-                                {analyticsTab === 'comparison' && (
-                                    <div className="space-y-6 animate-in fade-in duration-300">
-                                        {Object.keys(monthlyStats).map(itemName => (
-                                            <div key={itemName} className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
-                                                <h3 className="font-black text-slate-800 border-l-4 border-brand-red pl-3">{itemName} - 分店對比</h3>
-                                                <div className="space-y-4">
-                                                    {getComparisonData(itemName).map(data => {
-                                                        const max = Math.max(...getComparisonData(itemName).map(d => d.total)) || 1;
-                                                        const width = (data.total / max) * 100;
-                                                        return (
-                                                            <div key={data.branch} className="space-y-1">
-                                                                <div className="flex justify-between text-[11px] font-black uppercase tracking-tight">
-                                                                    <span className={data.branch === selectedBranch ? "text-brand-red" : "text-slate-400"}>{data.branch}</span>
-                                                                    <span className="text-slate-800">{data.total} 單位</span>
-                                                                </div>
-                                                                <div className="w-full bg-slate-100 h-3 rounded-full overflow-hidden">
-                                                                    <div className={`h-full transition-all duration-1000 ${data.branch === selectedBranch ? 'bg-brand-red' : 'bg-slate-300'}`} style={{ width: `${width}%` }}></div>
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        ))}
-                                        {Object.keys(monthlyStats).length === 0 && <p className="text-center py-20 text-slate-300 font-bold italic">尚無數據可供比較</p>}
+                                ) : (
+                                    <div className="text-center py-20 bg-slate-50 rounded-[3rem] border border-dashed border-slate-200">
+                                        <div className="w-12 h-12 mx-auto text-slate-300 mb-4 opacity-50"><OrderSymbolIcon name="Search" className="w-full h-full" /></div>
+                                        <p className="text-slate-500 font-black text-sm">請搜尋並選擇食材</p>
+                                        <p className="text-slate-400 font-bold text-[10px] mt-1 uppercase tracking-widest">以檢視詳細報表與各店比較</p>
                                     </div>
                                 )}
                             </div>
@@ -1831,13 +1898,45 @@
                                         </div>
                                         <div className="space-y-2">
                                             {currentDb.ingredients.filter(i => (adminZoneFilter === '全部' || i.zone === adminZoneFilter) && (adminVendorFilter === '全部' || i.vendor === adminVendorFilter)).slice().reverse().map(item => (
-                                                <div key={item.id} className="bg-white p-5 rounded-[2rem] flex justify-between items-center shadow-sm border border-slate-50">
-                                                    <div className="min-w-0 pr-4">
-                                                        <p className="font-black text-slate-700 truncate">{item.name}</p>
-                                                        <p className="text-[10px] font-bold text-slate-400 uppercase">{item.vendor} • {item.zone} • {item.unit}</p>
+                                                editingIngredientId === item.id ? (
+                                                    <div key={item.id} className="bg-slate-50 p-5 rounded-[2.5rem] shadow-sm border border-brand-red/30 space-y-3">
+                                                        <input placeholder="食材名稱" className="w-full bg-white rounded-xl p-3.5 font-bold outline-none ring-1 ring-slate-200" value={editIngredientData.name} onChange={e => setEditIngredientData({...editIngredientData, name: e.target.value})} />
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            <select className="bg-white rounded-xl p-3.5 font-bold outline-none text-sm" value={editIngredientData.vendor} onChange={e => setEditIngredientData({...editIngredientData, vendor: e.target.value})}>
+                                                                <option value="">選擇廠商</option>
+                                                                {currentDb.vendors.map(v => <option key={v} value={v}>{v}</option>)}
+                                                            </select>
+                                                            <select className="bg-white rounded-xl p-3.5 font-bold outline-none text-sm" value={editIngredientData.unit} onChange={e => setEditIngredientData({...editIngredientData, unit: e.target.value})}>
+                                                                {DEFAULT_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                                            </select>
+                                                        </div>
+                                                        <select className="w-full bg-white rounded-xl p-3.5 font-bold outline-none text-sm" value={editIngredientData.zone} onChange={e => setEditIngredientData({...editIngredientData, zone: e.target.value})}>
+                                                            {currentDb.zones.map(z => <option key={z.name} value={z.name}>{z.name}</option>)}
+                                                        </select>
+                                                        <div className="flex gap-2 pt-2">
+                                                            <button onClick={() => setEditingIngredientId(null)} className="flex-1 bg-slate-200 text-slate-600 p-3 rounded-xl font-bold active:scale-95 transition-all">取消</button>
+                                                            <button onClick={() => {
+                                                                if(editIngredientData.name && editIngredientData.vendor) {
+                                                                    const newIngredients = currentDb.ingredients.map(i => i.id === item.id ? editIngredientData : i);
+                                                                    updateCurrentDb({ ingredients: newIngredients });
+                                                                    setEditingIngredientId(null);
+                                                                    triggerNotify('食材更新成功', 'success');
+                                                                }
+                                                            }} className="flex-1 bg-brand-red text-white p-3 rounded-xl font-bold active:scale-95 transition-all shadow-lg">儲存</button>
+                                                        </div>
                                                     </div>
-                                                    <button onClick={() => updateCurrentDb({ ingredients: currentDb.ingredients.filter(i => i.id !== item.id) })} className="bg-rose-50 text-rose-400 p-2.5 rounded-xl"><OrderSymbolIcon name="Trash2" /></button>
-                                                </div>
+                                                ) : (
+                                                    <div key={item.id} className="bg-white p-5 rounded-[2rem] flex justify-between items-center shadow-sm border border-slate-50">
+                                                        <div className="min-w-0 pr-4">
+                                                            <p className="font-black text-slate-700 truncate">{item.name}</p>
+                                                            <p className="text-[10px] font-bold text-slate-400 uppercase">{item.vendor} • {item.zone} • {item.unit}</p>
+                                                        </div>
+                                                        <div className="flex gap-1">
+                                                            <button onClick={() => { setEditingIngredientId(item.id); setEditIngredientData(item); }} className="bg-slate-50 text-slate-400 hover:text-blue-500 p-2.5 rounded-xl"><OrderSymbolIcon name="Edit" /></button>
+                                                            <button onClick={() => updateCurrentDb({ ingredients: currentDb.ingredients.filter(i => i.id !== item.id) })} className="bg-rose-50 text-rose-400 hover:text-rose-600 p-2.5 rounded-xl"><OrderSymbolIcon name="Trash2" /></button>
+                                                        </div>
+                                                    </div>
+                                                )
                                             ))}
                                         </div>
                                     </div>
@@ -1846,9 +1945,40 @@
                                     <div className="space-y-6">
                                         <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex gap-3">
                                             <input placeholder="新廠商名稱" className="flex-1 bg-slate-50 rounded-2xl p-4 font-bold outline-none ring-1 ring-slate-100 border-none min-w-0" value={newVendorName} onChange={e => setNewVendorName(e.target.value)} />
-                                            <button onClick={() => { if(newVendorName) { updateCurrentDb({ vendors: [...currentDb.vendors, newVendorName] }); setNewVendorName(''); triggerNotify('新增廠商成功', 'success'); } }} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black shrink-0 whitespace-nowrap shadow-sm">新增</button>
+                                            <button onClick={() => { if(newVendorName && !currentDb.vendors.includes(newVendorName)) { updateCurrentDb({ vendors: [...currentDb.vendors, newVendorName] }); setNewVendorName(''); triggerNotify('新增廠商成功', 'success'); } else if (currentDb.vendors.includes(newVendorName)) { triggerNotify('廠商已存在', 'error'); } }} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black shrink-0 whitespace-nowrap shadow-sm">新增</button>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-3">{currentDb.vendors.map(v => (<div key={v} className="bg-white p-5 rounded-[1.5rem] flex justify-between items-center shadow-sm border border-slate-50"><span className="font-bold text-sm truncate">{v}</span><button onClick={() => updateCurrentDb({ vendors: currentDb.vendors.filter(i => i !== v) })} className="text-slate-300 hover:text-rose-500 font-black px-2"><OrderSymbolIcon name="X" /></button></div>))}</div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {currentDb.vendors.map(v => (
+                                                editingVendorName === v ? (
+                                                    <div key={v} className="bg-slate-50 p-4 rounded-[1.5rem] flex gap-2 items-center shadow-sm border border-brand-red/30 w-full col-span-2">
+                                                        <input className="flex-1 bg-white rounded-xl p-3 font-bold outline-none ring-1 ring-slate-200 text-sm" value={editVendorNewName} onChange={e => setEditVendorNewName(e.target.value)} />
+                                                        <button onClick={() => setEditingVendorName(null)} className="text-slate-400 font-bold px-3 py-2 text-sm active:scale-95 transition-all">取消</button>
+                                                        <button onClick={() => {
+                                                            const newName = editVendorNewName.trim();
+                                                            if (newName && newName !== v && !currentDb.vendors.includes(newName)) {
+                                                                const newVendors = currentDb.vendors.map(vendor => vendor === v ? newName : vendor);
+                                                                const newIngredients = currentDb.ingredients.map(i => i.vendor === v ? { ...i, vendor: newName } : i);
+                                                                updateCurrentDb({ vendors: newVendors, ingredients: newIngredients });
+                                                                triggerNotify('廠商名稱已更新並同步至相關食材', 'success');
+                                                                setEditingVendorName(null);
+                                                            } else if (currentDb.vendors.includes(newName) && newName !== v) {
+                                                                triggerNotify('廠商名稱已存在', 'error');
+                                                            } else {
+                                                                setEditingVendorName(null);
+                                                            }
+                                                        }} className="bg-brand-red text-white px-4 py-2 rounded-xl font-bold text-sm shadow-sm active:scale-95 transition-all">儲存</button>
+                                                    </div>
+                                                ) : (
+                                                    <div key={v} className="bg-white p-5 rounded-[1.5rem] flex justify-between items-center shadow-sm border border-slate-50">
+                                                        <span className="font-bold text-sm truncate pr-2">{v}</span>
+                                                        <div className="flex gap-1 shrink-0">
+                                                            <button onClick={() => { setEditingVendorName(v); setEditVendorNewName(v); }} className="text-slate-300 hover:text-blue-500 font-black p-2"><OrderSymbolIcon name="Edit" /></button>
+                                                            <button onClick={() => updateCurrentDb({ vendors: currentDb.vendors.filter(i => i !== v) })} className="text-slate-300 hover:text-rose-500 font-black p-2"><OrderSymbolIcon name="Trash2" /></button>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
                                 {adminTab === 'zones' && (
@@ -1867,7 +1997,7 @@
             );
         };
 
-        const AdminPage = ({ onBack, onLogout, announcements, schedules, standards, users, triggerNotify, menu, onboarding, benefits, rulesData, isSuperAdmin, currentBranch, setCurrentBranch, globalBranches, branchZones, getPublicPath, signatures, tickerText, setTickerText }) => {
+        const AdminPage = ({ onBack, onLogout, announcements, schedules, standards, users, triggerNotify, menu, onboarding, benefits, rulesData, isSuperAdmin, currentBranch, setCurrentBranch, globalBranches, branchZones, getPublicPath, signatures, tickerText, setTickerText, globalRecipes }) => {
             const [tab, setTab] = useState('members'); const [subCat, setSubCat] = useState('list');
             const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
             const [selectedZone, setSelectedZone] = useState('');
@@ -1935,7 +2065,7 @@
                             </div>
                         )}
                         
-                        {tab === 'menu' && <RecipeAdminManager categoryPath="menu/list" currentBranch={currentBranch} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} items={menu?.items || []} titleLabel="菜單名稱" triggerNotify={triggerNotify} getPublicPath={getPublicPath} categories={MENU_CATEGORIES} />}
+                        {tab === 'menu' && <RecipeAdminManager categoryPath="menu/list" currentBranch={currentBranch} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} items={menu?.items || []} triggerNotify={triggerNotify} getPublicPath={getPublicPath} categories={MENU_CATEGORIES} globalRecipes={globalRecipes} />}
                         
                         {tab === 'content' && (
                             <div className="space-y-6">
@@ -2126,6 +2256,7 @@
             const [onboardingData, setOnboardingData] = useState({});
             const [benefitsData, setBenefitsData] = useState({});
             const [rulesData, setRulesData] = useState({});
+            const [globalRecipes, setGlobalRecipes] = useState([]);
             
             // 分店特定資料
             const [completedZones, setCompletedZones] = useState([]);
@@ -2212,12 +2343,13 @@
                 initAuth(); return auth.onAuthStateChanged(u => setUser(u));
             }, []);
 
-            // 全域系統資料監聽 (僅保留使用者清單與分店清單)
+            // 全域系統資料監聽 (保留使用者清單、分店清單與全域菜單庫)
             useEffect(() => {
                 if (!user) return;
                 const errH = () => triggerNotify("讀取失敗", "error");
                 const subs = [
                     db.doc(getPublicPath('system/branches')).onSnapshot(d => d.exists && d.data().list && setGlobalBranches(d.data().list), errH),
+                    db.collection(getPublicPath('global_recipes')).onSnapshot(s => setGlobalRecipes(s.docs.map(d => ({id: d.id, ...d.data()}))), errH),
                     db.collection(getPublicPath('users')).onSnapshot(s => { 
                         const all = s.docs.map(d => d.data()); setUsers(all); 
                         if (currentUser) { 
@@ -2453,7 +2585,7 @@
                             </div>
                         </div>
                     );
-                    case 'admin': return <AdminPage onBack={()=>setCurrentPage('home')} onLogout={logout} announcements={announcements} schedules={schedules} standards={standards} users={users} triggerNotify={triggerNotify} menu={menuData} onboarding={onboardingData} benefits={benefitsData} rulesData={rulesData} isSuperAdmin={isSuperAdmin} currentBranch={currentBranch} setCurrentBranch={setCurrentBranch} globalBranches={globalBranches} branchZones={branchZones} getPublicPath={getPublicPath} signatures={signatures} tickerText={tickerText} setTickerText={setTickerText} />;
+                    case 'admin': return <AdminPage onBack={()=>setCurrentPage('home')} onLogout={logout} announcements={announcements} schedules={schedules} standards={standards} users={users} triggerNotify={triggerNotify} menu={menuData} onboarding={onboardingData} benefits={benefitsData} rulesData={rulesData} isSuperAdmin={isSuperAdmin} currentBranch={currentBranch} setCurrentBranch={setCurrentBranch} globalBranches={globalBranches} branchZones={branchZones} getPublicPath={getPublicPath} signatures={signatures} tickerText={tickerText} setTickerText={setTickerText} globalRecipes={globalRecipes} />;
                     default: return <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><Icon name="loader-2" className="animate-spin text-brand-red" size={32}/> 系統啟動中...</div>;
                 }
             };
