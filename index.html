@@ -1308,6 +1308,7 @@
             const [dailyPhotos, setDailyPhotos] = useState({});
             const [loading, setLoading] = useState(false);
             const [isSubmitted, setIsSubmitted] = useState(false);
+            const [isResetting, setIsResetting] = useState(false);
 
             useEffect(() => {
                 const unsubscribe = db.collection(getPublicPath(`daily_photos_${currentBranch}`)).onSnapshot(snapshot => {
@@ -1349,6 +1350,23 @@
                 }, 800);
             };
 
+            const handleResetAll = async () => {
+                if (!window.confirm("確定要手動重置今天的「所有巡視紀錄與照片」嗎？\n(此動作無法復原)")) return;
+                setIsResetting(true);
+                try {
+                    const photosRef = await db.collection(getPublicPath(`daily_photos_${currentBranch}`)).get();
+                    const batch = db.batch();
+                    photosRef.forEach(d => batch.delete(d.ref));
+                    await batch.commit();
+                    await db.doc(getPublicPath(`system/progress_${currentBranch}`)).set({ completedZones: [] }, {merge: true});
+                    triggerNotify("已清空所有巡視紀錄", "success");
+                } catch (e) {
+                    console.error(e);
+                    triggerNotify("重置失敗", "error");
+                }
+                setIsResetting(false);
+            };
+
             if(activeZone) return (
                 <div className="p-4 space-y-6 page-enter pb-24 text-left font-bold">
                     <button onClick={()=>{setActiveZone(null);setIsSubmitted(false);}} className="p-3 bg-white rounded-2xl shadow-sm border active:scale-90 transition-all"><Icon name="arrow-left" size={20}/></button>
@@ -1375,10 +1393,18 @@
             return (
                 <div className="p-4 space-y-4 page-enter pb-20 text-left font-bold">
                     <BackButton onClick={onBack} title="巡視崗位清單" />
-                    <div className="bg-brand-red p-7 rounded-[2.5rem] text-white shadow-lg flex justify-between items-center mb-6">
+                    <div className="bg-brand-red p-7 rounded-[2.5rem] text-white shadow-lg flex justify-between items-center mb-2">
                         <div><p className="text-[10px] font-black uppercase opacity-60 mb-1 leading-none tracking-widest">巡視進度 (18:00刷新)</p><p className="text-3xl font-black mt-2 font-bold">{completedZones.length} / {branchZones.length || 1}</p></div>
                         <div className="w-14 h-14 rounded-full border-4 border-white/20 flex items-center justify-center font-bold text-xs">{branchZones.length > 0 ? Math.round((completedZones.length/branchZones.length)*100) : 0}%</div>
                     </div>
+
+                    <div className="flex justify-end mb-4 px-1">
+                        <button onClick={handleResetAll} disabled={isResetting || (completedZones.length === 0 && Object.keys(dailyPhotos).length === 0)} className={`text-[10px] px-4 py-2.5 rounded-xl font-black flex items-center gap-1.5 transition-all shadow-sm ${isResetting || (completedZones.length === 0 && Object.keys(dailyPhotos).length === 0) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-rose-50 text-brand-red border border-rose-100 active:scale-95'}`}>
+                            <Icon name="refresh-cw" size={14} className={isResetting ? "animate-spin" : ""} />
+                            {isResetting ? "重置中..." : "重置所有巡視紀錄"}
+                        </button>
+                    </div>
+
                     {branchZones.length === 0 && <p className="text-center text-slate-400 py-10 text-xs">此分店尚未設定任何區站，請至後台設定。</p>}
                     <div className="grid grid-cols-1 gap-3">
                         {branchZones.map(z => (<SectionItem key={z.id} title={z.name} iconName={completedZones.includes(z.id) ? "check-circle" : "camera"} onClick={() => setActiveZone(z)} />))}
@@ -2293,7 +2319,7 @@
                 }
             };
 
-            // 前端定時排程檢查 (20:00 重置 與 23:00 未完成推播)
+            // 前端定時排程檢查 (改成 18:00 重置 與 23:00 未完成推播)
             useEffect(() => {
                 if (!currentUser || !currentBranch) return;
 
@@ -2301,24 +2327,39 @@
                     try {
                         const now = new Date();
                         const h = now.getHours();
-                        const todayStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
 
                         const cronRef = db.doc(getPublicPath(`system/cron_${currentBranch}`));
                         const docSnap = await cronRef.get();
                         const data = docSnap.exists ? docSnap.data() : {};
 
-                        // 1. 每天 20:00 重置巡視進度與照片
-                        if (h >= 18 && data.lastReset !== todayStr) {
+                        // 1. 每天 18:00 重置巡視進度與照片
+                        // 取代原先直接記錄今天日期的做法，改為計算「目標重置週期日」。
+                        // 如果當前時間還沒到晚上 18:00，代表今天這梯次的任務還在「昨天18:00算起」的週期內。
+                        let targetResetDate = new Date(now);
+                        if (h < 18) {
+                            targetResetDate.setDate(targetResetDate.getDate() - 1);
+                        }
+                        const targetResetStr = `${targetResetDate.getFullYear()}-${targetResetDate.getMonth()+1}-${targetResetDate.getDate()}`;
+
+                        // 如果雲端紀錄的 lastReset 跟我們計算的週期不一致，就進行清空與重置
+                        if (data.lastReset !== targetResetStr) {
                             const photos = await db.collection(getPublicPath(`daily_photos_${currentBranch}`)).get();
                             const batch = db.batch();
                             photos.forEach(d => batch.delete(d.ref));
                             await batch.commit();
                             await db.doc(getPublicPath(`system/progress_${currentBranch}`)).set({ completedZones: [] });
-                            await cronRef.set({ lastReset: todayStr }, {merge: true});
+                            await cronRef.set({ lastReset: targetResetStr }, {merge: true});
                         }
 
                         // 2. 每天 23:00 檢查未完成區站並推播
-                        if (h >= 23 && data.lastMissingAlert !== todayStr) {
+                        // 使用相同防呆邏輯來計算推播週期，避免早上開 App 觸發昨天的未發送警報
+                        let targetAlertDate = new Date(now);
+                        if (h < 23) {
+                            targetAlertDate.setDate(targetAlertDate.getDate() - 1);
+                        }
+                        const targetAlertStr = `${targetAlertDate.getFullYear()}-${targetAlertDate.getMonth()+1}-${targetAlertDate.getDate()}`;
+
+                        if (h >= 23 && data.lastMissingAlert !== targetAlertStr) {
                             const progSnap = await db.doc(getPublicPath(`system/progress_${currentBranch}`)).get();
                             const completed = progSnap.exists ? (progSnap.data().completedZones || []) : [];
                             const zoneSnap = await db.doc(getPublicPath(`config/zones_${currentBranch}`)).get();
@@ -2328,7 +2369,7 @@
                                 const missing = zones.filter(z => !completed.includes(z.id)).map(z => z.name);
                                 triggerLineAlert("INCOMPLETE_ALERT", { branch: currentBranch, missingZones: missing.join(', ') });
                             }
-                            await cronRef.set({ lastMissingAlert: todayStr }, {merge: true});
+                            await cronRef.set({ lastMissingAlert: targetAlertStr }, {merge: true});
                         }
                     } catch(e) { console.error("定時排程錯誤:", e); }
                 };
@@ -2654,4 +2695,3 @@
     </script>
 </body>
 </html>
-
