@@ -1085,6 +1085,26 @@
             </div>
         );
 
+        // --- 優化輸入體驗 (解決注音輸入法中斷問題) ---
+        const SyncInput = ({ value, onChange, readOnly, className, maxLength, placeholder, autoFocus }) => {
+            const [localVal, setLocalVal] = useState(value || '');
+            useEffect(() => { setLocalVal(value || ''); }, [value]);
+            return (
+                <input
+                    type="text"
+                    value={localVal}
+                    onChange={e => setLocalVal(e.target.value)}
+                    onBlur={() => { if(localVal !== (value || '')) onChange(localVal); }}
+                    onKeyDown={e => { if(e.key === 'Enter') e.target.blur(); }}
+                    readOnly={readOnly}
+                    className={className}
+                    maxLength={maxLength}
+                    placeholder={placeholder}
+                    autoFocus={autoFocus}
+                />
+            );
+        };
+
         // --- 進階班表系統 (整合權限管控) ---
         const ScheduleSystem = ({ onBack, currentBranch, isManager, getPublicPath, triggerNotify }) => {
             const defaultShiftRules = [
@@ -1119,7 +1139,11 @@
                 const docRef = db.doc(getPublicPath(`schedules_data/branch_${currentBranch}`));
                 const unsubscribe = docRef.onSnapshot(doc => {
                     if (doc.exists) {
-                        setScheduleData(doc.data());
+                        const data = doc.data();
+                        // 確保載入時有預設的屬性防止 undefined 問題
+                        if(!data.staffList) data.staffList = [];
+                        data.staffList = data.staffList.map(s => ({...s, shifts: s.shifts || {}}));
+                        setScheduleData(data);
                     } else {
                         const defaultData = { shiftRules: defaultShiftRules, staffList: [], holidays: {} };
                         if(isManager) docRef.set(defaultData);
@@ -1165,13 +1189,14 @@
 
             const updateShift = (staffId, dateString, value) => {
                 if (!isManager) return;
-                const newStaffList = staffList.map(staff => staff.id === staffId ? { ...staff, shifts: { ...staff.shifts, [dateString]: value } } : staff);
+                const safeValue = value || '';
+                const newStaffList = staffList.map(staff => staff.id === staffId ? { ...staff, shifts: { ...(staff.shifts || {}), [dateString]: safeValue } } : staff);
                 updateData({ staffList: newStaffList });
             };
 
             const addStaff = () => {
                 if (!isManager) return;
-                const newId = staffList.length > 0 ? Math.max(...staffList.map(s => s.id)) + 1 : 1;
+                const newId = Date.now().toString(); // 改用時間戳避免流水號重複與錯誤
                 updateData({ staffList: [...staffList, { id: newId, title: '新職位', name: '新員工', shifts: {} }] });
             };
 
@@ -1228,7 +1253,7 @@
                 setOverStaffId(null);
             };
 
-            const calculateOffDays = (shifts) => {
+            const calculateOffDays = (shifts = {}) => {
                 let count = 0;
                 Object.values(shifts).forEach(code => {
                     const rule = shiftRules.find(r => r.code === code);
@@ -1244,7 +1269,8 @@
             const calculateDailyStats = (dateString) => {
                 let morning = 0; let evening = 0; let total = 0;
                 staffList.forEach(staff => {
-                    const shiftCode = staff.shifts[dateString] || '';
+                    const shifts = staff.shifts || {};
+                    const shiftCode = shifts[dateString] || '';
                     if (shiftCode === '') {
                         morning++; evening++; total++;
                         return;
@@ -1324,7 +1350,7 @@
                                         <td class="${idx % 2 === 0 ? 'bg-gray' : ''}">${staff.name}</td>
                                         <td class="bg-gray" style="color:#475569;">${calculateOffDays(staff.shifts)}</td>
                                         ${daysInMonth.map(d => {
-                                            const shift = staff.shifts[d.dateString] || '';
+                                            const shift = (staff.shifts || {})[d.dateString] || '';
                                             return `<td class="${d.isWeekend || holidays[d.dateString] ? 'bg-holiday' : ''}" style="text-transform: uppercase;">${shift}</td>`;
                                         }).join('')}
                                     </tr>
@@ -1461,17 +1487,17 @@
                                                 <td className={`border border-slate-300 p-0 sticky left-0 z-10 ${index % 2 === 0 ? 'bg-slate-50' : 'bg-white'} ${isManager ? 'group-hover:bg-blue-50/80' : ''}`}>
                                                     <div className="flex items-center h-full">
                                                         {isManager && <div className="pl-1 text-slate-300 shrink-0"><Icon name="grip-vertical" size={14} /></div>}
-                                                        <input type="text" value={staff.title} onChange={(e) => updateStaffInfo(staff.id, 'title', e.target.value)} readOnly={!isManager} className={`w-full h-full py-2 pr-2 ${isManager ? 'pl-1' : 'pl-2'} bg-transparent text-center outline-none font-bold ${isManager ? 'text-slate-600' : 'text-slate-500 cursor-default'}`} />
+                                                        <SyncInput value={staff.title} onChange={(val) => updateStaffInfo(staff.id, 'title', val)} readOnly={!isManager} className={`w-full h-full py-2 pr-2 ${isManager ? 'pl-1' : 'pl-2'} bg-transparent text-center outline-none font-bold ${isManager ? 'text-slate-600' : 'text-slate-500 cursor-default'}`} />
                                                     </div>
                                                 </td>
                                                 <td className={`border border-slate-300 p-0 sticky left-[80px] z-10 ${index % 2 === 0 ? 'bg-slate-50' : 'bg-white'} ${isManager ? 'group-hover:bg-blue-50/80 relative' : ''}`}>
-                                                    <input type="text" value={staff.name} onChange={(e) => updateStaffInfo(staff.id, 'name', e.target.value)} readOnly={!isManager} className={`w-full h-full p-2 bg-transparent text-center font-black outline-none ${isManager ? 'text-slate-800' : 'text-slate-700 cursor-default'}`} />
+                                                    <SyncInput value={staff.name} onChange={(val) => updateStaffInfo(staff.id, 'name', val)} readOnly={!isManager} className={`w-full h-full p-2 bg-transparent text-center font-black outline-none ${isManager ? 'text-slate-800' : 'text-slate-700 cursor-default'}`} />
                                                     {isManager && <button onClick={() => removeStaff(staff.id)} className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity p-1 bg-white rounded shadow-sm"><Icon name="trash-2" size={12} /></button>}
                                                 </td>
                                                 <td className="border border-slate-300 p-1 text-center font-black text-slate-600 bg-slate-100 sticky left-[176px] z-10">{calculateOffDays(staff.shifts)}</td>
                                                 {daysInMonth.map(day => (
                                                     <td key={`${staff.id}-${day.dateNum}`} className={`border border-slate-300 p-0 relative ${day.isWeekend || holidays[day.dateString] ? 'bg-rose-50/30' : 'bg-white'}`}>
-                                                        <input type="text" value={staff.shifts[day.dateString] || ''} onChange={(e) => updateShift(staff.id, day.dateString, e.target.value.toUpperCase())} readOnly={!isManager} className={`w-full h-8 text-center bg-transparent outline-none font-black uppercase text-[11px] ${isManager ? 'focus:bg-yellow-100 focus:ring-1 focus:ring-blue-400 text-slate-800' : 'text-slate-700 cursor-default'}`} maxLength={4} />
+                                                        <SyncInput value={(staff.shifts || {})[day.dateString] || ''} onChange={(val) => updateShift(staff.id, day.dateString, val.toUpperCase())} readOnly={!isManager} className={`w-full h-8 text-center bg-transparent outline-none font-black uppercase text-[11px] ${isManager ? 'focus:bg-yellow-100 focus:ring-1 focus:ring-blue-400 text-slate-800' : 'text-slate-700 cursor-default'}`} maxLength={4} />
                                                     </td>
                                                 ))}
                                             </tr>
