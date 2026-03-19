@@ -110,6 +110,13 @@
             line-height: 1.625; width: 100%; border-radius: 1.5rem; padding: 1.25rem; resize: none; outline: none; border: 2px solid transparent; transition: border-color 0.2s;
         }
         .editable-order-text:focus { border-color: rgb(var(--brand-red)); }
+        
+        /* 班表系統專用樣式 */
+        .writing-vertical-lr { writing-mode: vertical-lr; }
+        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; border-radius: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 8px; border: 2px solid #f8fafc; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
     </style>
 </head>
 <body class="pb-12">
@@ -1078,6 +1085,421 @@
             </div>
         );
 
+        // --- 進階班表系統 (整合權限管控) ---
+        const ScheduleSystem = ({ onBack, currentBranch, isManager, getPublicPath, triggerNotify }) => {
+            const defaultShiftRules = [
+                { code: 'A-5', name: '早班A5', type: 'morning' },
+                { code: 'A-6', name: '早班A6', type: 'morning' },
+                { code: 'P1', name: '晚班P1', type: 'evening' },
+                { code: 'P4', name: '晚班P4', type: 'evening' },
+                { code: 'P5', name: '晚班P5', type: 'evening' },
+                { code: 'P6', name: '晚班P6', type: 'evening' },
+                { code: 'F', name: '全天班', type: 'full' },
+                { code: '特', name: '特休', type: 'off' },
+                { code: 'X', name: '排休', type: 'off' },
+                { code: '/', name: '劃休', type: 'off' }
+            ];
+
+            const [scheduleData, setScheduleData] = useState({
+                shiftRules: defaultShiftRules,
+                staffList: [],
+                holidays: {}
+            });
+            const [currentDate, setCurrentDate] = useState(new Date()); 
+            const [newShiftCode, setNewShiftCode] = useState('');
+            const [newShiftType, setNewShiftType] = useState('morning');
+            const [showSettings, setShowSettings] = useState(false);
+            const [selectedCell, setSelectedCell] = useState(null);
+            const [holidayInputText, setHolidayInputText] = useState('');
+            const [draggedStaffId, setDraggedStaffId] = useState(null);
+            const [overStaffId, setOverStaffId] = useState(null);
+
+            // 同步該分店的班表資料
+            useEffect(() => {
+                const docRef = db.doc(getPublicPath(`schedules_data/branch_${currentBranch}`));
+                const unsubscribe = docRef.onSnapshot(doc => {
+                    if (doc.exists) {
+                        setScheduleData(doc.data());
+                    } else {
+                        const defaultData = { shiftRules: defaultShiftRules, staffList: [], holidays: {} };
+                        if(isManager) docRef.set(defaultData);
+                        setScheduleData(defaultData);
+                    }
+                });
+                return () => unsubscribe();
+            }, [currentBranch, isManager]);
+
+            const { shiftRules, staffList, holidays } = scheduleData;
+
+            const updateData = (updates) => {
+                if (!isManager) return;
+                db.doc(getPublicPath(`schedules_data/branch_${currentBranch}`)).set(updates, { merge: true });
+            };
+
+            const setShiftRules = (newRules) => updateData({ shiftRules: newRules });
+            const addShiftRule = () => {
+                if (!newShiftCode.trim()) return;
+                const code = newShiftCode.trim().toUpperCase();
+                if (shiftRules.some(r => r.code === code)) return triggerNotify('班別代碼已存在！', 'error');
+                setShiftRules([...shiftRules, { code, name: code, type: newShiftType }]);
+                setNewShiftCode('');
+            };
+            const removeShiftRule = (codeToRemove) => setShiftRules(shiftRules.filter(r => r.code !== codeToRemove));
+
+            const daysInMonth = useMemo(() => {
+                const year = currentDate.getFullYear();
+                const month = currentDate.getMonth();
+                const days = new Date(year, month + 1, 0).getDate();
+                return Array.from({ length: days }, (_, i) => {
+                    const date = new Date(year, month, i + 1);
+                    return {
+                        dateNum: i + 1,
+                        dayOfWeek: ['日', '一', '二', '三', '四', '五', '六'][date.getDay()],
+                        isWeekend: date.getDay() === 0 || date.getDay() === 6,
+                        dateString: `${year}-${String(month + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`
+                    };
+                });
+            }, [currentDate]);
+
+            const changeMonth = (offset) => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + offset, 1));
+
+            const updateShift = (staffId, dateString, value) => {
+                if (!isManager) return;
+                const newStaffList = staffList.map(staff => staff.id === staffId ? { ...staff, shifts: { ...staff.shifts, [dateString]: value } } : staff);
+                updateData({ staffList: newStaffList });
+            };
+
+            const addStaff = () => {
+                if (!isManager) return;
+                const newId = staffList.length > 0 ? Math.max(...staffList.map(s => s.id)) + 1 : 1;
+                updateData({ staffList: [...staffList, { id: newId, title: '新職位', name: '新員工', shifts: {} }] });
+            };
+
+            const updateStaffInfo = (id, field, value) => {
+                if (!isManager) return;
+                updateData({ staffList: staffList.map(staff => staff.id === id ? { ...staff, [field]: value } : staff) });
+            };
+
+            const removeStaff = (id) => {
+                if (!isManager) return;
+                if(window.confirm('確定刪除此人員班表？')) updateData({ staffList: staffList.filter(staff => staff.id !== id) });
+            };
+
+            const toggleHoliday = (dateString) => {
+                if (!isManager) return;
+                if (holidayInputText.trim() === '') {
+                    const newHolidays = { ...holidays };
+                    delete newHolidays[dateString];
+                    updateData({ holidays: newHolidays });
+                } else {
+                    updateData({ holidays: { ...holidays, [dateString]: holidayInputText } });
+                }
+                setSelectedCell(null);
+                setHolidayInputText('');
+            };
+
+            const handleDragStart = (id) => {
+                if (!isManager) return;
+                setDraggedStaffId(id);
+            };
+
+            const handleDragOver = (e, id) => {
+                e.preventDefault();
+                if (!isManager) return;
+                if (id !== draggedStaffId) {
+                    setOverStaffId(id);
+                }
+            };
+
+            const handleDragEnd = () => {
+                if (!isManager) return;
+                if (draggedStaffId !== null && overStaffId !== null && draggedStaffId !== overStaffId) {
+                    const newList = [...staffList];
+                    const fromIndex = newList.findIndex(s => s.id === draggedStaffId);
+                    const toIndex = newList.findIndex(s => s.id === overStaffId);
+
+                    if (fromIndex !== -1 && toIndex !== -1) {
+                        const [moved] = newList.splice(fromIndex, 1);
+                        newList.splice(toIndex, 0, moved);
+                        updateData({ staffList: newList });
+                    }
+                }
+                setDraggedStaffId(null);
+                setOverStaffId(null);
+            };
+
+            const calculateOffDays = (shifts) => {
+                let count = 0;
+                Object.values(shifts).forEach(code => {
+                    const rule = shiftRules.find(r => r.code === code);
+                    if (rule && rule.type === 'off') {
+                        count++;
+                    } else if (code === 'X' || code === '/' || code === '特') {
+                        count++;
+                    }
+                });
+                return count;
+            };
+
+            const calculateDailyStats = (dateString) => {
+                let morning = 0; let evening = 0; let total = 0;
+                staffList.forEach(staff => {
+                    const shiftCode = staff.shifts[dateString] || '';
+                    if (shiftCode === '') {
+                        morning++; evening++; total++;
+                        return;
+                    }
+                    const rule = shiftRules.find(r => r.code === shiftCode);
+                    if (rule) {
+                        if (rule.type === 'morning' || rule.type === 'full') morning++;
+                        if (rule.type === 'evening' || rule.type === 'full') evening++;
+                        if (rule.type !== 'off') total++;
+                    } else if (shiftCode !== 'X' && shiftCode !== '/' && shiftCode !== '特') {
+                        total++;
+                    }
+                });
+                return { morning, evening, total };
+            };
+
+            const handlePrint = () => {
+                const monthStr = `${currentDate.getMonth() + 1}月`;
+                const yearMonthTitle = `${currentDate.getFullYear()}年 ${monthStr} 班表`;
+                
+                const htmlContent = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <title>${currentBranch} - ${yearMonthTitle}</title>
+                        <style>
+                            @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
+                            @page { size: landscape; margin: 8mm; }
+                            body { font-family: 'Noto Sans TC', sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; padding: 0; color: #1e293b; }
+                            h1 { text-align: center; font-size: 24px; font-weight: 900; margin-bottom: 16px; color: #b9121b; letter-spacing: 2px; }
+                            table { width: 100%; border-collapse: collapse; text-align: center; table-layout: fixed; font-size: 11px; }
+                            th, td { border: 1px solid #cbd5e1; padding: 4px 1px; overflow: hidden; white-space: nowrap; }
+                            .bg-header { background-color: #a7f3d0 !important; }
+                            .bg-header-dark { background-color: #34d399 !important; color: white; }
+                            .bg-weekend { background-color: #ffe4e6 !important; color: #e11d48 !important; }
+                            .bg-holiday { background-color: #fff1f2 !important; }
+                            .text-holiday { color: #e11d48 !important; font-size: 10px; writing-mode: vertical-lr; letter-spacing: 2px; font-weight: 900; margin: 0 auto; padding-top: 4px;}
+                            .bg-gray { background-color: #f8fafc !important; }
+                            .bg-dark { background-color: #1e293b !important; color: white !important; }
+                            .bg-orange { background-color: #ffedd5 !important; color: #9a3412 !important; }
+                            .bg-indigo { background-color: #e0e7ff !important; color: #3730a3 !important; }
+                            .col-fixed { width: 45px; }
+                            .col-name { width: 65px; }
+                            .col-days { width: 30px; }
+                            td { font-weight: 700; font-size: 12px; }
+                            .print-footer { text-align: right; font-size: 9px; color: #94a3b8; margin-top: 10px; }
+                        </style>
+                    </head>
+                    <body>
+                        <h1>${currentBranch} - ${yearMonthTitle}</h1>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th colspan="3" class="bg-header">${monthStr}</th>
+                                    ${daysInMonth.map(d => `<th class="${d.isWeekend ? 'bg-weekend' : 'bg-gray'}">${d.dateNum}</th>`).join('')}
+                                </tr>
+                                <tr>
+                                    <th class="bg-header-dark col-fixed">職稱</th>
+                                    <th class="bg-header-dark col-name">姓名</th>
+                                    <th class="bg-header-dark col-days">休假</th>
+                                    ${daysInMonth.map(d => `<th class="${d.isWeekend ? 'bg-weekend' : 'bg-gray'}">${d.dayOfWeek}</th>`).join('')}
+                                </tr>
+                                <tr>
+                                    <th colspan="3" style="text-align:right; font-size: 9px; color: #94a3b8; font-weight: normal; padding-right: 4px;">特殊節日 ➔</th>
+                                    ${daysInMonth.map(d => {
+                                        const hol = holidays[d.dateString];
+                                        return `<th class="${d.isWeekend || hol ? 'bg-holiday' : ''}" style="height: 60px; vertical-align: top;">
+                                            ${hol ? `<div class="text-holiday">${hol}</div>` : ''}
+                                        </th>`;
+                                    }).join('')}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${staffList.map((staff, idx) => `
+                                    <tr>
+                                        <td class="${idx % 2 === 0 ? 'bg-gray' : ''}" style="font-weight:normal; font-size: 10px;">${staff.title}</td>
+                                        <td class="${idx % 2 === 0 ? 'bg-gray' : ''}">${staff.name}</td>
+                                        <td class="bg-gray" style="color:#475569;">${calculateOffDays(staff.shifts)}</td>
+                                        ${daysInMonth.map(d => {
+                                            const shift = staff.shifts[d.dateString] || '';
+                                            return `<td class="${d.isWeekend || holidays[d.dateString] ? 'bg-holiday' : ''}" style="text-transform: uppercase;">${shift}</td>`;
+                                        }).join('')}
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3" class="bg-dark" style="text-align: right; padding-right: 4px;">當日總上班人數</td>
+                                    ${daysInMonth.map(d => `<td class="bg-dark">${calculateDailyStats(d.dateString).total || ''}</td>`).join('')}
+                                </tr>
+                                <tr>
+                                    <td colspan="3" class="bg-orange" style="text-align: right; padding-right: 4px;">早班總人數 (含全天)</td>
+                                    ${daysInMonth.map(d => `<td class="bg-orange">${calculateDailyStats(d.dateString).morning || ''}</td>`).join('')}
+                                </tr>
+                                <tr>
+                                    <td colspan="3" class="bg-indigo" style="text-align: right; padding-right: 4px;">晚班總人數 (含全天)</td>
+                                    ${daysInMonth.map(d => `<td class="bg-indigo">${calculateDailyStats(d.dateString).evening || ''}</td>`).join('')}
+                                </tr>
+                            </tfoot>
+                        </table>
+                        <div class="print-footer">EATJOY 廚務管理系統 - 列印時間：${new Date().toLocaleString()}</div>
+                    </body>
+                    </html>
+                `;
+                
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(htmlContent);
+                printWindow.document.close();
+                printWindow.focus();
+                setTimeout(() => { 
+                    printWindow.print(); 
+                    printWindow.close(); 
+                }, 500);
+            };
+
+            return (
+                <div className="page-enter pb-24">
+                    <div className="p-4 border-b bg-white/80 backdrop-blur sticky top-[60px] z-40 shadow-sm flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <button onClick={onBack} className="p-2.5 glass-panel rounded-2xl border active:scale-90 transition-all bg-white shadow-sm"><Icon name="arrow-left" size={20}/></button>
+                            <h2 className="text-xl font-black text-slate-800 tracking-tighter">{currentBranch} <span className="text-brand-red">排班系統</span></h2>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button onClick={handlePrint} className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-xl active:scale-95 transition-all shadow-sm text-xs font-bold whitespace-nowrap">
+                                <Icon name="printer" size={14} /> 列印班表
+                            </button>
+                            {isManager && (
+                                <>
+                                    <button onClick={addStaff} className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 text-white rounded-xl active:scale-95 transition-all shadow-sm text-xs font-bold whitespace-nowrap"><Icon name="plus" size={14} /> 新增人員</button>
+                                    <button onClick={() => setShowSettings(!showSettings)} className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 text-slate-700 rounded-xl active:scale-95 transition-all text-xs font-bold whitespace-nowrap"><Icon name="settings" size={14} /> 設定</button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="p-4">
+                        {isManager && showSettings && (
+                            <div className="mb-4 p-5 bg-blue-50 border border-blue-100 rounded-3xl shadow-sm text-left">
+                                <h3 className="font-black text-blue-800 mb-3 flex items-center gap-2 text-sm"><Icon name="settings" size={16} /> 班別代碼與統計歸類設定</h3>
+                                <div className="flex flex-wrap gap-2 mb-4">
+                                    {shiftRules.map((rule, idx) => (
+                                        <div key={idx} className="flex items-center bg-white py-1.5 px-3 rounded-xl shadow-sm border border-blue-100 text-xs font-bold group">
+                                            <span className="w-8 text-center text-blue-700">{rule.code}</span>
+                                            <span className="mx-2 text-slate-300">|</span>
+                                            <select value={rule.type} onChange={(e) => { const newRules = [...shiftRules]; newRules[idx].type = e.target.value; setShiftRules(newRules); }} className="outline-none bg-transparent text-slate-600 cursor-pointer appearance-none">
+                                                <option value="morning">早班</option><option value="evening">晚班</option><option value="full">全天(早+晚)</option><option value="off">休假(不計入)</option>
+                                            </select>
+                                            <button onClick={() => removeShiftRule(rule.code)} className="ml-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Icon name="trash-2" size={14} /></button>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="pt-3 border-t border-blue-200 flex flex-wrap items-center gap-2">
+                                    <input type="text" value={newShiftCode} onChange={(e) => setNewShiftCode(e.target.value)} placeholder="代碼 (例: A-7)" className="px-3 py-2 text-xs rounded-xl outline-none w-28 uppercase font-bold" maxLength={4} />
+                                    <select value={newShiftType} onChange={(e) => setNewShiftType(e.target.value)} className="px-3 py-2 text-xs rounded-xl outline-none font-bold">
+                                        <option value="morning">歸類：早班</option><option value="evening">歸類：晚班</option><option value="full">歸類：全天</option><option value="off">歸類：休假</option>
+                                    </select>
+                                    <button onClick={addShiftRule} disabled={!newShiftCode.trim()} className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl active:scale-95 disabled:opacity-50 transition-colors shadow-sm flex items-center gap-1"><Icon name="plus" size={14} /> 新增班別</button>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-8">
+                            <div className="flex items-center justify-between p-4 bg-slate-50 border-b border-slate-100">
+                                <button onClick={() => changeMonth(-1)} className="p-2 bg-white rounded-xl shadow-sm active:scale-90 transition-all text-slate-600 border border-slate-200"><Icon name="chevron-left" size={18} /></button>
+                                <div className="font-black text-slate-800 flex items-center gap-2 text-lg"><Icon name="calendar" size={18} className="text-brand-red" /> {currentDate.getFullYear()} 年 {currentDate.getMonth() + 1} 月</div>
+                                <button onClick={() => changeMonth(1)} className="p-2 bg-white rounded-xl shadow-sm active:scale-90 transition-all text-slate-600 border border-slate-200"><Icon name="chevron-right" size={18} /></button>
+                            </div>
+
+                            <div className="overflow-x-auto custom-scrollbar bg-white relative">
+                                <table className="w-full border-collapse min-w-max text-xs select-none">
+                                    <thead>
+                                        <tr>
+                                            <th colSpan={3} className="bg-emerald-100 border border-slate-300 p-2 text-base font-black tracking-widest sticky left-0 z-20">{currentDate.getMonth() + 1}月</th>
+                                            {daysInMonth.map(day => (
+                                                <th key={`date-${day.dateNum}`} className={`border border-slate-300 p-1 text-center font-bold w-8 ${day.isWeekend ? 'bg-rose-50 text-brand-red' : 'bg-slate-50 text-slate-700'}`}>{day.dateNum}</th>
+                                            ))}
+                                        </tr>
+                                        <tr>
+                                            <th className="bg-emerald-400 border border-slate-300 p-2 w-20 sticky left-0 z-20 text-white font-black">職稱</th>
+                                            <th className="bg-emerald-400 border border-slate-300 p-2 w-24 sticky left-[80px] z-20 text-white font-black">姓名</th>
+                                            <th className="bg-emerald-400 border border-slate-300 p-1 w-10 text-[10px] leading-tight sticky left-[176px] z-20 text-white font-black">休假<br/>天數</th>
+                                            {daysInMonth.map(day => (
+                                                <th key={`day-${day.dateNum}`} className={`border border-slate-300 p-1 text-center ${day.isWeekend ? 'bg-rose-50 text-brand-red font-black' : 'bg-slate-50 text-slate-500 font-bold'}`}>{day.dayOfWeek}</th>
+                                            ))}
+                                        </tr>
+                                        <tr>
+                                            <th colSpan={3} className="bg-white border border-slate-300 p-1 text-right text-[10px] text-slate-400 font-bold sticky left-0 z-20">{isManager ? '特殊節日 (點擊設定) ➔' : '特殊節日 ➔'}</th>
+                                            {daysInMonth.map(day => (
+                                                <th key={`holiday-${day.dateNum}`} onClick={() => isManager && setSelectedCell({ type: 'holiday', date: day.dateString })} className={`border border-slate-300 p-0 text-center align-top relative h-20 ${isManager ? 'cursor-pointer hover:bg-yellow-50' : ''} ${day.isWeekend || holidays[day.dateString] ? 'bg-rose-50/50' : 'bg-white'}`}>
+                                                    {isManager && selectedCell?.type === 'holiday' && selectedCell?.date === day.dateString ? (
+                                                        <div className="absolute top-0 left-0 w-full z-30 bg-white border-2 border-blue-500 shadow-xl p-1">
+                                                            <input autoFocus type="text" value={holidayInputText} onChange={(e) => setHolidayInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && toggleHoliday(day.dateString)} onBlur={() => toggleHoliday(day.dateString)} className="w-full text-xs text-center border-b border-slate-300 outline-none p-1 font-bold text-brand-red" placeholder="節日名稱" />
+                                                        </div>
+                                                    ) : (
+                                                        holidays[day.dateString] && <div className="writing-vertical-lr text-brand-red font-black text-[10px] mx-auto pt-2 tracking-widest">{holidays[day.dateString]}</div>
+                                                    )}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {staffList.map((staff, index) => {
+                                            const isDragging = draggedStaffId === staff.id;
+                                            const isOver = overStaffId === staff.id;
+                                            return (
+                                            <tr 
+                                                key={staff.id} 
+                                                draggable={isManager}
+                                                onDragStart={() => handleDragStart(staff.id)}
+                                                onDragOver={(e) => handleDragOver(e, staff.id)}
+                                                onDragEnd={handleDragEnd}
+                                                className={`${isManager ? 'hover:bg-blue-50/50 group cursor-grab active:cursor-grabbing' : ''} ${isDragging ? 'opacity-40 bg-blue-50' : ''} ${isOver ? 'bg-rose-50 border-y-2 border-brand-red shadow-sm relative z-20' : ''}`}
+                                            >
+                                                <td className={`border border-slate-300 p-0 sticky left-0 z-10 ${index % 2 === 0 ? 'bg-slate-50' : 'bg-white'} ${isManager ? 'group-hover:bg-blue-50/80' : ''}`}>
+                                                    <div className="flex items-center h-full">
+                                                        {isManager && <div className="pl-1 text-slate-300 shrink-0"><Icon name="grip-vertical" size={14} /></div>}
+                                                        <input type="text" value={staff.title} onChange={(e) => updateStaffInfo(staff.id, 'title', e.target.value)} readOnly={!isManager} className={`w-full h-full py-2 pr-2 ${isManager ? 'pl-1' : 'pl-2'} bg-transparent text-center outline-none font-bold ${isManager ? 'text-slate-600' : 'text-slate-500 cursor-default'}`} />
+                                                    </div>
+                                                </td>
+                                                <td className={`border border-slate-300 p-0 sticky left-[80px] z-10 ${index % 2 === 0 ? 'bg-slate-50' : 'bg-white'} ${isManager ? 'group-hover:bg-blue-50/80 relative' : ''}`}>
+                                                    <input type="text" value={staff.name} onChange={(e) => updateStaffInfo(staff.id, 'name', e.target.value)} readOnly={!isManager} className={`w-full h-full p-2 bg-transparent text-center font-black outline-none ${isManager ? 'text-slate-800' : 'text-slate-700 cursor-default'}`} />
+                                                    {isManager && <button onClick={() => removeStaff(staff.id)} className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity p-1 bg-white rounded shadow-sm"><Icon name="trash-2" size={12} /></button>}
+                                                </td>
+                                                <td className="border border-slate-300 p-1 text-center font-black text-slate-600 bg-slate-100 sticky left-[176px] z-10">{calculateOffDays(staff.shifts)}</td>
+                                                {daysInMonth.map(day => (
+                                                    <td key={`${staff.id}-${day.dateNum}`} className={`border border-slate-300 p-0 relative ${day.isWeekend || holidays[day.dateString] ? 'bg-rose-50/30' : 'bg-white'}`}>
+                                                        <input type="text" value={staff.shifts[day.dateString] || ''} onChange={(e) => updateShift(staff.id, day.dateString, e.target.value.toUpperCase())} readOnly={!isManager} className={`w-full h-8 text-center bg-transparent outline-none font-black uppercase text-[11px] ${isManager ? 'focus:bg-yellow-100 focus:ring-1 focus:ring-blue-400 text-slate-800' : 'text-slate-700 cursor-default'}`} maxLength={4} />
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                    <tfoot className="font-bold text-[10px] sticky bottom-0 z-20 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+                                        <tr>
+                                            <td colSpan={3} className="border border-slate-300 p-2 text-right bg-slate-800 text-white sticky left-0 z-30 font-black">當日總上班人數</td>
+                                            {daysInMonth.map(day => <td key={`total-${day.dateNum}`} className="border border-slate-400 p-1 text-center bg-slate-800 text-white font-black">{calculateDailyStats(day.dateString).total || ''}</td>)}
+                                        </tr>
+                                        <tr>
+                                            <td colSpan={3} className="border border-slate-300 p-2 text-right bg-orange-100 text-orange-800 sticky left-0 z-30">早班總人數 (含全天)</td>
+                                            {daysInMonth.map(day => <td key={`morning-${day.dateNum}`} className="border border-slate-300 p-1 text-center bg-orange-100 text-orange-800 font-bold">{calculateDailyStats(day.dateString).morning || ''}</td>)}
+                                        </tr>
+                                        <tr>
+                                            <td colSpan={3} className="border border-slate-300 p-2 text-right bg-indigo-100 text-indigo-800 sticky left-0 z-30">晚班總人數 (含全天)</td>
+                                            {daysInMonth.map(day => <td key={`evening-${day.dateNum}`} className="border border-slate-300 p-1 text-center bg-indigo-100 text-indigo-800 font-bold">{calculateDailyStats(day.dateString).evening || ''}</td>)}
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         // --- 進階菜單前台展示元件 ---
         const MenuDisplayPage = ({ onBack, items = [] }) => {
             const [expandedCats, setExpandedCats] = useState(
@@ -2023,9 +2445,8 @@
             );
         };
 
-        const AdminPage = ({ onBack, onLogout, announcements, schedules, standards, users, triggerNotify, menu, onboarding, benefits, rulesData, isSuperAdmin, currentBranch, setCurrentBranch, globalBranches, branchZones, getPublicPath, signatures, tickerText, setTickerText, globalRecipes }) => {
+        const AdminPage = ({ onBack, onLogout, announcements, standards, users, triggerNotify, menu, onboarding, benefits, rulesData, isSuperAdmin, currentBranch, setCurrentBranch, globalBranches, branchZones, getPublicPath, signatures, tickerText, setTickerText, globalRecipes }) => {
             const [tab, setTab] = useState('members'); const [subCat, setSubCat] = useState('list');
-            const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
             const [selectedZone, setSelectedZone] = useState('');
             const [signSubCat, setSignSubCat] = useState('廚房規則');
             const [newZoneName, setNewZoneName] = useState('');
@@ -2062,7 +2483,7 @@
                     )}
 
                     <div className="flex bg-slate-100 p-1.5 rounded-2xl overflow-x-auto no-scrollbar gap-1.5 mb-6 shadow-inner">
-                        {[{id:'members',n:'人員'},{id:'menu',n:'菜單'},{id:'content',n:'公告'},{id:'onboard',n:'入職'},{id:'benefit',n:'福利'},{id:'rules',n:'守則'},{id:'schedules',n:'班表'},{id:'safety',n:'各店巡視'},{id:'sign',n:'簽署'}, ...(isSuperAdmin ? [{id:'system',n:'系統設定'}] : [])].map(t => (
+                        {[{id:'members',n:'人員'},{id:'menu',n:'菜單'},{id:'content',n:'公告'},{id:'onboard',n:'入職'},{id:'benefit',n:'福利'},{id:'rules',n:'守則'},{id:'safety',n:'各店巡視'},{id:'sign',n:'簽署'}, ...(isSuperAdmin ? [{id:'system',n:'系統設定'}] : [])].map(t => (
                             <button key={t.id} onClick={()=>{setTab(t.id); if(t.id==='rules') setSubCat('廚房規則'); else if(t.id==='sign') setSignSubCat('廚房規則'); else if(t.id==='benefit') setSubCat('eval'); else setSubCat('list');}} className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${tab===t.id?'bg-brand-red text-white shadow-md':'text-slate-400'}`}>{t.n}</button>
                         ))}
                     </div>
@@ -2141,17 +2562,6 @@
                                     {RULE_CATEGORIES.map(c=>(<button key={c} onClick={()=>setSubCat(c)} className={`shrink-0 px-4 py-2 rounded-lg text-[10px] font-bold ${subCat===c?'bg-white text-brand-red shadow-sm':'text-slate-400'}`}>{c}</button>))}
                                 </div>
                                 <UniversalListManager categoryPath={`rules/${subCat}`} currentBranch={currentBranch} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} items={rulesData[subCat] || []} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />
-                            </div>
-                        )}
-                        
-                        {tab === 'schedules' && (
-                            <div className="glass-panel p-6 rounded-[2.5rem] space-y-4 bg-white border shadow-sm">
-                                <h3 className="font-black text-slate-800 text-xs flex items-center gap-2 uppercase tracking-widest"><Icon name="link" size={16} className="text-blue-500" />{currentBranch} 班表網址</h3>
-                                <input type="month" value={selectedMonth} onChange={e=>setSelectedMonth(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold border-slate-200 outline-none" />
-                                <div className="space-y-2">
-                                    <p className="text-[10px] font-black text-slate-400 ml-1 uppercase">外部網址 (Google 硬碟 / 圖片連結)</p>
-                                    <input placeholder="貼上網址..." className="w-full input-light p-4 rounded-xl text-xs outline-none" onBlur={(e) => db.collection(getPublicPath(`schedules_links_${currentBranch}`)).doc(selectedMonth).set({ url: e.target.value }, {merge:true}).then(()=>triggerNotify("網址儲存成功","success"))} defaultValue={schedules[selectedMonth] || ''} />
-                                </div>
                             </div>
                         )}
 
@@ -2288,7 +2698,6 @@
             const [completedZones, setCompletedZones] = useState([]);
             const [standards, setStandards] = useState({});
             const [signatures, setSignatures] = useState([]);
-            const [schedules, setSchedules] = useState({});
 
             const logout = () => { setCurrentUser(null); setIsManager(false); setIsSuperAdmin(false); setCurrentPage('auth'); localStorage.removeItem('k_active_user'); };
             const triggerNotify = useCallback((msg, type = "info") => {
@@ -2413,7 +2822,6 @@
                 const subZone = db.doc(getPublicPath(`config/zones_${currentBranch}`)).onSnapshot(d => { setBranchZones(d.exists && d.data().zones ? d.data().zones : DEFAULT_ZONES); }, errH);
                 const subProg = db.doc(getPublicPath(`system/progress_${currentBranch}`)).onSnapshot(d => setCompletedZones(d.exists ? (d.data().completedZones || []) : []), errH);
                 const subStd = db.collection(getPublicPath(`standards_${currentBranch}`)).onSnapshot(s => { const m = {}; s.forEach(doc => { const d = doc.data(); if (!m[d.zoneId]) m[d.zoneId] = []; m[d.zoneId].push({...d, id: doc.id}); }); setStandards(m); }, errH);
-                const subSch = db.collection(getPublicPath(`schedules_links_${currentBranch}`)).onSnapshot(s => { const l = {}; s.forEach(doc => l[doc.id] = doc.data().url); setSchedules(l); }, errH);
                 const subTicker = db.doc(getPublicPath(`ticker/branch_${currentBranch}`)).onSnapshot(d => { setTickerText(d.exists ? d.data().text || '' : ''); }, errH);
                 const subOnboardVid = db.doc(getPublicPath(`onboarding/settings_${currentBranch}`)).onSnapshot(d => setOnboardingData(p => ({...p, ...(d.exists ? d.data() : {})})), errH);
                 const subSigs = db.collection(getPublicPath(`signatures_${currentBranch}`)).onSnapshot(s => setSignatures(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b)=>b.timestamp-a.timestamp)), errH);
@@ -2496,7 +2904,7 @@
                 );
 
                 return () => { 
-                    subZone(); subProg(); subStd(); subSch(); subAnn(); subTicker(); subOnboardVid(); subSigs();
+                    subZone(); subProg(); subStd(); subAnn(); subTicker(); subOnboardVid(); subSigs();
                     subMenu(); subOnboardList(); subOnboardPark(); subBenEval(); subBenWel();
                     ruleSubs.forEach(un => un());
                 };
@@ -2575,6 +2983,7 @@
                     case 'inspection': return <InspectionPage onBack={()=>setCurrentPage('home')} standards={standards} completedZones={completedZones} triggerNotify={triggerNotify} branchZones={branchZones} currentBranch={currentBranch} getPublicPath={getPublicPath} />;
                     case 'unifiedRules': return <UnifiedRulesPage rulesData={rulesData} onBack={()=>setCurrentPage('home')} user={currentUser} currentBranch={currentBranch} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />;
                     case 'menu': return <MenuDisplayPage onBack={()=>setCurrentPage('home')} items={menuData?.items} />;
+                    case 'schedule': return <ScheduleSystem onBack={()=>setCurrentPage('home')} currentBranch={currentBranch} isManager={isManager || isSuperAdmin} getPublicPath={getPublicPath} triggerNotify={triggerNotify} />;
                     case 'onboarding': return (
                         <div className="p-4 space-y-4 page-enter text-left">
                             <BackButton onClick={()=>setCurrentPage('home')} title="入職相關" />
@@ -2610,23 +3019,7 @@
                     );
                     case 'benefit-eval': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="考核標準" list={benefitsData?.evaluation} />;
                     case 'benefit-wel': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="福利項目" list={benefitsData?.welfare} />;
-                    case 'schedule': return (
-                        <div className="p-4 space-y-6 page-enter text-left pb-20">
-                            <BackButton onClick={()=>setCurrentPage('home')} title={`${currentBranch} 每月班表`} />
-                            <div className="space-y-4">
-                                {Object.entries(schedules).length > 0 ? Object.entries(schedules).sort((a,b)=>b[0].localeCompare(a[0])).map(([m, url]) => (
-                                    <div key={m} onClick={() => url && window.open(url, '_blank')} className="glass-panel p-6 rounded-[2rem] flex items-center justify-between bg-white shadow-sm active:scale-[0.98] transition-all cursor-pointer group">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center font-bold">{m.split('-')[1]}月</div>
-                                            <div><p className="text-[10px] font-black text-slate-400">Schedule Link</p><p className="text-sm font-black text-slate-800">{m.replace('-','年')}月 班表</p></div>
-                                        </div>
-                                        <Icon name="external-link" size={18} className="text-slate-300 group-active:text-indigo-600" />
-                                    </div>
-                                )) : <div className="py-20 text-center glass-panel rounded-3xl bg-white text-slate-300">尚未設定班表</div>}
-                            </div>
-                        </div>
-                    );
-                    case 'admin': return <AdminPage onBack={()=>setCurrentPage('home')} onLogout={logout} announcements={announcements} schedules={schedules} standards={standards} users={users} triggerNotify={triggerNotify} menu={menuData} onboarding={onboardingData} benefits={benefitsData} rulesData={rulesData} isSuperAdmin={isSuperAdmin} currentBranch={currentBranch} setCurrentBranch={setCurrentBranch} globalBranches={globalBranches} branchZones={branchZones} getPublicPath={getPublicPath} signatures={signatures} tickerText={tickerText} setTickerText={setTickerText} globalRecipes={globalRecipes} />;
+                    case 'admin': return <AdminPage onBack={()=>setCurrentPage('home')} onLogout={logout} announcements={announcements} standards={standards} users={users} triggerNotify={triggerNotify} menu={menuData} onboarding={onboardingData} benefits={benefitsData} rulesData={rulesData} isSuperAdmin={isSuperAdmin} currentBranch={currentBranch} setCurrentBranch={setCurrentBranch} globalBranches={globalBranches} branchZones={branchZones} getPublicPath={getPublicPath} signatures={signatures} tickerText={tickerText} setTickerText={setTickerText} globalRecipes={globalRecipes} />;
                     default: return <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><Icon name="loader-2" className="animate-spin text-brand-red" size={32}/> 系統啟動中...</div>;
                 }
             };
@@ -2662,7 +3055,7 @@
                             </div>
                         </header>
                     )}
-                    <main className="flex-grow max-w-lg mx-auto w-full font-bold">
+                    <main className={`flex-grow mx-auto w-full font-bold ${currentPage === 'schedule' ? 'max-w-[1600px] px-2' : 'max-w-lg'}`}>
                         {!fbReady ? <div className="p-20 text-center h-screen flex flex-col items-center justify-center gap-4 font-bold"><Icon name="loader-2" className="animate-spin text-brand-red" size={48}/><p className="text-slate-400 font-black text-xs">連線中...</p></div>
                         : (!isManager && !currentUser) ? <AuthPage users={users} setCurrentUser={setCurrentUser} setCurrentPage={setCurrentPage} setIsManager={setIsManager} setIsSuperAdmin={setIsSuperAdmin} setCurrentBranch={setCurrentBranch} globalBranches={globalBranches} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />
                         : (isManager || currentUser?.status === 'approved') ? renderPage() : (
