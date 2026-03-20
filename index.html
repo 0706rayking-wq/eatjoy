@@ -1298,24 +1298,23 @@
                         <title>${currentBranch} - ${yearMonthTitle}</title>
                         <style>
                             @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&display=swap');
-                            @page { size: landscape; margin: 8mm; }
+                            @page { size: landscape; margin: 5mm; }
                             body { font-family: 'Noto Sans TC', sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; padding: 0; color: #1e293b; }
-                            h1 { text-align: center; font-size: 24px; font-weight: 900; margin-bottom: 16px; color: #b9121b; letter-spacing: 2px; }
-                            table { width: 100%; border-collapse: collapse; text-align: center; table-layout: fixed; font-size: 11px; }
-                            th, td { border: 1px solid #cbd5e1; padding: 4px 1px; overflow: hidden; white-space: nowrap; }
-                            .bg-header { background-color: #a7f3d0 !important; }
-                            .bg-header-dark { background-color: #34d399 !important; color: white; }
+                            h1 { text-align: center; font-size: 20px; font-weight: 900; margin-bottom: 12px; color: #b9121b; letter-spacing: 2px; }
+                            table { width: 100%; border-collapse: collapse; text-align: center; table-layout: fixed; }
+                            th, td { border: 1px solid #cbd5e1; padding: 3px 0; overflow: hidden; white-space: nowrap; font-size: 10px; font-weight: 700; }
+                            .bg-header { background-color: #a7f3d0 !important; font-size: 12px; }
+                            .bg-header-dark { background-color: #34d399 !important; color: white; font-size: 11px; }
                             .bg-weekend { background-color: #ffe4e6 !important; color: #e11d48 !important; }
                             .bg-holiday { background-color: #fff1f2 !important; }
-                            .text-holiday { color: #e11d48 !important; font-size: 10px; writing-mode: vertical-lr; letter-spacing: 2px; font-weight: 900; margin: 0 auto; padding-top: 4px;}
+                            .text-holiday { color: #e11d48 !important; font-size: 9px; writing-mode: vertical-lr; letter-spacing: 1px; font-weight: 900; margin: 0 auto; padding-top: 2px;}
                             .bg-gray { background-color: #f8fafc !important; }
-                            .bg-dark { background-color: #1e293b !important; color: white !important; }
-                            .bg-orange { background-color: #ffedd5 !important; color: #9a3412 !important; }
-                            .bg-indigo { background-color: #e0e7ff !important; color: #3730a3 !important; }
-                            .col-fixed { width: 75px; }
-                            .col-name { width: 85px; }
-                            .col-days { width: 35px; }
-                            td { font-weight: 700; font-size: 12px; }
+                            .bg-dark { background-color: #1e293b !important; color: white !important; font-size: 11px; }
+                            .bg-orange { background-color: #ffedd5 !important; color: #9a3412 !important; font-size: 11px; }
+                            .bg-indigo { background-color: #e0e7ff !important; color: #3730a3 !important; font-size: 11px; }
+                            .col-fixed { width: 60px; }
+                            .col-name { width: 75px; }
+                            .col-days { width: 28px; }
                             .print-footer { text-align: right; font-size: 9px; color: #94a3b8; margin-top: 10px; }
                         </style>
                     </head>
@@ -1337,7 +1336,7 @@
                                     <th colspan="3" style="text-align:right; font-size: 9px; color: #94a3b8; font-weight: normal; padding-right: 4px;">特殊節日 ➔</th>
                                     ${daysInMonth.map(d => {
                                         const hol = holidays[d.dateString];
-                                        return `<th class="${d.isWeekend || hol ? 'bg-holiday' : ''}" style="height: 60px; vertical-align: top;">
+                                        return `<th class="${d.isWeekend || hol ? 'bg-holiday' : ''}" style="height: 55px; vertical-align: top;">
                                             ${hol ? `<div class="text-holiday">${hol}</div>` : ''}
                                         </th>`;
                                     }).join('')}
@@ -1346,9 +1345,9 @@
                             <tbody>
                                 ${staffList.map((staff, idx) => `
                                     <tr>
-                                        <td class="${idx % 2 === 0 ? 'bg-gray' : ''}" style="font-weight:normal; font-size: 10px;">${staff.title}</td>
-                                        <td class="${idx % 2 === 0 ? 'bg-gray' : ''}">${staff.name}</td>
-                                        <td class="bg-gray" style="color:#475569;">${calculateOffDays(staff.shifts)}</td>
+                                        <td class="${idx % 2 === 0 ? 'bg-gray' : ''}" style="font-weight:bold; font-size: 11px;">${staff.title}</td>
+                                        <td class="${idx % 2 === 0 ? 'bg-gray' : ''}" style="font-size: 13px; letter-spacing: 1px;">${staff.name}</td>
+                                        <td class="bg-gray" style="color:#475569; font-size: 11px;">${calculateOffDays(staff.shifts)}</td>
                                         ${daysInMonth.map(d => {
                                             const shift = (staff.shifts || {})[d.dateString] || '';
                                             return `<td class="${d.isWeekend || holidays[d.dateString] ? 'bg-holiday' : ''}" style="text-transform: uppercase;">${shift}</td>`;
@@ -1358,15 +1357,15 @@
                             </tbody>
                             <tfoot>
                                 <tr>
-                                    <td colspan="3" class="bg-dark" style="text-align: right; padding-right: 4px;">當日總上班人數</td>
+                                    <td colspan="3" class="bg-dark" style="text-align: right; padding-right: 4px;">當日總人數</td>
                                     ${daysInMonth.map(d => `<td class="bg-dark">${calculateDailyStats(d.dateString).total || ''}</td>`).join('')}
                                 </tr>
                                 <tr>
-                                    <td colspan="3" class="bg-orange" style="text-align: right; padding-right: 4px;">早班總人數 (含全天)</td>
+                                    <td colspan="3" class="bg-orange" style="text-align: right; padding-right: 4px;">早班總人數</td>
                                     ${daysInMonth.map(d => `<td class="bg-orange">${calculateDailyStats(d.dateString).morning || ''}</td>`).join('')}
                                 </tr>
                                 <tr>
-                                    <td colspan="3" class="bg-indigo" style="text-align: right; padding-right: 4px;">晚班總人數 (含全天)</td>
+                                    <td colspan="3" class="bg-indigo" style="text-align: right; padding-right: 4px;">晚班總人數</td>
                                     ${daysInMonth.map(d => `<td class="bg-indigo">${calculateDailyStats(d.dateString).evening || ''}</td>`).join('')}
                                 </tr>
                             </tfoot>
@@ -2809,7 +2808,7 @@
                     } catch(e) { console.error("定時排程錯誤:", e); }
                 };
 
-                checkCronTasks(); // 啟動時檢查一次
+                checkCronTasks(); // 啟提時檢查一次
                 const interval = setInterval(checkCronTasks, 60000); // 每分鐘定期檢查一次
                 return () => clearInterval(interval);
             }, [currentUser, currentBranch]);
