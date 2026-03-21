@@ -167,7 +167,7 @@
             { name: "輕食區", icon: 'Timer', color: "bg-pink-500" }
         ];
 
-        const DEFAULT_UNITS = ["件", "箱", "包", "斤", "公斤","兩" ,"顆", "條", "罐", "桶", "籃", "袋", "捲", "盒", "兩", "串", "瓶", "組", "板", "塊"];
+        const DEFAULT_UNITS = ["件", "箱", "包", "斤", "公斤","兩" ,"顆", "條", "罐", "桶", "籃", "袋", "捲", "盒", "兩", "串", "瓶", "組"];
 
         // --- 工具函式 ---
         const compressImage = (base64Str, maxWidth = 800, quality = 0.5) => {
@@ -1950,7 +1950,30 @@
 
                     {branchZones.length === 0 && <p className="text-center text-slate-400 py-10 text-xs">此分店尚未設定任何區站，請至後台設定。</p>}
                     <div className="grid grid-cols-1 gap-3">
-                        {branchZones.map(z => (<SectionItem key={z.id} title={z.name} iconName={completedZones.includes(z.id) ? "check-circle" : "camera"} onClick={() => setActiveZone(z)} />))}
+                        {branchZones.map(z => {
+                            const isCompleted = completedZones.includes(z.id);
+                            return (
+                                <div 
+                                    key={z.id} 
+                                    onClick={() => setActiveZone(z)} 
+                                    className={`p-6 rounded-[2rem] flex items-center justify-between cursor-pointer transition-all shadow-sm border ${
+                                        isCompleted 
+                                        ? 'bg-emerald-50 border-emerald-200 active:bg-emerald-100' 
+                                        : 'bg-white border-slate-100 active:bg-slate-50 glass-panel'
+                                    }`}
+                                >
+                                    <div className={`flex items-center gap-4 font-bold ${isCompleted ? 'text-emerald-500' : 'text-slate-400'}`}>
+                                        <Icon name={isCompleted ? "check-circle" : "camera"} size={22} />
+                                        <span className={`text-sm font-bold leading-none ${isCompleted ? 'text-emerald-700' : 'text-slate-800'}`}>{z.name}</span>
+                                    </div>
+                                    {isCompleted ? (
+                                        <span className="text-[10px] font-black text-emerald-600 bg-emerald-100 px-3 py-1.5 rounded-full flex items-center gap-1 shadow-sm"><Icon name="check" size={12}/> 已完成</span>
+                                    ) : (
+                                        <Icon name="chevron-right" size={18} className="text-slate-300" />
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 </div>
             );
