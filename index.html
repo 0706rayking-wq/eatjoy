@@ -167,7 +167,7 @@
             { name: "輕食區", icon: 'Timer', color: "bg-pink-500" }
         ];
 
-        const DEFAULT_UNITS = ["件", "箱", "包", "斤", "公斤","兩" ,"顆", "條", "罐", "桶", "籃", "袋", "捲", "盒", "兩", "串", "瓶", "組"];
+        const DEFAULT_UNITS = ["件", "箱", "包", "斤", "公斤","兩" ,"顆", "條", "罐", "桶", "籃", "袋", "捲", "盒", "兩", "串", "瓶", "組", "板", "塊"];
 
         // --- 工具函式 ---
         const compressImage = (base64Str, maxWidth = 800, quality = 0.5) => {
@@ -1106,7 +1106,7 @@
             );
         };
 
-        // --- 進階班表系統 (整合權限管控與單月獨立資料) ---
+        // --- 進階班表系統 (整合權限管控) ---
         const ScheduleSystem = ({ onBack, currentBranch, isManager, getPublicPath, triggerNotify }) => {
             const defaultShiftRules = [
                 { code: 'A-5', name: '早班A5', type: 'morning' },
@@ -1123,8 +1123,8 @@
 
             const [scheduleData, setScheduleData] = useState({
                 shiftRules: defaultShiftRules,
-                roleColors: {},
-                months: {} // 存放各月份獨立資料
+                staffList: [],
+                holidays: {}
             });
             const [currentDate, setCurrentDate] = useState(new Date()); 
             const [newShiftCode, setNewShiftCode] = useState('');
@@ -1140,9 +1140,13 @@
                 const docRef = db.doc(getPublicPath(`schedules_data/branch_${currentBranch}`));
                 const unsubscribe = docRef.onSnapshot(doc => {
                     if (doc.exists) {
-                        setScheduleData(doc.data());
+                        const data = doc.data();
+                        // 確保載入時有預設的屬性防止 undefined 問題
+                        if(!data.staffList) data.staffList = [];
+                        data.staffList = data.staffList.map(s => ({...s, shifts: s.shifts || {}}));
+                        setScheduleData(data);
                     } else {
-                        const defaultData = { shiftRules: defaultShiftRules, roleColors: {}, months: {} };
+                        const defaultData = { shiftRules: defaultShiftRules, staffList: [], holidays: {} };
                         if(isManager) docRef.set(defaultData);
                         setScheduleData(defaultData);
                     }
@@ -1150,55 +1154,11 @@
                 return () => unsubscribe();
             }, [currentBranch, isManager]);
 
-            const { shiftRules = defaultShiftRules, roleColors = {} } = scheduleData;
-            
-            // 產生當前月份的 Key (例如 '2026-03')
-            const monthKey = useMemo(() => `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`, [currentDate]);
-            
-            // 取得當前月份的獨立資料 (包含人員名單與節日)
-            const activeMonthData = scheduleData.months?.[monthKey] || null;
+            const { shiftRules, staffList, holidays } = scheduleData;
 
-            // 智慧繼承：如果本月沒資料，嘗試抓取上個月的名單當作預設值
-            const staffList = useMemo(() => {
-                if (activeMonthData && activeMonthData.staffList) return activeMonthData.staffList;
-                
-                if (scheduleData.months) {
-                    const pastMonths = Object.keys(scheduleData.months)
-                        .filter(k => k < monthKey)
-                        .sort((a, b) => b.localeCompare(a));
-                        
-                    if (pastMonths.length > 0) {
-                        const latestPastMonth = pastMonths[0];
-                        // 繼承名單，但將班別(shifts)清空
-                        return (scheduleData.months[latestPastMonth].staffList || []).map(s => ({...s, shifts: {}}));
-                    }
-                }
-                return scheduleData.staffList || []; // 支援舊資料回退
-            }, [activeMonthData, scheduleData.months, scheduleData.staffList, monthKey]);
-
-            const holidays = useMemo(() => {
-                if (activeMonthData && activeMonthData.holidays) return activeMonthData.holidays;
-                if (!scheduleData.months) return scheduleData.holidays || {};
-                return {};
-            }, [activeMonthData, scheduleData.months, scheduleData.holidays]);
-
-            // 全域設定更新 (如班別規則、顏色)
             const updateData = (updates) => {
                 if (!isManager) return;
                 db.doc(getPublicPath(`schedules_data/branch_${currentBranch}`)).set(updates, { merge: true });
-            };
-
-            // 單月資料獨立更新
-            const updateMonthData = (updates) => {
-                if (!isManager) return;
-                const newMonths = { ...(scheduleData.months || {}) };
-                newMonths[monthKey] = {
-                    staffList: staffList,
-                    holidays: holidays,
-                    ...(newMonths[monthKey] || {}),
-                    ...updates
-                };
-                db.doc(getPublicPath(`schedules_data/branch_${currentBranch}`)).set({ months: newMonths }, { merge: true });
             };
 
             const setShiftRules = (newRules) => updateData({ shiftRules: newRules });
@@ -1232,23 +1192,23 @@
                 if (!isManager) return;
                 const safeValue = value || '';
                 const newStaffList = staffList.map(staff => staff.id === staffId ? { ...staff, shifts: { ...(staff.shifts || {}), [dateString]: safeValue } } : staff);
-                updateMonthData({ staffList: newStaffList });
+                updateData({ staffList: newStaffList });
             };
 
             const addStaff = () => {
                 if (!isManager) return;
-                const newId = Date.now().toString(); 
-                updateMonthData({ staffList: [...staffList, { id: newId, title: '新職位', name: '新員工', shifts: {} }] });
+                const newId = Date.now().toString(); // 改用時間戳避免流水號重複與錯誤
+                updateData({ staffList: [...staffList, { id: newId, title: '新職位', name: '新員工', shifts: {} }] });
             };
 
             const updateStaffInfo = (id, field, value) => {
                 if (!isManager) return;
-                updateMonthData({ staffList: staffList.map(staff => staff.id === id ? { ...staff, [field]: value } : staff) });
+                updateData({ staffList: staffList.map(staff => staff.id === id ? { ...staff, [field]: value } : staff) });
             };
 
             const removeStaff = (id) => {
                 if (!isManager) return;
-                if(window.confirm('確定刪除此人員本月班表？')) updateMonthData({ staffList: staffList.filter(staff => staff.id !== id) });
+                if(window.confirm('確定刪除此人員班表？')) updateData({ staffList: staffList.filter(staff => staff.id !== id) });
             };
 
             const toggleHoliday = (dateString) => {
@@ -1256,9 +1216,9 @@
                 if (holidayInputText.trim() === '') {
                     const newHolidays = { ...holidays };
                     delete newHolidays[dateString];
-                    updateMonthData({ holidays: newHolidays });
+                    updateData({ holidays: newHolidays });
                 } else {
-                    updateMonthData({ holidays: { ...holidays, [dateString]: holidayInputText } });
+                    updateData({ holidays: { ...holidays, [dateString]: holidayInputText } });
                 }
                 setSelectedCell(null);
                 setHolidayInputText('');
@@ -1287,7 +1247,7 @@
                     if (fromIndex !== -1 && toIndex !== -1) {
                         const [moved] = newList.splice(fromIndex, 1);
                         newList.splice(toIndex, 0, moved);
-                        updateMonthData({ staffList: newList });
+                        updateData({ staffList: newList });
                     }
                 }
                 setDraggedStaffId(null);
@@ -1296,10 +1256,7 @@
 
             const calculateOffDays = (shifts = {}) => {
                 let count = 0;
-                // 僅計算這個月份在 daysInMonth 中的日子，解決跨月加總 Bug
-                daysInMonth.forEach(day => {
-                    const code = shifts[day.dateString];
-                    if (!code) return;
+                Object.values(shifts).forEach(code => {
                     const rule = shiftRules.find(r => r.code === code);
                     if (rule && rule.type === 'off') {
                         count++;
@@ -1315,7 +1272,6 @@
                 staffList.forEach(staff => {
                     const shifts = staff.shifts || {};
                     const shiftCode = shifts[dateString] || '';
-                    
                     if (shiftCode === '') {
                         morning++; evening++; total++;
                         return;
@@ -1332,50 +1288,6 @@
                 return { morning, evening, total };
             };
 
-            // 職位自動轉換與自訂顏色機制
-            const getTitleColorStyle = useCallback((title) => {
-                if (!title) return { backgroundColor: '#f8fafc', color: '#64748b' };
-                
-                // 如果有自訂顏色，自動計算對比度讓文字保持清晰
-                if (roleColors[title]) {
-                    const bg = roleColors[title];
-                    const hex = bg.replace('#', '');
-                    const r = parseInt(hex.substr(0, 2), 16) || 255;
-                    const g = parseInt(hex.substr(2, 2), 16) || 255;
-                    const b = parseInt(hex.substr(4, 2), 16) || 255;
-                    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-                    const text = (yiq >= 128) ? '#1e293b' : '#ffffff';
-                    return { backgroundColor: bg, color: text };
-                }
-
-                // 未設定則使用原本的預設系統
-                const colors = [
-                    {bg: '#dcfce7', text: '#065f46'}, 
-                    {bg: '#dbeafe', text: '#3730a3'}, 
-                    {bg: '#ffedd5', text: '#c2410c'}, 
-                    {bg: '#fce7f3', text: '#be123c'}, 
-                    {bg: '#e0e7ff', text: '#3f0071'}, 
-                    {bg: '#f3e8ff', text: '#4338ca'}, 
-                    {bg: '#cffafe', text: '#1e40af'}, 
-                ];
-                let hash = 0;
-                for (let i = 0; i < title.length; i++) hash = title.charCodeAt(i) + ((hash << 5) - hash);
-                const colorIdx = Math.abs(hash) % colors.length;
-                return { backgroundColor: colors[colorIdx].bg, color: colors[colorIdx].text };
-            }, [roleColors]);
-
-            const getCellBg = useCallback((dateString, isWeekend) => {
-                if (holidays[dateString]) return 'bg-red-100'; 
-                if (isWeekend) return 'bg-rose-50'; 
-                return 'bg-white';
-            }, [holidays]);
-
-            const getHeaderBg = useCallback((dateString, isWeekend) => {
-                if (holidays[dateString]) return 'bg-red-200 text-brand-red font-black'; 
-                if (isWeekend) return 'bg-rose-100 text-brand-red font-black'; 
-                return 'bg-slate-100 text-slate-800 font-bold';
-            }, [holidays]);
-
             const handlePrint = () => {
                 const monthStr = `${currentDate.getMonth() + 1}月`;
                 const yearMonthTitle = `${currentDate.getFullYear()}年 ${monthStr} 班表`;
@@ -1391,12 +1303,12 @@
                             body { font-family: 'Noto Sans TC', sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; margin: 0; padding: 0; color: #1e293b; }
                             h1 { text-align: center; font-size: 20px; font-weight: 900; margin-bottom: 12px; color: #b9121b; letter-spacing: 2px; }
                             table { width: 100%; border-collapse: collapse; text-align: center; table-layout: fixed; }
-                            th, td { border: 1px solid #475569; padding: 2px 0; overflow: hidden; white-space: nowrap; font-size: 10px; font-weight: 700; }
+                            th, td { border: 1px solid #cbd5e1; padding: 2px 0; overflow: hidden; white-space: nowrap; font-size: 10px; font-weight: 700; }
                             .bg-header { background-color: #a7f3d0 !important; font-size: 12px; }
                             .bg-header-dark { background-color: #34d399 !important; color: white; font-size: 11px; }
                             .bg-weekend { background-color: #ffe4e6 !important; color: #e11d48 !important; }
-                            .bg-holiday { background-color: #fecaca !important; color: #b91c1c !important; } 
-                            .text-holiday { color: #b91c1c !important; font-size: 12px; writing-mode: vertical-lr; letter-spacing: 1px; font-weight: 900; margin: 0 auto; padding-top: 2px;}
+                            .bg-holiday { background-color: #fff1f2 !important; }
+                            .text-holiday { color: #e11d48 !important; font-size: 9px; writing-mode: vertical-lr; letter-spacing: 1px; font-weight: 900; margin: 0 auto; padding-top: 2px;}
                             .bg-gray { background-color: #f8fafc !important; }
                             .bg-dark { background-color: #1e293b !important; color: white !important; font-size: 11px; }
                             .bg-orange { background-color: #ffedd5 !important; color: #9a3412 !important; font-size: 11px; }
@@ -1408,49 +1320,50 @@
                         <h1>${currentBranch} - ${yearMonthTitle}</h1>
                         <table>
                             <colgroup>
-                                <col style="width: 60px;" />
-                                <col style="width: 65px;" />
-                                <col style="width: 28px;" />
+                                <col style="width: 75px;" />
+                                <col style="width: 90px;" />
+                                <col style="width: 32px;" />
                                 ${daysInMonth.map(() => `<col />`).join('')}
                             </colgroup>
                             <thead>
                                 <tr>
                                     <th colspan="3" class="bg-header">${monthStr}</th>
-                                    ${daysInMonth.map(d => `<th class="${holidays[d.dateString] ? 'bg-holiday' : (d.isWeekend ? 'bg-weekend' : 'bg-gray')}">${d.dateNum}</th>`).join('')}
+                                    ${daysInMonth.map(d => `<th class="${d.isWeekend ? 'bg-weekend' : 'bg-gray'}">${d.dateNum}</th>`).join('')}
                                 </tr>
                                 <tr>
                                     <th class="bg-header-dark">職稱</th>
                                     <th class="bg-header-dark">姓名</th>
                                     <th class="bg-header-dark">休假</th>
-                                    ${daysInMonth.map(d => `<th class="${holidays[d.dateString] ? 'bg-holiday' : (d.isWeekend ? 'bg-weekend' : 'bg-gray')}">${d.dayOfWeek}</th>`).join('')}
+                                    ${daysInMonth.map(d => `<th class="${d.isWeekend ? 'bg-weekend' : 'bg-gray'}">${d.dayOfWeek}</th>`).join('')}
                                 </tr>
                                 <tr>
                                     <th colspan="3" style="text-align:right; font-size: 9px; color: #94a3b8; font-weight: normal; padding-right: 4px;">特殊節日 ➔</th>
                                     ${daysInMonth.map(d => {
                                         const hol = holidays[d.dateString];
-                                        return `<th class="${hol ? 'bg-holiday' : (d.isWeekend ? 'bg-weekend' : '')}" style="height: 60px; vertical-align: top;">
+                                        return `<th class="${d.isWeekend || hol ? 'bg-holiday' : ''}" style="height: 55px; vertical-align: top;">
                                             ${hol ? `<div class="text-holiday">${hol}</div>` : ''}
                                         </th>`;
                                     }).join('')}
                                 </tr>
                             </thead>
                             <tbody>
-                                ${staffList.map((staff, idx) => {
-                                    const roleStyle = getTitleColorStyle(staff.title);
-                                    return `
+                                ${staffList.map((staff, idx) => `
                                     <tr>
-                                        <td style="font-weight:bold; font-size: 11px; background-color: ${roleStyle.backgroundColor} !important; color: ${roleStyle.color} !important;">${staff.title}</td>
-                                        <td class="${idx % 2 === 0 ? 'bg-gray' : ''}" style="font-size: 13px; letter-spacing: 1px;">${staff.name}</td>
+                                        <td class="${idx % 2 === 0 ? 'bg-gray' : ''}" style="font-weight:bold; font-size: 11px;">${staff.title}</td>
+                                        <td class="${idx % 2 === 0 ? 'bg-gray' : ''}" style="font-size: 13px; letter-spacing: 0.5px;">${staff.name}</td>
                                         <td class="bg-gray" style="color:#475569; font-size: 11px;">${calculateOffDays(staff.shifts)}</td>
                                         ${daysInMonth.map(d => {
                                             const shift = (staff.shifts || {})[d.dateString] || '';
-                                            return `<td class="${holidays[d.dateString] ? 'bg-holiday' : (d.isWeekend ? 'bg-weekend' : '')}" style="text-transform: uppercase; font-size: 10px;">${shift}</td>`;
+                                            return `<td class="${d.isWeekend || holidays[d.dateString] ? 'bg-holiday' : ''}" style="text-transform: uppercase; font-size: 10px;">${shift}</td>`;
                                         }).join('')}
                                     </tr>
-                                    `;
-                                }).join('')}
+                                `).join('')}
                             </tbody>
                             <tfoot>
+                                <tr>
+                                    <td colspan="3" class="bg-dark" style="text-align: right; padding-right: 4px;">當日總人數</td>
+                                    ${daysInMonth.map(d => `<td class="bg-dark">${calculateDailyStats(d.dateString).total || ''}</td>`).join('')}
+                                </tr>
                                 <tr>
                                     <td colspan="3" class="bg-orange" style="text-align: right; padding-right: 4px;">早班總人數</td>
                                     ${daysInMonth.map(d => `<td class="bg-orange">${calculateDailyStats(d.dateString).morning || ''}</td>`).join('')}
@@ -1458,10 +1371,6 @@
                                 <tr>
                                     <td colspan="3" class="bg-indigo" style="text-align: right; padding-right: 4px;">晚班總人數</td>
                                     ${daysInMonth.map(d => `<td class="bg-indigo">${calculateDailyStats(d.dateString).evening || ''}</td>`).join('')}
-                                </tr>
-                                <tr>
-                                    <td colspan="3" class="bg-dark" style="text-align: right; padding-right: 4px;">當日總人數</td>
-                                    ${daysInMonth.map(d => `<td class="bg-dark">${calculateDailyStats(d.dateString).total || ''}</td>`).join('')}
                                 </tr>
                             </tfoot>
                         </table>
@@ -1484,7 +1393,7 @@
                 <div className="page-enter pb-24">
                     <div className="p-3 sm:p-4 border-b bg-white/80 backdrop-blur sticky top-[60px] z-40 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
                         <div className="flex items-center gap-3 w-full md:w-auto">
-                            <button onClick={onBack} className="p-2 sm:p-2.5 glass-panel rounded-xl sm:rounded-2xl border border-slate-300 active:scale-90 transition-all bg-white shadow-sm shrink-0"><Icon name="arrow-left" size={20}/></button>
+                            <button onClick={onBack} className="p-2 sm:p-2.5 glass-panel rounded-xl sm:rounded-2xl border active:scale-90 transition-all bg-white shadow-sm shrink-0"><Icon name="arrow-left" size={20}/></button>
                             <h2 className="text-lg sm:text-xl font-black text-slate-800 tracking-tighter truncate">{currentBranch} <span className="text-brand-red">排班系統</span></h2>
                         </div>
                         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
@@ -1494,7 +1403,7 @@
                             {isManager && (
                                 <>
                                     <button onClick={addStaff} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-blue-600 text-white rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap"><Icon name="plus" size={14} /> 新增</button>
-                                    <button onClick={() => setShowSettings(!showSettings)} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-slate-100 text-slate-700 rounded-xl border border-slate-300 active:scale-95 transition-all text-xs sm:text-sm font-bold whitespace-nowrap"><Icon name="settings" size={14} /> 設定</button>
+                                    <button onClick={() => setShowSettings(!showSettings)} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-slate-100 text-slate-700 rounded-xl active:scale-95 transition-all text-xs sm:text-sm font-bold whitespace-nowrap"><Icon name="settings" size={14} /> 設定</button>
                                 </>
                             )}
                         </div>
@@ -1502,11 +1411,11 @@
 
                     <div className="p-4">
                         {isManager && showSettings && (
-                            <div className="mb-4 p-5 bg-blue-50 border border-blue-200 rounded-3xl shadow-sm text-left animate-in slide-in-from-top-2">
+                            <div className="mb-4 p-5 bg-blue-50 border border-blue-100 rounded-3xl shadow-sm text-left">
                                 <h3 className="font-black text-blue-800 mb-3 flex items-center gap-2 text-sm"><Icon name="settings" size={16} /> 班別代碼與統計歸類設定</h3>
                                 <div className="flex flex-wrap gap-2 mb-4">
                                     {shiftRules.map((rule, idx) => (
-                                        <div key={idx} className="flex items-center bg-white py-1.5 px-3 rounded-xl shadow-sm border border-blue-200 text-xs font-bold group">
+                                        <div key={idx} className="flex items-center bg-white py-1.5 px-3 rounded-xl shadow-sm border border-blue-100 text-xs font-bold group">
                                             <span className="w-8 text-center text-blue-700">{rule.code}</span>
                                             <span className="mx-2 text-slate-300">|</span>
                                             <select value={rule.type} onChange={(e) => { const newRules = [...shiftRules]; newRules[idx].type = e.target.value; setShiftRules(newRules); }} className="outline-none bg-transparent text-slate-600 cursor-pointer appearance-none">
@@ -1517,81 +1426,52 @@
                                     ))}
                                 </div>
                                 <div className="pt-3 border-t border-blue-200 flex flex-wrap items-center gap-2">
-                                    <input type="text" value={newShiftCode} onChange={(e) => setNewShiftCode(e.target.value)} placeholder="代碼 (例: A-7)" className="px-3 py-2 text-xs rounded-xl border border-slate-300 outline-none w-28 uppercase font-bold" maxLength={4} />
-                                    <select value={newShiftType} onChange={(e) => setNewShiftType(e.target.value)} className="px-3 py-2 text-xs rounded-xl border border-slate-300 outline-none font-bold">
+                                    <input type="text" value={newShiftCode} onChange={(e) => setNewShiftCode(e.target.value)} placeholder="代碼 (例: A-7)" className="px-3 py-2 text-xs rounded-xl outline-none w-28 uppercase font-bold" maxLength={4} />
+                                    <select value={newShiftType} onChange={(e) => setNewShiftType(e.target.value)} className="px-3 py-2 text-xs rounded-xl outline-none font-bold">
                                         <option value="morning">歸類：早班</option><option value="evening">歸類：晚班</option><option value="full">歸類：全天</option><option value="off">歸類：休假</option>
                                     </select>
                                     <button onClick={addShiftRule} disabled={!newShiftCode.trim()} className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl active:scale-95 disabled:opacity-50 transition-colors shadow-sm flex items-center gap-1"><Icon name="plus" size={14} /> 新增班別</button>
                                 </div>
-
-                                <div className="mt-6 pt-4 border-t border-blue-200">
-                                    <h3 className="font-black text-blue-800 mb-3 flex items-center gap-2 text-sm"><Icon name="palette" size={16} /> 職位顏色自訂</h3>
-                                    <div className="flex flex-wrap gap-2">
-                                        {Array.from(new Set(staffList.map(s => s.title).filter(Boolean))).map(role => (
-                                            <div key={role} className="flex items-center bg-white py-1 pl-3 pr-2 rounded-xl shadow-sm border border-blue-200 text-xs font-bold gap-2">
-                                                <span className="text-slate-700 max-w-[80px] truncate" title={role}>{role}</span>
-                                                <input 
-                                                    type="color" 
-                                                    value={roleColors[role] || '#ffffff'} 
-                                                    onChange={(e) => updateData({ roleColors: { ...(roleColors || {}), [role]: e.target.value } })}
-                                                    className="w-6 h-6 p-0 border-0 rounded cursor-pointer bg-transparent"
-                                                />
-                                                {roleColors[role] && (
-                                                    <button onClick={() => {
-                                                        const newColors = {...roleColors};
-                                                        delete newColors[role];
-                                                        updateData({ roleColors: newColors });
-                                                    }} className="text-slate-300 hover:text-red-500"><Icon name="x" size={14} /></button>
-                                                )}
-                                            </div>
-                                        ))}
-                                        {Array.from(new Set(staffList.map(s => s.title).filter(Boolean))).length === 0 && <span className="text-xs text-slate-500">尚無職位，請先於下方班表新增人員。</span>}
-                                    </div>
-                                    <p className="text-[10px] text-blue-500 mt-2">提示：點擊色塊可自訂該職位的背景顏色，未設定則使用系統自動配色。列印時也會自動套用！</p>
-                                </div>
                             </div>
                         )}
 
-                        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-400 overflow-hidden mb-8">
-                            <div className="flex items-center justify-between p-4 bg-slate-50 border-b border-slate-400">
-                                <button onClick={() => changeMonth(-1)} className="p-2 bg-white rounded-xl shadow-sm active:scale-90 transition-all text-slate-600 border border-slate-300"><Icon name="chevron-left" size={18} /></button>
+                        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-100 overflow-hidden mb-8">
+                            <div className="flex items-center justify-between p-4 bg-slate-50 border-b border-slate-100">
+                                <button onClick={() => changeMonth(-1)} className="p-2 bg-white rounded-xl shadow-sm active:scale-90 transition-all text-slate-600 border border-slate-200"><Icon name="chevron-left" size={18} /></button>
                                 <div className="font-black text-slate-800 flex items-center gap-2 text-lg"><Icon name="calendar" size={18} className="text-brand-red" /> {currentDate.getFullYear()} 年 {currentDate.getMonth() + 1} 月</div>
-                                <button onClick={() => changeMonth(1)} className="p-2 bg-white rounded-xl shadow-sm active:scale-90 transition-all text-slate-600 border border-slate-300"><Icon name="chevron-right" size={18} /></button>
+                                <button onClick={() => changeMonth(1)} className="p-2 bg-white rounded-xl shadow-sm active:scale-90 transition-all text-slate-600 border border-slate-200"><Icon name="chevron-right" size={18} /></button>
                             </div>
 
-                            <div className="overflow-x-auto overflow-y-visible custom-scrollbar bg-white relative pb-2">
+                            <div className="overflow-auto custom-scrollbar bg-white relative" style={{ maxHeight: 'calc(100vh - 220px)' }}>
                                 <table className="w-full border-collapse min-w-max text-xs select-none">
                                     <thead>
                                         <tr>
-                                            <th colSpan={3} className="bg-emerald-100 border border-slate-500 p-2 text-base font-black tracking-widest sticky left-0 top-0 z-[60] shadow-sm" style={{ height: '40px' }}>{currentDate.getMonth() + 1}月</th>
+                                            <th colSpan={3} className="bg-emerald-100 border border-slate-300 p-2 text-base font-black tracking-widest sticky left-0 top-0 z-[60] shadow-sm" style={{ height: '40px' }}>{currentDate.getMonth() + 1}月</th>
                                             {daysInMonth.map(day => (
-                                                <th key={`date-${day.dateNum}`} className={`border border-slate-500 p-1 text-center font-bold w-8 sticky top-0 z-[50] shadow-sm ${getHeaderBg(day.dateString, day.isWeekend)}`} style={{ height: '40px' }}>{day.dateNum}</th>
+                                                <th key={`date-${day.dateNum}`} className={`border border-slate-300 p-1 text-center font-bold w-8 sticky top-0 z-[50] shadow-sm ${day.isWeekend ? 'bg-rose-50 text-brand-red' : 'bg-slate-50 text-slate-700'}`} style={{ height: '40px' }}>{day.dateNum}</th>
                                             ))}
                                         </tr>
                                         <tr>
-                                            <th className="bg-emerald-500 border border-slate-500 p-1 w-[76px] sticky left-0 z-[60] text-white font-black shadow-sm" style={{ top: '40px', height: '40px' }}>職稱</th>
-                                            <th className="bg-emerald-500 border border-slate-500 p-1 w-[76px] sticky left-[76px] z-[60] text-white font-black shadow-sm" style={{ top: '40px', height: '40px' }}>姓名</th>
-                                            <th className="bg-emerald-500 border border-slate-500 p-1 w-[36px] text-[10px] leading-tight sticky left-[152px] z-[60] text-white font-black shadow-sm" style={{ top: '40px', height: '40px' }}>休假<br/>天數</th>
+                                            <th className="bg-emerald-400 border border-slate-300 p-2 w-20 sticky left-0 z-[60] text-white font-black shadow-sm" style={{ top: '40px', height: '40px' }}>職稱</th>
+                                            <th className="bg-emerald-400 border border-slate-300 p-2 w-24 sticky left-[80px] z-[60] text-white font-black shadow-sm" style={{ top: '40px', height: '40px' }}>姓名</th>
+                                            <th className="bg-emerald-400 border border-slate-300 p-1 w-10 text-[10px] leading-tight sticky left-[176px] z-[60] text-white font-black shadow-sm" style={{ top: '40px', height: '40px' }}>休假<br/>天數</th>
                                             {daysInMonth.map(day => (
-                                                <th key={`day-${day.dateNum}`} className={`border border-slate-500 p-1 text-center sticky z-[50] shadow-sm ${getHeaderBg(day.dateString, day.isWeekend)}`} style={{ top: '40px', height: '40px' }}>{day.dayOfWeek}</th>
+                                                <th key={`day-${day.dateNum}`} className={`border border-slate-300 p-1 text-center sticky z-[50] shadow-sm ${day.isWeekend ? 'bg-rose-50 text-brand-red font-black' : 'bg-slate-50 text-slate-500 font-bold'}`} style={{ top: '40px', height: '40px' }}>{day.dayOfWeek}</th>
                                             ))}
                                         </tr>
                                         <tr>
-                                            <th colSpan={3} className="bg-white border border-slate-500 p-1 text-right text-[10px] text-slate-400 font-bold sticky left-0 z-[60] shadow-sm" style={{ top: '80px', height: '60px' }}>{isManager ? '特殊節日 (點擊設定) ➔' : '特殊節日 ➔'}</th>
-                                            {daysInMonth.map(day => {
-                                                const isHoliday = holidays[day.dateString];
-                                                return (
-                                                    <th key={`holiday-${day.dateNum}`} onClick={() => isManager && setSelectedCell({ type: 'holiday', date: day.dateString })} className={`border border-slate-500 p-0 text-center align-top relative sticky z-[50] shadow-sm ${isManager ? 'cursor-pointer hover:bg-yellow-50' : ''} ${getCellBg(day.dateString, day.isWeekend)}`} style={{ top: '80px', height: '60px' }}>
-                                                        {isManager && selectedCell?.type === 'holiday' && selectedCell?.date === day.dateString ? (
-                                                            <div className="absolute top-0 left-0 w-full z-[70] bg-white border-2 border-blue-500 shadow-xl p-1">
-                                                                <input autoFocus type="text" value={holidayInputText} onChange={(e) => setHolidayInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && toggleHoliday(day.dateString)} onBlur={() => toggleHoliday(day.dateString)} className="w-full text-xs text-center border-b border-slate-300 outline-none p-1 font-bold text-brand-red" placeholder="節日" />
-                                                            </div>
-                                                        ) : (
-                                                            isHoliday && <div className="writing-vertical-lr text-brand-red font-black text-[13px] mx-auto pt-1 tracking-widest">{isHoliday}</div>
-                                                        )}
-                                                    </th>
-                                                );
-                                            })}
+                                            <th colSpan={3} className="bg-white border border-slate-300 p-1 text-right text-[10px] text-slate-400 font-bold sticky left-0 z-[60] shadow-sm" style={{ top: '80px', height: '60px' }}>{isManager ? '特殊節日 (點擊設定) ➔' : '特殊節日 ➔'}</th>
+                                            {daysInMonth.map(day => (
+                                                <th key={`holiday-${day.dateNum}`} onClick={() => isManager && setSelectedCell({ type: 'holiday', date: day.dateString })} className={`border border-slate-300 p-0 text-center align-top relative sticky z-[50] shadow-sm ${isManager ? 'cursor-pointer hover:bg-yellow-50' : ''} ${day.isWeekend || holidays[day.dateString] ? 'bg-rose-50/50' : 'bg-white'}`} style={{ top: '80px', height: '60px' }}>
+                                                    {isManager && selectedCell?.type === 'holiday' && selectedCell?.date === day.dateString ? (
+                                                        <div className="absolute top-0 left-0 w-full z-[70] bg-white border-2 border-blue-500 shadow-xl p-1">
+                                                            <input autoFocus type="text" value={holidayInputText} onChange={(e) => setHolidayInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && toggleHoliday(day.dateString)} onBlur={() => toggleHoliday(day.dateString)} className="w-full text-xs text-center border-b border-slate-300 outline-none p-1 font-bold text-brand-red" placeholder="節日" />
+                                                        </div>
+                                                    ) : (
+                                                        holidays[day.dateString] && <div className="writing-vertical-lr text-brand-red font-black text-[10px] mx-auto pt-1 tracking-widest">{holidays[day.dateString]}</div>
+                                                    )}
+                                                </th>
+                                            ))}
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -1605,21 +1485,21 @@
                                                 onDragStart={() => handleDragStart(staff.id)}
                                                 onDragOver={(e) => handleDragOver(e, staff.id)}
                                                 onDragEnd={handleDragEnd}
-                                                className={`${isManager ? 'group cursor-grab active:cursor-grabbing' : ''} ${isDragging ? 'opacity-40' : ''} ${isOver ? 'border-y-2 border-brand-red shadow-sm relative z-20' : ''}`}
+                                                className={`${isManager ? 'hover:bg-blue-50/50 group cursor-grab active:cursor-grabbing' : ''} ${isDragging ? 'opacity-40 bg-blue-50' : ''} ${isOver ? 'bg-rose-50 border-y-2 border-brand-red shadow-sm relative z-20' : ''}`}
                                             >
-                                                <td className={`border border-slate-500 p-0 sticky left-0 z-[30] transition-colors`} style={getTitleColorStyle(staff.title)}>
+                                                <td className={`border border-slate-300 p-0 sticky left-0 z-[30] ${index % 2 === 0 ? 'bg-slate-50' : 'bg-white'} ${isManager ? 'group-hover:bg-blue-50/80' : ''}`}>
                                                     <div className="flex items-center h-full">
-                                                        {isManager && <div className="pl-1 opacity-50 shrink-0"><Icon name="grip-vertical" size={14} /></div>}
-                                                        <SyncInput value={staff.title} onChange={(val) => updateStaffInfo(staff.id, 'title', val)} readOnly={!isManager} className={`w-full h-full py-2 pr-1 ${isManager ? 'pl-1' : 'pl-2'} bg-transparent text-center outline-none font-bold ${isManager ? '' : 'cursor-default'}`} />
+                                                        {isManager && <div className="pl-1 text-slate-300 shrink-0"><Icon name="grip-vertical" size={14} /></div>}
+                                                        <SyncInput value={staff.title} onChange={(val) => updateStaffInfo(staff.id, 'title', val)} readOnly={!isManager} className={`w-full h-full py-2 pr-2 ${isManager ? 'pl-1' : 'pl-2'} bg-transparent text-center outline-none font-bold ${isManager ? 'text-slate-600' : 'text-slate-500 cursor-default'}`} />
                                                     </div>
                                                 </td>
-                                                <td className={`border border-slate-500 p-0 sticky left-[76px] z-[30] bg-white group-hover:bg-blue-50 relative`}>
-                                                    <SyncInput value={staff.name} onChange={(val) => updateStaffInfo(staff.id, 'name', val)} readOnly={!isManager} className={`w-full h-full px-0.5 py-2 bg-transparent text-center font-black text-sm outline-none ${isManager ? 'text-slate-800' : 'text-slate-700 cursor-default'}`} />
-                                                    {isManager && <button onClick={() => removeStaff(staff.id)} className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 text-white bg-red-500 hover:bg-red-600 transition-opacity p-0.5 rounded-bl-lg shadow-sm z-10"><Icon name="x" size={10} /></button>}
+                                                <td className={`border border-slate-300 p-0 sticky left-[80px] z-[30] ${index % 2 === 0 ? 'bg-slate-50' : 'bg-white'} ${isManager ? 'group-hover:bg-blue-50/80 relative' : ''}`}>
+                                                    <SyncInput value={staff.name} onChange={(val) => updateStaffInfo(staff.id, 'name', val)} readOnly={!isManager} className={`w-full h-full p-2 bg-transparent text-center font-black outline-none ${isManager ? 'text-slate-800' : 'text-slate-700 cursor-default'}`} />
+                                                    {isManager && <button onClick={() => removeStaff(staff.id)} className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-opacity p-1 bg-white rounded shadow-sm"><Icon name="trash-2" size={12} /></button>}
                                                 </td>
-                                                <td className="border border-slate-500 p-1 text-center font-black text-slate-700 bg-slate-100 sticky left-[152px] z-[30]">{calculateOffDays(staff.shifts)}</td>
+                                                <td className="border border-slate-300 p-1 text-center font-black text-slate-600 bg-slate-100 sticky left-[176px] z-[30]">{calculateOffDays(staff.shifts)}</td>
                                                 {daysInMonth.map(day => (
-                                                    <td key={`${staff.id}-${day.dateNum}`} className={`border border-slate-500 p-0 relative ${getCellBg(day.dateString, day.isWeekend)}`}>
+                                                    <td key={`${staff.id}-${day.dateNum}`} className={`border border-slate-300 p-0 relative ${day.isWeekend || holidays[day.dateString] ? 'bg-rose-50/30' : 'bg-white'}`}>
                                                         <SyncInput value={(staff.shifts || {})[day.dateString] || ''} onChange={(val) => updateShift(staff.id, day.dateString, val.toUpperCase())} readOnly={!isManager} className={`w-full h-8 text-center bg-transparent outline-none font-black uppercase text-[11px] ${isManager ? 'focus:bg-yellow-100 focus:ring-1 focus:ring-blue-400 text-slate-800' : 'text-slate-700 cursor-default'}`} maxLength={4} />
                                                     </td>
                                                 ))}
@@ -1629,16 +1509,16 @@
                                     </tbody>
                                     <tfoot className="font-bold text-[10px] sticky bottom-0 z-[40] shadow-[0_-4px_10px_rgba(0,0,0,0.15)]">
                                         <tr>
-                                            <td colSpan={3} className="border border-slate-500 p-2 text-right bg-orange-50 text-orange-800 sticky left-0 z-[60]">早班總人數 (含全天)</td>
-                                            {daysInMonth.map(day => <td key={`morning-${day.dateNum}`} className="border border-slate-500 p-1 text-center bg-orange-50 text-orange-800 font-bold">{calculateDailyStats(day.dateString).morning || ''}</td>)}
+                                            <td colSpan={3} className="border border-slate-300 p-2 text-right bg-slate-800 text-white sticky left-0 z-[60] font-black">當日總上班人數</td>
+                                            {daysInMonth.map(day => <td key={`total-${day.dateNum}`} className="border border-slate-400 p-1 text-center bg-slate-800 text-white font-black">{calculateDailyStats(day.dateString).total || ''}</td>)}
                                         </tr>
                                         <tr>
-                                            <td colSpan={3} className="border border-slate-500 p-2 text-right bg-indigo-50 text-indigo-800 sticky left-0 z-[60]">晚班總人數 (含全天)</td>
-                                            {daysInMonth.map(day => <td key={`evening-${day.dateNum}`} className="border border-slate-500 p-1 text-center bg-indigo-50 text-indigo-800 font-bold">{calculateDailyStats(day.dateString).evening || ''}</td>)}
+                                            <td colSpan={3} className="border border-slate-300 p-2 text-right bg-orange-100 text-orange-800 sticky left-0 z-[60]">早班總人數 (含全天)</td>
+                                            {daysInMonth.map(day => <td key={`morning-${day.dateNum}`} className="border border-slate-300 p-1 text-center bg-orange-100 text-orange-800 font-bold">{calculateDailyStats(day.dateString).morning || ''}</td>)}
                                         </tr>
                                         <tr>
-                                            <td colSpan={3} className="border border-slate-500 p-2 text-right bg-slate-800 text-white sticky left-0 z-[60] font-black">當日總上班人數</td>
-                                            {daysInMonth.map(day => <td key={`total-${day.dateNum}`} className="border border-slate-500 p-1 text-center bg-slate-800 text-white font-black">{calculateDailyStats(day.dateString).total || ''}</td>)}
+                                            <td colSpan={3} className="border border-slate-300 p-2 text-right bg-indigo-100 text-indigo-800 sticky left-0 z-[60]">晚班總人數 (含全天)</td>
+                                            {daysInMonth.map(day => <td key={`evening-${day.dateNum}`} className="border border-slate-300 p-1 text-center bg-indigo-100 text-indigo-800 font-bold">{calculateDailyStats(day.dateString).evening || ''}</td>)}
                                         </tr>
                                     </tfoot>
                                 </table>
