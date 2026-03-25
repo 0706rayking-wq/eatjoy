@@ -37,7 +37,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         
         :root { 
-            /* 預設配色 */
+            /* 預設配色 (已改為您圖片中沉穩的深紅色) */
             --brand-red: 185 18 27; 
             --app-bg: #f8fafc; 
         }
@@ -69,6 +69,7 @@
         body.theme-dark .bg-slate-900 { background-color: #020617 !important; border-color: #1e293b !important; }
         body.theme-dark .shadow-sm, body.theme-dark .shadow-md, body.theme-dark .shadow-lg, body.theme-dark .shadow-xl, body.theme-dark .shadow-2xl { box-shadow: 0 4px 12px -1px rgba(0,0,0,0.5) !important; }
         
+        /* 特殊漸層柔和背景色，在深色模式強制壓暗 */
         body.theme-dark .bg-rose-50\/80, body.theme-dark .bg-rose-50\/50, 
         body.theme-dark .bg-emerald-50\/50, body.theme-dark .bg-indigo-50\/50, 
         body.theme-dark .bg-blue-50\/50, body.theme-dark .bg-yellow-50\/50,
@@ -97,6 +98,7 @@
         @keyframes ticker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
         .signature-canvas { border: 2px dashed #cbd5e1; background: #fff; cursor: crosshair; touch-action: none; border-radius: 1.5rem; width: 100%; height: 200px; }
         
+        /* 點貨系統進階樣式 */
         .active-scale:active { transform: scale(0.95); }
         .drag-ghost { opacity: 0.2; transform: scale(0.95); border: 2px dashed rgb(var(--brand-red)) !important; background-color: rgba(var(--brand-red)/0.05) !important; }
         .drag-handle { cursor: grab; }
@@ -109,6 +111,7 @@
         }
         .editable-order-text:focus { border-color: rgb(var(--brand-red)); }
         
+        /* 班表系統專用樣式 */
         .writing-vertical-lr { writing-mode: vertical-lr; }
         .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; border-radius: 8px; }
@@ -2713,7 +2716,6 @@
             const [newZoneName, setNewZoneName] = useState('');
             const [newBranchName, setNewBranchName] = useState('');
             const [expandedSig, setExpandedSig] = useState(null);
-            const [isDeletingBranch, setIsDeletingBranch] = useState(false);
 
             useEffect(() => {
                 if(branchZones && branchZones.length > 0 && !selectedZone) setSelectedZone(branchZones[0].id);
@@ -2727,77 +2729,6 @@
                     return u.branch === currentBranch && u.role !== '主管';
                 }
             });
-
-            // 刪除分店與資料函數
-            const handleDeleteBranch = async (branchToDelete) => {
-                if (globalBranches.length <= 1) return triggerNotify("必須保留至少一家分店", "error");
-                
-                const confirm1 = window.confirm(`【極度危險】\n確定要刪除「${branchToDelete}」嗎？\n這將會清除該分店的所有：\n- 菜單、班表、打卡紀錄\n- 公告、守則簽署、人員名單\n\n此動作無法復原！`);
-                if (!confirm1) return;
-                
-                const confirm2 = window.prompt(`請輸入分店名稱「${branchToDelete}」以確認刪除：`);
-                if (confirm2 !== branchToDelete) return triggerNotify("名稱輸入錯誤，取消刪除", "info");
-
-                setIsDeletingBranch(true);
-                triggerNotify(`開始清除 ${branchToDelete} 的資料，請稍候並請勿關閉網頁...`, "info");
-
-                try {
-                    const collectionsToClear = [
-                        `menu/list_${branchToDelete}/items`,
-                        `announcements/branch_${branchToDelete}/items`,
-                        `onboarding/list_${branchToDelete}/items`,
-                        `onboarding/parking_${branchToDelete}/items`,
-                        `benefits/eval_${branchToDelete}/items`,
-                        `benefits/welfare_${branchToDelete}/items`,
-                        ...RULE_CATEGORIES.map(cat => `rules/${cat}_${branchToDelete}/items`),
-                        `standards_${branchToDelete}`,
-                        `daily_photos_${branchToDelete}`,
-                        `signatures_${branchToDelete}`
-                    ];
-
-                    const docsToDelete = [
-                        `menu/list_${branchToDelete}`,
-                        `announcements/branch_${branchToDelete}`,
-                        `onboarding/list_${branchToDelete}`,
-                        `onboarding/parking_${branchToDelete}`,
-                        `benefits/eval_${branchToDelete}`,
-                        `benefits/welfare_${branchToDelete}`,
-                        ...RULE_CATEGORIES.map(cat => `rules/${cat}_${branchToDelete}`),
-                        `onboarding/settings_${branchToDelete}`,
-                        `config/zones_${branchToDelete}`,
-                        `system/progress_${branchToDelete}`,
-                        `system/cron_${branchToDelete}`,
-                        `ticker/branch_${branchToDelete}`,
-                        `ordering/db_${branchToDelete}`,
-                        `schedules_data/branch_${branchToDelete}`
-                    ];
-
-                    // 1. 刪除所有 Collection 內容
-                    for (const colPath of collectionsToClear) {
-                        const snapshot = await db.collection(getPublicPath(colPath)).get();
-                        await Promise.all(snapshot.docs.map(doc => doc.ref.delete()));
-                    }
-
-                    // 2. 刪除獨立 Documents
-                    await Promise.all(docsToDelete.map(docPath => db.doc(getPublicPath(docPath)).delete()));
-
-                    // 3. 刪除該分店人員
-                    const usersSnap = await db.collection(getPublicPath('users')).where('branch', '==', branchToDelete).get();
-                    await Promise.all(usersSnap.docs.map(doc => doc.ref.delete()));
-
-                    // 4. 更新分店陣列
-                    const newBranches = globalBranches.filter(b => b !== branchToDelete);
-                    await db.doc(getPublicPath('system/branches')).set({ list: newBranches });
-
-                    if (currentBranch === branchToDelete) setCurrentBranch(newBranches[0]);
-
-                    triggerNotify(`已成功刪除 ${branchToDelete} 及其所有資料`, "success");
-                } catch (err) {
-                    console.error(err);
-                    triggerNotify("刪除過程發生異常，部分資料可能殘留", "error");
-                }
-                setIsDeletingBranch(false);
-            };
 
             return (
                 <div className="p-4 pb-24 page-enter text-left font-bold">
@@ -2984,23 +2915,18 @@
                                 </div>
                                 <div className="space-y-2 mt-4">
                                     {globalBranches.map(b => (
-                                        <div key={b} className="bg-slate-50 p-4 rounded-2xl font-bold flex flex-col md:flex-row gap-3 justify-between items-start md:items-center border">
-                                            <span className="text-slate-800">{b}</span>
+                                        <div key={b} className="bg-slate-50 p-4 rounded-2xl font-bold flex justify-between items-center border">
+                                            <span>{b}</span>
                                             {globalBranches.length > 1 && (
-                                                <div className="flex gap-2 w-full md:w-auto">
-                                                    <button 
-                                                        onClick={() => handleDeleteBranch(b)} 
-                                                        disabled={isDeletingBranch}
-                                                        className={`flex-1 md:flex-none text-white px-3 py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm font-bold ${isDeletingBranch ? 'bg-slate-400 cursor-not-allowed' : 'bg-red-500 hover:bg-red-600 active:scale-95'}`}
-                                                    >
-                                                        <Icon name="trash-2" size={14}/> 刪除分店與資料
-                                                    </button>
-                                                </div>
+                                                <button onClick={()=>{
+                                                    const newB = globalBranches.filter(i => i !== b);
+                                                    db.doc(getPublicPath('system/branches')).set({ list: newB });
+                                                    if(currentBranch === b) setCurrentBranch(newB[0]);
+                                                }} className="text-slate-300 hover:text-red-500"><Icon name="trash-2" size={16}/></button>
                                             )}
                                         </div>
                                     ))}
                                 </div>
-                                <p className="text-[10px] text-red-500 font-bold mt-2">※ 警告：刪除分店將連同該店所有菜單、公告、班表及人員紀錄一併清除，此動作無法復原。</p>
                             </div>
                         )}
                     </div>
@@ -3350,80 +3276,80 @@
                         </div>
                     );
                     case 'onboard-list': return <ListDetailPage onBack={()=>setCurrentPage('onboarding')} title="準備清單" list={onboardingData?.list} />;
-                    case 'onboard-parking': return <ListDetailPage onBack={()=>setCurrentPage('onboarding')} title="停車資訊指引" list={onboardingData?.parking} />;
+                    case 'onboard-parking': return <ListDetailPage onBack={()=>setCurrentPage('onboarding')} title="停車資訊" list={onboardingData?.parking} />;
                     case 'workRoute': return (
-                        <div className="p-4 space-y-4 page-enter text-left">
-                            <BackButton onClick={()=>setCurrentPage('onboarding')} title="上班動線引導" />
-                            {onboardingData?.routeBusUrl ? (
-                                <div className="glass-panel p-6 rounded-3xl bg-white shadow-sm space-y-3 mb-4">
-                                    <h3 className="font-black text-slate-800">大眾運輸引導影片</h3>
-                                    <a href={onboardingData.routeBusUrl} target="_blank" rel="noopener noreferrer" className="block w-full py-4 text-center bg-blue-50 text-blue-600 font-bold rounded-xl">點擊觀看影片</a>
-                                </div>
-                            ) : null}
-                            {onboardingData?.routeCarUrl ? (
-                                <div className="glass-panel p-6 rounded-3xl bg-white shadow-sm space-y-3">
-                                    <h3 className="font-black text-slate-800">自行前往引導影片</h3>
-                                    <a href={onboardingData.routeCarUrl} target="_blank" rel="noopener noreferrer" className="block w-full py-4 text-center bg-emerald-50 text-emerald-600 font-bold rounded-xl">點擊觀看影片</a>
-                                </div>
-                            ) : null}
-                            {!onboardingData?.routeBusUrl && !onboardingData?.routeCarUrl && (
-                                <p className="text-center text-slate-400 py-10">目前尚未提供動線引導影片</p>
-                            )}
+                        <div className="p-4 space-y-8 page-enter text-left pb-10 font-bold">
+                            <BackButton onClick={()=>setCurrentPage('onboarding')} title="上班動線" />
+                            <div className="space-y-4">
+                                {[{l:'大眾運輸引導',u:onboardingData?.routeBusUrl, icon:'bus'}, {l:'自行前往引導',u:onboardingData?.routeCarUrl, icon:'car'}].map(x => (
+                                    <div key={x.l} onClick={() => x.u && window.open(x.u, '_blank')} className="glass-panel p-6 rounded-[2.5rem] bg-white border flex items-center justify-between active:bg-slate-50 cursor-pointer group transition-all">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 bg-rose-50 text-brand-red rounded-2xl flex items-center justify-center shadow-inner"><Icon name={x.icon} size={22} /></div>
+                                            <div><p className="text-[10px] font-black text-slate-400 uppercase mb-1">Guide</p><h3 className="text-sm font-black text-slate-800">{x.l}</h3></div>
+                                        </div>
+                                        <Icon name="chevron-right" size={18} className="text-slate-300 group-active:text-brand-red" />
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     );
                     case 'benefits': return (
                         <div className="p-4 space-y-4 page-enter text-left">
                             <BackButton onClick={()=>setCurrentPage('home')} title="薪資福利" />
-                            <SectionItem title="員工考核標準" iconName="clipboard-check" onClick={()=>setCurrentPage('benefit-eval')} />
-                            <SectionItem title="公司福利制度" iconName="gift" onClick={()=>setCurrentPage('benefit-welfare')} />
+                            <SectionItem title="考核加給標準" iconName="coins" onClick={()=>setCurrentPage('benefit-eval')} />
+                            <SectionItem title="員工相關福利" iconName="heart" onClick={()=>setCurrentPage('benefit-wel')} />
                         </div>
                     );
-                    case 'benefit-eval': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="員工考核標準" list={benefitsData?.evaluation} />;
-                    case 'benefit-welfare': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="公司福利制度" list={benefitsData?.welfare} />;
+                    case 'benefit-eval': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="考核標準" list={benefitsData?.evaluation} />;
+                    case 'benefit-wel': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="福利項目" list={benefitsData?.welfare} />;
                     case 'admin': return <AdminPage onBack={()=>setCurrentPage('home')} onLogout={logout} announcements={announcements} standards={standards} users={users} triggerNotify={triggerNotify} menu={menuData} onboarding={onboardingData} benefits={benefitsData} rulesData={rulesData} isSuperAdmin={isSuperAdmin} currentBranch={currentBranch} setCurrentBranch={setCurrentBranch} globalBranches={globalBranches} branchZones={branchZones} getPublicPath={getPublicPath} signatures={signatures} tickerText={tickerText} setTickerText={setTickerText} globalRecipes={globalRecipes} />;
-                    default: return <div className="p-10 text-center text-slate-400 font-bold">頁面開發中... <button onClick={()=>setCurrentPage('home')} className="block w-full mt-4 text-brand-red">返回首頁</button></div>;
+                    default: return <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><Icon name="loader-2" className="animate-spin text-brand-red" size={32}/> 系統啟動中...</div>;
                 }
             };
 
-            if (!fbReady) return <div className="flex h-screen items-center justify-center bg-slate-50"><div className="animate-spin text-brand-red"><Icon name="loader-2" size={32}/></div></div>;
-            if (currentPage === 'auth') return <AuthPage users={users} setCurrentUser={setCurrentUser} setCurrentPage={setCurrentPage} setIsManager={setIsManager} setIsSuperAdmin={setIsSuperAdmin} setCurrentBranch={setCurrentBranch} globalBranches={globalBranches} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />;
-            
             return (
-                <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-16 relative">
-                    {/* Header */}
-                    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-slate-200/50 shadow-sm flex items-center justify-between px-5 py-4">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-brand-red text-white p-2 rounded-xl shadow-lg shadow-brand-red/20">
-                                <ChefHatIcon size={20} />
-                            </div>
-                            <div>
-                                <h1 className="font-black text-lg text-slate-800 leading-none tracking-tight">EATJOY<span className="text-brand-red">廚務</span></h1>
-                                <p className="text-[9px] font-bold text-slate-400 mt-0.5 uppercase tracking-widest">{currentBranch}</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            {currentUser && <div className="text-right"><p className="text-xs font-black text-slate-800 leading-tight">{currentUser.name}</p><p className="text-[9px] text-brand-red font-bold">{currentUser.role}</p></div>}
-                            <button onClick={() => setCurrentPage('admin')} className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center active:scale-90 transition-all border border-slate-200 text-slate-600 shadow-sm">
-                                <Icon name="settings" size={18} />
-                            </button>
-                        </div>
-                    </header>
+                <div className="min-h-screen flex flex-col">
+                    <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[1000] w-full max-w-xs space-y-3 px-4">
+                        {notifications.map(n => (<div key={n.id} className={`toast-enter p-5 rounded-[2rem] shadow-2xl flex items-center gap-4 glass-panel border-l-4 ${n.type === 'success' ? 'border-l-emerald-500 text-emerald-700' : 'border-l-brand-red text-brand-red'}`}><Icon name={n.type === 'success' ? 'check-circle' : 'alert-triangle'} size={24} /><span className="font-bold text-xs leading-tight">{n.msg}</span></div>))}
+                    </div>
 
-                    {/* Main Content */}
-                    <main className="relative z-10">
-                        {renderPage()}
-                        
-                        {/* 浮動通知 */}
-                        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] flex flex-col gap-2 w-full max-w-sm px-4 pointer-events-none">
-                            {notifications.map(n => (
-                                <div key={n.id} className={`toast-enter px-5 py-3.5 rounded-2xl shadow-xl font-black text-sm flex items-center gap-3 border ${n.type === 'error' ? 'bg-rose-500 text-white border-rose-600 shadow-rose-500/20' : n.type === 'success' ? 'bg-emerald-500 text-white border-emerald-600 shadow-emerald-500/20' : 'bg-slate-800 text-white border-slate-900 shadow-slate-800/20'}`}>
-                                    <Icon name={n.type === 'error' ? 'alert-circle' : n.type === 'success' ? 'check-circle' : 'info'} size={18} />
-                                    {n.msg}
+                    {currentPage !== 'auth' && (
+                        <header className="p-5 sticky top-0 z-50 flex justify-between items-center bg-white/80 backdrop-blur-md border-b">
+                            <div className="flex items-center gap-3 cursor-pointer shrink-0" onClick={() => (isManager || currentUser?.status === 'approved') && setCurrentPage('home')}>
+                                <div className="bg-brand-red w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg shrink-0 font-black text-xl leading-none">
+                                    饗
                                 </div>
-                            ))}
-                        </div>
-
-                        {/* 公告彈出視窗 */}
+                                <div>
+                                    <span className="font-black text-xl text-slate-800 tracking-tighter leading-none block">EATJOY <span className="text-brand-red">OS</span></span>
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase">{currentBranch}</span>
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={() => isManager ? setCurrentPage('admin') : (currentUser?.status === 'approved' && setCurrentPage('home'))} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap ${isSuperAdmin ? 'bg-brand-red text-white' : (isManager ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}`}>
+                                    <Icon name={isManager ? "settings" : "bell"} size={16} />
+                                    {isManager ? "後台" : "通知"}
+                                </button>
+                                {(currentUser || isManager) && (
+                                    <button onClick={logout} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-rose-50 text-brand-red border border-rose-100 active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap">
+                                        <Icon name="log-out" size={16} />
+                                        登出
+                                    </button>
+                                )}
+                            </div>
+                        </header>
+                    )}
+                    <main className={`flex-grow mx-auto w-full font-bold ${currentPage === 'schedule' ? 'max-w-[1600px] px-2' : 'max-w-lg'}`}>
+                        {!fbReady ? <div className="p-20 text-center h-screen flex flex-col items-center justify-center gap-4 font-bold"><Icon name="loader-2" className="animate-spin text-brand-red" size={48}/><p className="text-slate-400 font-black text-xs">連線中...</p></div>
+                        : (!isManager && !currentUser) ? <AuthPage users={users} setCurrentUser={setCurrentUser} setCurrentPage={setCurrentPage} setIsManager={setIsManager} setIsSuperAdmin={setIsSuperAdmin} setCurrentBranch={setCurrentBranch} globalBranches={globalBranches} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />
+                        : (isManager || currentUser?.status === 'approved') ? renderPage() : (
+                            <div className="p-10 pt-32 text-center h-screen space-y-8 font-bold">
+                                <div className="bg-white w-24 h-24 rounded-full flex items-center justify-center mx-auto shadow-lg"><Icon name="clock" size={48} className="text-brand-red animate-pulse" /></div>
+                                <div className="space-y-2 text-center px-4"><h3 className="text-2xl font-black text-slate-800">授權等待中</h3><p className="text-slate-500 text-sm">註冊申請已提交。請聯繫您的主管進行核准。</p></div>
+                                <button onClick={logout} className="text-slate-400 font-bold border-b pb-1 text-sm">登出</button>
+                            </div>
+                        )}
+                        
+                        {/* 獨立公告彈出視窗 */}
                         {activeAnnouncement && (
                             <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 page-enter">
                                 <div className="bg-white rounded-[2.5rem] p-6 w-full max-w-sm shadow-2xl max-h-[85vh] overflow-y-auto font-bold text-left">
