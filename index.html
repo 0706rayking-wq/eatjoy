@@ -954,7 +954,7 @@
             const [role, setRole] = useState('正職人員'); 
             const [mode, setMode] = useState('login'); 
             const [adminPass, setAdminPass] = useState('');
-            const [branch, setBranch] = useState(globalBranches[0] || '南港旗艦店');
+            const [branch, setBranch] = useState(globalBranches[0] || '南港Lalaport');
 
             useEffect(() => {
                 if(globalBranches.length > 0 && !globalBranches.includes(branch)) setBranch(globalBranches[0]);
@@ -2954,8 +2954,8 @@
             const [activeAnnouncement, setActiveAnnouncement] = useState(null);
             
             // 全域資料
-            const [globalBranches, setGlobalBranches] = useState(['南港旗艦店', '信義本店']);
-            const [currentBranch, setCurrentBranch] = useState('南港旗艦店');
+            const [globalBranches, setGlobalBranches] = useState(['南港Lalaport']);
+            const [currentBranch, setCurrentBranch] = useState('南港Lalaport');
             const [branchZones, setBranchZones] = useState([]);
             const [announcements, setAnnouncements] = useState([]);
             const [tickerText, setTickerText] = useState('');
