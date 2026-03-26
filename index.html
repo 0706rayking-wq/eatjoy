@@ -223,7 +223,7 @@
                 "Layers": "layers", "Filter": "filter", "Building2": "building-2", "LayoutGrid": "layout-grid", "Edit": "edit-3",
                 "Chart": "bar-chart-3", "History": "history", "Carrot": "carrot", "Fish": "fish", "Soup": "soup",
                 "UtensilsCrossed": "utensils-crossed", "IceCream": "ice-cream", "Coffee": "coffee", "Timer": "timer",
-                "Calendar": "calendar", "Image": "image"
+                "Calendar": "calendar"
             };
             return <Icon name={symbols[name] || "help-circle"} className={className} />;
         };
@@ -1387,28 +1387,38 @@
                 return 'bg-slate-100 text-slate-800 font-bold';
             }, [getHolidayData]);
 
-            // 存為圖片功能
+            // 存為圖片功能 (已優化輸入框破圖問題)
             const handleDownloadImage = async () => {
                 if (!tableRef.current) return;
+                
+                // 進入下載模式，此時 React 會將 <input> 替換成乾淨的 <div>，避免 html2canvas 破圖
                 setIsDownloading(true);
-                triggerNotify("正在產生圖片，請稍候...", "info");
-                try {
-                    const canvas = await window.html2canvas(tableRef.current, {
-                        scale: 2, // 提高畫質
-                        useCORS: true,
-                        backgroundColor: '#ffffff'
-                    });
-                    const imgData = canvas.toDataURL('image/jpeg', 0.9);
-                    const link = document.createElement('a');
-                    link.download = `${currentBranch}-${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月班表.jpg`;
-                    link.href = imgData;
-                    link.click();
-                    triggerNotify("班表圖片下載成功！", "success");
-                } catch (error) {
-                    console.error("下載圖片失敗", error);
-                    triggerNotify("下載圖片失敗，請稍後再試", "error");
-                }
-                setIsDownloading(false);
+                triggerNotify("正在產生高畫質圖片，請稍候...", "info");
+                
+                // 延遲執行，讓 React 有時間重新渲染畫面 (將 input 切換為 div)
+                setTimeout(async () => {
+                    try {
+                        const canvas = await window.html2canvas(tableRef.current, {
+                            scale: 2, // 提高畫質
+                            useCORS: true,
+                            backgroundColor: '#ffffff',
+                            windowWidth: tableRef.current.scrollWidth, // 確保抓到完整寬度
+                            windowHeight: tableRef.current.scrollHeight
+                        });
+                        const imgData = canvas.toDataURL('image/jpeg', 0.9);
+                        const link = document.createElement('a');
+                        link.download = `${currentBranch}-${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月班表.jpg`;
+                        link.href = imgData;
+                        link.click();
+                        triggerNotify("班表圖片下載成功！", "success");
+                    } catch (error) {
+                        console.error("下載圖片失敗", error);
+                        triggerNotify("下載圖片失敗，請稍後再試", "error");
+                    } finally {
+                        // 恢復編輯模式
+                        setIsDownloading(false);
+                    }
+                }, 300);
             };
 
             const handlePrint = () => {
@@ -1614,9 +1624,9 @@
                                     <table className="w-full border-collapse min-w-max text-xs select-none">
                                         <thead>
                                             <tr>
-                                                <th colSpan={3} className="bg-emerald-100 border border-slate-500 p-2 text-base font-black tracking-widest sticky left-0 top-0 z-[60] shadow-sm" style={{ height: '40px' }}>{currentDate.getMonth() + 1}月</th>
+                                                <th colSpan={3} className="bg-emerald-100 border border-slate-500 p-2 text-lg font-black tracking-widest sticky left-0 top-0 z-[60] shadow-sm" style={{ height: '40px' }}>{currentDate.getMonth() + 1}月</th>
                                                 {daysInMonth.map(day => (
-                                                    <th key={`date-${day.dateNum}`} className={`border border-slate-500 p-1 text-center font-bold w-8 sticky top-0 z-[50] shadow-sm ${getHeaderBg(day.dateString, day.isWeekend)}`} style={{ height: '40px' }}>{day.dateNum}</th>
+                                                    <th key={`date-${day.dateNum}`} className={`border border-slate-500 p-1 text-center font-black text-base w-8 sticky top-0 z-[50] shadow-sm ${getHeaderBg(day.dateString, day.isWeekend)}`} style={{ height: '40px' }}>{day.dateNum}</th>
                                                 ))}
                                             </tr>
                                             <tr>
@@ -1660,26 +1670,44 @@
                                                 return (
                                                 <tr 
                                                     key={staff.id} 
-                                                    draggable={isManager}
+                                                    draggable={isManager && !isDownloading}
                                                     onDragStart={() => handleDragStart(staff.id)}
                                                     onDragOver={(e) => handleDragOver(e, staff.id)}
                                                     onDragEnd={handleDragEnd}
-                                                    className={`${isManager ? 'group cursor-grab active:cursor-grabbing' : ''} ${isDragging ? 'opacity-40' : ''} ${isOver ? 'border-y-2 border-brand-red shadow-sm relative z-20' : ''}`}
+                                                    className={`${isManager && !isDownloading ? 'group cursor-grab active:cursor-grabbing' : ''} ${isDragging ? 'opacity-40' : ''} ${isOver ? 'border-y-2 border-brand-red shadow-sm relative z-20' : ''}`}
                                                 >
                                                     <td className={`border border-slate-500 p-0 sticky left-0 z-[30] transition-colors`} style={getTitleColorStyle(staff.title)}>
                                                         <div className="flex items-center h-full">
-                                                            {isManager && <div className="pl-1 opacity-50 shrink-0"><Icon name="grip-vertical" size={14} /></div>}
-                                                            <SyncInput value={staff.title} onChange={(val) => updateStaffInfo(staff.id, 'title', val)} readOnly={!isManager} className={`w-full h-full py-2 pr-1 ${isManager ? 'pl-1' : 'pl-2'} bg-transparent text-center outline-none font-bold ${isManager ? '' : 'cursor-default'}`} />
+                                                            {isManager && !isDownloading && <div className="pl-1 opacity-50 shrink-0"><Icon name="grip-vertical" size={14} /></div>}
+                                                            {isDownloading ? (
+                                                                <div className={`w-full h-full py-2 pr-1 flex items-center justify-center font-bold tracking-widest ${isManager ? 'pl-1' : 'pl-2'}`}>
+                                                                    {staff.title}
+                                                                </div>
+                                                            ) : (
+                                                                <SyncInput value={staff.title} onChange={(val) => updateStaffInfo(staff.id, 'title', val)} readOnly={!isManager} className={`w-full h-full py-2 pr-1 ${isManager ? 'pl-1' : 'pl-2'} bg-transparent text-center outline-none font-bold ${isManager ? '' : 'cursor-default'}`} />
+                                                            )}
                                                         </div>
                                                     </td>
                                                     <td className={`border border-slate-500 p-0 sticky left-[76px] z-[30] bg-white group-hover:bg-blue-50 relative`}>
-                                                        <SyncInput value={staff.name} onChange={(val) => updateStaffInfo(staff.id, 'name', val)} readOnly={!isManager} className={`w-full h-full px-0.5 py-2 bg-transparent text-center font-black text-sm outline-none ${isManager ? 'text-slate-800' : 'text-slate-700 cursor-default'}`} />
-                                                        {isManager && <button onClick={() => removeStaff(staff.id)} className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 text-white bg-red-500 hover:bg-red-600 transition-opacity p-0.5 rounded-bl-lg shadow-sm z-10"><Icon name="x" size={10} /></button>}
+                                                        {isDownloading ? (
+                                                            <div className="w-full h-full px-0.5 py-2 flex items-center justify-center font-black text-sm text-slate-800 tracking-widest">
+                                                                {staff.name}
+                                                            </div>
+                                                        ) : (
+                                                            <SyncInput value={staff.name} onChange={(val) => updateStaffInfo(staff.id, 'name', val)} readOnly={!isManager} className={`w-full h-full px-0.5 py-2 bg-transparent text-center font-black text-sm outline-none ${isManager ? 'text-slate-800' : 'text-slate-700 cursor-default'}`} />
+                                                        )}
+                                                        {isManager && !isDownloading && <button onClick={() => removeStaff(staff.id)} className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 text-white bg-red-500 hover:bg-red-600 transition-opacity p-0.5 rounded-bl-lg shadow-sm z-10"><Icon name="x" size={10} /></button>}
                                                     </td>
-                                                    <td className="border border-slate-500 p-1 text-center font-black text-slate-700 bg-slate-100 sticky left-[152px] z-[30]">{calculateOffDays(staff.shifts)}</td>
+                                                    <td className="border border-slate-500 p-1 text-center font-black text-base text-slate-700 bg-slate-100 sticky left-[152px] z-[30]">{calculateOffDays(staff.shifts)}</td>
                                                     {daysInMonth.map(day => (
                                                         <td key={`${staff.id}-${day.dateNum}`} className={`border border-slate-500 p-0 relative ${getCellBg(day.dateString, day.isWeekend)}`}>
-                                                            <SyncInput value={(staff.shifts || {})[day.dateString] || ''} onChange={(val) => updateShift(staff.id, day.dateString, val.toUpperCase())} readOnly={!isManager} className={`w-full h-8 text-center bg-transparent outline-none font-black uppercase text-[11px] ${isManager ? 'focus:bg-yellow-100 focus:ring-1 focus:ring-blue-400 text-slate-800' : 'text-slate-700 cursor-default'}`} maxLength={4} />
+                                                            {isDownloading ? (
+                                                                <div className="w-full h-8 flex items-center justify-center font-black uppercase text-sm text-slate-800">
+                                                                    {(staff.shifts || {})[day.dateString] || ''}
+                                                                </div>
+                                                            ) : (
+                                                                <SyncInput value={(staff.shifts || {})[day.dateString] || ''} onChange={(val) => updateShift(staff.id, day.dateString, val.toUpperCase())} readOnly={!isManager} className={`w-full h-8 text-center bg-transparent outline-none font-black uppercase text-sm ${isManager ? 'focus:bg-yellow-100 focus:ring-1 focus:ring-blue-400 text-slate-800' : 'text-slate-700 cursor-default'}`} maxLength={4} />
+                                                            )}
                                                         </td>
                                                     ))}
                                                 </tr>
@@ -1688,16 +1716,16 @@
                                         </tbody>
                                         <tfoot className="font-bold text-[10px] sticky bottom-0 z-[40] shadow-[0_-4px_10px_rgba(0,0,0,0.15)]">
                                             <tr>
-                                                <td colSpan={3} className="border border-slate-500 p-2 text-right bg-orange-50 text-orange-800 sticky left-0 z-[60]">早班總人數 (含全天)</td>
-                                                {daysInMonth.map(day => <td key={`morning-${day.dateNum}`} className="border border-slate-500 p-1 text-center bg-orange-50 text-orange-800 font-bold">{calculateDailyStats(day.dateString).morning || ''}</td>)}
+                                                <td colSpan={3} className="border border-slate-500 p-2 text-right bg-orange-50 text-orange-800 sticky left-0 z-[60] text-xs">早班總人數 (含全天)</td>
+                                                {daysInMonth.map(day => <td key={`morning-${day.dateNum}`} className="border border-slate-500 p-1 text-center bg-orange-50 text-orange-800 font-black text-base">{calculateDailyStats(day.dateString).morning || ''}</td>)}
                                             </tr>
                                             <tr>
-                                                <td colSpan={3} className="border border-slate-500 p-2 text-right bg-indigo-50 text-indigo-800 sticky left-0 z-[60]">晚班總人數 (含全天)</td>
-                                                {daysInMonth.map(day => <td key={`evening-${day.dateNum}`} className="border border-slate-500 p-1 text-center bg-indigo-50 text-indigo-800 font-bold">{calculateDailyStats(day.dateString).evening || ''}</td>)}
+                                                <td colSpan={3} className="border border-slate-500 p-2 text-right bg-indigo-50 text-indigo-800 sticky left-0 z-[60] text-xs">晚班總人數 (含全天)</td>
+                                                {daysInMonth.map(day => <td key={`evening-${day.dateNum}`} className="border border-slate-500 p-1 text-center bg-indigo-50 text-indigo-800 font-black text-base">{calculateDailyStats(day.dateString).evening || ''}</td>)}
                                             </tr>
                                             <tr>
-                                                <td colSpan={3} className="border border-slate-500 p-2 text-right bg-slate-800 text-white sticky left-0 z-[60] font-black">當日總上班人數</td>
-                                                {daysInMonth.map(day => <td key={`total-${day.dateNum}`} className="border border-slate-500 p-1 text-center bg-slate-800 text-white font-black">{calculateDailyStats(day.dateString).total || ''}</td>)}
+                                                <td colSpan={3} className="border border-slate-500 p-2 text-right bg-slate-800 text-white sticky left-0 z-[60] font-black text-xs">當日總上班人數</td>
+                                                {daysInMonth.map(day => <td key={`total-${day.dateNum}`} className="border border-slate-500 p-1 text-center bg-slate-800 text-white font-black text-base">{calculateDailyStats(day.dateString).total || ''}</td>)}
                                             </tr>
                                         </tfoot>
                                     </table>
