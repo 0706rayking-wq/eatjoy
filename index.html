@@ -1200,13 +1200,21 @@
             const updateMonthData = (updates) => {
                 if (!isManager) return;
                 const newMonths = { ...(scheduleData.months || {}) };
-                newMonths[monthKey] = {
+                const currentMonthData = {
                     staffList: staffList,
                     holidays: holidays,
                     ...(newMonths[monthKey] || {}),
                     ...updates
                 };
-                db.doc(getPublicPath(`schedules_data/branch_${currentBranch}`)).set({ months: newMonths }, { merge: true });
+                newMonths[monthKey] = currentMonthData;
+                
+                // 使用 update 覆寫該月份，解決 { merge: true } 無法刪除節日欄位的問題
+                const docRef = db.doc(getPublicPath(`schedules_data/branch_${currentBranch}`));
+                docRef.update({
+                    [`months.${monthKey}`]: currentMonthData
+                }).catch(() => {
+                    docRef.set({ months: newMonths }, { merge: true });
+                });
             };
 
             const setShiftRules = (newRules) => updateData({ shiftRules: newRules });
@@ -1577,7 +1585,12 @@
                                                     <button onClick={() => {
                                                         const newColors = {...roleColors};
                                                         delete newColors[role];
-                                                        updateData({ roleColors: newColors });
+                                                        // 避免 merge:true 無法刪除屬性，改用 update 覆寫
+                                                        db.doc(getPublicPath(`schedules_data/branch_${currentBranch}`)).update({
+                                                            roleColors: newColors
+                                                        }).catch(() => {
+                                                            updateData({ roleColors: newColors });
+                                                        });
                                                     }} className="text-slate-300 hover:text-red-500"><Icon name="x" size={14} /></button>
                                                 )}
                                             </div>
@@ -2528,6 +2541,10 @@
                                         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300"><OrderSymbolIcon name="Search" /></div>
                                         <input 
                                             type="text" 
+                                            placeholder="搜尋並選擇食材檢視報表..." 
+                                            value={analyticsSearch} 
+                                            onChange={e => {setAnalyticsSearch(e.target.value); setSelectedItemName('');}} 
+                                            className="w-full bg-slate-50 rounded-xl py-3 pl-10 pr-4 text-sm font-bold outline-none border border-slate-100
                                             placeholder="搜尋並選擇食材檢視報表..." 
                                             value={analyticsSearch} 
                                             onChange={e => {setAnalyticsSearch(e.target.value); setSelectedItemName('');}} 
