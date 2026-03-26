@@ -116,6 +116,9 @@
         
         /* 班表系統專用樣式 */
         .writing-vertical-lr { writing-mode: vertical-lr; }
+        
+        /* 解決 iOS 滾動卡頓與截圖問題的樣式 */
+        .custom-scrollbar { -webkit-overflow-scrolling: touch; }
         .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; border-radius: 8px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 8px; border: 2px solid #f8fafc; }
@@ -223,7 +226,7 @@
                 "Layers": "layers", "Filter": "filter", "Building2": "building-2", "LayoutGrid": "layout-grid", "Edit": "edit-3",
                 "Chart": "bar-chart-3", "History": "history", "Carrot": "carrot", "Fish": "fish", "Soup": "soup",
                 "UtensilsCrossed": "utensils-crossed", "IceCream": "ice-cream", "Coffee": "coffee", "Timer": "timer",
-                "Calendar": "calendar"
+                "Calendar": "calendar", "Image": "image", "Download": "download"
             };
             return <Icon name={symbols[name] || "help-circle"} className={className} />;
         };
@@ -1141,7 +1144,11 @@
 
             const [draggedStaffId, setDraggedStaffId] = useState(null);
             const [overStaffId, setOverStaffId] = useState(null);
+            
+            // 產生高畫質下載預覽視窗狀態
             const [isDownloading, setIsDownloading] = useState(false);
+            const [previewImage, setPreviewImage] = useState(null);
+            
             const tableRef = useRef(null);
 
             // 同步該分店的班表資料
@@ -1387,38 +1394,55 @@
                 return 'bg-slate-100 text-slate-800 font-bold';
             }, [getHolidayData]);
 
-            // 存為圖片功能 (已優化輸入框破圖問題)
+            // 存為圖片功能 (進階修正：確保不裁切與防破圖)
             const handleDownloadImage = async () => {
                 if (!tableRef.current) return;
                 
-                // 進入下載模式，此時 React 會將 <input> 替換成乾淨的 <div>，避免 html2canvas 破圖
                 setIsDownloading(true);
-                triggerNotify("正在產生高畫質圖片，請稍候...", "info");
+                triggerNotify("正在展開表格並準備拍攝，請稍候...", "info");
                 
-                // 延遲執行，讓 React 有時間重新渲染畫面 (將 input 切換為 div)
+                // 給 React 一點時間將輸入框 (input) 轉換為純文字 (div)，避免字體偏移
                 setTimeout(async () => {
+                    const target = tableRef.current;
+                    const parent = target.parentElement;
+                    
+                    // 暫存原本的佈局樣式
+                    const originalOverflow = parent.style.overflow;
+                    const originalWidth = parent.style.width;
+                    const originalPosition = parent.style.position;
+                    
+                    // 強制完全展開容器，避免 html2canvas 裁切可視範圍以外的內容
+                    parent.style.overflow = 'visible';
+                    parent.style.width = 'max-content';
+                    parent.style.position = 'static';
+                    
                     try {
-                        const canvas = await window.html2canvas(tableRef.current, {
-                            scale: 2, // 提高畫質
+                        const canvas = await window.html2canvas(target, {
+                            scale: 2, 
                             useCORS: true,
                             backgroundColor: '#ffffff',
-                            windowWidth: tableRef.current.scrollWidth, // 確保抓到完整寬度
-                            windowHeight: tableRef.current.scrollHeight
+                            width: target.scrollWidth,
+                            height: target.scrollHeight,
+                            windowWidth: target.scrollWidth,
+                            windowHeight: target.scrollHeight
                         });
+
                         const imgData = canvas.toDataURL('image/jpeg', 0.9);
-                        const link = document.createElement('a');
-                        link.download = `${currentBranch}-${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月班表.jpg`;
-                        link.href = imgData;
-                        link.click();
-                        triggerNotify("班表圖片下載成功！", "success");
+                        
+                        // 開啟預覽對話框，提供手機端安全長按儲存
+                        setPreviewImage(imgData);
+                        triggerNotify("班表截圖成功！", "success");
                     } catch (error) {
-                        console.error("下載圖片失敗", error);
+                        console.error("產生圖片失敗", error);
                         triggerNotify("下載圖片失敗，請稍後再試", "error");
                     } finally {
-                        // 恢復編輯模式
+                        // 恢復所有原始樣式與編輯模式
+                        parent.style.overflow = originalOverflow;
+                        parent.style.width = originalWidth;
+                        parent.style.position = originalPosition;
                         setIsDownloading(false);
                     }
-                }, 300);
+                }, 500);
             };
 
             const handlePrint = () => {
@@ -1619,31 +1643,31 @@
                                 <button onClick={() => changeMonth(1)} className="p-2 bg-white rounded-xl shadow-sm active:scale-90 transition-all text-slate-600 border border-slate-300"><Icon name="chevron-right" size={18} /></button>
                             </div>
 
-                            <div className="overflow-x-auto overflow-y-visible custom-scrollbar bg-white relative pb-2">
-                                <div ref={tableRef} className="inline-block min-w-full bg-white">
+                            <div className={`w-full custom-scrollbar bg-white ${isDownloading ? 'overflow-visible' : 'max-h-[75vh] overflow-auto'}`} style={{ WebkitOverflowScrolling: 'touch' }}>
+                                <div ref={tableRef} data-table-container="true" className="w-max min-w-full bg-white relative">
                                     <table className="w-full border-collapse min-w-max text-xs select-none">
                                         <thead>
                                             <tr>
-                                                <th colSpan={3} className="bg-emerald-100 border border-slate-500 p-2 text-lg font-black tracking-widest sticky left-0 top-0 z-[60] shadow-sm" style={{ height: '40px' }}>{currentDate.getMonth() + 1}月</th>
+                                                <th colSpan={3} className={`bg-emerald-100 border border-slate-500 p-2 text-lg font-black tracking-widest ${isDownloading ? '' : 'sticky left-0 top-0 z-[60] shadow-sm'}`} style={{ height: '40px' }}>{currentDate.getMonth() + 1}月</th>
                                                 {daysInMonth.map(day => (
-                                                    <th key={`date-${day.dateNum}`} className={`border border-slate-500 p-1 text-center font-black text-base w-8 sticky top-0 z-[50] shadow-sm ${getHeaderBg(day.dateString, day.isWeekend)}`} style={{ height: '40px' }}>{day.dateNum}</th>
+                                                    <th key={`date-${day.dateNum}`} className={`border border-slate-500 p-1 text-center font-black text-base w-9 ${getHeaderBg(day.dateString, day.isWeekend)} ${isDownloading ? '' : 'sticky top-0 z-[50] shadow-sm'}`} style={{ height: '40px' }}>{day.dateNum}</th>
                                                 ))}
                                             </tr>
                                             <tr>
-                                                <th className="bg-emerald-500 border border-slate-500 p-1 w-[76px] sticky left-0 z-[60] text-white font-black shadow-sm" style={{ top: '40px', height: '40px' }}>職稱</th>
-                                                <th className="bg-emerald-500 border border-slate-500 p-1 w-[76px] sticky left-[76px] z-[60] text-white font-black shadow-sm" style={{ top: '40px', height: '40px' }}>姓名</th>
-                                                <th className="bg-emerald-500 border border-slate-500 p-1 w-[36px] text-[10px] leading-tight sticky left-[152px] z-[60] text-white font-black shadow-sm" style={{ top: '40px', height: '40px' }}>休假<br/>天數</th>
+                                                <th className={`bg-emerald-500 border border-slate-500 p-1 w-[76px] text-white font-black ${isDownloading ? '' : 'sticky left-0 z-[60] shadow-sm'}`} style={{ height: '40px', ...(isDownloading ? {} : { top: '40px' }) }}>職稱</th>
+                                                <th className={`bg-emerald-500 border border-slate-500 p-1 w-[80px] text-white font-black ${isDownloading ? '' : 'sticky left-[76px] z-[60] shadow-sm'}`} style={{ height: '40px', ...(isDownloading ? {} : { top: '40px' }) }}>姓名</th>
+                                                <th className={`bg-emerald-500 border border-slate-500 p-1 w-[40px] text-xs leading-tight text-white font-black ${isDownloading ? '' : 'sticky left-[156px] z-[60] shadow-sm'}`} style={{ height: '40px', ...(isDownloading ? {} : { top: '40px' }) }}>休假<br/>天數</th>
                                                 {daysInMonth.map(day => (
-                                                    <th key={`day-${day.dateNum}`} className={`border border-slate-500 p-1 text-center sticky z-[50] shadow-sm ${getHeaderBg(day.dateString, day.isWeekend)}`} style={{ top: '40px', height: '40px' }}>{day.dayOfWeek}</th>
+                                                    <th key={`day-${day.dateNum}`} className={`border border-slate-500 p-1 text-center font-bold text-sm ${getHeaderBg(day.dateString, day.isWeekend)} ${isDownloading ? '' : 'sticky z-[50] shadow-sm'}`} style={{ height: '40px', ...(isDownloading ? {} : { top: '40px' }) }}>{day.dayOfWeek}</th>
                                                 ))}
                                             </tr>
                                             <tr>
-                                                <th colSpan={3} className="bg-white border border-slate-500 p-1 text-right text-[10px] text-slate-400 font-bold sticky left-0 z-[60] shadow-sm" style={{ top: '80px', height: '60px' }}>{isManager ? '特殊節日 (點擊設定) ➔' : '特殊節日 ➔'}</th>
+                                                <th colSpan={3} className={`bg-white border border-slate-500 p-1 text-right text-xs text-slate-400 font-bold ${isDownloading ? '' : 'sticky left-0 z-[60] shadow-sm'}`} style={{ height: '60px', ...(isDownloading ? {} : { top: '80px' }) }}>{isManager && !isDownloading ? '特殊節日 (點擊設定) ➔' : '特殊節日 ➔'}</th>
                                                 {daysInMonth.map(day => {
                                                     const h = getHolidayData(day.dateString);
                                                     return (
-                                                        <th key={`holiday-${day.dateNum}`} onClick={(e) => { e.stopPropagation(); openHolidayEdit(day.dateString); }} className={`border border-slate-500 p-0 text-center align-top relative sticky z-[50] shadow-sm ${isManager ? 'cursor-pointer hover:bg-yellow-50' : ''} ${getCellBg(day.dateString, day.isWeekend)}`} style={{ top: '80px', height: '60px' }}>
-                                                            {isManager && selectedCell?.type === 'holiday' && selectedCell?.date === day.dateString ? (
+                                                        <th key={`holiday-${day.dateNum}`} onClick={(e) => { e.stopPropagation(); openHolidayEdit(day.dateString); }} className={`border border-slate-500 p-0 text-center align-top relative ${getCellBg(day.dateString, day.isWeekend)} ${isDownloading ? '' : 'sticky z-[50] shadow-sm'}`} style={{ height: '60px', ...(isDownloading ? {} : { top: '80px' }) }}>
+                                                            {isManager && !isDownloading && selectedCell?.type === 'holiday' && selectedCell?.date === day.dateString ? (
                                                                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[140px] z-[100] bg-white border-2 border-slate-300 shadow-2xl p-2 rounded-xl flex flex-col gap-2" onClick={e=>e.stopPropagation()}>
                                                                     <input autoFocus type="text" value={holidayInputText} onChange={(e) => setHolidayInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveHoliday(day.dateString)} className="w-full text-xs border border-slate-200 rounded p-1.5 outline-none font-bold text-slate-800 text-center" placeholder="節日或備註" />
                                                                     <label className="flex items-center justify-center gap-1.5 text-[10px] text-slate-600 cursor-pointer bg-slate-50 py-1.5 rounded border border-slate-100">
@@ -1676,11 +1700,11 @@
                                                     onDragEnd={handleDragEnd}
                                                     className={`${isManager && !isDownloading ? 'group cursor-grab active:cursor-grabbing' : ''} ${isDragging ? 'opacity-40' : ''} ${isOver ? 'border-y-2 border-brand-red shadow-sm relative z-20' : ''}`}
                                                 >
-                                                    <td className={`border border-slate-500 p-0 sticky left-0 z-[30] transition-colors`} style={getTitleColorStyle(staff.title)}>
+                                                    <td className={`border border-slate-500 p-0 transition-colors ${isDownloading ? '' : 'sticky left-0 z-[30]'}`} style={getTitleColorStyle(staff.title)}>
                                                         <div className="flex items-center h-full">
                                                             {isManager && !isDownloading && <div className="pl-1 opacity-50 shrink-0"><Icon name="grip-vertical" size={14} /></div>}
                                                             {isDownloading ? (
-                                                                <div className={`w-full h-full py-2 pr-1 flex items-center justify-center font-bold tracking-widest ${isManager ? 'pl-1' : 'pl-2'}`}>
+                                                                <div className={`w-full h-full min-h-[36px] flex items-center justify-center text-[11px] font-bold tracking-widest ${isManager ? 'pl-1' : 'pl-2'}`}>
                                                                     {staff.title}
                                                                 </div>
                                                             ) : (
@@ -1688,9 +1712,9 @@
                                                             )}
                                                         </div>
                                                     </td>
-                                                    <td className={`border border-slate-500 p-0 sticky left-[76px] z-[30] bg-white group-hover:bg-blue-50 relative`}>
+                                                    <td className={`border border-slate-500 p-0 bg-white group-hover:bg-blue-50 relative ${isDownloading ? '' : 'sticky left-[76px] z-[30]'}`}>
                                                         {isDownloading ? (
-                                                            <div className="w-full h-full px-0.5 py-2 flex items-center justify-center font-black text-sm text-slate-800 tracking-widest">
+                                                            <div className="w-full h-full min-h-[36px] px-0.5 flex items-center justify-center font-black text-sm text-slate-800 tracking-widest">
                                                                 {staff.name}
                                                             </div>
                                                         ) : (
@@ -1698,15 +1722,15 @@
                                                         )}
                                                         {isManager && !isDownloading && <button onClick={() => removeStaff(staff.id)} className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 text-white bg-red-500 hover:bg-red-600 transition-opacity p-0.5 rounded-bl-lg shadow-sm z-10"><Icon name="x" size={10} /></button>}
                                                     </td>
-                                                    <td className="border border-slate-500 p-1 text-center font-black text-base text-slate-700 bg-slate-100 sticky left-[152px] z-[30]">{calculateOffDays(staff.shifts)}</td>
+                                                    <td className={`border border-slate-500 p-1 text-center font-black text-lg text-slate-700 bg-slate-100 ${isDownloading ? '' : 'sticky left-[156px] z-[30]'}`}>{calculateOffDays(staff.shifts)}</td>
                                                     {daysInMonth.map(day => (
                                                         <td key={`${staff.id}-${day.dateNum}`} className={`border border-slate-500 p-0 relative ${getCellBg(day.dateString, day.isWeekend)}`}>
                                                             {isDownloading ? (
-                                                                <div className="w-full h-8 flex items-center justify-center font-black uppercase text-sm text-slate-800">
+                                                                <div className="w-full h-full min-h-[36px] flex items-center justify-center font-black uppercase text-[14px] text-slate-800">
                                                                     {(staff.shifts || {})[day.dateString] || ''}
                                                                 </div>
                                                             ) : (
-                                                                <SyncInput value={(staff.shifts || {})[day.dateString] || ''} onChange={(val) => updateShift(staff.id, day.dateString, val.toUpperCase())} readOnly={!isManager} className={`w-full h-8 text-center bg-transparent outline-none font-black uppercase text-sm ${isManager ? 'focus:bg-yellow-100 focus:ring-1 focus:ring-blue-400 text-slate-800' : 'text-slate-700 cursor-default'}`} maxLength={4} />
+                                                                <SyncInput value={(staff.shifts || {})[day.dateString] || ''} onChange={(val) => updateShift(staff.id, day.dateString, val.toUpperCase())} readOnly={!isManager} className={`w-full h-[36px] text-center bg-transparent outline-none font-black uppercase text-[14px] ${isManager ? 'focus:bg-yellow-100 focus:ring-1 focus:ring-blue-400 text-slate-800' : 'text-slate-700 cursor-default'}`} maxLength={4} />
                                                             )}
                                                         </td>
                                                     ))}
@@ -1714,18 +1738,18 @@
                                                 );
                                             })}
                                         </tbody>
-                                        <tfoot className="font-bold text-[10px] sticky bottom-0 z-[40] shadow-[0_-4px_10px_rgba(0,0,0,0.15)]">
+                                        <tfoot className={`font-bold text-[10px] ${isDownloading ? '' : 'sticky bottom-0 z-[40] shadow-[0_-4px_10px_rgba(0,0,0,0.15)]'}`}>
                                             <tr>
-                                                <td colSpan={3} className="border border-slate-500 p-2 text-right bg-orange-50 text-orange-800 sticky left-0 z-[60] text-xs">早班總人數 (含全天)</td>
-                                                {daysInMonth.map(day => <td key={`morning-${day.dateNum}`} className="border border-slate-500 p-1 text-center bg-orange-50 text-orange-800 font-black text-base">{calculateDailyStats(day.dateString).morning || ''}</td>)}
+                                                <td colSpan={3} className={`border border-slate-500 p-2 text-right bg-orange-50 text-orange-800 text-sm ${isDownloading ? '' : 'sticky left-0 z-[60]'}`}>早班總人數 (含全天)</td>
+                                                {daysInMonth.map(day => <td key={`morning-${day.dateNum}`} className="border border-slate-500 p-1 text-center bg-orange-50 text-orange-800 font-black text-lg">{calculateDailyStats(day.dateString).morning || ''}</td>)}
                                             </tr>
                                             <tr>
-                                                <td colSpan={3} className="border border-slate-500 p-2 text-right bg-indigo-50 text-indigo-800 sticky left-0 z-[60] text-xs">晚班總人數 (含全天)</td>
-                                                {daysInMonth.map(day => <td key={`evening-${day.dateNum}`} className="border border-slate-500 p-1 text-center bg-indigo-50 text-indigo-800 font-black text-base">{calculateDailyStats(day.dateString).evening || ''}</td>)}
+                                                <td colSpan={3} className={`border border-slate-500 p-2 text-right bg-indigo-50 text-indigo-800 text-sm ${isDownloading ? '' : 'sticky left-0 z-[60]'}`}>晚班總人數 (含全天)</td>
+                                                {daysInMonth.map(day => <td key={`evening-${day.dateNum}`} className="border border-slate-500 p-1 text-center bg-indigo-50 text-indigo-800 font-black text-lg">{calculateDailyStats(day.dateString).evening || ''}</td>)}
                                             </tr>
                                             <tr>
-                                                <td colSpan={3} className="border border-slate-500 p-2 text-right bg-slate-800 text-white sticky left-0 z-[60] font-black text-xs">當日總上班人數</td>
-                                                {daysInMonth.map(day => <td key={`total-${day.dateNum}`} className="border border-slate-500 p-1 text-center bg-slate-800 text-white font-black text-base">{calculateDailyStats(day.dateString).total || ''}</td>)}
+                                                <td colSpan={3} className={`border border-slate-500 p-2 text-right bg-slate-800 text-white font-black text-sm ${isDownloading ? '' : 'sticky left-0 z-[60]'}`}>當日總上班人數</td>
+                                                {daysInMonth.map(day => <td key={`total-${day.dateNum}`} className="border border-slate-500 p-1 text-center bg-slate-800 text-white font-black text-lg">{calculateDailyStats(day.dateString).total || ''}</td>)}
                                             </tr>
                                         </tfoot>
                                     </table>
@@ -1733,6 +1757,33 @@
                             </div>
                         </div>
                     </div>
+                    
+                    {/* 新增：高畫質圖片預覽 Modal，用於修復 iOS 無法直接下載的問題 */}
+                    {previewImage && (
+                        <div className="fixed inset-0 z-[100000] bg-slate-900/95 flex flex-col items-center justify-center p-4 sm:p-8 animate-in fade-in">
+                            <div className="w-full max-w-6xl flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
+                                <p className="text-white font-black text-sm bg-brand-red px-5 py-2.5 rounded-full shadow-lg text-center leading-relaxed">
+                                    💡 手機用戶請「長按圖片」選擇儲存至相簿
+                                </p>
+                                <button onClick={() => setPreviewImage(null)} className="text-white bg-slate-700 hover:bg-slate-600 px-6 py-2.5 rounded-full font-black shadow-lg transition-all active:scale-95 text-sm">
+                                    關閉預覽
+                                </button>
+                            </div>
+                            <div className="overflow-auto w-full max-w-6xl bg-white rounded-2xl shadow-2xl custom-scrollbar border-4 border-slate-800" style={{ maxHeight: 'calc(100vh - 180px)' }}>
+                                <img src={previewImage} alt="班表圖片預覽" className="w-max min-w-full" style={{ touchAction: 'pan-x pan-y' }} />
+                            </div>
+                            <div className="mt-6 flex justify-center w-full max-w-6xl">
+                                <button onClick={() => {
+                                    const link = document.createElement('a');
+                                    link.download = `${currentBranch}-${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月班表.jpg`;
+                                    link.href = previewImage;
+                                    link.click();
+                                }} className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3.5 rounded-2xl font-black shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all text-sm">
+                                    <Icon name="download" size={18} /> 電腦版點此下載圖片
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         };
