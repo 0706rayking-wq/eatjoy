@@ -122,6 +122,16 @@
         .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 8px; border: 2px solid #f8fafc; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
         th.sticky, td.sticky { background-clip: padding-box; } /* 防止 iOS Sticky 元素破圖 */
+
+        /* 隱藏數字輸入框上下箭頭 */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
     </style>
 </head>
 <body class="pb-12">
@@ -1108,6 +1118,34 @@
                     placeholder={placeholder}
                     autoFocus={autoFocus}
                 />
+            );
+        };
+        
+        // --- 叫貨專用數字輸入框 ---
+        const OrderQtyInput = ({ value, onChange, unit }) => {
+            const [localVal, setLocalVal] = useState(value || 0);
+            useEffect(() => { setLocalVal(value || 0); }, [value]);
+            
+            return (
+                <div className="w-12 text-center flex flex-col items-center justify-center">
+                    <input 
+                        type="number" 
+                        min="0"
+                        step="any"
+                        value={localVal === 0 || localVal === '0' ? '' : localVal} 
+                        onChange={(e) => setLocalVal(e.target.value)}
+                        onBlur={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            setLocalVal(val);
+                            if (val !== (value || 0)) onChange(val);
+                        }}
+                        onKeyDown={e => { if(e.key === 'Enter') e.target.blur(); }}
+                        placeholder="0"
+                        className={`w-full text-xl font-black text-center bg-transparent outline-none p-0 border-none m-0 h-6 ${(!localVal || localVal === 0) ? 'text-slate-300' : 'text-brand-red'}`}
+                        style={{ WebkitAppearance: 'none', margin: 0, MozAppearance: 'textfield' }}
+                    />
+                    <p className="text-[9px] text-slate-400 font-black leading-none mt-1">{unit}</p>
+                </div>
             );
         };
 
@@ -2430,6 +2468,22 @@
                 }
             };
 
+            // 用於處理數量更新，解決 1 跟 0 互跳的問題並即時寫入 DB
+            const handleQuantityChange = (itemId, newVal) => {
+                const val = Math.max(0, parseFloat(newVal) || 0);
+                // 1. 本地即時更新，讓 UI 馬上反應不會卡頓
+                setOrderQuantities(prev => ({ ...prev, [itemId]: val }));
+                
+                // 2. 針對性地寫入 Firebase 中 activeQuantities 的單一屬性，避免被覆寫掉
+                const docRef = db.doc(getPublicPath(`ordering/db_${selectedBranch}`));
+                docRef.update({
+                    [`activeQuantities.${itemId}`]: val
+                }).catch(() => {
+                    // 若 activeQuantities 尚未存在則初始化它
+                    docRef.set({ activeQuantities: { [itemId]: val } }, { merge: true });
+                });
+            };
+
             const Nav = ({ title, onBackAction, rightAction }) => (
                 <div className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 px-4 py-4 flex items-center justify-between shadow-sm">
                     <div className="flex items-center gap-3">
@@ -2557,22 +2611,11 @@
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2 bg-slate-100/50 p-1.5 rounded-3xl shrink-0 ml-4">
-                                                <button onClick={() => { 
-                                                    const cur = parseFloat(orderQuantities[item.id] || 0); 
-                                                    const newVal = Math.max(0, cur - 1);
-                                                    setOrderQuantities({ ...orderQuantities, [item.id]: newVal });
-                                                    db.doc(getPublicPath(`ordering/db_${selectedBranch}`)).set({ [`activeQuantities.${item.id}`]: newVal }, { merge: true });
-                                                }} className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center active-scale btn-touch text-slate-400 font-black text-2xl"><OrderSymbolIcon name="Minus" /></button>
-                                                <div className="w-10 text-center">
-                                                    <span className={`text-xl font-black ${qty === 0 ? 'text-slate-300' : 'text-brand-red'}`}>{qty}</span>
-                                                    <p className="text-[9px] text-slate-400 font-black">{item.unit}</p>
-                                                </div>
-                                                <button onClick={() => { 
-                                                    const cur = parseFloat(orderQuantities[item.id] || 0); 
-                                                    const newVal = cur + 1;
-                                                    setOrderQuantities({ ...orderQuantities, [item.id]: newVal });
-                                                    db.doc(getPublicPath(`ordering/db_${selectedBranch}`)).set({ [`activeQuantities.${item.id}`]: newVal }, { merge: true });
-                                                }} className="w-12 h-12 bg-brand-red rounded-2xl shadow-lg flex items-center justify-center text-white active-scale btn-touch font-black text-2xl"><OrderSymbolIcon name="Plus" /></button>
+                                                <button onClick={() => handleQuantityChange(item.id, qty - 1)} className="w-12 h-12 bg-white rounded-2xl shadow-sm flex items-center justify-center active-scale btn-touch text-slate-400 font-black text-2xl"><OrderSymbolIcon name="Minus" /></button>
+                                                
+                                                <OrderQtyInput value={qty} onChange={(val) => handleQuantityChange(item.id, val)} unit={item.unit} />
+                                                
+                                                <button onClick={() => handleQuantityChange(item.id, qty + 1)} className="w-12 h-12 bg-brand-red rounded-2xl shadow-lg flex items-center justify-center text-white active-scale btn-touch font-black text-2xl"><OrderSymbolIcon name="Plus" /></button>
                                             </div>
                                         </div>
                                     );
