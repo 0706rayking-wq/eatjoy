@@ -2431,7 +2431,7 @@
                     const dateStr = `${parseInt(m)}/${parseInt(d)}`;
                     Object.entries(groupedOrders).forEach(([vendor, items]) => {
                         let text = `${selectedBranch} ${dateStr}\n`;
-                        items.forEach(item => { text += `${item.name}${item.orderQty}${item.unit}\n`; });
+                        items.forEach(item => { text += `${item.name} ${item.orderQty}${item.unit}\n`; });
                         initialTexts[vendor] = text.trim();
                     });
                     setEditedOrderTexts(initialTexts);
