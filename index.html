@@ -969,7 +969,7 @@
             const [role, setRole] = useState('正職人員'); 
             const [mode, setMode] = useState('login'); 
             const [adminPass, setAdminPass] = useState('');
-            const [branch, setBranch] = useState(globalBranches[0] || '');
+            const [branch, setBranch] = useState(globalBranches[0] || '南港Lalaport');
 
             useEffect(() => {
                 if(globalBranches.length > 0 && !globalBranches.includes(branch)) setBranch(globalBranches[0]);
@@ -1824,9 +1824,6 @@
 
         // --- 進階菜單前台展示元件 ---
         const MenuDisplayPage = ({ onBack, items = [] }) => {
-            const [expandedCats, setExpandedCats] = useState(
-                MENU_CATEGORIES.reduce((acc, cat) => ({...acc, [cat]: true}), {})
-            );
             const [selectedRecipe, setSelectedRecipe] = useState(null);
 
             const groupedItems = useMemo(() => {
@@ -1838,6 +1835,20 @@
                 });
                 return groups;
             }, [items]);
+
+            // 過濾出「有菜色」的分類，避免顯示空空如也的分類選項
+            const availableCats = useMemo(() => {
+                return MENU_CATEGORIES.concat('未分類').filter(cat => groupedItems[cat] && groupedItems[cat].length > 0);
+            }, [groupedItems]);
+
+            const [activeCat, setActiveCat] = useState('');
+
+            // 預設選擇第一個有資料的分類
+            useEffect(() => {
+                if (availableCats.length > 0 && (!activeCat || !availableCats.includes(activeCat))) {
+                    setActiveCat(availableCats[0]);
+                }
+            }, [availableCats, activeCat]);
 
             const handlePrint = (item) => {
                 const printWindow = window.open('', '_blank');
@@ -1920,36 +1931,51 @@
             };
 
             return (
-                <div className="p-4 space-y-6 page-enter pb-24 text-left font-bold relative">
+                <div className="p-4 space-y-4 page-enter pb-24 text-left font-bold relative">
                     <BackButton onClick={onBack} title="本季菜單與食譜" />
                     
-                    <div className="space-y-6 mt-4">
-                        {MENU_CATEGORIES.concat('未分類').filter(c => groupedItems[c].length > 0).map(cat => (
-                            <div key={cat} className="space-y-4">
-                                <div 
-                                    className="flex justify-between items-center border-b border-dashed border-slate-300 pb-3 cursor-pointer group px-2"
-                                    onClick={() => setExpandedCats(p => ({...p, [cat]: !p[cat]}))}
-                                >
-                                    <h3 className="text-lg font-black text-slate-800 tracking-tight">{cat}</h3>
-                                    <Icon name={expandedCats[cat] ? "chevron-up" : "chevron-down"} className="text-slate-400 group-hover:text-brand-red transition-colors" size={20} />
-                                </div>
-                                {expandedCats[cat] && (
-                                    <div className="flex flex-wrap gap-2.5 px-2 mb-4">
-                                        {groupedItems[cat].map(item => (
-                                            <button 
-                                                key={item.id} 
-                                                onClick={() => setSelectedRecipe(item)}
-                                                className="bg-[#cc4242] hover:bg-[#b9121b] text-white px-5 py-2 rounded-md font-bold text-sm shadow-sm transition-all active:scale-95 border border-[#ab2d2d]"
-                                            >
-                                                {item.title}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
+                    {availableCats.length > 0 ? (
+                        <>
+                            {/* 頂部滑動導覽列 */}
+                            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 pt-1 sticky top-[60px] z-30 bg-[#f8fafc] -mx-4 px-4 shadow-sm mb-4">
+                                {availableCats.map(cat => (
+                                    <button 
+                                        key={cat} 
+                                        onClick={() => setActiveCat(cat)}
+                                        className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-black transition-all border ${activeCat === cat ? 'bg-brand-red text-white border-brand-red shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
+                                    >
+                                        {cat}
+                                    </button>
+                                ))}
                             </div>
-                        ))}
-                        {items.length === 0 && <div className="py-20 text-center glass-panel rounded-[3rem] border border-slate-100 bg-white text-slate-300 font-bold uppercase text-[10px]">目前尚未發佈任何菜單</div>}
-                    </div>
+
+                            {/* 下方菜色卡片網格 */}
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                {(groupedItems[activeCat] || []).map(item => (
+                                    <div 
+                                        key={item.id} 
+                                        onClick={() => setSelectedRecipe(item)}
+                                        className="bg-white rounded-[1.5rem] overflow-hidden shadow-sm border border-slate-100 flex flex-col active:scale-95 transition-all cursor-pointer group"
+                                    >
+                                        <div className="h-28 sm:h-36 bg-slate-100 relative overflow-hidden flex items-center justify-center">
+                                            {item.img ? (
+                                                <img src={item.img} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" alt={item.title} />
+                                            ) : (
+                                                <Icon name="image" size={28} className="opacity-30 text-slate-400" />
+                                            )}
+                                        </div>
+                                        <div className="p-3 text-center bg-white z-10 border-t border-slate-50">
+                                            <h4 className="font-black text-slate-800 text-sm truncate">{item.title}</h4>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    ) : (
+                        <div className="py-20 mt-6 text-center glass-panel rounded-[3rem] border border-slate-100 bg-white text-slate-300 font-bold uppercase text-[10px]">
+                            目前尚未發佈任何菜單
+                        </div>
+                    )}
 
                     {/* 食譜彈跳視窗 */}
                     {selectedRecipe && (
@@ -3151,8 +3177,8 @@
             const [activeAnnouncement, setActiveAnnouncement] = useState(null);
             
             // 全域資料
-            const [globalBranches, setGlobalBranches] = useState(['']);
-            const [currentBranch, setCurrentBranch] = useState('');
+            const [globalBranches, setGlobalBranches] = useState(['南港Lalaport']);
+            const [currentBranch, setCurrentBranch] = useState('南港Lalaport');
             const [branchZones, setBranchZones] = useState([]);
             const [announcements, setAnnouncements] = useState([]);
             const [tickerText, setTickerText] = useState('');
@@ -3331,7 +3357,7 @@
                                 const oldIdStr = String(oldItem.id);
                                 if (newItemsMap.has(oldIdStr)) {
                                     const newItem = newItemsMap.get(oldIdStr);
-                                    if (!newItem.title && !newItem.content && !newItem.img) {
+                                    if (!newItem.title && !newItem.content && !newItem.img && !newItem.instructions) {
                                         merged.push({ ...oldItem, ...newItem });
                                     } else {
                                         merged.push(newItem);
