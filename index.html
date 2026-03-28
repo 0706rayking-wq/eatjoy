@@ -40,7 +40,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         
         :root { 
-            /* 預設配色 (已改為您圖片中沉穩的深紅色) */
+            /* 預設配色，可被 JS 覆蓋 */
             --brand-red: 185 18 27; 
             --app-bg: #f8fafc; 
         }
@@ -184,28 +184,28 @@
 
         const DEFAULT_UNITS = ["件", "箱", "包", "斤", "公斤","兩" ,"顆", "條", "罐", "桶", "籃", "袋", "捲", "盒", "兩", "串", "瓶", "組", "板", "塊"];
 
-        // 自定義 20 種顏色主題 (Tailwind RGB 格式)
-        const THEME_OPTIONS = [
-            { name: "經典深紅", rgb: "185 18 27" },
-            { name: "櫻花粉紅", rgb: "236 72 153" },
-            { name: "玫瑰紅", rgb: "225 29 72" },
-            { name: "珊瑚暖橘", rgb: "249 115 22" },
-            { name: "琥珀亮黃", rgb: "245 158 11" },
-            { name: "翡翠綠", rgb: "16 185 129" },
-            { name: "森林綠", rgb: "34 197 94" },
-            { name: "抹茶鮮綠", rgb: "132 204 22" },
-            { name: "湖水藍", rgb: "6 182 212" },
-            { name: "海洋藍", rgb: "59 130 246" },
-            { name: "靛青色", rgb: "99 102 241" },
-            { name: "神秘紫", rgb: "168 85 247" },
-            { name: "蘭花紫", rgb: "217 70 239" },
-            { name: "薰衣草紫", rgb: "167 139 250" },
-            { name: "皇家酒紅", rgb: "159 18 57" },
-            { name: "曜石黑", rgb: "30 41 59" },
-            { name: "莫蘭迪藍", rgb: "100 116 139" },
-            { name: "大地棕", rgb: "168 162 158" },
-            { name: "奶茶杏", rgb: "212 170 112" },
-            { name: "蜜桃橘", rgb: "251 146 60" }
+        // 20種精選主題顏色
+        const THEME_COLORS = [
+            { name: '經典紅', rgb: '185 18 27', hex: '#b9121b' },
+            { name: '玫瑰紅', rgb: '225 29 72', hex: '#e11d48' },
+            { name: '珊瑚橘', rgb: '249 115 22', hex: '#f97316' },
+            { name: '琥珀黃', rgb: '217 119 6', hex: '#d97706' },
+            { name: '青瓷綠', rgb: '101 163 13', hex: '#65a30d' },
+            { name: '翡翠綠', rgb: '16 185 129', hex: '#10b981' },
+            { name: '森林綠', rgb: '21 128 61', hex: '#15803d' },
+            { name: '湖水綠', rgb: '13 148 136', hex: '#0d9488' },
+            { name: '天空藍', rgb: '14 165 233', hex: '#0ea5e9' },
+            { name: '海洋藍', rgb: '37 99 235', hex: '#2563eb' },
+            { name: '皇家藍', rgb: '29 78 216', hex: '#1d4ed8' },
+            { name: '靛青藍', rgb: '79 70 229', hex: '#4f46e5' },
+            { name: '紫羅蘭', rgb: '124 58 237', hex: '#7c3aed' },
+            { name: '紫梅', rgb: '147 51 234', hex: '#9333ea' },
+            { name: '桃紫紅', rgb: '192 38 211', hex: '#c026d3' },
+            { name: '櫻花粉', rgb: '219 39 119', hex: '#db2777' },
+            { name: '沉穩灰', rgb: '71 85 105', hex: '#475569' },
+            { name: '玄武黑', rgb: '30 41 59', hex: '#1e293b' },
+            { name: '咖啡棕', rgb: '120 53 15', hex: '#78350f' },
+            { name: '酒紅', rgb: '159 18 57', hex: '#9f1239' }
         ];
 
         // --- 工具函式 ---
@@ -259,7 +259,7 @@
                 "Layers": "layers", "Filter": "filter", "Building2": "building-2", "LayoutGrid": "layout-grid", "Edit": "edit-3",
                 "Chart": "bar-chart-3", "History": "history", "Carrot": "carrot", "Fish": "fish", "Soup": "soup",
                 "UtensilsCrossed": "utensils-crossed", "IceCream": "ice-cream", "Coffee": "coffee", "Timer": "timer",
-                "Calendar": "calendar", "Image": "image", "Download": "download"
+                "Calendar": "calendar", "Image": "image", "Download": "download", "Palette": "palette"
             };
             return <Icon name={symbols[name] || "help-circle"} className={className} />;
         };
@@ -310,7 +310,39 @@
             </div>
         );
 
-        // --- 進階共用模組管理 (支援編輯、全域同步、拖曳排序) ---
+        // 主題選擇彈出視窗
+        const ThemeSelectorModal = ({ onClose, currentThemeRgb, onSelectTheme }) => {
+            return (
+                <div className="fixed inset-0 z-[100000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 page-enter">
+                    <div className="bg-white rounded-[2.5rem] p-6 w-full max-w-sm shadow-2xl font-bold text-left relative overflow-hidden">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-black text-slate-800 flex items-center gap-2">
+                                <Icon name="palette" className="text-brand-red" /> 主題配色
+                            </h2>
+                            <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 bg-slate-50 rounded-full active:scale-90"><Icon name="x" size={18} /></button>
+                        </div>
+                        
+                        <p className="text-xs text-slate-500 mb-4">選擇您喜歡的系統主色調，此設定只會套用在您的裝置上。</p>
+                        
+                        <div className="grid grid-cols-4 sm:grid-cols-5 gap-3 mb-6">
+                            {THEME_COLORS.map(color => (
+                                <button
+                                    key={color.name}
+                                    onClick={() => { onSelectTheme(color.rgb); onClose(); }}
+                                    className={`relative aspect-square rounded-2xl shadow-sm transition-all hover:scale-105 active:scale-95 flex flex-col items-center justify-center gap-1 ${currentThemeRgb === color.rgb ? 'ring-2 ring-offset-2 ring-slate-800 scale-105' : 'border border-slate-200'}`}
+                                    style={{ backgroundColor: color.hex }}
+                                    title={color.name}
+                                >
+                                    {currentThemeRgb === color.rgb && <Icon name="check" size={16} className="text-white drop-shadow-md" />}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 進階共用模組管理 ---
         const UniversalListManager = ({ categoryPath, currentBranch, globalBranches, isSuperAdmin, items = [], titleLabel = "名稱", triggerNotify, getPublicPath, categories = null }) => {
             const [newT, setNewT] = useState(''); 
             const [newC, setNewC] = useState(''); 
@@ -488,7 +520,7 @@
             );
         };
 
-        // --- 專屬食譜管理器 (支援食材、做法、備註與全域同步、拖曳排序，以及從資料庫匯入) ---
+        // --- 專屬食譜管理器 ---
         const RecipeAdminManager = ({ categoryPath, currentBranch, globalBranches, isSuperAdmin, items = [], triggerNotify, getPublicPath, categories, globalRecipes = [] }) => {
             const [newT, setNewT] = useState(''); 
             const [newCat, setNewCat] = useState(categories ? categories[0] : '');
@@ -770,7 +802,7 @@
             );
         };
 
-        // --- 分店專用公告管理器 (支援編輯、全域同步、拖曳排序、已讀名單) ---
+        // --- 分店專用公告管理器 ---
         const AnnouncementAdminManager = ({ currentBranch, globalBranches, isSuperAdmin, announcements, triggerNotify, getPublicPath }) => {
             const [newT, setNewT] = useState('');
             const [newC, setNewC] = useState('');
@@ -1167,7 +1199,7 @@
             );
         };
 
-        // --- 進階班表系統 (整合權限管控與單月獨立資料、節日顏色切換、下載圖片) ---
+        // --- 進階班表系統 ---
         const ScheduleSystem = ({ onBack, currentBranch, isManager, getPublicPath, triggerNotify }) => {
             const defaultShiftRules = [
                 { code: 'A-5', name: '早班A5', type: 'morning' },
@@ -1810,7 +1842,7 @@
                         </div>
                     </div>
                     
-                    {/* 新增：高畫質圖片預覽 Modal，用於修復 iOS 無法直接下載的問題 */}
+                    {/* 新增：高畫質圖片預覽 Modal */}
                     {previewImage && (
                         <div className="fixed inset-0 z-[100000] bg-slate-900/95 flex flex-col items-center justify-center p-4 sm:p-8 animate-in fade-in">
                             <div className="w-full max-w-6xl flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
@@ -2195,7 +2227,11 @@
                     const allPhotos = {}; 
                     snapshot.forEach(doc => { 
                         const data = doc.data(); 
-                        allPhotos[`${data.zoneId}_${data.itemIdx}`] = data; // 存整個物件以便讀取上傳者資訊
+                        allPhotos[`${data.zoneId}_${data.itemIdx}`] = {
+                            photo: data.photo,
+                            uploaderName: data.uploaderName || '未知人員', // 讀取上傳者名稱，若無則顯示未知
+                            timestamp: data.timestamp
+                        }; 
                     });
                     setDailyPhotos(allPhotos);
                 });
@@ -2206,12 +2242,13 @@
                 const file = e.target.files[0]; if (!file) return;
                 const r = new FileReader(); r.onloadend = async () => {
                     const compressed = await compressImage(r.result, 800, 0.5);
+                    // 儲存照片時，將當前使用者的名稱一併記錄
                     db.collection(getPublicPath(`daily_photos_${currentBranch}`)).doc(`${activeZone.id}_${idx}`).set({ 
                         photo: compressed, 
                         zoneId: activeZone.id, 
                         itemIdx: idx, 
                         timestamp: Date.now(),
-                        uploaderName: currentUser?.name || '未知人員' // 加入上傳者姓名
+                        uploaderName: currentUser?.name || '未知使用者'
                     }).then(() => triggerNotify("實拍照已更新", "success"));
                 };
                 r.readAsDataURL(file);
@@ -2221,7 +2258,7 @@
                 if (!activeZone) return false;
                 const currentStandards = standards[activeZone.id] || [];
                 if (currentStandards.length === 0) return true;
-                return currentStandards.every((_, i) => !!dailyPhotos[`${activeZone.id}_${i}`]?.photo);
+                return currentStandards.every((_, i) => !!dailyPhotos[`${activeZone.id}_${i}`]);
             }, [activeZone, standards, dailyPhotos]);
 
             const handleSubmit = () => {
@@ -2261,46 +2298,47 @@
                 <div className="p-4 space-y-6 page-enter pb-24 text-left font-bold">
                     <button onClick={()=>{setActiveZone(null);setIsSubmitted(false);}} className="p-3 bg-white rounded-2xl shadow-sm border active:scale-90 transition-all"><Icon name="arrow-left" size={20}/></button>
                     <div className="space-y-4">
-                        {(standards[activeZone.id] || []).map((item, i) => {
-                            const photoData = dailyPhotos[`${activeZone.id}_${i}`];
-                            return (
-                                <div key={i} className="glass-panel p-4 rounded-[2rem] border border-slate-100 bg-white">
-                                    <p className="text-[11px] font-black text-slate-700 mb-3 bg-slate-50 p-3 rounded-xl flex items-center gap-2 border shadow-inner"><Icon name="info" size={14} className="text-brand-red" />要求：{item.note || "無說明"}</p>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="text-center"><span className="text-[9px] font-black text-emerald-600">標準照</span><img src={item.url} className="w-full aspect-square object-cover rounded-2xl border mt-2 shadow-inner" /></div>
-                                        <div className="text-center"><span className="text-[9px] font-black text-brand-red">實拍照</span>
-                                            {photoData?.photo ? (
-                                                <div className="relative mt-2">
-                                                    <img src={photoData.photo} className="w-full aspect-square object-cover rounded-2xl border" />
-                                                    {/* 顯示上傳者與時間 */}
-                                                    <div className="absolute top-1 left-1 bg-black/50 text-white text-[9px] px-1.5 py-0.5 rounded-lg flex items-center gap-1 backdrop-blur-md">
-                                                        <Icon name="user" size={10} /> 
-                                                        {photoData.uploaderName || '人員'}
-                                                    </div>
-                                                    <label className="absolute bottom-1 right-1 bg-white/80 p-1.5 rounded-lg cursor-pointer border shadow-sm active:scale-90 transition-all"><Icon name="refresh-cw" size={14}/><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} /></label>
+                        {(standards[activeZone.id] || []).map((item, i) => (
+                            <div key={i} className="glass-panel p-4 rounded-[2rem] border border-slate-100 bg-white">
+                                <p className="text-[11px] font-black text-slate-700 mb-3 bg-slate-50 p-3 rounded-xl flex items-center gap-2 border shadow-inner"><Icon name="info" size={14} className="text-brand-red" />要求：{item.note || "無說明"}</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="text-center"><span className="text-[9px] font-black text-emerald-600">標準照</span><img src={item.url} className="w-full aspect-square object-cover rounded-2xl border mt-2 shadow-inner" /></div>
+                                    <div className="text-center">
+                                        <span className="text-[9px] font-black text-brand-red">實拍照</span>
+                                        {dailyPhotos[`${activeZone.id}_${i}`] ? (
+                                            <div className="relative mt-2 flex flex-col items-center">
+                                                <img src={dailyPhotos[`${activeZone.id}_${i}`].photo} className="w-full aspect-square object-cover rounded-2xl border" />
+                                                {/* 顯示上傳者名稱標籤 */}
+                                                <div className="absolute top-1 left-1 bg-black/60 text-white text-[9px] px-2 py-1 rounded-lg backdrop-blur-sm flex items-center gap-1">
+                                                    <Icon name="user" size={10} /> {dailyPhotos[`${activeZone.id}_${i}`].uploaderName}
                                                 </div>
-                                            ) : (
-                                                <label className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer active:bg-slate-100"><Icon name="plus" size={20} className="text-slate-300"/><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} /></label>
-                                            )}
-                                        </div>
+                                                <label className="absolute bottom-1 right-1 bg-white/80 p-1 rounded-lg cursor-pointer border shadow-sm hover:bg-white"><Icon name="refresh-cw" size={14}/><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} /></label>
+                                            </div>
+                                        ) : (
+                                            <label className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer active:bg-slate-100 transition-colors">
+                                                <Icon name="plus" size={20} className="text-slate-300"/>
+                                                <span className="text-[10px] text-slate-400 mt-1 font-bold">點擊拍攝</span>
+                                                <input type="file" className="hidden" accept="image/*" capture="environment" onChange={(e)=>handleFile(e, i)} />
+                                            </label>
+                                        )}
                                     </div>
                                 </div>
-                            );
-                        })}
+                            </div>
+                        ))}
                     </div>
                     {!isSubmitted ? (
                         <div className="space-y-3">
                             {!isAllUploaded && <p className="text-[10px] text-red-500 font-bold text-center animate-pulse"><Icon name="alert-circle" size={12} /> 請完成所有善後巡視照上傳</p>}
                             <button onClick={handleSubmit} disabled={!isAllUploaded || loading} className={`w-full py-5 rounded-[2rem] font-black text-white shadow-xl flex items-center justify-center gap-2 ${isAllUploaded ? 'bg-brand-red active:scale-95' : 'bg-slate-300 cursor-not-allowed'}`}>{loading ? "提交中..." : "確認提交結果"}</button>
                         </div>
-                    ) : <div className="p-8 rounded-[3rem] bg-emerald-50 text-emerald-700 text-center font-black">提交完成 ✅</div>}
+                    ) : <div className="p-8 rounded-[3rem] bg-emerald-50 text-emerald-700 text-center font-black shadow-inner border border-emerald-100 flex flex-col items-center gap-2"><Icon name="check-circle" size={32} />提交完成</div>}
                 </div>
             );
 
             return (
                 <div className="p-4 space-y-4 page-enter pb-20 text-left font-bold">
                     <BackButton onClick={onBack} title="巡視崗位清單" />
-                    <div className="bg-brand-red p-7 rounded-[2.5rem] text-white shadow-lg flex justify-between items-center mb-2 transition-colors duration-500">
+                    <div className="bg-brand-red p-7 rounded-[2.5rem] text-white shadow-lg flex justify-between items-center mb-2">
                         <div><p className="text-[10px] font-black uppercase opacity-60 mb-1 leading-none tracking-widest">巡視進度 (18:00刷新)</p><p className="text-3xl font-black mt-2 font-bold">{completedZones.length} / {branchZones.length || 1}</p></div>
                         <div className="w-14 h-14 rounded-full border-4 border-white/20 flex items-center justify-center font-bold text-xs">{branchZones.length > 0 ? Math.round((completedZones.length/branchZones.length)*100) : 0}%</div>
                     </div>
@@ -3214,6 +3252,13 @@
                 }
                 return false;
             });
+            
+            // 主題顏色管理狀態
+            const [themeColorRgb, setThemeColorRgb] = useState(() => {
+                return localStorage.getItem('k_theme_color') || '185 18 27'; // 預設經典紅
+            });
+            const [showThemeModal, setShowThemeModal] = useState(false);
+
             const [fbReady, setFbReady] = useState(false);
             const [user, setUser] = useState(null);
             const [notifications, setNotifications] = useState([]);
@@ -3238,15 +3283,16 @@
             const [standards, setStandards] = useState({});
             const [signatures, setSignatures] = useState([]);
 
-            // 主題顏色管理
-            const [currentTheme, setCurrentTheme] = useState(() => localStorage.getItem('k_user_theme') || '185 18 27');
-            const [showThemeModal, setShowThemeModal] = useState(false);
-
+            // 套用主題顏色
             useEffect(() => {
-                // 套用自訂義顏色到 CSS 變數
-                document.documentElement.style.setProperty('--brand-red', currentTheme);
-                localStorage.setItem('k_user_theme', currentTheme);
-            }, [currentTheme]);
+                document.documentElement.style.setProperty('--brand-red', themeColorRgb);
+            }, [themeColorRgb]);
+
+            const handleThemeSelect = (rgb) => {
+                setThemeColorRgb(rgb);
+                localStorage.setItem('k_theme_color', rgb);
+                triggerNotify("主題顏色已更新", "success");
+            };
 
             const logout = () => { 
                 setCurrentUser(null); setIsManager(false); setIsSuperAdmin(false); setCurrentPage('auth'); 
@@ -3281,7 +3327,7 @@
                 }
             };
 
-            // 前端定時排程檢查 (新增每日 00:00 叫貨重置)
+            // 前端定時排程檢查
             useEffect(() => {
                 if (!currentUser || !currentBranch) return;
 
@@ -3330,8 +3376,7 @@
                             await cronRef.set({ lastMissingAlert: targetAlertStr }, {merge: true});
                         }
 
-                        // 3. 每天 00:00 重置叫貨暫存 (新增)
-                        // 只要今天日期跟紀錄的 lastOrderReset 不同，就清空該分店的點貨暫存
+                        // 3. 每天 00:00 重置叫貨暫存
                         const targetOrderResetStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
                         if (data.lastOrderReset !== targetOrderResetStr) {
                             await db.doc(getPublicPath(`ordering/db_${currentBranch}`)).set({ activeQuantities: {} }, {merge: true});
@@ -3359,7 +3404,7 @@
                 initAuth(); return auth.onAuthStateChanged(u => setUser(u));
             }, []);
 
-            // 全域系統資料監聽 (保留使用者清單、分店清單與全域菜單庫)
+            // 全域系統資料監聽
             useEffect(() => {
                 if (!user) return;
                 const errH = () => triggerNotify("讀取失敗", "error");
