@@ -2165,7 +2165,7 @@
             );
         };
 
-        const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, branchZones, currentBranch, getPublicPath, currentUser }) => {
+        const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, branchZones, currentBranch, getPublicPath, currentUser, isSuperAdmin }) => {
             const [activeZone, setActiveZone] = useState(null);
             const [dailyPhotos, setDailyPhotos] = useState({});
             const [loading, setLoading] = useState(false);
@@ -2192,6 +2192,10 @@
                 const file = e.target.files[0]; if (!file) return;
                 const r = new FileReader(); r.onloadend = async () => {
                     const compressed = await compressImage(r.result, 800, 0.5);
+                    
+                    // 修正：檢查是否為最高權限(isSuperAdmin)，若不是再拿 currentUser 的名字
+                    const uploader = currentUser?.name ? currentUser.name : (isSuperAdmin ? '🧑 行政管理員' : '未知人員');
+                    
                     db.collection(getPublicPath(`daily_photos_${currentBranch}`))
                       .doc(`${activeZone.id}_${idx}`)
                       .set({ 
@@ -2199,7 +2203,7 @@
                           zoneId: activeZone.id, 
                           itemIdx: idx, 
                           timestamp: Date.now(),
-                          uploaderName: currentUser?.name || '未知人員'
+                          uploaderName: uploader
                       }).then(() => triggerNotify("實拍照已更新", "success"));
                 };
                 r.readAsDataURL(file);
@@ -2260,7 +2264,7 @@
                                         <div className="relative mt-2">
                                             <img src={dailyPhotos[`${activeZone.id}_${i}`].photo} className="w-full aspect-square object-cover rounded-2xl border" />
                                             
-                                            {/* 新增：顯示上傳者與時間的浮水印標籤 */}
+                                            {/* 浮水印標籤 */}
                                             <div className="absolute top-1.5 left-1.5 bg-slate-900/70 text-white text-[10px] px-2 py-1 rounded-lg flex items-center gap-1 backdrop-blur-md font-bold shadow-sm max-w-[90%] truncate">
                                                 <Icon name="user" size={12} className="shrink-0"/>
                                                 <span className="truncate">{dailyPhotos[`${activeZone.id}_${i}`].uploaderName}</span>
@@ -3274,7 +3278,8 @@
 
             // 前端定時排程檢查 (新增每日 00:00 叫貨重置)
             useEffect(() => {
-                if (!currentUser || !currentBranch) return;
+                if (!currentUser && !isSuperAdmin) return;
+                if (!currentBranch) return;
 
                 const checkCronTasks = async () => {
                     try {
