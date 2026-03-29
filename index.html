@@ -40,9 +40,9 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         
         :root { 
-            /* 預設配色 (可由 React 動態修改) */
+            /* 預設配色 */
             --brand-red: 185 18 27; 
-            --app-bg: #f8fafc; 
+            --app-bg: rgb(185 18 27 / 0.04); 
         }
         
         body { 
@@ -259,7 +259,8 @@
                 "Layers": "layers", "Filter": "filter", "Building2": "building-2", "LayoutGrid": "layout-grid", "Edit": "edit-3",
                 "Chart": "bar-chart-3", "History": "history", "Carrot": "carrot", "Fish": "fish", "Soup": "soup",
                 "UtensilsCrossed": "utensils-crossed", "IceCream": "ice-cream", "Coffee": "coffee", "Timer": "timer",
-                "Calendar": "calendar", "Image": "image", "Download": "download"
+                "Calendar": "calendar", "Image": "image", "Download": "download",
+                "PackagePlus": "package-plus", "BookOpen": "book-open", "UserPlus": "user-plus", "Wallet": "wallet"
             };
             return <Icon name={symbols[name] || "help-circle"} className={className} />;
         };
@@ -296,10 +297,11 @@
             </div>
         );
 
+        // 還原原始網格樣式
         const NavCard = ({ title, onClick, colorClass, iconName }) => (
-            <button onClick={onClick} className={`${colorClass} py-10 flex flex-col items-center justify-center rounded-[2.5rem] border border-slate-100 shadow-sm active:scale-95 transition-all`}>
-                <Icon name={iconName} size={24} className="mb-3 opacity-60 text-slate-800 font-bold" />
-                <span className="font-black text-slate-800 text-sm tracking-widest uppercase font-bold">{title}</span>
+            <button onClick={onClick} className={`${colorClass} py-8 flex flex-col items-center justify-center rounded-[2rem] active:scale-[0.98] transition-all border-none`}>
+                <OrderSymbolIcon name={iconName} className="mb-3 text-slate-500 w-7 h-7 stroke-[1.5]" />
+                <span className="font-black text-slate-800 text-[13px] tracking-widest">{title}</span>
             </button>
         );
 
@@ -3002,7 +3004,7 @@
                 if(branchZones && branchZones.length > 0 && !selectedZone) setSelectedZone(branchZones[0].id);
             }, [branchZones]);
 
-// 過濾顯示的成員：最高權限看全部(或當前分店與所有主管)，分店主管只看本店的非主管人員
+            // 過濾顯示的成員：最高權限看全部(或當前分店與所有主管)，分店主管只看本店的非主管人員
             const visibleUsers = users.filter(u => {
                 if (isSuperAdmin) {
                     return u.branch === currentBranch || u.role === '主管';
