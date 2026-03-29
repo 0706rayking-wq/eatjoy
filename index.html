@@ -1433,7 +1433,7 @@
                 let hash = 0;
                 for (let i = 0; i < title.length; i++) hash = title.charCodeAt(i) + ((hash << 5) - hash);
                 const colorIdx = Math.abs(hash) % colors.length;
-                return { backgroundColor: colors[colorIdx].bg, color: colors[colorIdx].text };
+                return { backgroundColor: bg, color: colors[colorIdx].text };
             }, [roleColors]);
 
             const getCellBg = useCallback((dateString, isWeekend) => {
@@ -3002,7 +3002,7 @@
                 if(branchZones && branchZones.length > 0 && !selectedZone) setSelectedZone(branchZones[0].id);
             }, [branchZones]);
 
-            // 過濾顯示的成員：最高權限看全部(或當前分店與所有主管)，分店主管只看本店的非主管人員
+// 過濾顯示的成員：最高權限看全部(或當前分店與所有主管)，分店主管只看本店的非主管人員
             const visibleUsers = users.filter(u => {
                 if (isSuperAdmin) {
                     return u.branch === currentBranch || u.role === '主管';
