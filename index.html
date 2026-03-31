@@ -1175,6 +1175,9 @@
             const [showSettings, setShowSettings] = useState(false);
             const [selectedCell, setSelectedCell] = useState(null);
             
+            // 標記修改模式狀態
+            const [isHighlightMode, setIsHighlightMode] = useState(false);
+            
             // 節日編輯專用狀態
             const [holidayInputText, setHolidayInputText] = useState('');
             const [holidayInputIsRed, setHolidayInputIsRed] = useState(true);
@@ -1290,6 +1293,21 @@
                 const safeValue = value || '';
                 const newStaffList = staffList.map(staff => staff.id === staffId ? { ...staff, shifts: { ...(staff.shifts || {}), [dateString]: safeValue } } : staff);
                 updateMonthData({ staffList: newStaffList });
+            };
+
+            // 切換格子黃色背景標記功能
+            const toggleCellColor = (staffId, dateString) => {
+                if (!isManager) return;
+                const cellKey = `${staffId}_${dateString}`;
+                const currentColors = activeMonthData?.cellColors || {};
+                const newColors = { ...currentColors };
+                
+                if (newColors[cellKey] === 'bg-yellow-300') {
+                    delete newColors[cellKey]; // 取消標記
+                } else {
+                    newColors[cellKey] = 'bg-yellow-300'; // 加上黃色標記
+                }
+                updateMonthData({ cellColors: newColors });
             };
 
             const addStaff = () => {
@@ -1554,7 +1572,18 @@
                                         ${daysInMonth.map(d => {
                                             const shift = (staff.shifts || {})[d.dateString] || '';
                                             const h = getHolidayData(d.dateString);
-                                            return `<td class="${(h && h.isRed) ? 'bg-holiday' : ((h && !h.isRed) ? 'bg-gray' : (d.isWeekend ? 'bg-weekend' : ''))}" style="text-transform: uppercase; font-size: 10px;">${shift}</td>`;
+                                            const cellKey = `${staff.id}_${d.dateString}`;
+                                            const isHighlighted = (activeMonthData?.cellColors || {})[cellKey] === 'bg-yellow-300';
+                                            
+                                            let tdClass = (h && h.isRed) ? 'bg-holiday' : ((h && !h.isRed) ? 'bg-gray' : (d.isWeekend ? 'bg-weekend' : ''));
+                                            let tdStyle = "text-transform: uppercase; font-size: 10px;";
+                                            
+                                            if (isHighlighted) {
+                                                tdClass = '';
+                                                tdStyle += " background-color: #fde047 !important;";
+                                            }
+                                            
+                                            return `<td class="${tdClass}" style="${tdStyle}">${shift}</td>`;
                                         }).join('')}
                                     </tr>
                                     `;
@@ -1606,6 +1635,9 @@
                             </button>
                             {isManager && (
                                 <>
+                                    <button onClick={() => setIsHighlightMode(!isHighlightMode)} className={`flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap ${isHighlightMode ? 'bg-yellow-400 text-yellow-900 border border-yellow-500 shadow-inner' : 'bg-slate-100 text-slate-700 border border-slate-300'}`}>
+                                        <Icon name="edit-3" size={14} /> {isHighlightMode ? '結束標記' : '標記修改'}
+                                    </button>
                                     <button onClick={addStaff} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-slate-800 text-white rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap"><Icon name="plus" size={14} /> 新增</button>
                                     <button onClick={() => setShowSettings(!showSettings)} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-slate-100 text-slate-700 rounded-xl border border-slate-300 active:scale-95 transition-all text-xs sm:text-sm font-bold whitespace-nowrap"><Icon name="settings" size={14} /> 設定</button>
                                 </>
@@ -1757,17 +1789,32 @@
                                                         {isManager && !isDownloading && <button onClick={() => removeStaff(staff.id)} className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 text-white bg-red-500 hover:bg-red-600 transition-opacity p-0.5 rounded-bl-lg shadow-sm z-10"><Icon name="x" size={10} /></button>}
                                                     </td>
                                                     <td className="border border-slate-500 p-1 text-center font-black text-lg text-slate-700 bg-slate-100 sticky left-[156px] z-[30]">{calculateOffDays(staff.shifts)}</td>
-                                                    {daysInMonth.map(day => (
-                                                        <td key={`${staff.id}-${day.dateNum}`} className={`border border-slate-500 p-0 relative ${getCellBg(day.dateString, day.isWeekend)}`}>
-                                                            {isDownloading ? (
-                                                                <div className="w-full h-full min-h-[36px] flex items-center justify-center font-black uppercase text-[14px] text-slate-800">
-                                                                    {(staff.shifts || {})[day.dateString] || ''}
-                                                                </div>
-                                                            ) : (
-                                                                <SyncInput value={(staff.shifts || {})[day.dateString] || ''} onChange={(val) => updateShift(staff.id, day.dateString, val.toUpperCase())} readOnly={!isManager} className={`w-full h-[36px] text-center bg-transparent outline-none font-black uppercase text-[14px] ${isManager ? 'focus:bg-yellow-100 focus:ring-1 focus:ring-blue-400 text-slate-800' : 'text-slate-700 cursor-default'}`} maxLength={4} />
-                                                            )}
-                                                        </td>
-                                                    ))}
+                                                    {daysInMonth.map(day => {
+                                                        const cellKey = `${staff.id}_${day.dateString}`;
+                                                        const isHighlighted = (activeMonthData?.cellColors || {})[cellKey] === 'bg-yellow-300';
+                                                        const baseBg = getCellBg(day.dateString, day.isWeekend);
+                                                        const finalBg = isHighlighted ? 'bg-yellow-300' : baseBg;
+                                                        
+                                                        return (
+                                                            <td key={`${staff.id}-${day.dateNum}`} 
+                                                                onClick={() => { if (isHighlightMode) toggleCellColor(staff.id, day.dateString); }}
+                                                                className={`border border-slate-500 p-0 relative ${finalBg} ${isHighlightMode ? 'cursor-pointer hover:opacity-80' : ''}`}>
+                                                                {isDownloading ? (
+                                                                    <div className="w-full h-full min-h-[36px] flex items-center justify-center font-black uppercase text-[14px] text-slate-800">
+                                                                        {(staff.shifts || {})[day.dateString] || ''}
+                                                                    </div>
+                                                                ) : (
+                                                                    <SyncInput 
+                                                                        value={(staff.shifts || {})[day.dateString] || ''} 
+                                                                        onChange={(val) => updateShift(staff.id, day.dateString, val.toUpperCase())} 
+                                                                        readOnly={!isManager || isHighlightMode} 
+                                                                        className={`w-full h-[36px] text-center bg-transparent outline-none font-black uppercase text-[14px] ${isManager && !isHighlightMode ? 'focus:bg-yellow-100 focus:ring-1 focus:ring-blue-400 text-slate-800' : 'text-slate-700 cursor-default'} ${isHighlightMode ? 'pointer-events-none' : ''}`} 
+                                                                        maxLength={4} 
+                                                                    />
+                                                                )}
+                                                            </td>
+                                                        );
+                                                    })}
                                                 </tr>
                                                 );
                                             })}
