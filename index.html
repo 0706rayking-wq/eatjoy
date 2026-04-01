@@ -12,7 +12,6 @@
                 extend: {
                     colors: {
                         brand: {
-                            // 改為動態 CSS 變數，支援透過透明度語法 (如 bg-brand-red/20) 使用
                             red: 'rgb(var(--brand-red) / <alpha-value>)',
                             dark: 'rgb(var(--brand-red) / <alpha-value>)', 
                             light: '#f8fafc'
@@ -995,6 +994,7 @@
                         setIsSuperAdmin(true);
                         setIsManager(true); 
                         localStorage.setItem('k_super_admin', 'true');
+                        localStorage.setItem('k_is_manager', 'true');
                         setCurrentBranch(branch);
                         setCurrentPage('home'); 
                         triggerNotify("行政主廚權限", "success"); 
@@ -1029,9 +1029,17 @@
                             triggerNotify(`登入失敗：您的帳號隸屬於「${existing.branch}」，請選擇正確的分店。`, "error");
                             return;
                         }
-                        setCurrentUser(existing); localStorage.setItem('k_active_user', JSON.stringify(existing));
+                        setCurrentUser(existing); 
+                        localStorage.setItem('k_active_user', JSON.stringify(existing));
+                        
                         if (existing.status === 'approved') { 
-                            if(existing.role === '主管') setIsManager(true);
+                            if(existing.role === '主管') {
+                                setIsManager(true);
+                                localStorage.setItem('k_is_manager', 'true');
+                            } else {
+                                setIsManager(false);
+                                localStorage.removeItem('k_is_manager');
+                            }
                             setCurrentBranch(existing.branch);
                             setCurrentPage('home'); 
                             triggerNotify(`歡迎回來, ${existing.name} (${existing.role})`, "success"); 
@@ -2984,7 +2992,8 @@
         };
 
         const AdminPage = ({ onBack, onLogout, announcements, standards, users, triggerNotify, menu, onboarding, benefits, rulesData, isSuperAdmin, currentBranch, setCurrentBranch, globalBranches, branchZones, getPublicPath, signatures, tickerText, setTickerText, globalRecipes }) => {
-            const [tab, setTab] = useState('members'); const [subCat, setSubCat] = useState('list');
+            const [tab, setTab] = useState('members'); 
+            const [subCat, setSubCat] = useState('list');
             const [selectedZone, setSelectedZone] = useState('');
             const [signSubCat, setSignSubCat] = useState('廚房規則');
             const [newZoneName, setNewZoneName] = useState('');
@@ -3005,7 +3014,10 @@
 
             return (
                 <div className="p-4 pb-24 page-enter text-left font-bold">
-                    <div className="flex justify-between items-center mb-4"><BackButton onClick={onBack} title="管理後台" /><button onClick={onLogout} className="bg-red-50 text-red-600 font-black text-[10px] px-4 py-2 rounded-full border border-red-100 active:scale-90 transition-all">登出</button></div>
+                    <div className="flex justify-between items-center mb-4">
+                        <BackButton onClick={onBack} title="管理後台" />
+                        <button onClick={onLogout} className="bg-red-50 text-red-600 font-black text-[10px] px-4 py-2 rounded-full border border-red-100 active:scale-90 transition-all">登出</button>
+                    </div>
                     
                     {isSuperAdmin && (
                         <div className="mb-6 bg-slate-900 text-white p-4 rounded-3xl flex items-center justify-between shadow-xl mb-2">
