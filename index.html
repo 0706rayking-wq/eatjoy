@@ -2305,7 +2305,7 @@
                                         {dailyPhotos[`${activeZone.id}_${i}`] ? (
                                             <div className="relative mt-2">
                                                 {/* 1. 修正圖片路徑，指向物件內的 photo 屬性 */}
-                                                <img src={dailyPhotos[`${activeZone.id}_${i}`].photo} className="w-full aspect-square object-cover rounded-2xl border" />
+                                                <img src={dailyPhotos[${activeZone.id}_${i}].photo} className="w-full aspect-square object-cover rounded-2xl border" />
             
                                                 {/* 2. 顯示上傳員工名稱 */}
                                                 <div className="absolute top-1 left-1 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-md backdrop-blur-sm shadow-sm">
