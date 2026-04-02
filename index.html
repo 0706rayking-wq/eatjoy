@@ -2212,7 +2212,7 @@
             );
         };
 
-const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, branchZones, currentBranch, getPublicPath, currentUser }) => {
+        const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, branchZones, currentBranch, getPublicPath }) => {
             const [activeZone, setActiveZone] = useState(null);
             const [dailyPhotos, setDailyPhotos] = useState({});
             const [loading, setLoading] = useState(false);
@@ -2221,15 +2221,7 @@ const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, bran
 
             useEffect(() => {
                 const unsubscribe = db.collection(getPublicPath(`daily_photos_${currentBranch}`)).onSnapshot(snapshot => {
-                    const allPhotos = {}; 
-                    snapshot.forEach(doc => { 
-                        const data = doc.data(); 
-                        allPhotos[`${data.zoneId}_${data.itemIdx}`] = {
-                            photo: data.photo,
-                            uploader: data.uploader || '未知',
-                            timestamp: data.timestamp
-                        }; 
-                    });
+                    const allPhotos = {}; snapshot.forEach(doc => { const data = doc.data(); allPhotos[`${data.zoneId}_${data.itemIdx}`] = data.photo; });
                     setDailyPhotos(allPhotos);
                 });
                 return () => unsubscribe();
@@ -2239,13 +2231,7 @@ const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, bran
                 const file = e.target.files[0]; if (!file) return;
                 const r = new FileReader(); r.onloadend = async () => {
                     const compressed = await compressImage(r.result, 800, 0.5);
-                    db.collection(getPublicPath(`daily_photos_${currentBranch}`)).doc(`${activeZone.id}_${idx}`).set({ 
-                        photo: compressed, 
-                        zoneId: activeZone.id, 
-                        itemIdx: idx, 
-                        timestamp: Date.now(),
-                        uploader: currentUser?.name || '未知' 
-                    }).then(() => triggerNotify("實拍照已更新", "success"));
+                    db.collection(getPublicPath(`daily_photos_${currentBranch}`)).doc(`${activeZone.id}_${idx}`).set({ photo: compressed, zoneId: activeZone.id, itemIdx: idx, timestamp: Date.now() }).then(() => triggerNotify("實拍照已更新", "success"));
                 };
                 r.readAsDataURL(file);
             };
@@ -2299,26 +2285,7 @@ const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, bran
                                 <p className="text-[11px] font-black text-slate-700 mb-3 bg-slate-50 p-3 rounded-xl flex items-center gap-2 border shadow-inner"><Icon name="info" size={14} className="text-brand-red" />要求：{item.note || "無說明"}</p>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="text-center"><span className="text-[9px] font-black text-emerald-600">標準照</span><img src={item.url} className="w-full aspect-square object-cover rounded-2xl border mt-2 shadow-inner" /></div>
-                                    <div className="text-center">
-                                        <span className="text-[9px] font-black text-brand-red">實拍照</span>
-                                        {dailyPhotos[`${activeZone.id}_${i}`] ? (
-                                            <div className="relative mt-2">
-                                                <img src={dailyPhotos[`${activeZone.id}_${i}`].photo} className="w-full aspect-square object-cover rounded-2xl border" />
-                                                <div className="absolute top-1 left-1 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-md backdrop-blur-sm shadow-sm">
-                                                    {dailyPhotos[`${activeZone.id}_${i}`].uploader}
-                                                </div>
-                                                <label className="absolute bottom-1 right-1 bg-white/80 p-1 rounded-lg cursor-pointer border">
-                                                    <Icon name="refresh-cw" size={12}/>
-                                                    <input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} />
-                                                </label>
-                                            </div>
-                                        ) : (
-                                            <label className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer active:bg-slate-100">
-                                                <Icon name="plus" size={20} className="text-slate-300"/>
-                                                <input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} />
-                                            </label>
-                                        )}
-                                    </div>
+                                    <div className="text-center"><span className="text-[9px] font-black text-brand-red">實拍照</span>{dailyPhotos[`${activeZone.id}_${i}`] ? <div className="relative mt-2"><img src={dailyPhotos[`${activeZone.id}_${i}`]} className="w-full aspect-square object-cover rounded-2xl border" /><label className="absolute bottom-1 right-1 bg-white/80 p-1 rounded-lg cursor-pointer border"><Icon name="refresh-cw" size={12}/><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} /></label></div> : <label className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer active:bg-slate-100"><Icon name="plus" size={20} className="text-slate-300"/><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} /></label>}</div>
                                 </div>
                             </div>
                         ))}
@@ -2339,29 +2306,14 @@ const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, bran
                         <div><p className="text-[10px] font-black uppercase opacity-60 mb-1 leading-none tracking-widest">巡視進度 (18:00刷新)</p><p className="text-3xl font-black mt-2 font-bold">{completedZones.length} / {branchZones.length || 1}</p></div>
                         <div className="w-14 h-14 rounded-full border-4 border-white/20 flex items-center justify-center font-bold text-xs">{branchZones.length > 0 ? Math.round((completedZones.length/branchZones.length)*100) : 0}%</div>
                     </div>
+
                     <div className="flex justify-end mb-4 px-1">
                         <button onClick={handleResetAll} disabled={isResetting || (completedZones.length === 0 && Object.keys(dailyPhotos).length === 0)} className={`text-[10px] px-4 py-2.5 rounded-xl font-black flex items-center gap-1.5 transition-all shadow-sm ${isResetting || (completedZones.length === 0 && Object.keys(dailyPhotos).length === 0) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-rose-50 text-brand-red border border-rose-100 active:scale-95'}`}>
                             <Icon name="refresh-cw" size={14} className={isResetting ? "animate-spin" : ""} />
                             {isResetting ? "重置中..." : "重置所有巡視紀錄"}
                         </button>
                     </div>
-                    <div className="grid grid-cols-1 gap-3">
-                        {branchZones.map(z => {
-                            const isCompleted = completedZones.includes(z.id);
-                            return (
-                                <div key={z.id} onClick={() => setActiveZone(z)} className={`p-6 rounded-[2rem] flex items-center justify-between cursor-pointer transition-all shadow-sm border ${isCompleted ? 'bg-emerald-50 border-emerald-200 active:bg-emerald-100' : 'bg-white border-slate-100 active:bg-slate-50 glass-panel'}`}>
-                                    <div className={`flex items-center gap-4 font-bold ${isCompleted ? 'text-emerald-500' : 'text-slate-400'}`}>
-                                        <Icon name={isCompleted ? "check-circle" : "camera"} size={22} />
-                                        <span className={`text-sm font-bold leading-none ${isCompleted ? 'text-emerald-700' : 'text-slate-800'}`}>{z.name}</span>
-                                    </div>
-                                    {isCompleted ? <span className="text-[10px] font-black text-emerald-600 bg-emerald-100 px-3 py-1.5 rounded-full flex items-center gap-1 shadow-sm"><Icon name="check" size={12}/> 已完成</span> : <Icon name="chevron-right" size={18} className="text-slate-300" />}
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            );
-        };
+
                     {branchZones.length === 0 && <p className="text-center text-slate-400 py-10 text-xs">此分店尚未設定任何區站，請至後台設定。</p>}
                     <div className="grid grid-cols-1 gap-3">
                         {branchZones.map(z => {
@@ -2393,7 +2345,7 @@ const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, bran
             );
         };
 
-        const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, isSuperAdmin, isManager, getPublicPath }) => {
+        const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, isSuperAdmin, getPublicPath }) => {
             const [storeDatabases, setStoreDatabases] = useState({});
             const branches = isSuperAdmin ? globalBranches : [currentBranch];
             const [selectedBranch, setSelectedBranch] = useState(currentBranch);
@@ -2655,14 +2607,12 @@ const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, bran
                                         </button>
                                         
                                         <div className="grid grid-cols-2 gap-3 mt-4">
-                                            <button onClick={() => { setView('analytics'); setSelectedItemName(''); setAnalyticsSearch(''); }} className={`py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all ${(isSuperAdmin || isManager) ? '' : 'col-span-2'}`}>
+                                            <button onClick={() => { setView('analytics'); setSelectedItemName(''); setAnalyticsSearch(''); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
                                                 <OrderSymbolIcon name="Chart" /> 數據分析報表
                                             </button>
-                                            {(isSuperAdmin || isManager) && (
-                                                <button onClick={() => { setView('admin'); setAdminTab('ingredients'); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
-                                                    <OrderSymbolIcon name="Settings" /> 食材廠商設定
-                                                </button>
-                                            )}
+                                            <button onClick={() => { setView('admin'); setAdminTab('ingredients'); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
+                                                <OrderSymbolIcon name="Settings" /> 食材廠商設定
+                                            </button>
                                         </div>
                                         <button onClick={onBack} className="w-full py-4 text-slate-400 font-bold text-xs uppercase mt-4">返回廚務OS</button>
                                     </div>
