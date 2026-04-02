@@ -2301,29 +2301,28 @@
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="text-center"><span className="text-[9px] font-black text-emerald-600">標準照</span><img src={item.url} className="w-full aspect-square object-cover rounded-2xl border mt-2 shadow-inner" /></div>
                                     <div className="text-center">
-                                        <span className="text-[9px] font-black text-brand-red">實拍照</span>
+                                    <span className="text-[9px] font-black text-brand-red">實拍照</span>
                                         {dailyPhotos[`${activeZone.id}_${i}`] ? (
-                                            <div className="relative mt-2">
-                                                {/* 1. 修正圖片路徑，指向物件內的 photo 屬性 */}
-                                                <img src={dailyPhotos[${activeZone.id}_${i}].photo} className="w-full aspect-square object-cover rounded-2xl border" />
+                                        <div className="relative mt-2">
+                                            {/* 修正點 1: 圖片路徑補上 .photo */}
+                                            <img src={dailyPhotos[`${activeZone.id}_${i}`].photo} className="w-full aspect-square object-cover rounded-2xl border" />
             
-                                                {/* 2. 顯示上傳員工名稱 */}
-                                                <div className="absolute top-1 left-1 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-md backdrop-blur-sm shadow-sm">
-                                                    {dailyPhotos[`${activeZone.id}_${i}`].uploader}
-                                                </div>
+                                            {/* 修正點 2: 新增顯示員工姓名的標籤 */}
+                                            <div className="absolute top-1 left-1 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-md backdrop-blur-sm shadow-sm">
+                                                {dailyPhotos[`${activeZone.id}_${i}`].uploader}
+                                            </div>
 
-                                                <label className="absolute bottom-1 right-1 bg-white/80 p-1 rounded-lg cursor-pointer border">
-                                                    <Icon name="refresh-cw" size={12}/>
-                                                        <input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} />
-                                                    </label>
-                                                </div>
-                                            ) : (
-                                                <label className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer active:bg-slate-100">
-                                                    <Icon name="plus" size={20} className="text-slate-300"/>
-                                                    <input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} />
-                                                </label>
-                                            )}
-                                    </div>
+                                            <label className="absolute bottom-1 right-1 bg-white/80 p-1 rounded-lg cursor-pointer border">
+                                                <Icon name="refresh-cw" size={12}/>
+                                                <input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} />
+                                            </label>
+                                        </div>
+                                    ) : (
+                                        <label className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer active:bg-slate-100">
+                                            <Icon name="plus" size={20} className="text-slate-300"/>
+                                            <input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} />
+                                        </label>
+                                    )}
                                 </div>
                             </div>
                         ))}
