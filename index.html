@@ -2212,7 +2212,7 @@
             );
         };
 
-        const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, branchZones, currentBranch, getPublicPath }) => {
+        const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, branchZones, currentBranch, getPublicPath, currentUser }) => {
             const [activeZone, setActiveZone] = useState(null);
             const [dailyPhotos, setDailyPhotos] = useState({});
             const [loading, setLoading] = useState(false);
@@ -2221,7 +2221,16 @@
 
             useEffect(() => {
                 const unsubscribe = db.collection(getPublicPath(`daily_photos_${currentBranch}`)).onSnapshot(snapshot => {
-                    const allPhotos = {}; snapshot.forEach(doc => { const data = doc.data(); allPhotos[`${data.zoneId}_${data.itemIdx}`] = data.photo; });
+                    const allPhotos = {}; 
+                    snapshot.forEach(doc => { 
+                        const data = doc.data(); 
+                        // 變更為儲存物件，包含上傳者資訊
+                        allPhotos[`${data.zoneId}_${data.itemIdx}`] = {
+                            photo: data.photo,
+                            uploader: data.uploader || '未知',
+                            timestamp: data.timestamp
+                        }; 
+                    });
                     setDailyPhotos(allPhotos);
                 });
                 return () => unsubscribe();
@@ -2231,7 +2240,13 @@
                 const file = e.target.files[0]; if (!file) return;
                 const r = new FileReader(); r.onloadend = async () => {
                     const compressed = await compressImage(r.result, 800, 0.5);
-                    db.collection(getPublicPath(`daily_photos_${currentBranch}`)).doc(`${activeZone.id}_${idx}`).set({ photo: compressed, zoneId: activeZone.id, itemIdx: idx, timestamp: Date.now() }).then(() => triggerNotify("實拍照已更新", "success"));
+                    db.collection(getPublicPath(`daily_photos_${currentBranch}`)).doc(`${activeZone.id}_${idx}`).set({ 
+                        photo: compressed, 
+                        zoneId: activeZone.id, 
+                        itemIdx: idx, 
+                        timestamp: Date.now(),
+                        uploader: currentUser?.name || '未知' // 紀錄是誰上傳的
+                    }).then(() => triggerNotify("實拍照已更新", "success"));
                 };
                 r.readAsDataURL(file);
             };
@@ -2285,7 +2300,31 @@
                                 <p className="text-[11px] font-black text-slate-700 mb-3 bg-slate-50 p-3 rounded-xl flex items-center gap-2 border shadow-inner"><Icon name="info" size={14} className="text-brand-red" />要求：{item.note || "無說明"}</p>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="text-center"><span className="text-[9px] font-black text-emerald-600">標準照</span><img src={item.url} className="w-full aspect-square object-cover rounded-2xl border mt-2 shadow-inner" /></div>
-                                    <div className="text-center"><span className="text-[9px] font-black text-brand-red">實拍照</span>{dailyPhotos[`${activeZone.id}_${i}`] ? <div className="relative mt-2"><img src={dailyPhotos[`${activeZone.id}_${i}`]} className="w-full aspect-square object-cover rounded-2xl border" /><label className="absolute bottom-1 right-1 bg-white/80 p-1 rounded-lg cursor-pointer border"><Icon name="refresh-cw" size={12}/><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} /></label></div> : <label className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer active:bg-slate-100"><Icon name="plus" size={20} className="text-slate-300"/><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} /></label>}</div>
+                                    <div className="text-center">
+                                        <span className="text-[9px] font-black text-brand-red">實拍照</span>
+                                        {dailyPhotos[`${activeZone.id}_${i}`] ? (
+                                            <div className="relative mt-2">
+                                                {/* 這裡原本是 src={dailyPhotos[...]}，改成 src={dailyPhotos[...].photo} */}
+                                                <img src={dailyPhotos[`${activeZone.id}_${i}`].photo} className="w-full aspect-square object-cover rounded-2xl border" />
+            
+                                                {/* 👇 這是新增的員工名稱標籤，會顯示在圖片左上角 */}
+                                                <div className="absolute top-1 left-1 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-md backdrop-blur-sm shadow-sm">
+                                                    {dailyPhotos[`${activeZone.id}_${i}`].uploader}
+                                                </div>
+                                                {/* 👆 新增結束 */}
+
+                                                <label className="absolute bottom-1 right-1 bg-white/80 p-1 rounded-lg cursor-pointer border">
+                                                    <Icon name="refresh-cw" size={12}/>
+                                                    <input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} />
+                                                </label>
+                                            </div>
+                                        ) : (
+                                            <label className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer active:bg-slate-100">
+                                                <Icon name="plus" size={20} className="text-slate-300"/>
+                                                <input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} />
+                                            </label>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         ))}
@@ -2345,7 +2384,7 @@
             );
         };
 
-        const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, isSuperAdmin, getPublicPath }) => {
+        const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, isSuperAdmin, isManager, getPublicPath }) => {
             const [storeDatabases, setStoreDatabases] = useState({});
             const branches = isSuperAdmin ? globalBranches : [currentBranch];
             const [selectedBranch, setSelectedBranch] = useState(currentBranch);
@@ -2607,12 +2646,14 @@
                                         </button>
                                         
                                         <div className="grid grid-cols-2 gap-3 mt-4">
-                                            <button onClick={() => { setView('analytics'); setSelectedItemName(''); setAnalyticsSearch(''); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
+                                            <button onClick={() => { setView('analytics'); setSelectedItemName(''); setAnalyticsSearch(''); }} className={`py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all ${(isSuperAdmin || isManager) ? '' : 'col-span-2'}`}>
                                                 <OrderSymbolIcon name="Chart" /> 數據分析報表
                                             </button>
-                                            <button onClick={() => { setView('admin'); setAdminTab('ingredients'); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
-                                                <OrderSymbolIcon name="Settings" /> 食材廠商設定
-                                            </button>
+                                            {(isSuperAdmin || isManager) && (
+                                                <button onClick={() => { setView('admin'); setAdminTab('ingredients'); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
+                                                    <OrderSymbolIcon name="Settings" /> 食材廠商設定
+                                                </button>
+                                            )}
                                         </div>
                                         <button onClick={onBack} className="w-full py-4 text-slate-400 font-bold text-xs uppercase mt-4">返回廚務OS</button>
                                     </div>
