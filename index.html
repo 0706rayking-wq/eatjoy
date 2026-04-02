@@ -2212,7 +2212,7 @@
             );
         };
 
-        const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, branchZones, currentBranch, getPublicPath, currentUser }) => {
+        const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, branchZones, currentBranch, getPublicPath }) => {
             const [activeZone, setActiveZone] = useState(null);
             const [dailyPhotos, setDailyPhotos] = useState({});
             const [loading, setLoading] = useState(false);
@@ -2220,37 +2220,21 @@
             const [isResetting, setIsResetting] = useState(false);
 
             useEffect(() => {
-    　　　　　　const unsubscribe = db.collection(getPublicPath(`daily_photos_${currentBranch}`)).onSnapshot(snapshot => {
-        　　　　const allPhotos = {}; 
-        　　　　　snapshot.forEach(doc => { 
-           　　　 const data = doc.data(); 
-            　　　// 變更為儲存物件，包含上傳者資訊
-            　　　　allPhotos[`${data.zoneId}_${data.itemIdx}`] = {
-                　　photo: data.photo,
-                　　uploader: data.uploader || '未知',
-                　　timestamp: data.timestamp
-            　　　}; 
-        　　　　});
-        　　setDailyPhotos(allPhotos);
-    　　　　});
-    　　　return () => unsubscribe();
-　　　　}, [currentBranch]);
+                const unsubscribe = db.collection(getPublicPath(`daily_photos_${currentBranch}`)).onSnapshot(snapshot => {
+                    const allPhotos = {}; snapshot.forEach(doc => { const data = doc.data(); allPhotos[`${data.zoneId}_${data.itemIdx}`] = data.photo; });
+                    setDailyPhotos(allPhotos);
+                });
+                return () => unsubscribe();
+            }, [currentBranch]);
 
             const handleFile = (e, idx) => {
-    　　　　　　const file = e.target.files[0]; if (!file) return;
-    　　　　　　const r = new FileReader(); r.onloadend = async () => {
-        　　　　　const compressed = await compressImage(r.result, 800, 0.5);
-        　　　　　db.collection(getPublicPath(`daily_photos_${currentBranch}`)).doc(`${activeZone.id}_${idx}`).set({ 
-            　　　　photo: compressed, 
-           　　　　 zoneId: activeZone.id, 
-            　　　　itemIdx: idx, 
-           　　　　 timestamp: Date.now(),
-            　　　　uploader: currentUser?.name || '未知' // 紀錄是誰上傳的
-       　　　　　 }).then(() => triggerNotify("實拍照已更新", "success"));
-    　　　　　};
-   　　　　　 r.readAsDataURL(file);
-　　　　　　};
-
+                const file = e.target.files[0]; if (!file) return;
+                const r = new FileReader(); r.onloadend = async () => {
+                    const compressed = await compressImage(r.result, 800, 0.5);
+                    db.collection(getPublicPath(`daily_photos_${currentBranch}`)).doc(`${activeZone.id}_${idx}`).set({ photo: compressed, zoneId: activeZone.id, itemIdx: idx, timestamp: Date.now() }).then(() => triggerNotify("實拍照已更新", "success"));
+                };
+                r.readAsDataURL(file);
+            };
 
             const isAllUploaded = useMemo(() => {
                 if (!activeZone) return false;
@@ -2301,31 +2285,7 @@
                                 <p className="text-[11px] font-black text-slate-700 mb-3 bg-slate-50 p-3 rounded-xl flex items-center gap-2 border shadow-inner"><Icon name="info" size={14} className="text-brand-red" />要求：{item.note || "無說明"}</p>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="text-center"><span className="text-[9px] font-black text-emerald-600">標準照</span><img src={item.url} className="w-full aspect-square object-cover rounded-2xl border mt-2 shadow-inner" /></div>
-                                   <div className="text-center">
-    　　　　　　　　　　　　　　　　　　<span className="text-[9px] font-black text-brand-red">實拍照</span>
-    　　　　　　　　　　　　　　　　　　{dailyPhotos[`${activeZone.id}_${i}`] ? (
-       　　　　　　　　　　　　　　　　　 <div className="relative mt-2">
-           　　　　　　　　　　　　　　　 {/* 這裡原本是 src={dailyPhotos[...]}，改成 src={dailyPhotos[...].photo} */}
-            　　　　　　　　　　　　　　　<img src={dailyPhotos[`${activeZone.id}_${i}`].photo} className="w-full aspect-square object-cover rounded-2xl border" />
-            
-           　　　　　　　　　　　　　　　 {/* 👇 這是新增的員工名稱標籤，會顯示在圖片左上角 */}
-            　　　　　　　　　　　　　　　<div className="absolute top-1 left-1 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-md backdrop-blur-sm shadow-sm">
-                　　　　　　　　　　　　　　{dailyPhotos[`${activeZone.id}_${i}`].uploader}
-           　　　　　　　　　　　　　　　 </div>
-           　　　　　　　　　　　　　　　 {/* 👆 新增結束 */}
-
-            　　　　　　　　　　　　　　　<label className="absolute bottom-1 right-1 bg-white/80 p-1 rounded-lg cursor-pointer border">
-               　　　　　　　　　　　　　　 <Icon name="refresh-cw" size={12}/>
-                　　　　　　　　　　　　　　<input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} />
-           　　　　　　　　　　　　　　　 </label>
-        　　　　　　　　　　　　　　　　</div>
-    　　　　　　　　　　　　　　　　　) : (
-       　　　　　　　　　　　　　　　　 <label className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer active:bg-slate-100">
-            　　　　　　　　　　　　　<Icon name="plus" size={20} className="text-slate-300"/>
-           　　　　　　　　　　　　　 <input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} />
-       　　　　　　　　　　　　　　 </label>
-   　　　　　　　　　　　　　　　 )}
-　　　　　　　　　　　　　　　</div>
+                                    <div className="text-center"><span className="text-[9px] font-black text-brand-red">實拍照</span>{dailyPhotos[`${activeZone.id}_${i}`] ? <div className="relative mt-2"><img src={dailyPhotos[`${activeZone.id}_${i}`]} className="w-full aspect-square object-cover rounded-2xl border" /><label className="absolute bottom-1 right-1 bg-white/80 p-1 rounded-lg cursor-pointer border"><Icon name="refresh-cw" size={12}/><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} /></label></div> : <label className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer active:bg-slate-100"><Icon name="plus" size={20} className="text-slate-300"/><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} /></label>}</div>
                                 </div>
                             </div>
                         ))}
@@ -2385,7 +2345,7 @@
             );
         };
 
-        const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, isSuperAdmin, isManager, getPublicPath }) => {
+        const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, isSuperAdmin, getPublicPath }) => {
             const [storeDatabases, setStoreDatabases] = useState({});
             const branches = isSuperAdmin ? globalBranches : [currentBranch];
             const [selectedBranch, setSelectedBranch] = useState(currentBranch);
@@ -2645,18 +2605,15 @@
                                         <button onClick={() => setView('zone_select')} className="w-full bg-brand-red text-white py-5 rounded-3xl font-black text-lg shadow-xl shadow-brand-red/20 flex items-center justify-center gap-3 active-scale transition-all">
                                             開始點貨 <OrderSymbolIcon name="ArrowRight" className="text-xl" />
                                         </button>
-
                                         
                                         <div className="grid grid-cols-2 gap-3 mt-4">
-    　　　　　　　　　　　　　　　　　　　　　<button onClick={() => { setView('analytics'); setSelectedItemName(''); setAnalyticsSearch(''); }} className={`py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all ${(isSuperAdmin || isManager) ? '' : 'col-span-2'}`}>
-        　　　　　　　　　　　　　　　　　　　　<OrderSymbolIcon name="Chart" /> 數據分析報表
-    　　　　　　　　　　　　　　　　　　　　　</button>
-   　　　　　　　　　　　　　　　　　　　　　 {(isSuperAdmin || isManager) && (
-        　　　　　　　　　　　　　　　　　　　　<button onClick={() => { setView('admin'); setAdminTab('ingredients'); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
-            　　　　　　　　　　　　　　　　　<OrderSymbolIcon name="Settings" /> 食材廠商設定
-       　　　　　　　　　　　　　　　　　　　</button>
-   　　　　　　　　　　　　　　　　　　　　 )}
-　　　　　　　　　　　　　　　　　　　　　</div>
+                                            <button onClick={() => { setView('analytics'); setSelectedItemName(''); setAnalyticsSearch(''); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
+                                                <OrderSymbolIcon name="Chart" /> 數據分析報表
+                                            </button>
+                                            <button onClick={() => { setView('admin'); setAdminTab('ingredients'); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
+                                                <OrderSymbolIcon name="Settings" /> 食材廠商設定
+                                            </button>
+                                        </div>
                                         <button onClick={onBack} className="w-full py-4 text-slate-400 font-bold text-xs uppercase mt-4">返回廚務OS</button>
                                     </div>
                                 </div>
@@ -3248,30 +3205,6 @@
         };
 
         const App = () => {
-            const THEMES = [
-    { name: '經典深紅', brand: '185 18 27', bg: '#f8fafc', color: 'bg-red-700' },
-    { name: '沉穩深藍', brand: '30 58 138', bg: '#f0f9ff', color: 'bg-blue-900' },
-    { name: '森林墨綠', brand: '20 83 45', bg: '#f0fdf4', color: 'bg-green-900' },
-    { name: '暖陽橘金', brand: '194 65 12', bg: '#fff7ed', color: 'bg-orange-700' },
-    { name: '浪漫紫羅蘭', brand: '91 33 182', bg: '#f5f3ff', color: 'bg-purple-800' },
-    { name: '櫻花蜜桃', brand: '190 18 60', bg: '#fff1f2', color: 'bg-rose-700' },
-    { name: '拿鐵大地', brand: '113 63 18', bg: '#fefce8', color: 'bg-yellow-900' },
-    { name: '寧靜湖水', brand: '15 118 110', bg: '#f0fdfa', color: 'bg-teal-700' },
-    { name: '極簡曜黑', brand: '15 23 42', bg: '#f1f5f9', color: 'bg-slate-900' },
-    { name: '活力桃粉', brand: '219 39 119', bg: '#fdf2f8', color: 'bg-pink-600' }
-];
-
-const [currentTheme, setCurrentTheme] = useState(() => parseInt(localStorage.getItem('k_theme') || '0'));
-const [showThemeModal, setShowThemeModal] = useState(false);
-
-useEffect(() => {
-    const theme = THEMES[currentTheme];
-    if (theme) {
-        document.documentElement.style.setProperty('--brand-red', theme.brand);
-        document.documentElement.style.setProperty('--app-bg', theme.bg);
-        localStorage.setItem('k_theme', currentTheme);
-    }
-}, [currentTheme]);
             const [currentPage, setCurrentPage] = useState('auth');
             const [currentUser, setCurrentUser] = useState(() => { const saved = localStorage.getItem('k_active_user'); return saved ? JSON.parse(saved) : null; });
             const [isSuperAdmin, setIsSuperAdmin] = useState(() => localStorage.getItem('k_super_admin') === 'true');
@@ -3544,8 +3477,6 @@ useEffect(() => {
 
             const renderPage = () => {
                 switch(currentPage) {
-                    case 'ordering': return <OrderingSystem onBack={()=>setCurrentPage('home')} triggerNotify={triggerNotify} globalBranches={globalBranches} currentBranch={currentBranch} isSuperAdmin={isSuperAdmin} isManager={isManager} getPublicPath={getPublicPath} />;
-　　　　　　　　　　　　case 'inspection': return <InspectionPage onBack={()=>setCurrentPage('home')} standards={standards} completedZones={completedZones} triggerNotify={triggerNotify} branchZones={branchZones} currentBranch={currentBranch} getPublicPath={getPublicPath} currentUser={currentUser} />;
                     case 'home': {
                         const progressPercent = branchZones.length > 0 ? Math.round((completedZones.length / branchZones.length) * 100) : 0;
                         return (
@@ -3658,34 +3589,29 @@ useEffect(() => {
                     </div>
 
                     {currentPage !== 'auth' && (
-                        {/* 尋找 <header className="..."> ... </header>，全部替換為： */}
-<header className="p-5 sticky top-0 z-50 flex justify-between items-center bg-white/80 backdrop-blur-md border-b">
-    <div className="flex items-center gap-3 cursor-pointer shrink-0" onClick={() => (isManager || currentUser?.status === 'approved') && setCurrentPage('home')}>
-        <div className="bg-brand-red w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg shrink-0 font-black text-xl leading-none">
-            饗
-        </div>
-        <div>
-            <span className="font-black text-xl text-slate-800 tracking-tighter leading-none block">EATJOY <span className="text-brand-red">OS</span></span>
-            <span className="text-[9px] text-slate-400 font-bold uppercase">{currentBranch}</span>
-        </div>
-    </div>
-    <div className="flex gap-2">
-        {/* 新增調色盤按鈕 */}
-        <button onClick={() => setShowThemeModal(true)} className="flex items-center justify-center p-2 rounded-xl text-slate-500 hover:bg-slate-100 active:scale-95 transition-all shadow-sm bg-white border border-slate-100">
-            <Icon name="palette" size={16} />
-        </button>
-        <button onClick={() => isManager ? setCurrentPage('admin') : (currentUser?.status === 'approved' && setCurrentPage('home'))} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap ${isSuperAdmin ? 'bg-brand-red text-white' : (isManager ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}`}>
-            <Icon name={isManager ? "settings" : "bell"} size={16} />
-            {isManager ? "後台" : "通知"}
-        </button>
-        {(currentUser || isManager) && (
-            <button onClick={logout} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-rose-50 text-brand-red border border-rose-100 active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap">
-                <Icon name="log-out" size={16} />
-                登出
-            </button>
-        )}
-    </div>
-</header>
+                        <header className="p-5 sticky top-0 z-50 flex justify-between items-center bg-white/80 backdrop-blur-md border-b">
+                            <div className="flex items-center gap-3 cursor-pointer shrink-0" onClick={() => (isManager || currentUser?.status === 'approved') && setCurrentPage('home')}>
+                                <div className="bg-brand-red w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg shrink-0 font-black text-xl leading-none">
+                                    饗
+                                </div>
+                                <div>
+                                    <span className="font-black text-xl text-slate-800 tracking-tighter leading-none block">EATJOY <span className="text-brand-red">OS</span></span>
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase">{currentBranch}</span>
+                                </div>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={() => isManager ? setCurrentPage('admin') : (currentUser?.status === 'approved' && setCurrentPage('home'))} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap ${isSuperAdmin ? 'bg-brand-red text-white' : (isManager ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}`}>
+                                    <Icon name={isManager ? "settings" : "bell"} size={16} />
+                                    {isManager ? "後台" : "通知"}
+                                </button>
+                                {(currentUser || isManager) && (
+                                    <button onClick={logout} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-rose-50 text-brand-red border border-rose-100 active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap">
+                                        <Icon name="log-out" size={16} />
+                                        登出
+                                    </button>
+                                )}
+                            </div>
+                        </header>
                     )}
                     <main className={`flex-grow mx-auto w-full font-bold ${currentPage === 'schedule' ? 'max-w-[1600px] px-2' : 'max-w-lg'}`}>
                         {!fbReady ? <div className="p-20 text-center h-screen flex flex-col items-center justify-center gap-4 font-bold"><Icon name="loader-2" className="animate-spin text-brand-red" size={48}/><p className="text-slate-400 font-black text-xs">連線中...</p></div>
@@ -3711,22 +3637,6 @@ useEffect(() => {
                             </div>
                         )}
                     </main>
-                        {showThemeModal && (
-    　　　　　　　　　　　　　<div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 page-enter" onClick={() => setShowThemeModal(false)}>
-       　　　　　　　　　　　　　<div className="bg-white rounded-[2.5rem] p-6 w-full max-w-sm shadow-2xl" onClick={e => e.stopPropagation()}>
-           　　　　　　　　　　　　 <h3 className="font-black text-lg text-slate-800 mb-4 flex items-center gap-2"><Icon name="palette" className="text-brand-red"/> 系統主題色彩</h3>
-           　　　　　　　　　　　　　　 <div className="grid grid-cols-2 gap-3">
-               　　　　　　　　　　　　　 {THEMES.map((theme, idx) => (
-                    　　　　　　　　　　　<button key={idx} onClick={() => { setCurrentTheme(idx); setShowThemeModal(false); }} className={`p-3 rounded-2xl border-2 flex items-center gap-3 transition-all ${currentTheme === idx ? 'border-brand-red shadow-md bg-slate-50' : 'border-slate-100 hover:border-slate-300'}`}>
-                        　　　　　　　<div className={`w-6 h-6 rounded-full shadow-inner ${theme.color}`}></div>
-                       　　　　　　 <span className="text-xs font-bold text-slate-700">{theme.name}</span>
-                    　　　　　　　　</button>
-               　　　　　　　　　 ))}
-            　　　　　　　　　</div>
-            　　　　　　　　　<button onClick={() => setShowThemeModal(false)} className="mt-6 w-full py-3 rounded-xl bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-all">完成</button>
-       　　　　　　　　　　　　 </div>
-    　　　　　　　　　　　　　　</div>
-　　　　　　　　　　　　　　　)}
                 </div>
             );
         };
