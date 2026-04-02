@@ -12,6 +12,7 @@
                 extend: {
                     colors: {
                         brand: {
+                            // 改為動態 CSS 變數，支援透過透明度語法 (如 bg-brand-red/20) 使用
                             red: 'rgb(var(--brand-red) / <alpha-value>)',
                             dark: 'rgb(var(--brand-red) / <alpha-value>)', 
                             light: '#f8fafc'
@@ -39,7 +40,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
         
         :root { 
-            /* 預設配色 (已改為動態變數) */
+            /* 預設配色 (已改為您圖片中沉穩的深紅色) */
             --brand-red: 185 18 27; 
             --app-bg: #f8fafc; 
         }
@@ -183,20 +184,6 @@
 
         const DEFAULT_UNITS = ["件", "箱", "包", "斤", "公斤","兩" ,"顆", "條", "罐", "桶", "籃", "袋", "捲", "盒", "兩", "串", "瓶", "組", "板", "塊"];
 
-        // 定義 10 種顏色主題的配置
-        const THEMES = [
-            { name: '經典紅', rgb: '185 18 27', colorCode: '#b9121b' },
-            { name: '活力橘', rgb: '249 115 22', colorCode: '#f97316' },
-            { name: '琥珀黃', rgb: '245 158 11', colorCode: '#f59e0b' },
-            { name: '森林綠', rgb: '34 197 94', colorCode: '#22c55e' },
-            { name: '湖水藍', rgb: '6 182 212', colorCode: '#06b6d4' },
-            { name: '皇家藍', rgb: '59 130 246', colorCode: '#3b82f6' },
-            { name: '靛青色', rgb: '99 102 241', colorCode: '#6366f1' },
-            { name: '薰衣草紫', rgb: '139 92 246', colorCode: '#8b5cf6' },
-            { name: '玫瑰粉', rgb: '244 63 94', colorCode: '#f43f5e' },
-            { name: '曜石黑', rgb: '15 23 42', colorCode: '#0f172a' }
-        ];
-
         // --- 工具函式 ---
         const compressImage = (base64Str, maxWidth = 800, quality = 0.5) => {
             return new Promise((resolve) => {
@@ -248,7 +235,7 @@
                 "Layers": "layers", "Filter": "filter", "Building2": "building-2", "LayoutGrid": "layout-grid", "Edit": "edit-3",
                 "Chart": "bar-chart-3", "History": "history", "Carrot": "carrot", "Fish": "fish", "Soup": "soup",
                 "UtensilsCrossed": "utensils-crossed", "IceCream": "ice-cream", "Coffee": "coffee", "Timer": "timer",
-                "Calendar": "calendar", "Image": "image", "Download": "download", "Palette": "palette"
+                "Calendar": "calendar", "Image": "image", "Download": "download"
             };
             return <Icon name={symbols[name] || "help-circle"} className={className} />;
         };
@@ -483,7 +470,7 @@
             );
         };
 
-        // --- 專屬食譜管理器 ---
+        // --- 專屬食譜管理器 (支援食材、做法、備註與全域同步、拖曳排序，以及從資料庫匯入) ---
         const RecipeAdminManager = ({ categoryPath, currentBranch, globalBranches, isSuperAdmin, items = [], triggerNotify, getPublicPath, categories, globalRecipes = [] }) => {
             const [newT, setNewT] = useState(''); 
             const [newCat, setNewCat] = useState(categories ? categories[0] : '');
@@ -765,7 +752,7 @@
             );
         };
 
-        // --- 分店專用公告管理器 ---
+        // --- 分店專用公告管理器 (支援編輯、全域同步、拖曳排序、已讀名單) ---
         const AnnouncementAdminManager = ({ currentBranch, globalBranches, isSuperAdmin, announcements, triggerNotify, getPublicPath }) => {
             const [newT, setNewT] = useState('');
             const [newC, setNewC] = useState('');
@@ -994,7 +981,6 @@
                         setIsSuperAdmin(true);
                         setIsManager(true); 
                         localStorage.setItem('k_super_admin', 'true');
-                        localStorage.setItem('k_is_manager', 'true');
                         setCurrentBranch(branch);
                         setCurrentPage('home'); 
                         triggerNotify("行政主廚權限", "success"); 
@@ -1029,17 +1015,9 @@
                             triggerNotify(`登入失敗：您的帳號隸屬於「${existing.branch}」，請選擇正確的分店。`, "error");
                             return;
                         }
-                        setCurrentUser(existing); 
-                        localStorage.setItem('k_active_user', JSON.stringify(existing));
-                        
+                        setCurrentUser(existing); localStorage.setItem('k_active_user', JSON.stringify(existing));
                         if (existing.status === 'approved') { 
-                            if(existing.role === '主管') {
-                                setIsManager(true);
-                                localStorage.setItem('k_is_manager', 'true');
-                            } else {
-                                setIsManager(false);
-                                localStorage.removeItem('k_is_manager');
-                            }
+                            if(existing.role === '主管') setIsManager(true);
                             setCurrentBranch(existing.branch);
                             setCurrentPage('home'); 
                             triggerNotify(`歡迎回來, ${existing.name} (${existing.role})`, "success"); 
@@ -1123,7 +1101,7 @@
             </div>
         );
 
-        // --- 優化輸入體驗 ---
+        // --- 優化輸入體驗 (解決注音輸入法中斷問題) ---
         const SyncInput = ({ value, onChange, readOnly, className, maxLength, placeholder, autoFocus }) => {
             const [localVal, setLocalVal] = useState(value || '');
             useEffect(() => { setLocalVal(value || ''); }, [value]);
@@ -1171,7 +1149,7 @@
             );
         };
 
-        // --- 進階班表系統 ---
+        // --- 進階班表系統 (整合權限管控與單月獨立資料、節日顏色切換、下載圖片) ---
         const ScheduleSystem = ({ onBack, currentBranch, isManager, getPublicPath, triggerNotify }) => {
             const defaultShiftRules = [
                 { code: 'A-5', name: '早班A5', type: 'morning' },
@@ -1250,6 +1228,7 @@
                 return {};
             }, [activeMonthData, scheduleData.months, scheduleData.holidays]);
 
+            // 解析舊版字串與新版物件的節日資料
             const getHolidayData = useCallback((dateString) => {
                 const h = holidays[dateString];
                 if (!h) return null;
@@ -1273,6 +1252,7 @@
                 };
                 newMonths[monthKey] = currentMonthData;
                 
+                // 使用 update 覆寫該月份，解決 { merge: true } 無法刪除節日欄位的問題
                 const docRef = db.doc(getPublicPath(`schedules_data/branch_${currentBranch}`));
                 docRef.update({
                     [`months.${monthKey}`]: currentMonthData
@@ -1315,6 +1295,7 @@
                 updateMonthData({ staffList: newStaffList });
             };
 
+            // 切換格子黃色背景標記功能
             const toggleCellColor = (staffId, dateString) => {
                 if (!isManager) return;
                 const cellKey = `${staffId}_${dateString}`;
@@ -1322,9 +1303,9 @@
                 const newColors = { ...currentColors };
                 
                 if (newColors[cellKey] === 'bg-yellow-300') {
-                    delete newColors[cellKey]; 
+                    delete newColors[cellKey]; // 取消標記
                 } else {
-                    newColors[cellKey] = 'bg-yellow-300';
+                    newColors[cellKey] = 'bg-yellow-300'; // 加上黃色標記
                 }
                 updateMonthData({ cellColors: newColors });
             };
@@ -1465,18 +1446,24 @@
                 return 'bg-slate-100 text-slate-800 font-bold';
             }, [getHolidayData]);
 
+            // 存為圖片功能 (進階修正：確保不裁切與防破圖)
             const handleDownloadImage = async () => {
                 if (!tableRef.current) return;
+                
                 setIsDownloading(true);
                 triggerNotify("正在展開表格並準備拍攝，請稍候...", "info");
                 
+                // 給 React 一點時間將輸入框 (input) 轉換為純文字 (div)，避免字體偏移
                 setTimeout(async () => {
                     const target = tableRef.current;
                     const parent = target.parentElement;
+                    
+                    // 暫存原本的佈局樣式
                     const originalOverflow = parent.style.overflow;
                     const originalWidth = parent.style.width;
                     const originalPosition = parent.style.position;
                     
+                    // 強制完全展開容器，避免 html2canvas 裁切可視範圍以外的內容
                     parent.style.overflow = 'visible';
                     parent.style.width = 'max-content';
                     parent.style.position = 'static';
@@ -1491,13 +1478,17 @@
                             windowWidth: target.scrollWidth,
                             windowHeight: target.scrollHeight
                         });
+
                         const imgData = canvas.toDataURL('image/jpeg', 0.9);
+                        
+                        // 開啟預覽對話框，提供手機端安全長按儲存
                         setPreviewImage(imgData);
                         triggerNotify("班表截圖成功！", "success");
                     } catch (error) {
                         console.error("產生圖片失敗", error);
                         triggerNotify("下載圖片失敗，請稍後再試", "error");
                     } finally {
+                        // 恢復所有原始樣式與編輯模式
                         parent.style.overflow = originalOverflow;
                         parent.style.width = originalWidth;
                         parent.style.position = originalPosition;
@@ -1694,6 +1685,7 @@
                                                     <button onClick={() => {
                                                         const newColors = {...roleColors};
                                                         delete newColors[role];
+                                                        // 避免 merge:true 無法刪除屬性，改用 update 覆寫
                                                         db.doc(getPublicPath(`schedules_data/branch_${currentBranch}`)).update({
                                                             roleColors: newColors
                                                         }).catch(() => {
@@ -1847,6 +1839,7 @@
                         </div>
                     </div>
                     
+                    {/* 新增：高畫質圖片預覽 Modal，用於修復 iOS 無法直接下載的問題 */}
                     {previewImage && (
                         <div className="fixed inset-0 z-[100000] bg-slate-900/95 flex flex-col items-center justify-center p-4 sm:p-8 animate-in fade-in">
                             <div className="w-full max-w-6xl flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
@@ -1876,6 +1869,7 @@
             );
         };
 
+        // --- 進階菜單前台展示元件 ---
         const MenuDisplayPage = ({ onBack, items = [] }) => {
             const [selectedRecipe, setSelectedRecipe] = useState(null);
 
@@ -1889,12 +1883,14 @@
                 return groups;
             }, [items]);
 
+            // 過濾出「有菜色」的分類，避免顯示空空如也的分類選項
             const availableCats = useMemo(() => {
                 return MENU_CATEGORIES.concat('未分類').filter(cat => groupedItems[cat] && groupedItems[cat].length > 0);
             }, [groupedItems]);
 
             const [activeCat, setActiveCat] = useState('');
 
+            // 預設選擇第一個有資料的分類
             useEffect(() => {
                 if (availableCats.length > 0 && (!activeCat || !availableCats.includes(activeCat))) {
                     setActiveCat(availableCats[0]);
@@ -1974,6 +1970,7 @@
                 printWindow.document.close();
                 printWindow.focus();
                 
+                // 改用父視窗控制延遲列印，避免插入 <script> 被 Babel 解析時截斷
                 setTimeout(() => { 
                     printWindow.print(); 
                     printWindow.close(); 
@@ -1986,6 +1983,7 @@
                     
                     {availableCats.length > 0 ? (
                         <>
+                            {/* 頂部滑動導覽列 */}
                             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 pt-1 sticky top-[60px] z-30 bg-[#f8fafc] -mx-4 px-4 shadow-sm mb-4">
                                 {availableCats.map(cat => (
                                     <button 
@@ -1998,6 +1996,7 @@
                                 ))}
                             </div>
 
+                            {/* 下方菜色卡片網格 */}
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                 {(groupedItems[activeCat] || []).map(item => (
                                     <div 
@@ -2025,6 +2024,7 @@
                         </div>
                     )}
 
+                    {/* 食譜彈跳視窗 */}
                     {selectedRecipe && (
                         <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 page-enter">
                             <div className="bg-white rounded-[2rem] w-full max-w-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-slate-100">
@@ -2111,13 +2111,13 @@
                             body { font-family: 'Noto Sans TC', sans-serif; margin: 0; padding: 0; color: #1e293b; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
                             .print-container { max-width: 800px; margin: 0 auto; }
                             h1 { text-align: center; font-size: 22px; border-bottom: 2px solid #b9121b; padding-bottom: 8px; margin-bottom: 15px; color: #b9121b; letter-spacing: 2px;}
-                            .category-section { margin-bottom: 24px; } 
+                            .category-section { margin-bottom: 24px; } /* 移除 page-break-inside: avoid，避免大片留白 */
                             h2 { font-size: 16px; color: #1e293b; margin-top: 0; margin-bottom: 10px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; background-color: #f8fafc; padding: 6px 10px; border-radius: 4px; page-break-after: avoid; }
-                            .rule-item { margin-bottom: 12px; padding-left: 10px; page-break-inside: avoid; } 
+                            .rule-item { margin-bottom: 12px; padding-left: 10px; page-break-inside: avoid; } /* 確保單一守則不斷頁 */
                             .rule-title { font-weight: 900; font-size: 13px; margin-bottom: 4px; color: #334155; }
                             .rule-desc { font-size: 11px; color: #475569; white-space: pre-wrap; line-height: 1.5; margin: 0; }
                             .rule-img { max-width: 100%; max-height: 160px; margin-top: 8px; border-radius: 6px; border: 1px solid #cbd5e1; }
-                            .signature-box { margin-top: 12px; padding: 12px; border: 2px dashed #cbd5e1; background-color: #f8fafc; text-align: center; border-radius: 8px; page-break-inside: avoid; } 
+                            .signature-box { margin-top: 12px; padding: 12px; border: 2px dashed #cbd5e1; background-color: #f8fafc; text-align: center; border-radius: 8px; page-break-inside: avoid; } /* 確保簽名框不斷頁 */
                             .signature-img { max-height: 60px; max-width: 100%; mix-blend-mode: multiply; }
                             .no-sig { color: #ef4444; font-weight: bold; font-size: 11px; }
                             .footer { text-align: center; font-size: 9px; color: #94a3b8; margin-top: 20px; border-top: 1px solid #e2e8f0; padding-top: 10px; }
@@ -2220,34 +2220,37 @@
             const [isResetting, setIsResetting] = useState(false);
 
             useEffect(() => {
-                const unsubscribe = db.collection(getPublicPath(`daily_photos_${currentBranch}`)).onSnapshot(snapshot => {
-                    const allPhotos = {}; 
-                    snapshot.forEach(doc => { 
-                        const data = doc.data(); 
-                        allPhotos[`${data.zoneId}_${data.itemIdx}`] = {
-                            photo: data.photo,
-                            uploaderName: data.uploaderName || '未知'
-                        }; 
-                    });
-                    setDailyPhotos(allPhotos);
-                });
-                return () => unsubscribe();
-            }, [currentBranch]);
+    　　　　　　const unsubscribe = db.collection(getPublicPath(`daily_photos_${currentBranch}`)).onSnapshot(snapshot => {
+        　　　　const allPhotos = {}; 
+        　　　　　snapshot.forEach(doc => { 
+           　　　 const data = doc.data(); 
+            　　　// 變更為儲存物件，包含上傳者資訊
+            　　　　allPhotos[`${data.zoneId}_${data.itemIdx}`] = {
+                　　photo: data.photo,
+                　　uploader: data.uploader || '未知',
+                　　timestamp: data.timestamp
+            　　　}; 
+        　　　　});
+        　　setDailyPhotos(allPhotos);
+    　　　　});
+    　　　return () => unsubscribe();
+　　　　}, [currentBranch]);
 
             const handleFile = (e, idx) => {
-                const file = e.target.files[0]; if (!file) return;
-                const r = new FileReader(); r.onloadend = async () => {
-                    const compressed = await compressImage(r.result, 800, 0.5);
-                    db.collection(getPublicPath(`daily_photos_${currentBranch}`)).doc(`${activeZone.id}_${idx}`).set({ 
-                        photo: compressed, 
-                        zoneId: activeZone.id, 
-                        itemIdx: idx, 
-                        timestamp: Date.now(),
-                        uploaderName: currentUser?.name || '未知' // 紀錄上傳者名字
-                    }).then(() => triggerNotify("實拍照已更新", "success"));
-                };
-                r.readAsDataURL(file);
-            };
+    　　　　　　const file = e.target.files[0]; if (!file) return;
+    　　　　　　const r = new FileReader(); r.onloadend = async () => {
+        　　　　　const compressed = await compressImage(r.result, 800, 0.5);
+        　　　　　db.collection(getPublicPath(`daily_photos_${currentBranch}`)).doc(`${activeZone.id}_${idx}`).set({ 
+            　　　　photo: compressed, 
+           　　　　 zoneId: activeZone.id, 
+            　　　　itemIdx: idx, 
+           　　　　 timestamp: Date.now(),
+            　　　　uploader: currentUser?.name || '未知' // 紀錄是誰上傳的
+       　　　　　 }).then(() => triggerNotify("實拍照已更新", "success"));
+    　　　　　};
+   　　　　　 r.readAsDataURL(file);
+　　　　　　};
+
 
             const isAllUploaded = useMemo(() => {
                 if (!activeZone) return false;
@@ -2293,31 +2296,39 @@
                 <div className="p-4 space-y-6 page-enter pb-24 text-left font-bold">
                     <button onClick={()=>{setActiveZone(null);setIsSubmitted(false);}} className="p-3 bg-white rounded-2xl shadow-sm border active:scale-90 transition-all"><Icon name="arrow-left" size={20}/></button>
                     <div className="space-y-4">
-                        {(standards[activeZone.id] || []).map((item, i) => {
-                            const photoData = dailyPhotos[`${activeZone.id}_${i}`];
-                            return (
-                                <div key={i} className="glass-panel p-4 rounded-[2rem] border border-slate-100 bg-white">
-                                    <p className="text-[11px] font-black text-slate-700 mb-3 bg-slate-50 p-3 rounded-xl flex items-center gap-2 border shadow-inner"><Icon name="info" size={14} className="text-brand-red" />要求：{item.note || "無說明"}</p>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="text-center"><span className="text-[9px] font-black text-emerald-600">標準照</span><img src={item.url} className="w-full aspect-square object-cover rounded-2xl border mt-2 shadow-inner" /></div>
-                                        <div className="text-center"><span className="text-[9px] font-black text-brand-red">實拍照</span>
-                                            {photoData ? (
-                                                <div className="relative mt-2 flex flex-col items-center">
-                                                    <img src={photoData.photo} className="w-full aspect-square object-cover rounded-2xl border" />
-                                                    <span className="text-[10px] font-black mt-1.5 px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full flex items-center gap-1 shadow-inner max-w-full overflow-hidden whitespace-nowrap"><Icon name="user" size={10} className="shrink-0" /><span className="truncate">{photoData.uploaderName}</span></span>
-                                                    <label className="absolute bottom-8 right-1 bg-white/80 p-1.5 rounded-lg cursor-pointer border shadow-sm">
-                                                        <Icon name="refresh-cw" size={12}/>
-                                                        <input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} />
-                                                    </label>
-                                                </div>
-                                            ) : (
-                                                <label className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer active:bg-slate-100"><Icon name="plus" size={20} className="text-slate-300"/><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} /></label>
-                                            )}
-                                        </div>
-                                    </div>
+                        {(standards[activeZone.id] || []).map((item, i) => (
+                            <div key={i} className="glass-panel p-4 rounded-[2rem] border border-slate-100 bg-white">
+                                <p className="text-[11px] font-black text-slate-700 mb-3 bg-slate-50 p-3 rounded-xl flex items-center gap-2 border shadow-inner"><Icon name="info" size={14} className="text-brand-red" />要求：{item.note || "無說明"}</p>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="text-center"><span className="text-[9px] font-black text-emerald-600">標準照</span><img src={item.url} className="w-full aspect-square object-cover rounded-2xl border mt-2 shadow-inner" /></div>
+                                   <div className="text-center">
+    　　　　　　　　　　　　　　　　　　<span className="text-[9px] font-black text-brand-red">實拍照</span>
+    　　　　　　　　　　　　　　　　　　{dailyPhotos[`${activeZone.id}_${i}`] ? (
+       　　　　　　　　　　　　　　　　　 <div className="relative mt-2">
+           　　　　　　　　　　　　　　　 {/* 這裡原本是 src={dailyPhotos[...]}，改成 src={dailyPhotos[...].photo} */}
+            　　　　　　　　　　　　　　　<img src={dailyPhotos[`${activeZone.id}_${i}`].photo} className="w-full aspect-square object-cover rounded-2xl border" />
+            
+           　　　　　　　　　　　　　　　 {/* 👇 這是新增的員工名稱標籤，會顯示在圖片左上角 */}
+            　　　　　　　　　　　　　　　<div className="absolute top-1 left-1 bg-black/60 text-white text-[10px] px-2 py-0.5 rounded-md backdrop-blur-sm shadow-sm">
+                　　　　　　　　　　　　　　{dailyPhotos[`${activeZone.id}_${i}`].uploader}
+           　　　　　　　　　　　　　　　 </div>
+           　　　　　　　　　　　　　　　 {/* 👆 新增結束 */}
+
+            　　　　　　　　　　　　　　　<label className="absolute bottom-1 right-1 bg-white/80 p-1 rounded-lg cursor-pointer border">
+               　　　　　　　　　　　　　　 <Icon name="refresh-cw" size={12}/>
+                　　　　　　　　　　　　　　<input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} />
+           　　　　　　　　　　　　　　　 </label>
+        　　　　　　　　　　　　　　　　</div>
+    　　　　　　　　　　　　　　　　　) : (
+       　　　　　　　　　　　　　　　　 <label className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer active:bg-slate-100">
+            　　　　　　　　　　　　　<Icon name="plus" size={20} className="text-slate-300"/>
+           　　　　　　　　　　　　　 <input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} />
+       　　　　　　　　　　　　　　 </label>
+   　　　　　　　　　　　　　　　 )}
+　　　　　　　　　　　　　　　</div>
                                 </div>
-                            );
-                        })}
+                            </div>
+                        ))}
                     </div>
                     {!isSubmitted ? (
                         <div className="space-y-3">
@@ -2380,6 +2391,7 @@
             const [selectedBranch, setSelectedBranch] = useState(currentBranch);
             const currentDb = storeDatabases[selectedBranch] || { ingredients: [], zones: [...INITIAL_ORDER_ZONES], vendors: [], history: [] };
 
+            // 即時同步點貨數量：新增 useEffect 處理來自 Firebase 的更新
             const [orderQuantities, setOrderQuantities] = useState({});
 
             useEffect(() => {
@@ -2389,6 +2401,7 @@
                     if (docSnap.exists) {
                         const data = docSnap.data();
                         setStoreDatabases(prev => ({ ...prev, [selectedBranch]: data }));
+                        // 從資料庫中讀取 activeQuantities，並更新本地畫面
                         if (data.activeQuantities) {
                             setOrderQuantities(data.activeQuantities);
                         } else {
@@ -2409,6 +2422,7 @@
             const [view, setView] = useState('setup'); 
             const [adminTab, setAdminTab] = useState('ingredients');
             
+            // --- 數據報表狀態 ---
             const [selectedItemName, setSelectedItemName] = useState('');
             const [analyticsSearch, setAnalyticsSearch] = useState('');
             
@@ -2477,6 +2491,7 @@
                 return stats;
             }, [currentDb.history, orderDate]);
 
+            // 產生自動完成的選項陣列
             const monthlyOrderedItems = useMemo(() => Object.keys(monthlyStats).sort(), [monthlyStats]);
 
             const getComparisonData = (itemName) => {
@@ -2566,14 +2581,18 @@
                 }
             };
 
+            // 用於處理數量更新，解決 1 跟 0 互跳的問題並即時寫入 DB
             const handleQuantityChange = (itemId, newVal) => {
                 const val = Math.max(0, parseFloat(newVal) || 0);
+                // 1. 本地即時更新，讓 UI 馬上反應不會卡頓
                 setOrderQuantities(prev => ({ ...prev, [itemId]: val }));
                 
+                // 2. 針對性地寫入 Firebase 中 activeQuantities 的單一屬性，避免被覆寫掉
                 const docRef = db.doc(getPublicPath(`ordering/db_${selectedBranch}`));
                 docRef.update({
                     [`activeQuantities.${itemId}`]: val
                 }).catch(() => {
+                    // 若 activeQuantities 尚未存在則初始化它
                     docRef.set({ activeQuantities: { [itemId]: val } }, { merge: true });
                 });
             };
@@ -2594,6 +2613,7 @@
 
             return (
                 <div className="text-slate-900 pb-24 selection:bg-rose-100 overflow-x-hidden page-enter">
+                    {/* 1. 設定頁面 */}
                     {view === 'setup' && (
                         <div className="max-w-md mx-auto px-6 pt-10">
                             <div className="flex justify-center mb-8">
@@ -2625,17 +2645,18 @@
                                         <button onClick={() => setView('zone_select')} className="w-full bg-brand-red text-white py-5 rounded-3xl font-black text-lg shadow-xl shadow-brand-red/20 flex items-center justify-center gap-3 active-scale transition-all">
                                             開始點貨 <OrderSymbolIcon name="ArrowRight" className="text-xl" />
                                         </button>
+
                                         
-                                        <div className={`grid ${isManager || isSuperAdmin ? 'grid-cols-2' : 'grid-cols-1'} gap-3 mt-4`}>
-                                            <button onClick={() => { setView('analytics'); setSelectedItemName(''); setAnalyticsSearch(''); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
-                                                <OrderSymbolIcon name="Chart" /> 數據分析報表
-                                            </button>
-                                            {(isManager || isSuperAdmin) && (
-                                                <button onClick={() => { setView('admin'); setAdminTab('ingredients'); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
-                                                    <OrderSymbolIcon name="Settings" /> 食材廠商設定
-                                                </button>
-                                            )}
-                                        </div>
+                                        <div className="grid grid-cols-2 gap-3 mt-4">
+    　　　　　　　　　　　　　　　　　　　　　<button onClick={() => { setView('analytics'); setSelectedItemName(''); setAnalyticsSearch(''); }} className={`py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all ${(isSuperAdmin || isManager) ? '' : 'col-span-2'}`}>
+        　　　　　　　　　　　　　　　　　　　　<OrderSymbolIcon name="Chart" /> 數據分析報表
+    　　　　　　　　　　　　　　　　　　　　　</button>
+   　　　　　　　　　　　　　　　　　　　　　 {(isSuperAdmin || isManager) && (
+        　　　　　　　　　　　　　　　　　　　　<button onClick={() => { setView('admin'); setAdminTab('ingredients'); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
+            　　　　　　　　　　　　　　　　　<OrderSymbolIcon name="Settings" /> 食材廠商設定
+       　　　　　　　　　　　　　　　　　　　</button>
+   　　　　　　　　　　　　　　　　　　　　 )}
+　　　　　　　　　　　　　　　　　　　　　</div>
                                         <button onClick={onBack} className="w-full py-4 text-slate-400 font-bold text-xs uppercase mt-4">返回廚務OS</button>
                                     </div>
                                 </div>
@@ -2643,6 +2664,7 @@
                         </div>
                     )}
 
+                    {/* 2. 區站選擇 */}
                     {view === 'zone_select' && (
                         <div className="max-w-md mx-auto">
                             <Nav title={`${selectedBranch} - 區站`} onBackAction={() => setView('setup')} />
@@ -2680,6 +2702,7 @@
                         </div>
                     )}
 
+                    {/* 3. 食材點貨頁面 */}
                     {view === 'inventory' && (
                         <div className="max-w-md mx-auto">
                             <Nav title={selectedZone} onBackAction={() => { setView('zone_select'); setSearchQuery(''); }} />
@@ -2725,6 +2748,7 @@
                         </div>
                     )}
 
+                    {/* 4. 結果頁面 */}
                     {view === 'result' && (
                         <div className="max-w-md mx-auto px-6">
                             <Nav title="確認訂單並編輯" onBackAction={() => setView('zone_select')} />
@@ -2760,6 +2784,7 @@
                         </div>
                     )}
 
+                    {/* 數據分析報表頁面 (精簡版) */}
                     {view === 'analytics' && (
                         <div className="max-w-md mx-auto">
                             <Nav title={`${selectedBranch} - 數據報表`} onBackAction={() => setView('setup')} />
@@ -2775,6 +2800,7 @@
                                             className="w-full bg-slate-50 rounded-xl py-3 pl-10 pr-4 text-sm font-bold outline-none border border-slate-100 focus:border-brand-red/50" 
                                         />
                                     </div>
+                                    {/* 自動完成建議 */}
                                     {analyticsSearch && !selectedItemName && (
                                         <div className="mt-2 max-h-40 overflow-y-auto bg-slate-50 rounded-xl border border-slate-200 shadow-inner p-2 flex flex-wrap gap-2">
                                             {monthlyOrderedItems.filter(i => i.includes(analyticsSearch)).map(name => (
@@ -2783,6 +2809,7 @@
                                             {monthlyOrderedItems.filter(i => i.includes(analyticsSearch)).length === 0 && <p className="text-xs text-slate-400 p-2">找不到相關食材紀錄</p>}
                                         </div>
                                     )}
+                                    {/* 預設顯示熱門選項 */}
                                     {!analyticsSearch && !selectedItemName && (
                                          <div className="mt-4 flex flex-wrap gap-2">
                                             <p className="w-full text-[10px] text-slate-400 font-bold mb-1">本月有叫貨的食材 (點擊檢視)</p>
@@ -2795,6 +2822,7 @@
 
                                 {selectedItemName ? (
                                     <div className="space-y-6 animate-in fade-in duration-300">
+                                        {/* 總量卡片 */}
                                         <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100 flex items-center justify-between">
                                             <div>
                                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{orderDate.substring(0,7)} 累計叫貨</p>
@@ -2805,6 +2833,7 @@
                                             </div>
                                         </div>
 
+                                        {/* 跨店比較圖表 */}
                                         <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
                                             <h3 className="font-black text-slate-800 border-l-4 border-brand-red pl-3 text-sm">各分店需求對比</h3>
                                             <div className="space-y-4">
@@ -2826,6 +2855,7 @@
                                             </div>
                                         </div>
                                         
+                                        {/* 本店近期叫貨歷史 */}
                                         <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
                                             <h3 className="font-black text-slate-800 border-l-4 border-slate-800 pl-3 text-sm">最近叫貨紀錄</h3>
                                             <div className="space-y-3">
@@ -2852,7 +2882,8 @@
                         </div>
                     )}
 
-                    {view === 'admin' && (isManager || isSuperAdmin) && (
+                    {/* 後台管理 */}
+                    {view === 'admin' && (
                         <div className="max-w-md mx-auto">
                             <Nav title={`${selectedBranch} - 管理`} onBackAction={() => setView('setup')} />
                             <div className="flex bg-white border-b border-slate-100 px-4 py-3 gap-2 overflow-x-auto no-scrollbar shadow-sm sticky top-[61px] z-50">
@@ -2992,8 +3023,7 @@
         };
 
         const AdminPage = ({ onBack, onLogout, announcements, standards, users, triggerNotify, menu, onboarding, benefits, rulesData, isSuperAdmin, currentBranch, setCurrentBranch, globalBranches, branchZones, getPublicPath, signatures, tickerText, setTickerText, globalRecipes }) => {
-            const [tab, setTab] = useState('members'); 
-            const [subCat, setSubCat] = useState('list');
+            const [tab, setTab] = useState('members'); const [subCat, setSubCat] = useState('list');
             const [selectedZone, setSelectedZone] = useState('');
             const [signSubCat, setSignSubCat] = useState('廚房規則');
             const [newZoneName, setNewZoneName] = useState('');
@@ -3004,6 +3034,7 @@
                 if(branchZones && branchZones.length > 0 && !selectedZone) setSelectedZone(branchZones[0].id);
             }, [branchZones]);
 
+            // 過濾顯示的成員：最高權限看全部(或當前分店與所有主管)，分店主管只看本店的非主管人員
             const visibleUsers = users.filter(u => {
                 if (isSuperAdmin) {
                     return u.branch === currentBranch || u.role === '主管';
@@ -3014,10 +3045,7 @@
 
             return (
                 <div className="p-4 pb-24 page-enter text-left font-bold">
-                    <div className="flex justify-between items-center mb-4">
-                        <BackButton onClick={onBack} title="管理後台" />
-                        <button onClick={onLogout} className="bg-red-50 text-red-600 font-black text-[10px] px-4 py-2 rounded-full border border-red-100 active:scale-90 transition-all">登出</button>
-                    </div>
+                    <div className="flex justify-between items-center mb-4"><BackButton onClick={onBack} title="管理後台" /><button onClick={onLogout} className="bg-red-50 text-red-600 font-black text-[10px] px-4 py-2 rounded-full border border-red-100 active:scale-90 transition-all">登出</button></div>
                     
                     {isSuperAdmin && (
                         <div className="mb-6 bg-slate-900 text-white p-4 rounded-3xl flex items-center justify-between shadow-xl mb-2">
@@ -3220,6 +3248,30 @@
         };
 
         const App = () => {
+            const THEMES = [
+    { name: '經典深紅', brand: '185 18 27', bg: '#f8fafc', color: 'bg-red-700' },
+    { name: '沉穩深藍', brand: '30 58 138', bg: '#f0f9ff', color: 'bg-blue-900' },
+    { name: '森林墨綠', brand: '20 83 45', bg: '#f0fdf4', color: 'bg-green-900' },
+    { name: '暖陽橘金', brand: '194 65 12', bg: '#fff7ed', color: 'bg-orange-700' },
+    { name: '浪漫紫羅蘭', brand: '91 33 182', bg: '#f5f3ff', color: 'bg-purple-800' },
+    { name: '櫻花蜜桃', brand: '190 18 60', bg: '#fff1f2', color: 'bg-rose-700' },
+    { name: '拿鐵大地', brand: '113 63 18', bg: '#fefce8', color: 'bg-yellow-900' },
+    { name: '寧靜湖水', brand: '15 118 110', bg: '#f0fdfa', color: 'bg-teal-700' },
+    { name: '極簡曜黑', brand: '15 23 42', bg: '#f1f5f9', color: 'bg-slate-900' },
+    { name: '活力桃粉', brand: '219 39 119', bg: '#fdf2f8', color: 'bg-pink-600' }
+];
+
+const [currentTheme, setCurrentTheme] = useState(() => parseInt(localStorage.getItem('k_theme') || '0'));
+const [showThemeModal, setShowThemeModal] = useState(false);
+
+useEffect(() => {
+    const theme = THEMES[currentTheme];
+    if (theme) {
+        document.documentElement.style.setProperty('--brand-red', theme.brand);
+        document.documentElement.style.setProperty('--app-bg', theme.bg);
+        localStorage.setItem('k_theme', currentTheme);
+    }
+}, [currentTheme]);
             const [currentPage, setCurrentPage] = useState('auth');
             const [currentUser, setCurrentUser] = useState(() => { const saved = localStorage.getItem('k_active_user'); return saved ? JSON.parse(saved) : null; });
             const [isSuperAdmin, setIsSuperAdmin] = useState(() => localStorage.getItem('k_super_admin') === 'true');
@@ -3492,13 +3544,15 @@
 
             const renderPage = () => {
                 switch(currentPage) {
+                    case 'ordering': return <OrderingSystem onBack={()=>setCurrentPage('home')} triggerNotify={triggerNotify} globalBranches={globalBranches} currentBranch={currentBranch} isSuperAdmin={isSuperAdmin} isManager={isManager} getPublicPath={getPublicPath} />;
+　　　　　　　　　　　　case 'inspection': return <InspectionPage onBack={()=>setCurrentPage('home')} standards={standards} completedZones={completedZones} triggerNotify={triggerNotify} branchZones={branchZones} currentBranch={currentBranch} getPublicPath={getPublicPath} currentUser={currentUser} />;
                     case 'home': {
                         const progressPercent = branchZones.length > 0 ? Math.round((completedZones.length / branchZones.length) * 100) : 0;
                         return (
                             <div className="page-enter pb-10">
                                 <Ticker text={tickerText} />
                                 <div className="p-4 space-y-6 mt-2 text-left font-bold">
-
+                                    
                                     {/* 最高權限專屬：首頁快速切換分店 */}
                                     {isSuperAdmin && (
                                         <div className="bg-slate-900 text-white p-4 rounded-[2rem] flex items-center justify-between shadow-xl mb-2">
@@ -3604,29 +3658,34 @@
                     </div>
 
                     {currentPage !== 'auth' && (
-                        <header className="p-5 sticky top-0 z-50 flex justify-between items-center bg-white/80 backdrop-blur-md border-b">
-                            <div className="flex items-center gap-3 cursor-pointer shrink-0" onClick={() => (isManager || currentUser?.status === 'approved') && setCurrentPage('home')}>
-                                <div className="bg-brand-red w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg shrink-0 font-black text-xl leading-none">
-                                    饗
-                                </div>
-                                <div>
-                                    <span className="font-black text-xl text-slate-800 tracking-tighter leading-none block">EATJOY <span className="text-brand-red">OS</span></span>
-                                    <span className="text-[9px] text-slate-400 font-bold uppercase">{currentBranch}</span>
-                                </div>
-                            </div>
-                            <div className="flex gap-2">
-                                <button onClick={() => isManager ? setCurrentPage('admin') : (currentUser?.status === 'approved' && setCurrentPage('home'))} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap ${isSuperAdmin ? 'bg-brand-red text-white' : (isManager ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}`}>
-                                    <Icon name={isManager ? "settings" : "bell"} size={16} />
-                                    {isManager ? "後台" : "通知"}
-                                </button>
-                                {(currentUser || isManager) && (
-                                    <button onClick={logout} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-rose-50 text-brand-red border border-rose-100 active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap">
-                                        <Icon name="log-out" size={16} />
-                                        登出
-                                    </button>
-                                )}
-                            </div>
-                        </header>
+                        {/* 尋找 <header className="..."> ... </header>，全部替換為： */}
+<header className="p-5 sticky top-0 z-50 flex justify-between items-center bg-white/80 backdrop-blur-md border-b">
+    <div className="flex items-center gap-3 cursor-pointer shrink-0" onClick={() => (isManager || currentUser?.status === 'approved') && setCurrentPage('home')}>
+        <div className="bg-brand-red w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg shrink-0 font-black text-xl leading-none">
+            饗
+        </div>
+        <div>
+            <span className="font-black text-xl text-slate-800 tracking-tighter leading-none block">EATJOY <span className="text-brand-red">OS</span></span>
+            <span className="text-[9px] text-slate-400 font-bold uppercase">{currentBranch}</span>
+        </div>
+    </div>
+    <div className="flex gap-2">
+        {/* 新增調色盤按鈕 */}
+        <button onClick={() => setShowThemeModal(true)} className="flex items-center justify-center p-2 rounded-xl text-slate-500 hover:bg-slate-100 active:scale-95 transition-all shadow-sm bg-white border border-slate-100">
+            <Icon name="palette" size={16} />
+        </button>
+        <button onClick={() => isManager ? setCurrentPage('admin') : (currentUser?.status === 'approved' && setCurrentPage('home'))} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap ${isSuperAdmin ? 'bg-brand-red text-white' : (isManager ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}`}>
+            <Icon name={isManager ? "settings" : "bell"} size={16} />
+            {isManager ? "後台" : "通知"}
+        </button>
+        {(currentUser || isManager) && (
+            <button onClick={logout} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-rose-50 text-brand-red border border-rose-100 active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap">
+                <Icon name="log-out" size={16} />
+                登出
+            </button>
+        )}
+    </div>
+</header>
                     )}
                     <main className={`flex-grow mx-auto w-full font-bold ${currentPage === 'schedule' ? 'max-w-[1600px] px-2' : 'max-w-lg'}`}>
                         {!fbReady ? <div className="p-20 text-center h-screen flex flex-col items-center justify-center gap-4 font-bold"><Icon name="loader-2" className="animate-spin text-brand-red" size={48}/><p className="text-slate-400 font-black text-xs">連線中...</p></div>
@@ -3652,6 +3711,22 @@
                             </div>
                         )}
                     </main>
+                        {showThemeModal && (
+    <div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 page-enter" onClick={() => setShowThemeModal(false)}>
+        <div className="bg-white rounded-[2.5rem] p-6 w-full max-w-sm shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="font-black text-lg text-slate-800 mb-4 flex items-center gap-2"><Icon name="palette" className="text-brand-red"/> 系統主題色彩</h3>
+            <div className="grid grid-cols-2 gap-3">
+                {THEMES.map((theme, idx) => (
+                    <button key={idx} onClick={() => { setCurrentTheme(idx); setShowThemeModal(false); }} className={`p-3 rounded-2xl border-2 flex items-center gap-3 transition-all ${currentTheme === idx ? 'border-brand-red shadow-md bg-slate-50' : 'border-slate-100 hover:border-slate-300'}`}>
+                        <div className={`w-6 h-6 rounded-full shadow-inner ${theme.color}`}></div>
+                        <span className="text-xs font-bold text-slate-700">{theme.name}</span>
+                    </button>
+                ))}
+            </div>
+            <button onClick={() => setShowThemeModal(false)} className="mt-6 w-full py-3 rounded-xl bg-slate-100 text-slate-600 font-bold text-sm hover:bg-slate-200 transition-all">完成</button>
+        </div>
+    </div>
+)}
                 </div>
             );
         };
