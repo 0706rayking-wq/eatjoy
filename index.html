@@ -2243,19 +2243,31 @@
                 return currentStandards.every((_, i) => !!dailyPhotos[`${activeZone.id}_${i}`]);
             }, [activeZone, standards, dailyPhotos]);
 
+            // 【修改重點 1】：使用 arrayUnion，安全地將新區站加入陣列，解決多人同時上傳覆寫的問題
             const handleSubmit = () => {
                 setLoading(true);
                 setTimeout(() => {
                     if (!completedZones.includes(activeZone.id)) {
-                        const newCompleted = [...completedZones, activeZone.id];
-                        db.doc(getPublicPath(`system/progress_${currentBranch}`)).set({ completedZones: newCompleted }, {merge: true}).then(() => { 
+                        const progressRef = db.doc(getPublicPath(`system/progress_${currentBranch}`));
+                        
+                        progressRef.set({ 
+                            completedZones: firebase.firestore.FieldValue.arrayUnion(activeZone.id) 
+                        }, { merge: true }).then(async () => { 
+                            // 【修改重點 2】：向雲端抓取合併後的最新進度來準確判斷是否全部完成
+                            const snap = await progressRef.get();
+                            const latestCompleted = snap.exists ? (snap.data().completedZones || []) : [];
                             const currentHour = new Date().getHours();
-                            if (newCompleted.length >= branchZones.length && branchZones.length > 0 && currentHour < 23) {
+                            
+                            if (latestCompleted.length >= branchZones.length && branchZones.length > 0 && currentHour < 23) {
                                 triggerLineAlert("COMPLETION", { branch: currentBranch, time: new Date().toLocaleTimeString() });
                             }
+                        }).catch(e => {
+                            console.error("更新進度失敗", e);
                         });
                     }
-                    setLoading(false); setIsSubmitted(true); triggerNotify("善後巡視已上傳", "success");
+                    setLoading(false); 
+                    setIsSubmitted(true); 
+                    triggerNotify("善後巡視已上傳", "success");
                 }, 800);
             };
 
@@ -2401,6 +2413,9 @@
 
             const [adminZoneFilter, setAdminZoneFilter] = useState('全部');
             const [adminVendorFilter, setAdminVendorFilter] = useState('全部');
+            // 【修改重點：分頁載入數量限制，防閃退】
+            const [adminItemLimit, setAdminItemLimit] = useState(30); 
+            
             const [newItem, setNewItem] = useState({ name: '', vendor: '', unit: '包', zone: '菜區' });
             const [newVendorName, setNewVendorName] = useState('');
             const [newZoneName, setNewZoneName] = useState('');
@@ -2875,66 +2890,68 @@
                                             <button onClick={() => { if(newItem.name && newItem.vendor) { updateCurrentDb({ ingredients: [...currentDb.ingredients, { ...newItem, id: Date.now() }] }); setNewItem({ ...newItem, name: '', vendor: '', unit: '包', zone: currentDb.zones[0]?.name }); triggerNotify('新增食材成功', 'success'); } }} className="w-full bg-brand-red text-white p-5 rounded-2xl font-black shadow-lg">確認新增</button>
                                         </div>
                                         <div className="bg-slate-200/50 p-4 rounded-3xl grid grid-cols-2 gap-2">
-    <select className="bg-white rounded-xl p-2 text-xs font-bold border-none shadow-sm" value={adminZoneFilter} onChange={e => {setAdminZoneFilter(e.target.value); setAdminItemLimit(30);}}><option value="全部">全部區站</option>{currentDb.zones.map(z => <option key={z.name} value={z.name}>{z.name}</option>)}</select>
-    <select className="bg-white rounded-xl p-2 text-xs font-bold border-none shadow-sm" value={adminVendorFilter} onChange={e => {setAdminVendorFilter(e.target.value); setAdminItemLimit(30);}}><option value="全部">全部廠商</option>{currentDb.vendors.map(v => <option key={v} value={v}>{v}</option>)}</select>
-</div>
-<div className="space-y-2">
-    {currentDb.ingredients
-        .filter(i => (adminZoneFilter === '全部' || i.zone === adminZoneFilter) && (adminVendorFilter === '全部' || i.vendor === adminVendorFilter))
-        .slice().reverse()
-        .slice(0, adminItemLimit) /* 👈 修改重點：限制顯示數量防閃退 */
-        .map(item => (
-        editingIngredientId === item.id ? (
-            <div key={item.id} className="bg-slate-50 p-5 rounded-[2.5rem] shadow-sm border border-brand-red/30 space-y-3">
-                <input placeholder="食材名稱" className="w-full bg-white rounded-xl p-3.5 font-bold outline-none ring-1 ring-slate-200" value={editIngredientData.name} onChange={e => setEditIngredientData({...editIngredientData, name: e.target.value})} />
-                <div className="grid grid-cols-2 gap-2">
-                    <select className="bg-white rounded-xl p-3.5 font-bold outline-none text-sm" value={editIngredientData.vendor} onChange={e => setEditIngredientData({...editIngredientData, vendor: e.target.value})}>
-                        <option value="">選擇廠商</option>
-                        {currentDb.vendors.map(v => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                    <select className="bg-white rounded-xl p-3.5 font-bold outline-none text-sm" value={editIngredientData.unit} onChange={e => setEditIngredientData({...editIngredientData, unit: e.target.value})}>
-                        {DEFAULT_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-                    </select>
-                </div>
-                <select className="w-full bg-white rounded-xl p-3.5 font-bold outline-none text-sm" value={editIngredientData.zone} onChange={e => setEditIngredientData({...editIngredientData, zone: e.target.value})}>
-                    {currentDb.zones.map(z => <option key={z.name} value={z.name}>{z.name}</option>)}
-                </select>
-                <div className="flex gap-2 pt-2">
-                    <button onClick={() => setEditingIngredientId(null)} className="flex-1 bg-slate-200 text-slate-600 p-3 rounded-xl font-bold active:scale-95 transition-all">取消</button>
-                    <button onClick={() => {
-                        if(editIngredientData.name && editIngredientData.vendor) {
-                            const newIngredients = currentDb.ingredients.map(i => i.id === item.id ? editIngredientData : i);
-                            updateCurrentDb({ ingredients: newIngredients });
-                            setEditingIngredientId(null);
-                            triggerNotify('食材更新成功', 'success');
-                        }
-                    }} className="flex-1 bg-brand-red text-white p-3 rounded-xl font-bold active:scale-95 transition-all shadow-lg">儲存</button>
-                </div>
-            </div>
-        ) : (
-            <div key={item.id} className="bg-white p-5 rounded-[2rem] flex justify-between items-center shadow-sm border border-slate-50">
-                <div className="min-w-0 pr-4">
-                    <p className="font-black text-slate-700 truncate">{item.name}</p>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">{item.vendor} • {item.zone} • {item.unit}</p>
-                </div>
-                <div className="flex gap-1">
-                    <button onClick={() => { setEditingIngredientId(item.id); setEditIngredientData(item); }} className="bg-slate-50 text-slate-400 hover:text-blue-500 p-2.5 rounded-xl"><OrderSymbolIcon name="Edit" /></button>
-                    <button onClick={() => updateCurrentDb({ ingredients: currentDb.ingredients.filter(i => i.id !== item.id) })} className="bg-rose-50 text-rose-400 hover:text-rose-600 p-2.5 rounded-xl"><OrderSymbolIcon name="Trash2" /></button>
-                </div>
-            </div>
-        )
-    ))}
-
-    {/* 👈 修改重點：如果清單大於目前顯示的數量，顯示載入更多按鈕 */}
-    {currentDb.ingredients.filter(i => (adminZoneFilter === '全部' || i.zone === adminZoneFilter) && (adminVendorFilter === '全部' || i.vendor === adminVendorFilter)).length > adminItemLimit && (
-        <button 
-            onClick={() => setAdminItemLimit(prev => prev + 30)} 
-            className="w-full py-4 mt-4 bg-slate-100 text-slate-500 font-black rounded-2xl active:scale-95 transition-all shadow-sm border border-slate-200"
-        >
-            載入更多食材 (目前顯示 {adminItemLimit} 筆)
-        </button>
-    )}
-</div>
+                                            <select className="bg-white rounded-xl p-2 text-xs font-bold border-none shadow-sm" value={adminZoneFilter} onChange={e => {setAdminZoneFilter(e.target.value); setAdminItemLimit(30);}}><option value="全部">全部區站</option>{currentDb.zones.map(z => <option key={z.name} value={z.name}>{z.name}</option>)}</select>
+                                            <select className="bg-white rounded-xl p-2 text-xs font-bold border-none shadow-sm" value={adminVendorFilter} onChange={e => {setAdminVendorFilter(e.target.value); setAdminItemLimit(30);}}><option value="全部">全部廠商</option>{currentDb.vendors.map(v => <option key={v} value={v}>{v}</option>)}</select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {currentDb.ingredients
+                                                .filter(i => (adminZoneFilter === '全部' || i.zone === adminZoneFilter) && (adminVendorFilter === '全部' || i.vendor === adminVendorFilter))
+                                                .slice().reverse()
+                                                .slice(0, adminItemLimit)
+                                                .map(item => (
+                                                editingIngredientId === item.id ? (
+                                                    <div key={item.id} className="bg-slate-50 p-5 rounded-[2.5rem] shadow-sm border border-brand-red/30 space-y-3">
+                                                        <input placeholder="食材名稱" className="w-full bg-white rounded-xl p-3.5 font-bold outline-none ring-1 ring-slate-200" value={editIngredientData.name} onChange={e => setEditIngredientData({...editIngredientData, name: e.target.value})} />
+                                                        <div className="grid grid-cols-2 gap-2">
+                                                            <select className="bg-white rounded-xl p-3.5 font-bold outline-none text-sm" value={editIngredientData.vendor} onChange={e => setEditIngredientData({...editIngredientData, vendor: e.target.value})}>
+                                                                <option value="">選擇廠商</option>
+                                                                {currentDb.vendors.map(v => <option key={v} value={v}>{v}</option>)}
+                                                            </select>
+                                                            <select className="bg-white rounded-xl p-3.5 font-bold outline-none text-sm" value={editIngredientData.unit} onChange={e => setEditIngredientData({...editIngredientData, unit: e.target.value})}>
+                                                                {DEFAULT_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+                                                            </select>
+                                                        </div>
+                                                        <select className="w-full bg-white rounded-xl p-3.5 font-bold outline-none text-sm" value={editIngredientData.zone} onChange={e => setEditIngredientData({...editIngredientData, zone: e.target.value})}>
+                                                            {currentDb.zones.map(z => <option key={z.name} value={z.name}>{z.name}</option>)}
+                                                        </select>
+                                                        <div className="flex gap-2 pt-2">
+                                                            <button onClick={() => setEditingIngredientId(null)} className="flex-1 bg-slate-200 text-slate-600 p-3 rounded-xl font-bold active:scale-95 transition-all">取消</button>
+                                                            <button onClick={() => {
+                                                                if(editIngredientData.name && editIngredientData.vendor) {
+                                                                    const newIngredients = currentDb.ingredients.map(i => i.id === item.id ? editIngredientData : i);
+                                                                    updateCurrentDb({ ingredients: newIngredients });
+                                                                    setEditingIngredientId(null);
+                                                                    triggerNotify('食材更新成功', 'success');
+                                                                }
+                                                            }} className="flex-1 bg-brand-red text-white p-3 rounded-xl font-bold active:scale-95 transition-all shadow-lg">儲存</button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <div key={item.id} className="bg-white p-5 rounded-[2rem] flex justify-between items-center shadow-sm border border-slate-50">
+                                                        <div className="min-w-0 pr-4">
+                                                            <p className="font-black text-slate-700 truncate">{item.name}</p>
+                                                            <p className="text-[10px] font-bold text-slate-400 uppercase">{item.vendor} • {item.zone} • {item.unit}</p>
+                                                        </div>
+                                                        <div className="flex gap-1">
+                                                            <button onClick={() => { setEditingIngredientId(item.id); setEditIngredientData(item); }} className="bg-slate-50 text-slate-400 hover:text-blue-500 p-2.5 rounded-xl"><OrderSymbolIcon name="Edit" /></button>
+                                                            <button onClick={() => updateCurrentDb({ ingredients: currentDb.ingredients.filter(i => i.id !== item.id) })} className="bg-rose-50 text-rose-400 hover:text-rose-600 p-2.5 rounded-xl"><OrderSymbolIcon name="Trash2" /></button>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            ))}
+                                            
+                                            {/* 分頁載入更多按鈕 */}
+                                            {currentDb.ingredients.filter(i => (adminZoneFilter === '全部' || i.zone === adminZoneFilter) && (adminVendorFilter === '全部' || i.vendor === adminVendorFilter)).length > adminItemLimit && (
+                                                <button 
+                                                    onClick={() => setAdminItemLimit(prev => prev + 30)} 
+                                                    className="w-full py-4 mt-4 bg-slate-100 text-slate-500 font-black rounded-2xl active:scale-95 transition-all shadow-sm border border-slate-200"
+                                                >
+                                                    載入更多食材 (目前顯示 {adminItemLimit} 筆)
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                                 {adminTab === 'vendors' && (
                                     <div className="space-y-6">
                                         <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm flex gap-3">
@@ -3285,70 +3302,83 @@
                 }
             };
 
-            // 前端定時排程檢查 (新增每日 00:00 叫貨重置)
+            // 前端定時排程檢查 (修改版：防重複推播與管理員全店巡檢)
             useEffect(() => {
                 if (!currentUser || !currentBranch) return;
+
+                let intervalId;
+                // 【防重複發送 1】：產生 1~15 秒的隨機延遲，防止所有裝置在 23:00 整「同時」發送請求
+                const randomDelay = Math.floor(Math.random() * 15000);
 
                 const checkCronTasks = async () => {
                     try {
                         const now = new Date();
                         const h = now.getHours();
 
-                        const cronRef = db.doc(getPublicPath(`system/cron_${currentBranch}`));
-                        const docSnap = await cronRef.get();
-                        const data = docSnap.exists ? docSnap.data() : {};
+                        // 【重點修改】：如果是最高權限，一次檢查全部分店；否則只檢查自己當前畫面上的分店
+                        const branchesToCheck = isSuperAdmin ? globalBranches : [currentBranch];
 
-                        // 1. 每天 18:00 重置巡視進度與照片
-                        let targetResetDate = new Date(now);
-                        if (h < 18) {
-                            targetResetDate.setDate(targetResetDate.getDate() - 1);
-                        }
-                        const targetResetStr = `${targetResetDate.getFullYear()}-${targetResetDate.getMonth()+1}-${targetResetDate.getDate()}`;
+                        for (const branch of branchesToCheck) {
+                            const cronRef = db.doc(getPublicPath(`system/cron_${branch}`));
+                            const docSnap = await cronRef.get();
+                            const data = docSnap.exists ? docSnap.data() : {};
 
-                        if (data.lastReset !== targetResetStr) {
-                            const photos = await db.collection(getPublicPath(`daily_photos_${currentBranch}`)).get();
-                            const batch = db.batch();
-                            photos.forEach(d => batch.delete(d.ref));
-                            await batch.commit();
-                            await db.doc(getPublicPath(`system/progress_${currentBranch}`)).set({ completedZones: [] }, {merge: true});
-                            await cronRef.set({ lastReset: targetResetStr }, {merge: true});
-                        }
+                            // 1. 每天 18:00 重置巡視進度與照片
+                            let targetResetDate = new Date(now);
+                            if (h < 18) targetResetDate.setDate(targetResetDate.getDate() - 1);
+                            const targetResetStr = `${targetResetDate.getFullYear()}-${targetResetDate.getMonth()+1}-${targetResetDate.getDate()}`;
 
-                        // 2. 每天 23:00 檢查未完成區站並推播
-                        let targetAlertDate = new Date(now);
-                        if (h < 23) {
-                            targetAlertDate.setDate(targetAlertDate.getDate() - 1);
-                        }
-                        const targetAlertStr = `${targetAlertDate.getFullYear()}-${targetAlertDate.getMonth()+1}-${targetAlertDate.getDate()}`;
-
-                        if (h >= 23 && data.lastMissingAlert !== targetAlertStr) {
-                            const progSnap = await db.doc(getPublicPath(`system/progress_${currentBranch}`)).get();
-                            const completed = progSnap.exists ? (progSnap.data().completedZones || []) : [];
-                            const zoneSnap = await db.doc(getPublicPath(`config/zones_${currentBranch}`)).get();
-                            const zones = zoneSnap.exists ? (zoneSnap.data().zones || []) : [];
-
-                            if (zones.length > 0 && completed.length < zones.length) {
-                                const missing = zones.filter(z => !completed.includes(z.id)).map(z => z.name);
-                                triggerLineAlert("INCOMPLETE_ALERT", { branch: currentBranch, missingZones: missing.join(', ') });
+                            if (data.lastReset !== targetResetStr) {
+                                // 【防重複發送 2】：先寫入標記，再執行清空
+                                await cronRef.set({ lastReset: targetResetStr }, {merge: true});
+                                const photos = await db.collection(getPublicPath(`daily_photos_${branch}`)).get();
+                                const batch = db.batch();
+                                photos.forEach(d => batch.delete(d.ref));
+                                await batch.commit();
+                                await db.doc(getPublicPath(`system/progress_${branch}`)).set({ completedZones: [] }, {merge: true});
                             }
-                            await cronRef.set({ lastMissingAlert: targetAlertStr }, {merge: true});
-                        }
 
-                        // 3. 每天 00:00 重置叫貨暫存 (新增)
-                        // 只要今天日期跟紀錄的 lastOrderReset 不同，就清空該分店的點貨暫存
-                        const targetOrderResetStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
-                        if (data.lastOrderReset !== targetOrderResetStr) {
-                            await db.doc(getPublicPath(`ordering/db_${currentBranch}`)).set({ activeQuantities: {} }, {merge: true});
-                            await cronRef.set({ lastOrderReset: targetOrderResetStr }, {merge: true});
-                        }
+                            // 2. 每天 23:00 檢查未完成區站並推播
+                            let targetAlertDate = new Date(now);
+                            if (h < 23) targetAlertDate.setDate(targetAlertDate.getDate() - 1);
+                            const targetAlertStr = `${targetAlertDate.getFullYear()}-${targetAlertDate.getMonth()+1}-${targetAlertDate.getDate()}`;
 
+                            if (h >= 23 && data.lastMissingAlert !== targetAlertStr) {
+                                // 【防重複發送 2】：先寫入資料庫標記「今晚已發送過」，再實際發送推播！
+                                await cronRef.set({ lastMissingAlert: targetAlertStr }, {merge: true});
+
+                                const progSnap = await db.doc(getPublicPath(`system/progress_${branch}`)).get();
+                                const completed = progSnap.exists ? (progSnap.data().completedZones || []) : [];
+                                const zoneSnap = await db.doc(getPublicPath(`config/zones_${branch}`)).get();
+                                const zones = zoneSnap.exists ? (zoneSnap.data().zones || []) : [];
+
+                                if (zones.length > 0 && completed.length < zones.length) {
+                                    const missing = zones.filter(z => !completed.includes(z.id)).map(z => z.name);
+                                    triggerLineAlert("INCOMPLETE_ALERT", { branch: branch, missingZones: missing.join(', ') });
+                                }
+                            }
+
+                            // 3. 每天 00:00 重置叫貨暫存
+                            const targetOrderResetStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
+                            if (data.lastOrderReset !== targetOrderResetStr) {
+                                await cronRef.set({ lastOrderReset: targetOrderResetStr }, {merge: true});
+                                await db.doc(getPublicPath(`ordering/db_${branch}`)).set({ activeQuantities: {} }, {merge: true});
+                            }
+                        }
                     } catch(e) { console.error("定時排程錯誤:", e); }
                 };
 
-                checkCronTasks(); // 啟動時檢查一次
-                const interval = setInterval(checkCronTasks, 60000); // 每分鐘定期檢查一次
-                return () => clearInterval(interval);
-            }, [currentUser, currentBranch]);
+                // 等待隨機延遲後，再開始定時任務
+                const timeoutId = setTimeout(() => {
+                    checkCronTasks(); 
+                    intervalId = setInterval(checkCronTasks, 60000);
+                }, randomDelay);
+
+                return () => {
+                    clearTimeout(timeoutId);
+                    if (intervalId) clearInterval(intervalId);
+                };
+            }, [currentUser, currentBranch, isSuperAdmin, globalBranches]);
 
             useEffect(() => {
                 const initAuth = async () => { 
