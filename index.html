@@ -2501,16 +2501,28 @@
                 setOverId(null);
             };
 
-            const groupedOrders = useMemo(() => {
-                const list = currentDb.ingredients
-                    .map(item => ({ ...item, orderQty: parseFloat(orderQuantities[item.id] || 0) }))
-                    .filter(i => i.orderQty > 0);
-                return list.reduce((acc, item) => {
-                    if (!acc[item.vendor]) acc[item.vendor] = [];
-                    acc[item.vendor].push(item);
-                    return acc;
-                }, {});
-            }, [currentDb.ingredients, orderQuantities]);
+                    const groupedOrders = useMemo(() => {
+                        const list = currentDb.ingredients
+                            .map(item => ({ ...item, orderQty: parseFloat(orderQuantities[item.id] || 0) }))
+                            .filter(i => i.orderQty > 0);
+
+                        return list.reduce((acc, item) => {
+                            if (!acc[item.vendor]) acc[item.vendor] = [];
+        
+                            // 尋找該廠商清單中是否已經存在同名的食材
+                            const existingItem = acc[item.vendor].find(i => i.name === item.name);
+        
+                            if (existingItem) {
+            // 如果名字一模一樣，直接累加數量
+                                existingItem.orderQty += item.orderQty;
+                            } else {
+            // 如果不存在，則新增一筆（為了避免影響原始數據，建議展開拷貝一份）
+                                acc[item.vendor].push({ ...item });
+                            }
+        
+                            return acc;
+                        }, {});
+                    }, [currentDb.ingredients, orderQuantities]);
 
             useEffect(() => {
                 if (view === 'result') {
