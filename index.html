@@ -2212,7 +2212,8 @@
             );
         };
 
-        const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, branchZones, currentBranch, getPublicPath }) => {
+        // 1. 參數新增 currentUser
+        const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, branchZones, currentBranch, getPublicPath, currentUser }) => {
             const [activeZone, setActiveZone] = useState(null);
             const [dailyPhotos, setDailyPhotos] = useState({});
             const [loading, setLoading] = useState(false);
@@ -2221,7 +2222,15 @@
 
             useEffect(() => {
                 const unsubscribe = db.collection(getPublicPath(`daily_photos_${currentBranch}`)).onSnapshot(snapshot => {
-                    const allPhotos = {}; snapshot.forEach(doc => { const data = doc.data(); allPhotos[`${data.zoneId}_${data.itemIdx}`] = data.photo; });
+                    const allPhotos = {}; 
+                    snapshot.forEach(doc => { 
+                        const data = doc.data(); 
+                        // 2. 改為儲存一整個物件，包含照片與上傳者名稱
+                        allPhotos[`${data.zoneId}_${data.itemIdx}`] = {
+                            photo: data.photo,
+                            uploaderName: data.uploaderName || '未知'
+                        }; 
+                    });
                     setDailyPhotos(allPhotos);
                 });
                 return () => unsubscribe();
@@ -2231,7 +2240,13 @@
                 const file = e.target.files[0]; if (!file) return;
                 const r = new FileReader(); r.onloadend = async () => {
                     const compressed = await compressImage(r.result, 800, 0.5);
-                    db.collection(getPublicPath(`daily_photos_${currentBranch}`)).doc(`${activeZone.id}_${idx}`).set({ photo: compressed, zoneId: activeZone.id, itemIdx: idx, timestamp: Date.now() }).then(() => triggerNotify("實拍照已更新", "success"));
+                    db.collection(getPublicPath(`daily_photos_${currentBranch}`)).doc(`${activeZone.id}_${idx}`).set({ 
+                        photo: compressed, 
+                        zoneId: activeZone.id, 
+                        itemIdx: idx, 
+                        timestamp: Date.now(),
+                        uploaderName: currentUser?.name || '未知' // 3. 寫入資料庫時加上使用者名稱
+                    }).then(() => triggerNotify("實拍照已更新", "success"));
                 };
                 r.readAsDataURL(file);
             };
@@ -2240,8 +2255,11 @@
                 if (!activeZone) return false;
                 const currentStandards = standards[activeZone.id] || [];
                 if (currentStandards.length === 0) return true;
-                return currentStandards.every((_, i) => !!dailyPhotos[`${activeZone.id}_${i}`]);
+                // 4. 確認 photo 屬性是否存在
+                return currentStandards.every((_, i) => !!dailyPhotos[`${activeZone.id}_${i}`]?.photo);
             }, [activeZone, standards, dailyPhotos]);
+
+    // ...(下方 handleSubmit 與 handleResetAll 的邏輯保持不變)
 
             // 【修改重點 1】：使用 arrayUnion，安全地將新區站加入陣列，解決多人同時上傳覆寫的問題
             const handleSubmit = () => {
@@ -2291,14 +2309,37 @@
             if(activeZone) return (
                 <div className="p-4 space-y-6 page-enter pb-24 text-left font-bold">
                     <button onClick={()=>{setActiveZone(null);setIsSubmitted(false);}} className="p-3 bg-white rounded-2xl shadow-sm border active:scale-90 transition-all"><Icon name="arrow-left" size={20}/></button>
-                    <div className="space-y-4">
+                    <div className="space-y-4">"text-[9px] font-black text-brand-red">實拍照</span>
+                                        {dailyPhotos[`${activeZone.id}_${i}`]?.photo ? (
                         {(standards[activeZone.id] || []).map((item, i) => (
                             <div key={i} className="glass-panel p-4 rounded-[2rem] border border-slate-100 bg-white">
                                 <p className="text-[11px] font-black text-slate-700 mb-3 bg-slate-50 p-3 rounded-xl flex items-center gap-2 border shadow-inner"><Icon name="info" size={14} className="text-brand-red" />要求：{item.note || "無說明"}</p>
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="text-center"><span className="text-[9px] font-black text-emerald-600">標準照</span><img src={item.url} className="w-full aspect-square object-cover rounded-2xl border mt-2 shadow-inner" /></div>
-                                    <div className="text-center"><span className="text-[9px] font-black text-brand-red">實拍照</span>{dailyPhotos[`${activeZone.id}_${i}`] ? <div className="relative mt-2"><img src={dailyPhotos[`${activeZone.id}_${i}`]} className="w-full aspect-square object-cover rounded-2xl border" /><label className="absolute bottom-1 right-1 bg-white/80 p-1 rounded-lg cursor-pointer border"><Icon name="refresh-cw" size={12}/><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} /></label></div> : <label className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer active:bg-slate-100"><Icon name="plus" size={20} className="text-slate-300"/><input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} /></label>}</div>
-                                </div>
+                                    <div className="text-center">
+                                        <span className="text-[9px] font-black text-brand-red">實拍照</span>
+                                        {dailyPhotos[`${activeZone.id}_${i}`]?.photo ? (
+                                            <div className="relative mt-2">
+                                                <img src={dailyPhotos[`${activeZone.id}_${i}`].photo} className="w-full aspect-square object-cover rounded-2xl border" />
+                                                
+                                                {/* 新增：左上角顯示上傳者名稱 */}
+                                                <div className="absolute top-1.5 left-1.5 bg-slate-900/70 backdrop-blur-sm text-white text-[9px] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm font-bold z-10">
+                                                    <Icon name="user" size={10} />
+                                                    {dailyPhotos[`${activeZone.id}_${i}`].uploaderName}
+                                                </div>
+
+                                                <label className="absolute bottom-1 right-1 bg-white/90 p-1.5 rounded-lg cursor-pointer border shadow-sm text-slate-600 hover:text-brand-red transition-colors z-10">
+                                                    <Icon name="refresh-cw" size={14}/>
+                                                    <input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} />
+                                                </label>
+                                            </div>
+                                        ) : (
+                                            <label className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer active:bg-slate-100">
+                                                <Icon name="plus" size={20} className="text-slate-300"/>
+                                                <input type="file" className="hidden" onChange={(e)=>handleFile(e, i)} />
+                                            </label>
+                                        )}
+                                    </div>
                             </div>
                         ))}
                     </div>
@@ -3592,7 +3633,7 @@
                         );
                     }
                     case 'ordering': return <OrderingSystem onBack={()=>setCurrentPage('home')} triggerNotify={triggerNotify} globalBranches={globalBranches} currentBranch={currentBranch} isSuperAdmin={isSuperAdmin} getPublicPath={getPublicPath} />;
-                    case 'inspection': return <InspectionPage onBack={()=>setCurrentPage('home')} standards={standards} completedZones={completedZones} triggerNotify={triggerNotify} branchZones={branchZones} currentBranch={currentBranch} getPublicPath={getPublicPath} />;
+                    case 'inspection': return <InspectionPage onBack={()=>setCurrentPage('home')} standards={standards} completedZones={completedZones} triggerNotify={triggerNotify} branchZones={branchZones} currentBranch={currentBranch} getPublicPath={getPublicPath} currentUser={currentUser} />;
                     case 'unifiedRules': return <UnifiedRulesPage rulesData={rulesData} onBack={()=>setCurrentPage('home')} user={currentUser} currentBranch={currentBranch} triggerNotify={triggerNotify} getPublicPath={getPublicPath} signatures={signatures} />;
                     case 'menu': return <MenuDisplayPage onBack={()=>setCurrentPage('home')} items={menuData?.items} />;
                     case 'schedule': return <ScheduleSystem onBack={()=>setCurrentPage('home')} currentBranch={currentBranch} isManager={isManager || isSuperAdmin} getPublicPath={getPublicPath} triggerNotify={triggerNotify} />;
