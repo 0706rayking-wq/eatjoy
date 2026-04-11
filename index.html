@@ -273,8 +273,11 @@
         );
 
         const NavCard = ({ title, onClick, colorClass, iconName }) => (
-            <button onClick={onClick} className={`${colorClass} py-10 flex flex-col items-center justify-center rounded-[2.5rem] border border-slate-100 shadow-sm active:scale-95 transition-all`}>
-                <Icon name={iconName} size={24} className="mb-3 opacity-60 text-slate-800 font-bold" />
+            <button onClick={onClick} className={`${colorClass} py-10 flex flex-col items-center justify-center rounded-[2.5rem] border border-slate-100 shadow-sm active:scale-95 transition-all group`}>
+                {/* 重點修改：將顏色改為 text-brand-red，並在 hover 時稍微改變亮度或不透明度 */}
+                <div className="mb-3 text-brand-red/80 group-hover:text-brand-red transition-colors">
+                    <Icon name={iconName} size={28} />
+                </div>
                 <span className="font-black text-slate-800 text-sm tracking-widest uppercase font-bold">{title}</span>
             </button>
         );
@@ -3277,16 +3280,16 @@
         };
         // --- 主題配色設定陣列 (加入專屬極淺背景色) ---
         const APP_THEMES = [
-            { id: 'red', name: '經典紅', color: '185 18 27', hex: '#b9121b', bgHex: '#fef2f2' },
-            { id: 'blue', name: '科技藍', color: '37 99 235', hex: '#2563eb', bgHex: '#eff6ff' },
-            { id: 'emerald', name: '翡翠綠', color: '5 150 105', hex: '#059669', bgHex: '#ecfdf5' },
-            { id: 'orange', name: '活力橘', color: '234 88 12', hex: '#ea580c', bgHex: '#fff7ed' },
-            { id: 'purple', name: '神祕紫', color: '147 51 234', hex: '#9333ea', bgHex: '#faf5ff' },
-            { id: 'rose', name: '櫻花粉', color: '219 39 119', hex: '#db2777', bgHex: '#fff1f2' },
-            { id: 'teal', name: '海森藍', color: '13 148 136', hex: '#0d9488', bgHex: '#f0fdfa' },
-            { id: 'indigo', name: '靛青色', color: '79 70 229', hex: '#4f46e5', bgHex: '#e0e7ff' },
-            { id: 'slate', name: '深夜灰', color: '51 65 85', hex: '#334155', bgHex: '#f8fafc' },
-            { id: 'amber', name: '琥珀黃', color: '217 119 6', hex: '#d97706', bgHex: '#fffbeb' }
+            { id: 'red', name: '經典', color: '185 18 27', hex: '#b9121b', bgHex: '#fef2f2' },
+            { id: 'blue', name: '科技', color: '37 99 235', hex: '#2563eb', bgHex: '#eff6ff' },
+            { id: 'emerald', name: '翡翠', color: '5 150 105', hex: '#059669', bgHex: '#ecfdf5' },
+            { id: 'orange', name: '活力', color: '234 88 12', hex: '#ea580c', bgHex: '#fff7ed' },
+            { id: 'purple', name: '神祕', color: '147 51 234', hex: '#9333ea', bgHex: '#faf5ff' },
+            { id: 'rose', name: '櫻花', color: '219 39 119', hex: '#db2777', bgHex: '#fff1f2' },
+            { id: 'teal', name: '森藍', color: '13 148 136', hex: '#0d9488', bgHex: '#f0fdfa' },
+            { id: 'indigo', name: '靛青', color: '79 70 229', hex: '#4f46e5', bgHex: '#e0e7ff' },
+            { id: 'slate', name: '深夜', color: '203 213 225', hex: '#cbd5e1', bgHex: '#020617' },
+            { id: 'amber', name: '琥珀', color: '217 119 6', hex: '#d97706', bgHex: '#fffbeb' }
         ];
         const App = () => {
             const [currentPage, setCurrentPage] = useState('auth');
