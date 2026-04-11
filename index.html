@@ -3275,9 +3275,33 @@
                 </div>
             );
         };
-
+        // --- 主題配色設定陣列 (加入專屬極淺背景色) ---
+        const APP_THEMES = [
+            { id: 'red', name: '經典紅', color: '185 18 27', hex: '#b9121b', bgHex: '#fef2f2' },
+            { id: 'blue', name: '科技藍', color: '37 99 235', hex: '#2563eb', bgHex: '#eff6ff' },
+            { id: 'emerald', name: '翡翠綠', color: '5 150 105', hex: '#059669', bgHex: '#ecfdf5' },
+            { id: 'orange', name: '活力橘', color: '234 88 12', hex: '#ea580c', bgHex: '#fff7ed' },
+            { id: 'purple', name: '神祕紫', color: '147 51 234', hex: '#9333ea', bgHex: '#faf5ff' },
+            { id: 'rose', name: '櫻花粉', color: '219 39 119', hex: '#db2777', bgHex: '#fff1f2' },
+            { id: 'teal', name: '海森藍', color: '13 148 136', hex: '#0d9488', bgHex: '#f0fdfa' },
+            { id: 'indigo', name: '靛青色', color: '79 70 229', hex: '#4f46e5', bgHex: '#e0e7ff' },
+            { id: 'slate', name: '深夜灰', color: '51 65 85', hex: '#334155', bgHex: '#f8fafc' },
+            { id: 'amber', name: '琥珀黃', color: '217 119 6', hex: '#d97706', bgHex: '#fffbeb' }
+        ];
         const App = () => {
             const [currentPage, setCurrentPage] = useState('auth');
+            // 新增：主題彈窗開關與當前主題狀態 (會自動記住使用者的選擇)
+            const [showThemeModal, setShowThemeModal] = useState(false);
+            const [activeTheme, setActiveTheme] = useState(() => localStorage.getItem('k_app_theme') || 'red');
+
+            // 新增：監聽主題變化，動態替換全站 CSS 變數
+            useEffect(() => {
+                const themeObj = APP_THEMES.find(t => t.id === activeTheme) || APP_THEMES[0];
+                document.documentElement.style.setProperty('--brand-red', themeObj.color);
+                document.documentElement.style.setProperty('--app-bg', themeObj.bgHex);
+                
+                localStorage.setItem('k_app_theme', activeTheme);
+            }, [activeTheme]);
             const [currentUser, setCurrentUser] = useState(() => { const saved = localStorage.getItem('k_active_user'); return saved ? JSON.parse(saved) : null; });
             const [isSuperAdmin, setIsSuperAdmin] = useState(() => localStorage.getItem('k_super_admin') === 'true');
             const [isManager, setIsManager] = useState(() => {
@@ -3685,6 +3709,11 @@
                                 </div>
                             </div>
                             <div className="flex gap-2">
+                                {/* 新增的主題按鈕 */}
+                                <button onClick={() => setShowThemeModal(true)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-slate-100 text-slate-600 hover:text-brand-red active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap">
+                                    <Icon name="palette" size={16} />
+                                    主題
+                                </button>
                                 <button onClick={() => isManager ? setCurrentPage('admin') : (currentUser?.status === 'approved' && setCurrentPage('home'))} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap ${isSuperAdmin ? 'bg-brand-red text-white' : (isManager ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}`}>
                                     <Icon name={isManager ? "settings" : "bell"} size={16} />
                                     {isManager ? "後台" : "通知"}
