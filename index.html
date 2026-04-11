@@ -3713,8 +3713,8 @@
                             <div className="flex gap-2">
                                 {/* 新增的主題按鈕 */}
                                 <button onClick={() => setShowThemeModal(true)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-slate-100 text-slate-600 hover:text-brand-red active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap">
-                                    <Icon name="palette" size={16} />
-                                    主題
+                                    <Icon name="palette" size={8} />
+                                    色
                                 </button>
                                 <button onClick={() => isManager ? setCurrentPage('admin') : (currentUser?.status === 'approved' && setCurrentPage('home'))} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap ${isSuperAdmin ? 'bg-brand-red text-white' : (isManager ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}`}>
                                     <Icon name={isManager ? "settings" : "bell"} size={16} />
