@@ -1253,31 +1253,46 @@
                     await db.runTransaction(async (transaction) => {
                         const docSnap = await transaction.get(docRef);
             
+                        // 情境 1：如果該分店「完全沒有」班表文件 (全新分店)
                         if (!docSnap.exists) {
-                            // 如果文件不存在，先建立基礎結構
-                            transaction.set(docRef, { shiftRules: defaultShiftRules, roleColors: {}, months: {} });
-                            throw new Error("初始化文件"); 
+                            const currentMonthData = { staffList: [], holidays: {} };
+                            const updatedMonthData = updateCallback(currentMonthData);
+                            const finalMonthData = { ...currentMonthData, ...updatedMonthData };
+                
+                            transaction.set(docRef, {
+                                shiftRules: defaultShiftRules,
+                                roleColors: {},
+                                months: { [monthKey]: finalMonthData }
+                            });
+                            return; // 直接寫入並結束，不報錯
                         }
 
                         const data = docSnap.data();
-                        // 獲取「資料庫當下最新」的該月資料
                         const currentMonthData = (data.months && data.months[monthKey]) 
                             ? data.months[monthKey] 
                             : { staffList: [], holidays: {} };
             
-                        // 將最新資料傳入 callback 進行處理，得到更新後的結果
                         const updatedMonthData = updateCallback(currentMonthData);
+                        const finalMonthData = { ...currentMonthData, ...updatedMonthData };
 
-                        // 確保原本的資料不被洗掉，只更新我們修改的部分
-                        transaction.update(docRef, {
-                            [`months.${monthKey}`]: { ...currentMonthData, ...updatedMonthData }
-                        });
+                        // 情境 2：文件存在，但這家分店是「舊版資料」，還沒建立 months 結構
+                        if (data.months === undefined) {
+                            // 使用 set + merge 安全建立母資料夾
+                            transaction.set(docRef, {
+                                months: { [monthKey]: finalMonthData }
+                            }, { merge: true });
+                        } 
+                        // 情境 3：正常情況，已有 months 結構
+                        else {
+                            // 使用 update 覆寫單月，這樣「清空節日 (delete)」的操作才會在資料庫確實生效
+                            transaction.update(docRef, {
+                                [`months.${monthKey}`]: finalMonthData
+                            });
+                        }
                     });
                 } catch (e) {
-                    if (e.message !== "初始化文件") {
-                        console.error("更新班表失敗: ", e);
-                        triggerNotify("排班儲存異常，請稍後再試", "error");
-                    }
+                    console.error("更新班表失敗: ", e);
+                    triggerNotify("排班儲存異常，請稍後再試", "error");
                 }
             };
 
