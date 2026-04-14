@@ -1154,6 +1154,13 @@
 
         // --- 進階班表系統 (整合權限管控與單月獨立資料、節日顏色切換、下載圖片) ---
         const ScheduleSystem = ({ onBack, currentBranch, isManager, getPublicPath, triggerNotify }) => {
+            // --- 1. 定義獨立路徑與狀態鎖定 ---
+        const SCHEDULE_COLLECTION = "schedule_v2"; // 獨立的路徑
+        const [isSaving, setIsSaving] = useState(false); // 儲存鎖定狀態
+    
+        // 原有的狀態定義...
+        const [scheduleData, setScheduleData] = useState({});
+        const [monthKey, setMonthKey] = useState(new Date().toISOString().slice(0, 7));
             const defaultShiftRules = [
                 { code: 'A-5', name: '早班A5', type: 'morning' },
                 { code: 'A-6', name: '早班A6', type: 'morning' },
@@ -1193,15 +1200,15 @@
 
             // 同步該分店的班表資料
             useEffect(() => {
-                const docRef = db.doc(getPublicPath(`schedules_data/branch_${currentBranch}`));
+                const docRef = db.doc(`schedule_v2/branch_${currentBranch}`);
                 const unsubscribe = docRef.onSnapshot(doc => {
                     if (doc.exists) {
-                        const data = doc.data();
-                        // 這裡建議增加判斷，避免在資料寫入中途抓到暫存狀態
-                        if (data) setScheduleData(data);
+                        setScheduleData(doc.data());
+                    } else {
+                        setScheduleData({});
                     }
                 });
-                return () => unsubscribe(); // 這一行一定要確保存在且正確執行
+                return () => unsubscribe();
             }, [currentBranch, isManager]);
 
             const { shiftRules = defaultShiftRules, roleColors = {} } = scheduleData;
@@ -1243,10 +1250,11 @@
             };
 
             const updateMonthData = async (updates) => {
-                if (!isManager) return;
-                const docRef = db.doc(getPublicPath(`schedules_data/branch_${currentBranch}`));
-    
-                // 使用動態鍵值對更新，只更新有變動的部分，不覆蓋整個月
+                if (!isManager || isSaving) return; // 如果正在儲存中，拒絕重複觸發
+                setIsSaving(true); // 開啟鎖定
+
+                // 使用獨立的 collection 路徑
+                const docRef = db.doc(`${SCHEDULE_COLLECTION}/branch_${currentBranch}`);
                 const firestoreUpdates = {};
                 Object.keys(updates).forEach(key => {
                     firestoreUpdates[`months.${monthKey}.${key}`] = updates[key];
@@ -1255,11 +1263,36 @@
                 try {
                     await docRef.update(firestoreUpdates);
                 } catch (e) {
-                    // 如果文件不存在，才執行 set 初始化
+                    // 如果是新分店文件不存在，則執行 set
                     await docRef.set({ months: { [monthKey]: updates } }, { merge: true });
+                } finally {
+                    setIsSaving(false); // 無論成功或失敗，最後都要解除鎖定
                 }
             };
-
+            const handleManualBackup = async () => {
+                if (isSaving) return;
+                setIsSaving(true);
+                try {
+                    const timestamp = new Date().getTime();
+                    const dateString = new Date().toLocaleString();
+                    // 存放在專屬的備份集合中
+                    const backupRef = db.doc(`schedule_backups/branch_${currentBranch}_${monthKey}_${timestamp}`);
+        
+                    await backupRef.set({
+                        backupTime: dateString,
+                        operator: currentUser?.name || '管理員',
+                        data: scheduleData.months?.[monthKey] || {},
+                        monthKey: monthKey,
+                        branch: currentBranch
+                    });
+        
+                    triggerNotify(`備份成功！版本：${dateString}`, "success");
+                } catch (e) {
+                    triggerNotify("備份失敗，請檢查網路", "error");
+                } finally {
+                    setIsSaving(false);
+                }
+            };
             const setShiftRules = (newRules) => updateData({ shiftRules: newRules });
             const addShiftRule = () => {
                 if (!newShiftCode.trim()) return;
@@ -1860,6 +1893,22 @@
                                     link.click();
                                 }} className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3.5 rounded-2xl font-black shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all text-sm">
                                     <Icon name="download" size={18} /> 電腦版點此下載圖片
+                                </button>
+                                <button 
+                                    onClick={handleManualBackup}
+                                    disabled={isSaving}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm ${
+                                        isSaving 
+                                            ? 'bg-slate-200 text-slate-400 cursor-not-allowed' 
+                                            : 'bg-slate-800 text-white hover:bg-black active:scale-95'
+                                    }`}
+                                >
+                                    <Icon 
+                                        name={isSaving ? "refresh-cw" : "database"} 
+                                        size={16} 
+                                        className={isSaving ? "animate-spin" : ""} 
+                                    />
+                                    {isSaving ? "處理中..." : "備份目前版本"}
                                 </button>
                             </div>
                         </div>
