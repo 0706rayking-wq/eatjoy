@@ -1383,24 +1383,41 @@
 
             const saveHoliday = (dateString) => {
                 if (!isManager) return;
-                if (holidayInputText.trim() === '') {
-                    const newHolidays = { ...holidays };
-                    delete newHolidays[dateString];
-                    updateMonthData({ holidays: newHolidays });
-                } else {
-                    updateMonthData({ holidays: { ...holidays, [dateString]: { text: holidayInputText.trim(), isRed: holidayInputIsRed } } });
-                }
+    
+                updateMonthData((latestMonthData) => {
+                    const currentHolidays = latestMonthData.holidays || {};
+                    const newHolidays = { ...currentHolidays };
+        
+                    // 如果輸入為空，代表要刪除該節日
+                    if (holidayInputText.trim() === '') {
+                        delete newHolidays[dateString];
+                    } else {
+                        newHolidays[dateString] = { 
+                            text: holidayInputText.trim(), 
+                            isRed: holidayInputIsRed 
+                        };
+                    }
+        
+                    return { holidays: newHolidays };
+                });
+    
                 setSelectedCell(null);
             };
 
+            // 修改：刪除特殊節日
             const deleteHoliday = (dateString) => {
                 if (!isManager) return;
-                const newHolidays = { ...holidays };
-                delete newHolidays[dateString];
-                updateMonthData({ holidays: newHolidays });
+    
+                updateMonthData((latestMonthData) => {
+                    const currentHolidays = latestMonthData.holidays || {};
+                    const newHolidays = { ...currentHolidays };
+                    delete newHolidays[dateString];
+        
+                    return { holidays: newHolidays };
+                });
+    
                 setSelectedCell(null);
             };
-
             const handleDragStart = (id) => { if (!isManager) return; setDraggedStaffId(id); };
             const handleDragOver = (e, id) => { e.preventDefault(); if (!isManager) return; if (id !== draggedStaffId) setOverStaffId(id); };
             const handleDragEnd = () => {
