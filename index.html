@@ -1244,24 +1244,41 @@
                 db.doc(getPublicPath(`schedules_data/branch_${currentBranch}`)).set(updates, { merge: true });
             };
 
-            const updateMonthData = (updates) => {
+            // 請替換原本的 updateMonthData
+            const updateMonthData = async (updateCallback) => {
                 if (!isManager) return;
-                const newMonths = { ...(scheduleData.months || {}) };
-                const currentMonthData = {
-                    staffList: staffList,
-                    holidays: holidays,
-                    ...(newMonths[monthKey] || {}),
-                    ...updates
-                };
-                newMonths[monthKey] = currentMonthData;
-                
-                // 使用 update 覆寫該月份，解決 { merge: true } 無法刪除節日欄位的問題
                 const docRef = db.doc(getPublicPath(`schedules_data/branch_${currentBranch}`));
-                docRef.update({
-                    [`months.${monthKey}`]: currentMonthData
-                }).catch(() => {
-                    docRef.set({ months: newMonths }, { merge: true });
-                });
+
+                try {
+                    await db.runTransaction(async (transaction) => {
+                        const docSnap = await transaction.get(docRef);
+            
+                        if (!docSnap.exists) {
+                            // 如果文件不存在，先建立基礎結構
+                            transaction.set(docRef, { shiftRules: defaultShiftRules, roleColors: {}, months: {} });
+                            throw new Error("初始化文件"); 
+                        }
+
+                        const data = docSnap.data();
+                        // 獲取「資料庫當下最新」的該月資料
+                        const currentMonthData = (data.months && data.months[monthKey]) 
+                            ? data.months[monthKey] 
+                            : { staffList: [], holidays: {} };
+            
+                        // 將最新資料傳入 callback 進行處理，得到更新後的結果
+                        const updatedMonthData = updateCallback(currentMonthData);
+
+                        // 確保原本的資料不被洗掉，只更新我們修改的部分
+                        transaction.update(docRef, {
+                            [`months.${monthKey}`]: { ...currentMonthData, ...updatedMonthData }
+                        });
+                    });
+                } catch (e) {
+                    if (e.message !== "初始化文件") {
+                        console.error("更新班表失敗: ", e);
+                        triggerNotify("排班儲存異常，請稍後再試", "error");
+                    }
+                }
             };
 
             const setShiftRules = (newRules) => updateData({ shiftRules: newRules });
@@ -1294,39 +1311,66 @@
             const updateShift = (staffId, dateString, value) => {
                 if (!isManager) return;
                 const safeValue = value || '';
-                const newStaffList = staffList.map(staff => staff.id === staffId ? { ...staff, shifts: { ...(staff.shifts || {}), [dateString]: safeValue } } : staff);
-                updateMonthData({ staffList: newStaffList });
+    
+                // 使用 callback 拿取最新的 latestMonthData
+                updateMonthData((latestMonthData) => {
+                    const currentStaffList = latestMonthData.staffList || [];
+                    const newStaffList = currentStaffList.map(staff => 
+                        staff.id === staffId 
+                            ? { ...staff, shifts: { ...(staff.shifts || {}), [dateString]: safeValue } } 
+                            : staff
+                    );
+                    return { staffList: newStaffList };
+                });
             };
 
             // 切換格子黃色背景標記功能
             const toggleCellColor = (staffId, dateString) => {
                 if (!isManager) return;
                 const cellKey = `${staffId}_${dateString}`;
-                const currentColors = activeMonthData?.cellColors || {};
-                const newColors = { ...currentColors };
-                
-                if (newColors[cellKey] === 'bg-yellow-300') {
-                    delete newColors[cellKey]; // 取消標記
-                } else {
-                    newColors[cellKey] = 'bg-yellow-300'; // 加上黃色標記
-                }
-                updateMonthData({ cellColors: newColors });
+    
+                updateMonthData((latestMonthData) => {
+                    const currentColors = latestMonthData.cellColors || {};
+                    const newColors = { ...currentColors };
+        
+                    if (newColors[cellKey] === 'bg-yellow-300') {
+                        delete newColors[cellKey];
+                    } else {
+                        newColors[cellKey] = 'bg-yellow-300';
+                    }
+                    return { cellColors: newColors };
+                });
             };
-
             const addStaff = () => {
                 if (!isManager) return;
                 const newId = Date.now().toString(); 
-                updateMonthData({ staffList: [...staffList, { id: newId, title: '新職位', name: '新員工', shifts: {} }] });
+    
+                updateMonthData((latestMonthData) => {
+                    const currentStaffList = latestMonthData.staffList || [];
+                    return { staffList: [...currentStaffList, { id: newId, title: '新職位', name: '新員工', shifts: {} }] };
+                });
             };
 
             const updateStaffInfo = (id, field, value) => {
                 if (!isManager) return;
-                updateMonthData({ staffList: staffList.map(staff => staff.id === id ? { ...staff, [field]: value } : staff) });
+    
+                updateMonthData((latestMonthData) => {
+                    const currentStaffList = latestMonthData.staffList || [];
+                    const newStaffList = currentStaffList.map(staff => 
+                        staff.id === id ? { ...staff, [field]: value } : staff
+                    );
+                    return { staffList: newStaffList };
+                });
             };
 
             const removeStaff = (id) => {
                 if (!isManager) return;
-                if(window.confirm('確定刪除此人員本月班表？')) updateMonthData({ staffList: staffList.filter(staff => staff.id !== id) });
+                if(window.confirm('確定刪除此人員本月班表？')) {
+                    updateMonthData((latestMonthData) => {
+                        const currentStaffList = latestMonthData.staffList || [];
+                        return { staffList: currentStaffList.filter(staff => staff.id !== id) };
+                    });
+                }
             };
 
             const openHolidayEdit = (dateString) => {
@@ -1362,15 +1406,20 @@
             const handleDragEnd = () => {
                 if (!isManager) return;
                 if (draggedStaffId !== null && overStaffId !== null && draggedStaffId !== overStaffId) {
-                    const newList = [...staffList];
-                    const fromIndex = newList.findIndex(s => s.id === draggedStaffId);
-                    const toIndex = newList.findIndex(s => s.id === overStaffId);
+        
+                    updateMonthData((latestMonthData) => {
+                        const currentStaffList = latestMonthData.staffList || [];
+                        const newList = [...currentStaffList];
+                        const fromIndex = newList.findIndex(s => s.id === draggedStaffId);
+                        const toIndex = newList.findIndex(s => s.id === overStaffId);
 
-                    if (fromIndex !== -1 && toIndex !== -1) {
-                        const [moved] = newList.splice(fromIndex, 1);
-                        newList.splice(toIndex, 0, moved);
-                        updateMonthData({ staffList: newList });
-                    }
+                        if (fromIndex !== -1 && toIndex !== -1) {
+                            const [moved] = newList.splice(fromIndex, 1);
+                            newList.splice(toIndex, 0, moved);
+                            return { staffList: newList };
+                        }
+                        return {}; // 沒變動就回傳空物件
+                    });
                 }
                 setDraggedStaffId(null);
                 setOverStaffId(null);
