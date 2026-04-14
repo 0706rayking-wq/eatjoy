@@ -1196,14 +1196,12 @@
                 const docRef = db.doc(getPublicPath(`schedules_data/branch_${currentBranch}`));
                 const unsubscribe = docRef.onSnapshot(doc => {
                     if (doc.exists) {
-                        setScheduleData(doc.data());
-                    } else {
-                        const defaultData = { shiftRules: defaultShiftRules, roleColors: {}, months: {} };
-                        if(isManager) docRef.set(defaultData);
-                        setScheduleData(defaultData);
+                        const data = doc.data();
+                        // 這裡建議增加判斷，避免在資料寫入中途抓到暫存狀態
+                        if (data) setScheduleData(data);
                     }
                 });
-                return () => unsubscribe();
+                return () => unsubscribe(); // 這一行一定要確保存在且正確執行
             }, [currentBranch, isManager]);
 
             const { shiftRules = defaultShiftRules, roleColors = {} } = scheduleData;
@@ -1244,24 +1242,22 @@
                 db.doc(getPublicPath(`schedules_data/branch_${currentBranch}`)).set(updates, { merge: true });
             };
 
-            const updateMonthData = (updates) => {
+            const updateMonthData = async (updates) => {
                 if (!isManager) return;
-                const newMonths = { ...(scheduleData.months || {}) };
-                const currentMonthData = {
-                    staffList: staffList,
-                    holidays: holidays,
-                    ...(newMonths[monthKey] || {}),
-                    ...updates
-                };
-                newMonths[monthKey] = currentMonthData;
-                
-                // 使用 update 覆寫該月份，解決 { merge: true } 無法刪除節日欄位的問題
                 const docRef = db.doc(getPublicPath(`schedules_data/branch_${currentBranch}`));
-                docRef.update({
-                    [`months.${monthKey}`]: currentMonthData
-                }).catch(() => {
-                    docRef.set({ months: newMonths }, { merge: true });
+    
+                // 使用動態鍵值對更新，只更新有變動的部分，不覆蓋整個月
+                const firestoreUpdates = {};
+                Object.keys(updates).forEach(key => {
+                    firestoreUpdates[`months.${monthKey}.${key}`] = updates[key];
                 });
+
+                try {
+                    await docRef.update(firestoreUpdates);
+                } catch (e) {
+                    // 如果文件不存在，才執行 set 初始化
+                    await docRef.set({ months: { [monthKey]: updates } }, { merge: true });
+                }
             };
 
             const setShiftRules = (newRules) => updateData({ shiftRules: newRules });
