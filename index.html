@@ -3373,217 +3373,217 @@
             { id: 'amber', name: '琥珀', color: '217 119 6', hex: '#d97706', bgHex: '#fffbeb' }
         ];
         const FoodMonsterGame = ({ onBack, user, currentBranch, triggerNotify, getPublicPath }) => {
-    const canvasRef = React.useRef(null);
-    const [gameState, setGameState] = React.useState('START'); // START, PLAYING, GAMEOVER, VICTORY
-    const [gameData, setGameData] = React.useState({
-        bossHp: 50,
-        score: 0,
-        lives: 3,
-        currentQ: 0,
-        questionsAnswered: 0
-    });
+            const canvasRef = React.useRef(null);
+            const [gameState, setGameState] = React.useState('START'); // START, PLAYING, GAMEOVER, VICTORY
+            const [gameData, setGameData] = React.useState({
+                bossHp: 50,
+                score: 0,
+                lives: 3,
+                currentQ: 0,
+                questionsAnswered: 0
+            });
 
-    // 遊戲常數與邏輯變數 (Ref 用於避免 React 頻繁更新導致遊戲卡頓)
-    const stateRef = React.useRef({
-        snake: [],
-        dx: 0, dy: -1,
-        nextDx: 0, nextDy: -1,
-        projectiles: [],
-        aoeZones: [],
-        optionsOnBoard: [],
-        questionPool: [],
-        tickSpeed: 250,
-        lastTickTime: 0
-    });
-
-    // --- 遊戲邏輯函數 (移植自您的程式碼) ---
-    const refreshQuestionPool = () => {
-        let pool = questionsData.map((_, i) => i);
-        for (let i = pool.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [pool[i], pool[j]] = [pool[j], pool[i]];
-        }
-        stateRef.current.questionPool = pool;
-    };
-
-    const startGame = () => {
-        refreshQuestionPool();
-        const firstQ = stateRef.current.questionPool.pop();
-        setGameData({ bossHp: 50, score: 0, lives: 3, currentQ: firstQ, questionsAnswered: 0 });
-        stateRef.current.snake = [{x: 10, y: 16}, {x: 10, y: 17}, {x: 10, y: 18}];
-        stateRef.current.dx = 0; stateRef.current.dy = -1;
-        stateRef.current.nextDx = 0; stateRef.current.nextDy = -1;
-        stateRef.current.tickSpeed = 250;
-        stateRef.current.projectiles = [];
-        stateRef.current.aoeZones = [];
-        spawnOptions();
-        setGameState('PLAYING');
-    };
-
-    const spawnOptions = () => {
-        const letters = ['A', 'B', 'C', 'D'];
-        let opts = [];
-        for (let i = 0; i < 4; i++) {
-            let pos = { x: Math.floor(Math.random() * 20), y: Math.floor(Math.random() * 17) + 3 };
-            opts.push({ ...pos, letter: letters[i], index: i });
-        }
-        stateRef.current.optionsOnBoard = opts;
-    };
-
-    // --- 繪製與循環 ---
-    React.useEffect(() => {
-        if (gameState !== 'PLAYING') return;
-
-        let animId;
-        const ctx = canvasRef.current.getContext('2d');
-
-        const loop = (time) => {
-            if (time - stateRef.current.lastTickTime >= stateRef.current.tickSpeed) {
-                stateRef.current.lastTickTime = time;
-                updateGameLogic();
-            }
-            draw(ctx);
-            animId = requestAnimationFrame(loop);
-        };
-
-        const updateGameLogic = () => {
-            const s = stateRef.current;
-            s.dx = s.nextDx; s.dy = s.nextDy;
-            const head = { x: s.snake[0].x + s.dx, y: s.snake[0].y + s.dy };
-
-            // 碰撞邊界
-            if (head.x < 0 || head.x >= 20 || head.y < 0 || head.y >= 20) return handleHit();
-
-            // 吃到東西邏輯 (簡化示意)
-            let hitIdx = s.optionsOnBoard.findIndex(o => o.x === head.x && o.y === head.y);
-            s.snake.unshift(head);
-            
-            if (hitIdx !== -1) {
-                if (s.optionsOnBoard[hitIdx].index === questionsData[gameData.currentQ][5]) {
-                    // 答對
-                    handleCorrect();
-                } else {
-                    // 答錯
-                    s.snake.pop();
-                    handleHit();
+            // 遊戲常數與邏輯變數 (Ref 用於避免 React 頻繁更新導致遊戲卡頓)
+            const stateRef = React.useRef({
+                snake: [],
+                dx: 0, dy: -1,
+                nextDx: 0, nextDy: -1,
+                projectiles: [],
+                aoeZones: [],
+                optionsOnBoard: [],
+                questionPool: [],
+                tickSpeed: 250,
+                lastTickTime: 0
+            });
+        
+            // --- 遊戲邏輯函數 (移植自您的程式碼) ---
+            const refreshQuestionPool = () => {
+                let pool = questionsData.map((_, i) => i);
+                for (let i = pool.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [pool[i], pool[j]] = [pool[j], pool[i]];
                 }
-            } else {
-                s.snake.pop();
-            }
-        };
-
-        const handleCorrect = () => {
-            const nextQ = stateRef.current.questionPool.pop();
-            setGameData(prev => ({
-                ...prev,
-                bossHp: prev.bossHp - 1,
-                score: prev.score + 10,
-                questionsAnswered: prev.questionsAnswered + 1,
-                currentQ: nextQ
-            }));
-            spawnOptions();
-        };
-
-        const handleHit = () => {
-            setGameData(prev => {
-                if (prev.lives <= 1) {
-                    setGameState('GAMEOVER');
-                    saveScore(prev.score);
+                stateRef.current.questionPool = pool;
+            };
+        
+            const startGame = () => {
+                refreshQuestionPool();
+                const firstQ = stateRef.current.questionPool.pop();
+                setGameData({ bossHp: 50, score: 0, lives: 3, currentQ: firstQ, questionsAnswered: 0 });
+                stateRef.current.snake = [{x: 10, y: 16}, {x: 10, y: 17}, {x: 10, y: 18}];
+                stateRef.current.dx = 0; stateRef.current.dy = -1;
+                stateRef.current.nextDx = 0; stateRef.current.nextDy = -1;
+                stateRef.current.tickSpeed = 250;
+                stateRef.current.projectiles = [];
+                stateRef.current.aoeZones = [];
+                spawnOptions();
+                setGameState('PLAYING');
+            };
+        
+            const spawnOptions = () => {
+                const letters = ['A', 'B', 'C', 'D'];
+                let opts = [];
+                for (let i = 0; i < 4; i++) {
+                    let pos = { x: Math.floor(Math.random() * 20), y: Math.floor(Math.random() * 17) + 3 };
+                    opts.push({ ...pos, letter: letters[i], index: i });
                 }
-                return { ...prev, lives: prev.lives - 1 };
-            });
-            stateRef.current.snake = [{x: 10, y: 16}, {x: 10, y: 17}, {x: 10, y: 18}];
-        };
-
-        const saveScore = async (finalScore) => {
-            try {
-                await db.collection(getPublicPath('game_leaderboard')).add({
-                    userName: user.name,
-                    score: finalScore,
-                    branch: currentBranch,
-                    timestamp: Date.now()
-                });
-            } catch(e) { console.error(e); }
-        };
-
-        const draw = (ctx) => {
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, 400, 400);
-            // 繪製蛇
-            stateRef.current.snake.forEach((seg, i) => {
-                ctx.fillStyle = i === 0 ? '#10b981' : '#34d399';
-                ctx.fillRect(seg.x * 20, seg.y * 20, 18, 18);
-            });
-            // 繪製選項
-            stateRef.current.optionsOnBoard.forEach(opt => {
-                ctx.fillStyle = ['#3b82f6', '#eab308', '#a855f7', '#f97316'][opt.index];
-                ctx.fillRect(opt.x * 20, opt.y * 20, 18, 18);
-                ctx.fillStyle = 'white';
-                ctx.fillText(opt.letter, opt.x * 20 + 5, opt.y * 20 + 15);
-            });
-        };
-
-        animId = requestAnimationFrame(loop);
-        return () => cancelAnimationFrame(animId);
-    }, [gameState, gameData.currentQ]);
-
-    // 控制按鈕
-    const handleControl = (dir) => {
-        const s = stateRef.current;
-        if (dir === 'up' && s.dy !== 1) { s.nextDx = 0; s.nextDy = -1; }
-        if (dir === 'down' && s.dy !== -1) { s.nextDx = 0; s.nextDy = 1; }
-        if (dir === 'left' && s.dx !== 1) { s.nextDx = -1; s.nextDy = 0; }
-        if (dir === 'right' && s.dx !== -1) { s.nextDx = 1; s.nextDy = 0; }
-    };
-
-    return (
-        <div className="p-4 space-y-4 page-enter text-center font-bold pb-24">
-            <BackButton onClick={onBack} title="限時活動：食安大戰" />
-            
-            {/* 遊戲狀態欄 */}
-            <div className="flex justify-between items-center bg-slate-900 p-4 rounded-3xl text-white shadow-xl">
-                <div>HP: <span className="text-red-500">{gameData.bossHp}</span></div>
-                <div>Score: <span className="text-blue-400">{gameData.score}</span></div>
-                <div>Lives: <span className="text-rose-500">{"❤️".repeat(gameData.lives)}</span></div>
-            </div>
-
-            {/* Canvas 遊戲區 */}
-            <div className="relative aspect-square w-full max-w-[360px] mx-auto bg-white border-2 rounded-2xl overflow-hidden shadow-inner">
-                <canvas ref={canvasRef} width={400} height={400} className="w-full h-full block" />
-                
-                {gameState !== 'PLAYING' && (
-                    <div className="absolute inset-0 bg-white/90 backdrop-blur flex flex-col items-center justify-center p-6">
-                        <h2 className="text-2xl font-black mb-4">{gameState === 'START' ? '食安魔王來襲' : '挑戰結束'}</h2>
-                        <button onClick={startGame} className="bg-brand-red text-white px-8 py-3 rounded-xl shadow-lg active:scale-95 transition-all">
-                            {gameState === 'START' ? '開始戰鬥' : '重新挑戰'}
-                        </button>
+                stateRef.current.optionsOnBoard = opts;
+            };
+        
+            // --- 繪製與循環 ---
+            React.useEffect(() => {
+                if (gameState !== 'PLAYING') return;
+        
+                let animId;
+                const ctx = canvasRef.current.getContext('2d');
+        
+                const loop = (time) => {
+                    if (time - stateRef.current.lastTickTime >= stateRef.current.tickSpeed) {
+                        stateRef.current.lastTickTime = time;
+                        updateGameLogic();
+                    }
+                    draw(ctx);
+                    animId = requestAnimationFrame(loop);
+                };
+        
+                const updateGameLogic = () => {
+                    const s = stateRef.current;
+                    s.dx = s.nextDx; s.dy = s.nextDy;
+                    const head = { x: s.snake[0].x + s.dx, y: s.snake[0].y + s.dy };
+        
+                    // 碰撞邊界
+                    if (head.x < 0 || head.x >= 20 || head.y < 0 || head.y >= 20) return handleHit();
+        
+                    // 吃到東西邏輯 (簡化示意)
+                    let hitIdx = s.optionsOnBoard.findIndex(o => o.x === head.x && o.y === head.y);
+                    s.snake.unshift(head);
+                    
+                    if (hitIdx !== -1) {
+                        if (s.optionsOnBoard[hitIdx].index === questionsData[gameData.currentQ][5]) {
+                            // 答對
+                            handleCorrect();
+                        } else {
+                            // 答錯
+                            s.snake.pop();
+                            handleHit();
+                        }
+                    } else {
+                        s.snake.pop();
+                    }
+                };
+        
+                const handleCorrect = () => {
+                    const nextQ = stateRef.current.questionPool.pop();
+                    setGameData(prev => ({
+                        ...prev,
+                        bossHp: prev.bossHp - 1,
+                        score: prev.score + 10,
+                        questionsAnswered: prev.questionsAnswered + 1,
+                        currentQ: nextQ
+                    }));
+                    spawnOptions();
+                };
+        
+                const handleHit = () => {
+                    setGameData(prev => {
+                        if (prev.lives <= 1) {
+                            setGameState('GAMEOVER');
+                            saveScore(prev.score);
+                        }
+                        return { ...prev, lives: prev.lives - 1 };
+                    });
+                    stateRef.current.snake = [{x: 10, y: 16}, {x: 10, y: 17}, {x: 10, y: 18}];
+                };
+        
+                const saveScore = async (finalScore) => {
+                    try {
+                        await db.collection(getPublicPath('game_leaderboard')).add({
+                            userName: user.name,
+                            score: finalScore,
+                            branch: currentBranch,
+                            timestamp: Date.now()
+                        });
+                    } catch(e) { console.error(e); }
+                };
+        
+                const draw = (ctx) => {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, 400, 400);
+                    // 繪製蛇
+                    stateRef.current.snake.forEach((seg, i) => {
+                        ctx.fillStyle = i === 0 ? '#10b981' : '#34d399';
+                        ctx.fillRect(seg.x * 20, seg.y * 20, 18, 18);
+                    });
+                    // 繪製選項
+                    stateRef.current.optionsOnBoard.forEach(opt => {
+                        ctx.fillStyle = ['#3b82f6', '#eab308', '#a855f7', '#f97316'][opt.index];
+                        ctx.fillRect(opt.x * 20, opt.y * 20, 18, 18);
+                        ctx.fillStyle = 'white';
+                        ctx.fillText(opt.letter, opt.x * 20 + 5, opt.y * 20 + 15);
+                    });
+                };
+        
+                animId = requestAnimationFrame(loop);
+                return () => cancelAnimationFrame(animId);
+            }, [gameState, gameData.currentQ]);
+        
+            // 控制按鈕
+            const handleControl = (dir) => {
+                const s = stateRef.current;
+                if (dir === 'up' && s.dy !== 1) { s.nextDx = 0; s.nextDy = -1; }
+                if (dir === 'down' && s.dy !== -1) { s.nextDx = 0; s.nextDy = 1; }
+                if (dir === 'left' && s.dx !== 1) { s.nextDx = -1; s.nextDy = 0; }
+                if (dir === 'right' && s.dx !== -1) { s.nextDx = 1; s.nextDy = 0; }
+            };
+        
+            return (
+                <div className="p-4 space-y-4 page-enter text-center font-bold pb-24">
+                    <BackButton onClick={onBack} title="限時活動：食安大戰" />
+                    
+                    {/* 遊戲狀態欄 */}
+                    <div className="flex justify-between items-center bg-slate-900 p-4 rounded-3xl text-white shadow-xl">
+                        <div>HP: <span className="text-red-500">{gameData.bossHp}</span></div>
+                        <div>Score: <span className="text-blue-400">{gameData.score}</span></div>
+                        <div>Lives: <span className="text-rose-500">{"❤️".repeat(gameData.lives)}</span></div>
                     </div>
-                )}
-            </div>
-
-            {/* 題目區 */}
-            {gameState === 'PLAYING' && (
-                <div className="text-left space-y-3 bg-white p-4 rounded-2xl border">
-                    <div className="text-blue-600">Q{gameData.questionsAnswered + 1}: {questionsData[gameData.currentQ][0]}</div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg">A: {questionsData[gameData.currentQ][1]}</div>
-                        <div className="p-2 bg-yellow-50 border border-yellow-200 rounded-lg">B: {questionsData[gameData.currentQ][2]}</div>
-                        <div className="p-2 bg-purple-50 border border-purple-200 rounded-lg">C: {questionsData[gameData.currentQ][3]}</div>
-                        <div className="p-2 bg-orange-50 border border-orange-200 rounded-lg">D: {questionsData[gameData.currentQ][4]}</div>
+        
+                    {/* Canvas 遊戲區 */}
+                    <div className="relative aspect-square w-full max-w-[360px] mx-auto bg-white border-2 rounded-2xl overflow-hidden shadow-inner">
+                        <canvas ref={canvasRef} width={400} height={400} className="w-full h-full block" />
+                        
+                        {gameState !== 'PLAYING' && (
+                            <div className="absolute inset-0 bg-white/90 backdrop-blur flex flex-col items-center justify-center p-6">
+                                <h2 className="text-2xl font-black mb-4">{gameState === 'START' ? '食安魔王來襲' : '挑戰結束'}</h2>
+                                <button onClick={startGame} className="bg-brand-red text-white px-8 py-3 rounded-xl shadow-lg active:scale-95 transition-all">
+                                    {gameState === 'START' ? '開始戰鬥' : '重新挑戰'}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+        
+                    {/* 題目區 */}
+                    {gameState === 'PLAYING' && (
+                        <div className="text-left space-y-3 bg-white p-4 rounded-2xl border">
+                            <div className="text-blue-600">Q{gameData.questionsAnswered + 1}: {questionsData[gameData.currentQ][0]}</div>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg">A: {questionsData[gameData.currentQ][1]}</div>
+                                <div className="p-2 bg-yellow-50 border border-yellow-200 rounded-lg">B: {questionsData[gameData.currentQ][2]}</div>
+                                <div className="p-2 bg-purple-50 border border-purple-200 rounded-lg">C: {questionsData[gameData.currentQ][3]}</div>
+                                <div className="p-2 bg-orange-50 border border-orange-200 rounded-lg">D: {questionsData[gameData.currentQ][4]}</div>
+                            </div>
+                        </div>
+                    )}
+        
+                    {/* 虛擬手把 */}
+                    <div className="grid grid-cols-3 gap-2 w-40 mx-auto">
+                        <div /> <button onClick={()=>handleControl('up')} className="p-4 bg-slate-100 rounded-xl">⬆️</button> <div />
+                        <button onClick={()=>handleControl('left')} className="p-4 bg-slate-100 rounded-xl">⬅️</button>
+                        <button onClick={()=>handleControl('down')} className="p-4 bg-slate-100 rounded-xl">⬇️</button>
+                        <button onClick={()=>handleControl('right')} className="p-4 bg-slate-100 rounded-xl">➡️</button>
                     </div>
                 </div>
-            )}
-
-            {/* 虛擬手把 */}
-            <div className="grid grid-cols-3 gap-2 w-40 mx-auto">
-                <div /> <button onClick={()=>handleControl('up')} className="p-4 bg-slate-100 rounded-xl">⬆️</button> <div />
-                <button onClick={()=>handleControl('left')} className="p-4 bg-slate-100 rounded-xl">⬅️</button>
-                <button onClick={()=>handleControl('down')} className="p-4 bg-slate-100 rounded-xl">⬇️</button>
-                <button onClick={()=>handleControl('right')} className="p-4 bg-slate-100 rounded-xl">➡️</button>
-            </div>
-        </div>
-    );
-};
+            );
+        };
         const App = () => {
             const [currentPage, setCurrentPage] = useState('auth');
             // 新增：主題彈窗開關與當前主題狀態 (會自動記住使用者的選擇)
