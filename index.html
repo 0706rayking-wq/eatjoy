@@ -3372,152 +3372,6 @@
             { id: 'slate', name: '深夜', color: '203 213 225', hex: '#cbd5e1', bgHex: '#020617' },
             { id: 'amber', name: '琥珀', color: '217 119 6', hex: '#d97706', bgHex: '#fffbeb' }
         ];
-        // 遊戲組件：美食怪大作戰
-        const FoodMonsterGame = ({ onBack, user, currentBranch, triggerNotify, getPublicPath }) => {
-            const canvasRef = useRef(null);
-            const [gameState, setGameState] = useState('START'); 
-            const [gameData, setGameData] = useState({
-                bossHp: 50, score: 0, lives: 3, currentQ: 0, questionsAnswered: 0
-            });
-        
-            const stateRef = useRef({
-                snake: [], dx: 0, dy: -1, nextDx: 0, nextDy: -1,
-                projectiles: [], aoeZones: [], optionsOnBoard: [],
-                questionPool: [], tickSpeed: 250, lastTickTime: 0
-            });
-        
-            // 初始化題庫與遊戲
-            const startGame = () => {
-                let pool = questionsData.map((_, i) => i);
-                for (let i = pool.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [pool[i], pool[j]] = [pool[j], pool[i]];
-                }
-                stateRef.current.questionPool = pool;
-                const firstQ = stateRef.current.questionPool.pop();
-                
-                setGameData({ bossHp: 50, score: 0, lives: 3, currentQ: firstQ, questionsAnswered: 0 });
-                stateRef.current.snake = [{x: 10, y: 16}, {x: 10, y: 17}, {x: 10, y: 18}];
-                stateRef.current.nextDx = 0; stateRef.current.nextDy = -1;
-                stateRef.current.aoeZones = [];
-                stateRef.current.projectiles = [];
-                
-                spawnOptions();
-                setGameState('PLAYING');
-            };
-        
-            const spawnOptions = () => {
-                const letters = ['A', 'B', 'C', 'D'];
-                stateRef.current.optionsOnBoard = letters.map((l, i) => ({
-                    x: Math.floor(Math.random() * 18) + 1,
-                    y: Math.floor(Math.random() * 14) + 4,
-                    letter: l, index: i
-                }));
-            };
-        
-            useEffect(() => {
-                if (gameState !== 'PLAYING') return;
-                const ctx = canvasRef.current.getContext('2d');
-                let animId;
-        
-                const loop = (time) => {
-                    if (time - stateRef.current.lastTickTime >= stateRef.current.tickSpeed) {
-                        stateRef.current.lastTickTime = time;
-                        updateLogic();
-                    }
-                    draw(ctx);
-                    animId = requestAnimationFrame(loop);
-                };
-        
-                const updateLogic = () => {
-                    const s = stateRef.current;
-                    s.dx = s.nextDx; s.dy = s.nextDy;
-                    const head = { x: s.snake[0].x + s.dx, y: s.snake[0].y + s.dy };
-        
-                    // 碰撞檢查
-                    if (head.x < 0 || head.x >= 20 || head.y < 0 || head.y >= 20) return handleHit();
-                    
-                    // 範圍攻擊/子彈檢查 (簡化)
-                    if (Math.random() < 0.05) s.projectiles.push({x: Math.floor(Math.random()*20), y: 0});
-                    s.projectiles.forEach(p => p.y++);
-                    s.projectiles = s.projectiles.filter(p => p.y < 20);
-        
-                    // 吃到東西
-                    const hitIdx = s.optionsOnBoard.findIndex(o => o.x === head.x && o.y === head.y);
-                    s.snake.unshift(head);
-                    if (hitIdx !== -1) {
-                        if (s.optionsOnBoard[hitIdx].index === questionsData[gameData.currentQ][5]) {
-                            setGameData(prev => ({...prev, bossHp: prev.bossHp - 1, score: prev.score + 10, questionsAnswered: prev.questionsAnswered + 1, currentQ: s.questionPool.pop()}));
-                            spawnOptions();
-                        } else {
-                            handleHit();
-                        }
-                    } else {
-                        s.snake.pop();
-                    }
-                };
-        
-                const handleHit = () => {
-                    setGameData(prev => {
-                        if (prev.lives <= 1) setGameState('GAMEOVER');
-                        return {...prev, lives: prev.lives - 1};
-                    });
-                    stateRef.current.snake = [{x: 10, y: 16}, {x: 10, y: 17}, {x: 10, y: 18}];
-                };
-        
-                const draw = (c) => {
-                    c.fillStyle = '#fff'; c.fillRect(0,0,400,400);
-                    s.snake.forEach((p, i) => { c.fillStyle = i===0 ? '#b9121b' : '#334155'; c.fillRect(p.x*20, p.y*20, 19, 19); });
-                    s.optionsOnBoard.forEach(o => { c.fillStyle = '#2563eb'; c.fillRect(o.x*20, o.y*20, 19, 19); c.fillStyle='#fff'; c.fillText(o.letter, o.x*20+5, o.y*20+15); });
-                    s.projectiles.forEach(p => { c.fillText('🔥', p.x*20, p.y*20+15); });
-                };
-        
-                animId = requestAnimationFrame(loop);
-                return () => cancelAnimationFrame(animId);
-            }, [gameState, gameData.currentQ]);
-        
-            const control = (d) => {
-                const s = stateRef.current;
-                if (d==='up' && s.dy!==1) { s.nextDx=0; s.nextDy=-1; }
-                if (d==='down' && s.dy!==-1) { s.nextDx=0; s.nextDy=1; }
-                if (d==='left' && s.dx!==1) { s.nextDx=-1; s.nextDy=0; }
-                if (d==='right' && s.dx!==-1) { s.nextDx=1; s.nextDy=0; }
-            };
-        
-            return (
-                <div className="p-4 space-y-4 page-enter text-center font-bold pb-24">
-                    <BackButton onClick={onBack} title="限時活動：食安大作戰" />
-                    <div className="bg-slate-900 p-4 rounded-3xl text-white flex justify-between shadow-xl">
-                        <div>魔王 HP: <span className="text-brand-red">{gameData.bossHp}</span></div>
-                        <div>分數: {gameData.score}</div>
-                        <div>{"❤️".repeat(gameData.lives)}</div>
-                    </div>
-                    <div className="relative aspect-square w-full max-w-[360px] mx-auto bg-white border-2 rounded-2xl overflow-hidden">
-                        <canvas ref={canvasRef} width={400} height={400} className="w-full h-full" />
-                        {gameState !== 'PLAYING' && (
-                            <div className="absolute inset-0 bg-white/90 backdrop-blur flex flex-col items-center justify-center p-6">
-                                <h2 className="text-xl font-black mb-4">{gameState==='START'?'食安魔王來襲':'遊戲結束'}</h2>
-                                <button onClick={startGame} className="bg-brand-red text-white px-8 py-3 rounded-xl">開始戰鬥</button>
-                            </div>
-                        )}
-                    </div>
-                    {gameState === 'PLAYING' && (
-                        <div className="text-left p-4 bg-white border rounded-2xl text-sm">
-                            <div className="text-blue-600 mb-2">Q{gameData.questionsAnswered+1}: {questionsData[gameData.currentQ][0]}</div>
-                            <div className="grid grid-cols-2 gap-2 text-[10px]">
-                                {['A','B','C','D'].map((l, i) => <div key={l} className="p-2 bg-slate-50 border rounded-lg">{l}: {questionsData[gameData.currentQ][i+1]}</div>)}
-                            </div>
-                        </div>
-                    )}
-                    <div className="grid grid-cols-3 gap-2 w-36 mx-auto">
-                        <div /> <button onClick={()=>control('up')} className="p-4 bg-slate-100 rounded-xl">⬆️</button> <div />
-                        <button onClick={()=>control('left')} className="p-4 bg-slate-100 rounded-xl">⬅️</button>
-                        <button onClick={()=>control('down')} className="p-4 bg-slate-100 rounded-xl">⬇️</button>
-                        <button onClick={()=>control('right')} className="p-4 bg-slate-100 rounded-xl">➡️</button>
-                    </div>
-                </div>
-            );
-        };
         const App = () => {
             const [currentPage, setCurrentPage] = useState('auth');
             // 新增：主題彈窗開關與當前主題狀態 (會自動記住使用者的選擇)
@@ -3816,14 +3670,6 @@
             const renderPage = () => {
                 switch(currentPage) {
                     case 'home': {
-                        }
-                    case 'game-center': return <FoodMonsterGame 
-                                        onBack={() => setCurrentPage('home')} 
-                                        user={currentUser} 
-                                        currentBranch={currentBranch}
-                                        getPublicPath={getPublicPath}
-                                        triggerNotify={triggerNotify} 
-                                    />;
                         const progressPercent = branchZones.length > 0 ? Math.round((completedZones.length / branchZones.length) * 100) : 0;
                         return (
                             <div className="page-enter pb-10">
@@ -3878,8 +3724,6 @@
                                         <NavCard title="入職相關" onClick={() => setCurrentPage('onboarding')} colorClass="bg-blue-50/50" iconName="user-plus" />
                                         <NavCard title="薪資福利" onClick={() => setCurrentPage('benefits')} colorClass="bg-rose-50/50" iconName="wallet" />
                                         <NavCard title="本季菜單" onClick={() => setCurrentPage('menu')} colorClass="bg-yellow-50/50" iconName="utensils" />
-                                        <NavCard title="限時活動" onClick={() => setCurrentPage('game-center')} colorClass="bg-amber-50/50" iconName="gamepad-2" />
-                                        <NavCard title="個人成就" onClick={() => setCurrentPage('achievements')} colorClass="bg-purple-50/50" iconName="trophy" />
                                     </section>
                                 </div>
                             </div>
