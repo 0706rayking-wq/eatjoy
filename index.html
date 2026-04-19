@@ -3134,7 +3134,375 @@
                 </div>
             );
         };
+        // --- 貪食蛇遊戲中心組件 (終極修復版) ---
+ // --- 貪食蛇遊戲中心組件 (排行榜 + 隨機題庫版) ---
+        const GameCenter = ({ onBack, config, currentBranch, currentUser, getPublicPath }) => {
+            const [leaderboard, setLeaderboard] = useState([]);
+            const [showLeaderboard, setShowLeaderboard] = useState(false);
 
+            // 監聽該分店的排行榜資料
+            useEffect(() => {
+                if (!currentBranch) return;
+                const unsub = db.collection(getPublicPath(`game_leaderboard_${currentBranch}`))
+                    .orderBy('score', 'desc')
+                    .limit(10) // 只取前10名
+                    .onSnapshot(snap => {
+                        setLeaderboard(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+                    });
+                return () => unsub();
+            }, [currentBranch, getPublicPath]);
+
+            // 接收來自遊戲內部的「遊戲結束」訊息並寫入分數
+            useEffect(() => {
+                const handleMessage = (e) => {
+                    if (e.data && e.data.type === 'GAME_OVER') {
+                        const score = e.data.score;
+                        // 分數大於0才記錄，避免洗版
+                        if (currentUser && score > 0) {
+                            db.collection(getPublicPath(`game_leaderboard_${currentBranch}`)).add({
+                                name: currentUser.name,
+                                score: score,
+                                timestamp: Date.now()
+                            });
+                        }
+                        // 遊戲結束自動跳出排行榜
+                        setTimeout(() => setShowLeaderboard(true), 1500); 
+                    }
+                };
+                window.addEventListener('message', handleMessage);
+                return () => window.removeEventListener('message', handleMessage);
+            }, [currentUser, currentBranch, getPublicPath]);
+
+            if (!config || !config.isOpen) {
+                return (
+                    <div className="fixed inset-0 z-[10000] bg-white flex flex-col items-center justify-center p-10 text-center page-enter">
+                        <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-6 shadow-inner"><Icon name="lock" size={48} className="text-slate-300" /></div>
+                        <h3 className="text-2xl font-black text-slate-800 mb-2">活動尚未開放</h3>
+                        <p className="text-slate-500 text-sm mb-8 leading-relaxed">目前的限時挑戰活動已結束或尚未開啟。<br/>請留意行政主廚的最新公告！</p>
+                        <button onClick={onBack} className="bg-brand-red text-white px-10 py-4 rounded-2xl font-black shadow-lg active:scale-95 transition-all">返回首頁</button>
+                    </div>
+                );
+            }
+
+            const bossName = config.bossName || '食安魔王';
+            const bossImgHtml = config.bossImg ? `<img src="${config.bossImg}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 50%; border: 3px solid #ef4444; background: white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);" alt="Boss">` : `👿`;
+            const safeQuestions = config.questions && config.questions.length > 0 ? config.questions : [["請通知行政主廚至後台設定題目！", "知道", "了解", "收到", "明白", 0]];
+
+            const scriptStart = "<scr" + "ipt>";
+            const scriptEnd = "</scr" + "ipt>";
+
+            // 遊戲本體字串
+            const gameHTML = `
+            <!DOCTYPE html>
+            <html lang="zh-TW">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+                <script src="https://cdn.tailwindcss.com">${scriptEnd}
+                <style> body { touch-action: none; } @keyframes shake { 0% { transform: translate(-50%, 0); } 25% { transform: translate(-50%, -5px); } 50% { transform: translate(-50%, 5px); } 75% { transform: translate(-50%, -5px); } 100% { transform: translate(-50%, 0); } } .boss-shake { animation: shake 0.2s ease-in-out; } </style>
+            </head>
+            <body class="bg-white text-gray-800 font-sans h-screen flex flex-col items-center justify-center p-2 overflow-hidden">
+                <div class="max-w-5xl w-full flex flex-col md:flex-row gap-6 items-start justify-center mt-4">
+                    <div class="relative w-[360px] sm:w-[400px] flex-shrink-0 mx-auto md:mx-0">
+                        <div class="text-center mb-2 relative">
+                            <div id="boss-icon" class="text-5xl inline-block transition-transform absolute -top-12 left-1/2 -translate-x-1/2 z-10">${bossImgHtml}</div>
+                            <div class="w-full bg-gray-200 h-4 rounded-full mt-2 overflow-hidden border border-gray-300 relative z-0">
+                                <div id="boss-hp-bar" class="bg-red-500 h-full w-full transition-all duration-300"></div>
+                            </div>
+                        </div>
+                        <div class="relative">
+                             <canvas id="gameCanvas" width="400" height="400" class="bg-white border-2 border-gray-300 shadow-sm block w-full h-auto max-w-[400px]"></canvas>
+                             <div id="flash" class="absolute inset-0 pointer-events-none opacity-0 transition-opacity duration-100 rounded"></div>
+                        </div>
+                    </div>
+                    <div class="w-full sm:w-[400px] flex flex-col gap-3 mx-auto">
+                        <div class="flex justify-between items-center pb-2 border-b border-gray-200">
+                            <div class="text-lg font-bold text-gray-700">魔王血量: <span id="boss-hp" class="text-red-500 text-xl">50</span></div>
+                            <div class="text-lg font-bold text-gray-700">生命: <span id="lives-display" class="text-xl">❤️❤️❤️</span></div>
+                        </div>
+                        <div class="text-xl font-bold text-gray-800 min-h-[80px]">
+                            <span class="text-blue-600">Q<span id="q-number">1</span>:</span> <span id="q-text">問題載入中...</span>
+                        </div>
+                        <div class="grid grid-cols-1 gap-2">
+                            <div class="border-2 border-blue-400 bg-blue-50 p-2 rounded shadow-sm flex items-center gap-3"><span class="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-blue-500 text-white font-bold rounded">A</span><span id="opt-a" class="text-gray-800 font-medium">選項A</span></div>
+                            <div class="border-2 border-yellow-400 bg-yellow-50 p-2 rounded shadow-sm flex items-center gap-3"><span class="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-yellow-500 text-white font-bold rounded">B</span><span id="opt-b" class="text-gray-800 font-medium">選項B</span></div>
+                            <div class="border-2 border-purple-400 bg-purple-50 p-2 rounded shadow-sm flex items-center gap-3"><span class="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-purple-500 text-white font-bold rounded">C</span><span id="opt-c" class="text-gray-800 font-medium">選項C</span></div>
+                            <div class="border-2 border-orange-400 bg-orange-50 p-2 rounded shadow-sm flex items-center gap-3"><span class="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-orange-500 text-white font-bold rounded">D</span><span id="opt-d" class="text-gray-800 font-medium">選項D</span></div>
+                        </div>
+                        <div class="mt-2 grid grid-cols-3 gap-2 w-[180px] mx-auto md:hidden">
+                            <div></div><button id="btn-up" class="bg-gray-100 border border-gray-300 active:bg-gray-300 p-4 rounded-lg shadow text-xl flex justify-center items-center">⬆️</button><div></div>
+                            <button id="btn-left" class="bg-gray-100 border border-gray-300 active:bg-gray-300 p-4 rounded-lg shadow text-xl flex justify-center items-center">⬅️</button>
+                            <button id="btn-down" class="bg-gray-100 border border-gray-300 active:bg-gray-300 p-4 rounded-lg shadow text-xl flex justify-center items-center">⬇️</button>
+                            <button id="btn-right" class="bg-gray-100 border border-gray-300 active:bg-gray-300 p-4 rounded-lg shadow text-xl flex justify-center items-center">➡️</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="modal-start" class="fixed inset-0 bg-white/95 flex items-center justify-center z-50 p-4">
+                    <div class="bg-white p-6 sm:p-8 border-2 border-gray-300 shadow-xl rounded-xl max-w-md w-full text-center">
+                        <h1 class="text-2xl sm:text-3xl font-bold mb-4 text-gray-800">貪食蛇益智大挑戰</h1>
+                        <div class="text-gray-700 mb-6 text-left leading-relaxed text-sm sm:text-base">
+                            <div class="text-center mb-2">${bossImgHtml}</div>
+                            <p class="font-bold text-center text-red-600 mb-2">${bossName} 來襲！</p>
+                            <ul class="list-decimal pl-5 space-y-1">
+                                <li>使用<b>方向鍵</b> 控制貪食蛇。</li>
+                                <li>根據題目，吃掉正確的選項 (A/B/C/D)。</li>
+                                <li>答對削減魔王血量，答錯扣愛心。</li>
+                            </ul>
+                        </div>
+                        <button onclick="startGame()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg text-xl shadow transition-colors">開始挑戰</button>
+                    </div>
+                </div>
+                <div id="modal-gameover" class="fixed inset-0 bg-white/95 flex items-center justify-center z-50 p-4 hidden">
+                    <div class="bg-white p-8 border-2 border-red-300 shadow-xl rounded-xl max-w-md w-full text-center">
+                        <div class="text-6xl mb-4">💀</div>
+                        <h1 class="text-3xl font-bold mb-2 text-red-600">挑戰失敗</h1>
+                        <p class="text-gray-600 mb-6">愛心耗盡... 魔王還剩下 <span id="end-boss-hp" class="font-bold text-red-500"></span> 滴血！</p>
+                        <button onclick="startGame()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-8 rounded-lg text-xl shadow transition-colors">重新挑戰</button>
+                    </div>
+                </div>
+                <div id="modal-victory" class="fixed inset-0 bg-white/95 flex items-center justify-center z-50 p-4 hidden">
+                    <div class="bg-white p-8 border-2 border-green-300 shadow-xl rounded-xl max-w-md w-full text-center">
+                        <div class="text-6xl mb-4">🏆</div>
+                        <h1 class="text-3xl font-bold mb-2 text-green-600">挑戰成功！</h1>
+                        <p class="text-gray-600 mb-6">你具備了卓越的知識，成功擊退 ${bossName}！</p>
+                        <button onclick="startGame()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg text-xl shadow transition-colors">再玩一次</button>
+                    </div>
+                </div>
+
+            ${scriptStart}
+            const questionsData = ${JSON.stringify(safeQuestions)};
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+            const GRID_SIZE = 20; const TILE_COUNT = 20; const MAX_BOSS_HP = 50;
+
+            let snake = []; let dx = 0, dy = -1; let nextDx = 0, nextDy = -1; let inputLocked = false; 
+            let bossHP = MAX_BOSS_HP; let lives = 3; let currentQ = 0; let optionsOnBoard = []; 
+            let projectiles = []; let tickSpeed = 250; let lastTickTime = 0; let isPlaying = false; let animationFrameId;
+
+            const COLORS = { snakeHead: '#10b981', snakeBody: '#34d399', gridLines: '#f3f4f6', proj: '#ef4444', opts: ['#3b82f6', '#eab308', '#a855f7', '#f97316'] };
+
+            function startGame() {
+                document.getElementById('modal-start').classList.add('hidden'); document.getElementById('modal-gameover').classList.add('hidden'); document.getElementById('modal-victory').classList.add('hidden');
+                bossHP = MAX_BOSS_HP; lives = 3; tickSpeed = 250; isPlaying = true;
+                
+                // --- 核心修改：開始時隨機抽取一題 ---
+                currentQ = Math.floor(Math.random() * questionsData.length);
+                
+                resetBoardState(); updateUI();
+                if (animationFrameId) cancelAnimationFrame(animationFrameId);
+                lastTickTime = performance.now(); animationFrameId = requestAnimationFrame(gameLoop);
+            }
+
+            function resetBoardState() {
+                snake = [{x: 10, y: 16}, {x: 10, y: 17}, {x: 10, y: 18}]; dx = 0; dy = -1; nextDx = 0; nextDy = -1; projectiles = []; spawnOptions();
+            }
+
+            function spawnOptions() {
+                optionsOnBoard = []; const letters = ['A', 'B', 'C', 'D'];
+                for (let i = 0; i < 4; i++) {
+                    let pos;
+                    while (true) {
+                        pos = { x: Math.floor(Math.random() * TILE_COUNT), y: Math.floor(Math.random() * (TILE_COUNT - 3)) + 3 };
+                        let conflict = snake.some(s => s.x === pos.x && s.y === pos.y) || optionsOnBoard.some(o => o.x === pos.x && o.y === pos.y);
+                        if (pos.x === snake[0].x + dx && pos.y === snake[0].y + dy) conflict = true;
+                        if (!conflict) break;
+                    }
+                    optionsOnBoard.push({ ...pos, letter: letters[i], index: i });
+                }
+            }
+
+            function gameLoop(currentTime) {
+                if (!isPlaying) return;
+                if (currentTime - lastTickTime >= tickSpeed) { lastTickTime = currentTime; updateLogic(); }
+                drawCanvas(); if (isPlaying) animationFrameId = requestAnimationFrame(gameLoop);
+            }
+
+            function updateLogic() {
+                dx = nextDx; dy = nextDy; inputLocked = false; const head = { x: snake[0].x + dx, y: snake[0].y + dy };
+                if (head.x < 0 || head.x >= TILE_COUNT || head.y < 0 || head.y >= TILE_COUNT) { handleDamage("撞牆了！"); return; }
+                for (let i = 0; i < snake.length; i++) { if (snake[i].x === head.x && snake[i].y === head.y) { handleDamage("咬到自己了！"); return; } }
+                
+                let attackChance = 0.05 + ((MAX_BOSS_HP - bossHP) / MAX_BOSS_HP) * 0.15;
+                if (Math.random() < attackChance) {
+                    projectiles.push({ x: Math.floor(Math.random() * TILE_COUNT), y: 0 });
+                    const bossIcon = document.getElementById('boss-icon');
+                    bossIcon.classList.remove('boss-shake'); void bossIcon.offsetWidth; bossIcon.classList.add('boss-shake');
+                }
+                
+                for (let i = 0; i < projectiles.length; i++) projectiles[i].y += 1;
+                projectiles = projectiles.filter(p => p.y < TILE_COUNT);
+                
+                let hitProjectile = false;
+                for (let p of projectiles) {
+                    if (p.x === head.x && p.y === head.y) hitProjectile = true;
+                    for (let s of snake) { if (p.x === s.x && p.y === s.y) hitProjectile = true; }
+                }
+                if (hitProjectile) { handleDamage("被火焰擊中！"); return; }
+                
+                let hitFoodIndex = -1;
+                for (let i = 0; i < optionsOnBoard.length; i++) {
+                    if (optionsOnBoard[i].x === head.x && optionsOnBoard[i].y === head.y) { hitFoodIndex = i; break; }
+                }
+                
+                snake.unshift(head);
+                if (hitFoodIndex !== -1) {
+                    const correctAnsIndex = questionsData[currentQ][5];
+                    if (optionsOnBoard[hitFoodIndex].index === correctAnsIndex) { handleCorrectAnswer(); } 
+                    else { snake.pop(); handleDamage("吃錯了！"); return; }
+                } else { snake.pop(); }
+            }
+
+            function handleDamage(reason) {
+                lives--; updateUI(); flashScreen('bg-red-500');
+                if (lives <= 0) { 
+                    isPlaying = false; 
+                    document.getElementById('end-boss-hp').innerText = bossHP; 
+                    document.getElementById('modal-gameover').classList.remove('hidden');
+                    // --- 核心修改：傳送分數給 React 主系統 ---
+                    window.parent.postMessage({ type: 'GAME_OVER', score: MAX_BOSS_HP - bossHP }, '*');
+                } else { resetBoardState(); }
+            }
+
+            function handleCorrectAnswer() {
+                bossHP--; flashScreen('bg-green-500'); tickSpeed = Math.max(125, tickSpeed - 2.5); 
+                if (bossHP <= 0) { 
+                    isPlaying = false; updateUI(); 
+                    document.getElementById('modal-victory').classList.remove('hidden');
+                    // --- 核心修改：傳送滿分給 React 主系統 ---
+                    window.parent.postMessage({ type: 'GAME_OVER', score: MAX_BOSS_HP }, '*');
+                } else { 
+                    // --- 核心修改：答對後隨機抽取下一題 ---
+                    currentQ = Math.floor(Math.random() * questionsData.length);
+                    updateUI(); spawnOptions(); 
+                }
+            }
+
+            function flashScreen(colorClass) {
+                const flash = document.getElementById('flash'); flash.className = \`absolute inset-0 pointer-events-none transition-opacity duration-100 rounded \${colorClass}\`; flash.style.opacity = '0.4';
+                setTimeout(() => { flash.style.opacity = '0'; }, 150);
+            }
+
+            function drawCanvas() {
+                ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.strokeStyle = COLORS.gridLines; ctx.lineWidth = 1;
+                for(let i = 0; i <= TILE_COUNT; i++) {
+                    ctx.beginPath(); ctx.moveTo(i * GRID_SIZE, 0); ctx.lineTo(i * GRID_SIZE, canvas.height); ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(0, i * GRID_SIZE); ctx.lineTo(canvas.width, i * GRID_SIZE); ctx.stroke();
+                }
+                optionsOnBoard.forEach(opt => {
+                    ctx.fillStyle = COLORS.opts[opt.index]; ctx.beginPath();
+                    ctx.roundRect(opt.x * GRID_SIZE + 1, opt.y * GRID_SIZE + 1, GRID_SIZE - 2, GRID_SIZE - 2, 4); ctx.fill();
+                    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillText(opt.letter, opt.x * GRID_SIZE + GRID_SIZE / 2, opt.y * GRID_SIZE + GRID_SIZE / 2 + 1);
+                });
+                snake.forEach((segment, index) => {
+                    ctx.fillStyle = index === 0 ? COLORS.snakeHead : COLORS.snakeBody; ctx.beginPath();
+                    ctx.roundRect(segment.x * GRID_SIZE + 1, segment.y * GRID_SIZE + 1, GRID_SIZE - 2, GRID_SIZE - 2, 4); ctx.fill();
+                    if (index === 0) {
+                        ctx.fillStyle = 'white'; let eye1X, eye1Y, eye2X, eye2Y;
+                        if (dy === -1) { eye1X = segment.x*GRID_SIZE+6; eye1Y = segment.y*GRID_SIZE+6; eye2X = segment.x*GRID_SIZE+14; eye2Y = segment.y*GRID_SIZE+6; } 
+                        else if (dy === 1) { eye1X = segment.x*GRID_SIZE+6; eye1Y = segment.y*GRID_SIZE+14; eye2X = segment.x*GRID_SIZE+14; eye2Y = segment.y*GRID_SIZE+14; } 
+                        else if (dx === -1) { eye1X = segment.x*GRID_SIZE+6; eye1Y = segment.y*GRID_SIZE+6; eye2X = segment.x*GRID_SIZE+6; eye2Y = segment.y*GRID_SIZE+14; } 
+                        else { eye1X = segment.x*GRID_SIZE+14; eye1Y = segment.y*GRID_SIZE+6; eye2X = segment.x*GRID_SIZE+14; eye2Y = segment.y*GRID_SIZE+14; } 
+                        ctx.beginPath(); ctx.arc(eye1X, eye1Y, 2, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(eye2X, eye2Y, 2, 0, Math.PI*2); ctx.fill();
+                    }
+                });
+                ctx.font = '16px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                projectiles.forEach(p => {
+                    ctx.shadowColor = 'rgba(239, 68, 68, 0.5)'; ctx.shadowBlur = 5; ctx.fillText('🔥', p.x * GRID_SIZE + GRID_SIZE / 2, p.y * GRID_SIZE + GRID_SIZE / 2 + 2); ctx.shadowBlur = 0; 
+                });
+            }
+
+            function updateUI() {
+                document.getElementById('boss-hp').innerText = bossHP;
+                let hearts = ''; for(let i = 0; i < 3; i++) hearts += i < lives ? '❤️' : '🖤'; document.getElementById('lives-display').innerText = hearts;
+                document.getElementById('boss-hp-bar').style.width = ((bossHP / MAX_BOSS_HP) * 100) + '%';
+                const qData = questionsData[currentQ];
+                
+                // 隱藏目前題數避免隨機跳號時看起來奇怪
+                document.getElementById('q-number').innerText = "?"; 
+                document.getElementById('q-text').innerText = qData[0];
+                document.getElementById('opt-a').innerText = qData[1]; document.getElementById('opt-b').innerText = qData[2]; document.getElementById('opt-c').innerText = qData[3]; document.getElementById('opt-d').innerText = qData[4];
+            }
+
+            function handleInput(direction) {
+                if (inputLocked) return;
+                if (direction === 'up' && dy !== 1) { nextDx = 0; nextDy = -1; inputLocked = true; }
+                else if (direction === 'down' && dy !== -1) { nextDx = 0; nextDy = 1; inputLocked = true; }
+                else if (direction === 'left' && dx !== 1) { nextDx = -1; nextDy = 0; inputLocked = true; }
+                else if (direction === 'right' && dx !== -1) { nextDx = 1; nextDy = 0; inputLocked = true; }
+            }
+
+            window.addEventListener('keydown', (e) => {
+                if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].indexOf(e.code) > -1) e.preventDefault();
+                if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') handleInput('up');
+                if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') handleInput('down');
+                if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') handleInput('left');
+                if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') handleInput('right');
+            });
+
+            ['up', 'down', 'left', 'right'].forEach(dir => {
+                const btn = document.getElementById(\`btn-\${dir}\`);
+                btn.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(dir); });
+                btn.addEventListener('mousedown', (e) => { e.preventDefault(); handleInput(dir); });
+            });
+            ${scriptEnd}
+            </body>
+            </html>
+            `;
+
+            return (
+                <div className="fixed inset-0 z-[10000] bg-white flex flex-col page-enter">
+                    {/* 頂部導覽列與排行榜按鈕 */}
+                    <div className="p-4 border-b flex justify-between items-center bg-white shadow-sm shrink-0">
+                        <button onClick={onBack} className="p-2 bg-slate-100 rounded-xl active:scale-90 transition-all text-slate-600"><Icon name="chevron-left" /></button>
+                        <div className="text-center">
+                            <span className="block text-[10px] text-brand-red font-black uppercase tracking-widest">{currentBranch} 挑戰區</span>
+                            <span className="font-black text-slate-800 text-lg">{bossName}</span>
+                        </div>
+                        <button onClick={() => setShowLeaderboard(true)} className="p-2 bg-amber-100 text-amber-600 rounded-xl active:scale-90 transition-all shadow-sm">
+                            <Icon name="trophy" size={20} />
+                        </button>
+                    </div>
+                    
+                    {/* 遊戲本體 */}
+                    <iframe srcDoc={gameHTML} className="flex-1 w-full border-none" sandbox="allow-scripts allow-same-origin" />
+
+                    {/* 🏆 分店排行榜彈窗 */}
+                    {showLeaderboard && (
+                        <div className="fixed inset-0 z-[20000] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-6 page-enter" onClick={() => setShowLeaderboard(false)}>
+                            <div className="bg-white rounded-[2.5rem] p-6 w-full max-w-sm shadow-2xl relative" onClick={e => e.stopPropagation()}>
+                                <button onClick={() => setShowLeaderboard(false)} className="absolute top-6 right-6 text-slate-400 hover:text-brand-red transition-all active:scale-90 bg-slate-100 p-2 rounded-full"><Icon name="x" size={18}/></button>
+                                
+                                <div className="text-center mb-6">
+                                    <div className="w-16 h-16 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner"><Icon name="trophy" size={32} /></div>
+                                    <h2 className="text-2xl font-black text-slate-800">{currentBranch} 排行榜</h2>
+                                    <p className="text-xs text-slate-400 font-bold mt-1">只顯示前 10 名最佳成績</p>
+                                </div>
+
+                                <div className="space-y-3 max-h-64 overflow-y-auto custom-scrollbar pr-2">
+                                    {leaderboard.length > 0 ? leaderboard.map((player, idx) => (
+                                        <div key={player.id} className={`flex items-center justify-between p-4 rounded-2xl border shadow-sm ${idx === 0 ? 'bg-amber-50 border-amber-200' : (idx === 1 ? 'bg-slate-50 border-slate-200' : 'bg-white border-slate-100')}`}>
+                                            <div className="flex items-center gap-3">
+                                                <span className={`font-black text-lg w-6 text-center ${idx === 0 ? 'text-amber-500' : (idx === 1 ? 'text-slate-400' : 'text-slate-300')}`}>{idx + 1}</span>
+                                                <span className="font-bold text-slate-800 text-sm">{player.name}</span>
+                                            </div>
+                                            <div className="text-right">
+                                                <span className="font-black text-brand-red">{player.score}</span> <span className="text-[10px] text-slate-400">分</span>
+                                            </div>
+                                        </div>
+                                    )) : (
+                                        <div className="text-center py-10 text-slate-400 text-xs font-bold bg-slate-50 rounded-3xl border border-dashed">目前尚無挑戰紀錄<br/>快來搶下首殺！</div>
+                                    )}
+                                </div>
+                                <button onClick={() => setShowLeaderboard(false)} className="w-full mt-6 bg-slate-900 text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all text-sm">關閉排行榜</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
         const AdminPage = ({ onBack, onLogout, announcements, standards, users, triggerNotify, menu, onboarding, benefits, rulesData, isSuperAdmin, currentBranch, setCurrentBranch, globalBranches, branchZones, getPublicPath, signatures, tickerText, setTickerText, globalRecipes }) => {
             const [tab, setTab] = useState('members'); const [subCat, setSubCat] = useState('list');
             const [selectedZone, setSelectedZone] = useState('');
@@ -3142,6 +3510,16 @@
             const [newZoneName, setNewZoneName] = useState('');
             const [newBranchName, setNewBranchName] = useState('');
             const [expandedSig, setExpandedSig] = useState(null);
+            // --- 貪食蛇後台專用狀態 ---
+            const [adminGameConfig, setAdminGameConfig] = useState({ isOpen: false, bossName: '食安魔王', bossImg: null, questions: [] });
+            useEffect(() => {
+                if (isSuperAdmin) {
+                    const unsub = db.doc(getPublicPath('system/game_config')).onSnapshot(d => {
+                        if(d.exists) setAdminGameConfig(d.data());
+                    });
+                    return () => unsub();
+                }
+            }, [isSuperAdmin, getPublicPath]);
 
             useEffect(() => {
                 if(branchZones && branchZones.length > 0 && !selectedZone) setSelectedZone(branchZones[0].id);
@@ -3173,7 +3551,7 @@
                     )}
 
                     <div className="flex bg-slate-100 p-1.5 rounded-2xl overflow-x-auto no-scrollbar gap-1.5 mb-6 shadow-inner">
-                        {[{id:'members',n:'人員'},{id:'menu',n:'菜單'},{id:'content',n:'公告'},{id:'onboard',n:'入職'},{id:'benefit',n:'福利'},{id:'rules',n:'守則'},{id:'safety',n:'各店巡視'},{id:'sign',n:'簽署'}, ...(isSuperAdmin ? [{id:'system',n:'系統設定'}] : [])].map(t => (
+                        {[{id:'members',n:'人員'},{id:'menu',n:'菜單'},{id:'content',n:'公告'},{id:'onboard',n:'入職'},{id:'benefit',n:'福利'},{id:'rules',n:'守則'},{id:'safety',n:'各店巡視'},{id:'sign',n:'簽署'}, ...(isSuperAdmin ? [{id:'system',n:'系統設定'}, {id:'game',n:'限時活動'}] : [])].map(t => (
                             <button key={t.id} onClick={()=>{setTab(t.id); if(t.id==='rules') setSubCat('廚房規則'); else if(t.id==='sign') setSignSubCat('廚房規則'); else if(t.id==='benefit') setSubCat('eval'); else setSubCat('list');}} className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${tab===t.id?'bg-brand-red text-white shadow-md':'text-slate-400'}`}>{t.n}</button>
                         ))}
                     </div>
@@ -3325,6 +3703,85 @@
                                 </div>
                             </div>
                         )}
+                        {/* --- 限時活動 (遊戲後台) --- */}
+                        {tab === 'game' && isSuperAdmin && (
+                            <div className="space-y-6">
+                                {/* 魔王與開關設定 */}
+                                <div className="glass-panel p-6 rounded-[2.5rem] bg-slate-900 text-white shadow-xl space-y-5">
+                                    <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                                        <h3 className="font-black text-sm flex items-center gap-2"><Icon name="gamepad-2" className="text-brand-red"/> 限時活動控制台</h3>
+                                        <button onClick={() => db.doc(getPublicPath('system/game_config')).set({ isOpen: !adminGameConfig?.isOpen }, { merge: true })}
+                                                className={`px-4 py-1.5 rounded-full text-xs font-black transition-all ${adminGameConfig?.isOpen ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-slate-600 text-slate-300'}`}>
+                                            {adminGameConfig?.isOpen ? "活動：開啟中" : "活動：已關閉"}
+                                        </button>
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[10px] text-slate-400 font-bold">魔王名稱</label>
+                                        <input type="text" defaultValue={adminGameConfig?.bossName} onBlur={(e) => db.doc(getPublicPath('system/game_config')).set({ bossName: e.target.value }, { merge: true })} className="w-full bg-white/10 p-3 rounded-xl text-sm outline-none text-white focus:ring-1 focus:ring-brand-red" placeholder="例：食安大魔王"/>
+                                        
+                                        <label className="block w-full bg-white/10 border border-dashed border-white/20 py-3 rounded-xl text-[10px] font-black text-center cursor-pointer hover:bg-white/20 transition-all">
+                                            {adminGameConfig?.bossImg ? "✅ 魔王圖片已設定 (點擊更換)" : "+ 上傳魔王圖片 (建議正方形)"}
+                                            <input type="file" className="hidden" accept="image/*" onChange={async (e)=>{
+                                                const file = e.target.files[0];
+                                                if (file) {
+                                                    const r = new FileReader();
+                                                    r.onloadend = async () => {
+                                                        const compressed = await compressImage(r.result, 400, 0.6);
+                                                        db.doc(getPublicPath('system/game_config')).set({ bossImg: compressed }, { merge: true });
+                                                        triggerNotify("圖片上傳成功","success");
+                                                    };
+                                                    r.readAsDataURL(file);
+                                                }
+                                            }}/>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                {/* 題庫管理 */}
+                                <div className="glass-panel p-6 rounded-[2.5rem] bg-white border shadow-sm space-y-4">
+                                    <div className="flex justify-between items-center">
+                                        <h3 className="font-black text-brand-red text-sm flex items-center gap-2"><Icon name="list" size={18} /> 題庫管理 ({adminGameConfig?.questions?.length || 0}題)</h3>
+                                        <button onClick={()=>{
+                                            const q = prompt("1. 題目是？"); if(!q) return;
+                                            const a = prompt("2. 選項A："); if(!a) return;
+                                            const b = prompt("3. 選項B："); if(!b) return;
+                                            const c = prompt("4. 選項C："); if(!c) return;
+                                            const d = prompt("5. 選項D："); if(!d) return;
+                                            const ans = prompt("6. 正確答案是哪一個？ (輸入 A, B, C 或 D)").toUpperCase();
+                                            let ansIdx = 0;
+                                            if(ans === 'B') ansIdx = 1; else if(ans === 'C') ansIdx = 2; else if(ans === 'D') ansIdx = 3;
+                                            
+                                            const newQ = [q, a, b, c, d, ansIdx];
+                                            const updated = [...(adminGameConfig?.questions || []), newQ];
+                                            db.doc(getPublicPath('system/game_config')).set({ questions: updated }, { merge: true });
+                                            triggerNotify("題目已新增","success");
+                                        }} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black shadow-sm">+ 新增題目</button>
+                                    </div>
+                                    <div className="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+                                        {(adminGameConfig?.questions || []).map((qArr, idx) => (
+                                            <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-start gap-4">
+                                                <div className="flex-1">
+                                                    <p className="font-black text-xs text-slate-800 mb-2">Q{idx+1}: {qArr[0]}</p>
+                                                    <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-500">
+                                                        <span className={qArr[5]===0?"text-emerald-600 font-black":""}>A: {qArr[1]}</span>
+                                                        <span className={qArr[5]===1?"text-emerald-600 font-black":""}>B: {qArr[2]}</span>
+                                                        <span className={qArr[5]===2?"text-emerald-600 font-black":""}>C: {qArr[3]}</span>
+                                                        <span className={qArr[5]===3?"text-emerald-600 font-black":""}>D: {qArr[4]}</span>
+                                                    </div>
+                                                </div>
+                                                <button onClick={()=>{
+                                                    if(confirm("確定刪除此題？")) {
+                                                        const updated = adminGameConfig.questions.filter((_, i) => i !== idx);
+                                                        db.doc(getPublicPath('system/game_config')).set({ questions: updated }, { merge: true });
+                                                    }
+                                                }} className="text-slate-300 hover:text-red-500 p-1"><Icon name="trash-2" size={16}/></button>
+                                            </div>
+                                        ))}
+                                        {!(adminGameConfig?.questions?.length > 0) && <p className="text-center text-slate-400 text-xs py-4">目前尚無題目，請點擊上方新增</p>}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         {tab === 'system' && isSuperAdmin && (
                             <div className="glass-panel p-6 rounded-[2.5rem] bg-white border shadow-sm space-y-4">
                                 <h3 className="font-black text-brand-red text-sm flex items-center gap-2"><Icon name="building-2" size={18} /> 全域分店管理</h3>
@@ -3408,6 +3865,13 @@
             const [branchZones, setBranchZones] = useState([]);
             const [announcements, setAnnouncements] = useState([]);
             const [tickerText, setTickerText] = useState('');
+            // --- 貪食蛇遊戲專用狀態 ---
+            const [gameConfig, setGameConfig] = useState({
+                isOpen: false,
+                bossName: "食安魔王",
+                bossImg: null,
+                questions: []
+            });
             const [menuData, setMenuData] = useState({});
             const [onboardingData, setOnboardingData] = useState({});
             const [benefitsData, setBenefitsData] = useState({});
@@ -3573,6 +4037,9 @@
                 const subProg = db.doc(getPublicPath(`system/progress_${currentBranch}`)).onSnapshot(d => setCompletedZones(d.exists ? (d.data().completedZones || []) : []), errH);
                 const subStd = db.collection(getPublicPath(`standards_${currentBranch}`)).onSnapshot(s => { const m = {}; s.forEach(doc => { const d = doc.data(); if (!m[d.zoneId]) m[d.zoneId] = []; m[d.zoneId].push({...d, id: doc.id}); }); setStandards(m); }, errH);
                 const subTicker = db.doc(getPublicPath(`ticker/branch_${currentBranch}`)).onSnapshot(d => { setTickerText(d.exists ? d.data().text || '' : ''); }, errH);
+                const subGame = db.doc(getPublicPath('system/game_config')).onSnapshot(d => {
+                    if (d.exists) setGameConfig(d.data());
+                }, errH);
                 const subOnboardVid = db.doc(getPublicPath(`onboarding/settings_${currentBranch}`)).onSnapshot(d => setOnboardingData(p => ({...p, ...(d.exists ? d.data() : {})})), errH);
                 const subSigs = db.collection(getPublicPath(`signatures_${currentBranch}`)).onSnapshot(s => setSignatures(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b)=>b.timestamp-a.timestamp)), errH);
 
@@ -3654,7 +4121,7 @@
                 );
 
                 return () => { 
-                    subZone(); subProg(); subStd(); subAnn(); subTicker(); subOnboardVid(); subSigs();
+                    subZone(); subProg(); subStd(); subAnn(); subTicker(); subGame();subOnboardVid(); subSigs();
                     subMenu(); subOnboardList(); subOnboardPark(); subBenEval(); subBenWel();
                     ruleSubs.forEach(un => un());
                 };
@@ -3724,6 +4191,8 @@
                                         <NavCard title="入職相關" onClick={() => setCurrentPage('onboarding')} colorClass="bg-blue-50/50" iconName="user-plus" />
                                         <NavCard title="薪資福利" onClick={() => setCurrentPage('benefits')} colorClass="bg-rose-50/50" iconName="wallet" />
                                         <NavCard title="本季菜單" onClick={() => setCurrentPage('menu')} colorClass="bg-yellow-50/50" iconName="utensils" />
+                                        <NavCard title="限時活動" onClick={() => setCurrentPage('game-center')} colorClass="bg-amber-50/50" iconName="gamepad-2" />
+                                        <NavCard title="個人成就" onClick={() => setCurrentPage('achievements')} colorClass="bg-purple-50/50" iconName="trophy" />
                                     </section>
                                 </div>
                             </div>
@@ -3733,6 +4202,7 @@
                     case 'inspection': return <InspectionPage onBack={()=>setCurrentPage('home')} standards={standards} completedZones={completedZones} triggerNotify={triggerNotify} branchZones={branchZones} currentBranch={currentBranch} getPublicPath={getPublicPath} currentUser={currentUser} />;
                     case 'unifiedRules': return <UnifiedRulesPage rulesData={rulesData} onBack={()=>setCurrentPage('home')} user={currentUser} currentBranch={currentBranch} triggerNotify={triggerNotify} getPublicPath={getPublicPath} signatures={signatures} />;
                     case 'menu': return <MenuDisplayPage onBack={()=>setCurrentPage('home')} items={menuData?.items} />;
+                    case 'game-center': return <GameCenter onBack={()=>setCurrentPage('home')} config={gameConfig} />;
                     case 'schedule': return <ScheduleSystem onBack={()=>setCurrentPage('home')} currentBranch={currentBranch} isManager={isManager || isSuperAdmin} getPublicPath={getPublicPath} triggerNotify={triggerNotify} />;
                     case 'onboarding': return (
                         <div className="p-4 space-y-4 page-enter text-left">
