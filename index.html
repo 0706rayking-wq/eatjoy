@@ -3372,99 +3372,84 @@
             { id: 'slate', name: '深夜', color: '203 213 225', hex: '#cbd5e1', bgHex: '#020617' },
             { id: 'amber', name: '琥珀', color: '217 119 6', hex: '#d97706', bgHex: '#fffbeb' }
         ];
+        // 遊戲組件：美食怪大作戰
         const FoodMonsterGame = ({ onBack, user, currentBranch, triggerNotify, getPublicPath }) => {
-            const canvasRef = React.useRef(null);
-            const [gameState, setGameState] = React.useState('START'); // START, PLAYING, GAMEOVER, VICTORY
-            const [gameData, setGameData] = React.useState({
-                bossHp: 50,
-                score: 0,
-                lives: 3,
-                currentQ: 0,
-                questionsAnswered: 0
-            });
-
-            // 遊戲常數與邏輯變數 (Ref 用於避免 React 頻繁更新導致遊戲卡頓)
-            const stateRef = React.useRef({
-                snake: [],
-                dx: 0, dy: -1,
-                nextDx: 0, nextDy: -1,
-                projectiles: [],
-                aoeZones: [],
-                optionsOnBoard: [],
-                questionPool: [],
-                tickSpeed: 250,
-                lastTickTime: 0
+            const canvasRef = useRef(null);
+            const [gameState, setGameState] = useState('START'); 
+            const [gameData, setGameData] = useState({
+                bossHp: 50, score: 0, lives: 3, currentQ: 0, questionsAnswered: 0
             });
         
-            // --- 遊戲邏輯函數 (移植自您的程式碼) ---
-            const refreshQuestionPool = () => {
+            const stateRef = useRef({
+                snake: [], dx: 0, dy: -1, nextDx: 0, nextDy: -1,
+                projectiles: [], aoeZones: [], optionsOnBoard: [],
+                questionPool: [], tickSpeed: 250, lastTickTime: 0
+            });
+        
+            // 初始化題庫與遊戲
+            const startGame = () => {
                 let pool = questionsData.map((_, i) => i);
                 for (let i = pool.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [pool[i], pool[j]] = [pool[j], pool[i]];
                 }
                 stateRef.current.questionPool = pool;
-            };
-        
-            const startGame = () => {
-                refreshQuestionPool();
                 const firstQ = stateRef.current.questionPool.pop();
+                
                 setGameData({ bossHp: 50, score: 0, lives: 3, currentQ: firstQ, questionsAnswered: 0 });
                 stateRef.current.snake = [{x: 10, y: 16}, {x: 10, y: 17}, {x: 10, y: 18}];
-                stateRef.current.dx = 0; stateRef.current.dy = -1;
                 stateRef.current.nextDx = 0; stateRef.current.nextDy = -1;
-                stateRef.current.tickSpeed = 250;
-                stateRef.current.projectiles = [];
                 stateRef.current.aoeZones = [];
+                stateRef.current.projectiles = [];
+                
                 spawnOptions();
                 setGameState('PLAYING');
             };
         
             const spawnOptions = () => {
                 const letters = ['A', 'B', 'C', 'D'];
-                let opts = [];
-                for (let i = 0; i < 4; i++) {
-                    let pos = { x: Math.floor(Math.random() * 20), y: Math.floor(Math.random() * 17) + 3 };
-                    opts.push({ ...pos, letter: letters[i], index: i });
-                }
-                stateRef.current.optionsOnBoard = opts;
+                stateRef.current.optionsOnBoard = letters.map((l, i) => ({
+                    x: Math.floor(Math.random() * 18) + 1,
+                    y: Math.floor(Math.random() * 14) + 4,
+                    letter: l, index: i
+                }));
             };
         
-            // --- 繪製與循環 ---
-            React.useEffect(() => {
+            useEffect(() => {
                 if (gameState !== 'PLAYING') return;
-        
-                let animId;
                 const ctx = canvasRef.current.getContext('2d');
+                let animId;
         
                 const loop = (time) => {
                     if (time - stateRef.current.lastTickTime >= stateRef.current.tickSpeed) {
                         stateRef.current.lastTickTime = time;
-                        updateGameLogic();
+                        updateLogic();
                     }
                     draw(ctx);
                     animId = requestAnimationFrame(loop);
                 };
         
-                const updateGameLogic = () => {
+                const updateLogic = () => {
                     const s = stateRef.current;
                     s.dx = s.nextDx; s.dy = s.nextDy;
                     const head = { x: s.snake[0].x + s.dx, y: s.snake[0].y + s.dy };
         
-                    // 碰撞邊界
+                    // 碰撞檢查
                     if (head.x < 0 || head.x >= 20 || head.y < 0 || head.y >= 20) return handleHit();
-        
-                    // 吃到東西邏輯 (簡化示意)
-                    let hitIdx = s.optionsOnBoard.findIndex(o => o.x === head.x && o.y === head.y);
-                    s.snake.unshift(head);
                     
+                    // 範圍攻擊/子彈檢查 (簡化)
+                    if (Math.random() < 0.05) s.projectiles.push({x: Math.floor(Math.random()*20), y: 0});
+                    s.projectiles.forEach(p => p.y++);
+                    s.projectiles = s.projectiles.filter(p => p.y < 20);
+        
+                    // 吃到東西
+                    const hitIdx = s.optionsOnBoard.findIndex(o => o.x === head.x && o.y === head.y);
+                    s.snake.unshift(head);
                     if (hitIdx !== -1) {
                         if (s.optionsOnBoard[hitIdx].index === questionsData[gameData.currentQ][5]) {
-                            // 答對
-                            handleCorrect();
+                            setGameData(prev => ({...prev, bossHp: prev.bossHp - 1, score: prev.score + 10, questionsAnswered: prev.questionsAnswered + 1, currentQ: s.questionPool.pop()}));
+                            spawnOptions();
                         } else {
-                            // 答錯
-                            s.snake.pop();
                             handleHit();
                         }
                     } else {
@@ -3472,114 +3457,63 @@
                     }
                 };
         
-                const handleCorrect = () => {
-                    const nextQ = stateRef.current.questionPool.pop();
-                    setGameData(prev => ({
-                        ...prev,
-                        bossHp: prev.bossHp - 1,
-                        score: prev.score + 10,
-                        questionsAnswered: prev.questionsAnswered + 1,
-                        currentQ: nextQ
-                    }));
-                    spawnOptions();
-                };
-        
                 const handleHit = () => {
                     setGameData(prev => {
-                        if (prev.lives <= 1) {
-                            setGameState('GAMEOVER');
-                            saveScore(prev.score);
-                        }
-                        return { ...prev, lives: prev.lives - 1 };
+                        if (prev.lives <= 1) setGameState('GAMEOVER');
+                        return {...prev, lives: prev.lives - 1};
                     });
                     stateRef.current.snake = [{x: 10, y: 16}, {x: 10, y: 17}, {x: 10, y: 18}];
                 };
         
-                const saveScore = async (finalScore) => {
-                    try {
-                        await db.collection(getPublicPath('game_leaderboard')).add({
-                            userName: user.name,
-                            score: finalScore,
-                            branch: currentBranch,
-                            timestamp: Date.now()
-                        });
-                    } catch(e) { console.error(e); }
-                };
-        
-                const draw = (ctx) => {
-                    ctx.fillStyle = '#ffffff';
-                    ctx.fillRect(0, 0, 400, 400);
-                    // 繪製蛇
-                    stateRef.current.snake.forEach((seg, i) => {
-                        ctx.fillStyle = i === 0 ? '#10b981' : '#34d399';
-                        ctx.fillRect(seg.x * 20, seg.y * 20, 18, 18);
-                    });
-                    // 繪製選項
-                    stateRef.current.optionsOnBoard.forEach(opt => {
-                        ctx.fillStyle = ['#3b82f6', '#eab308', '#a855f7', '#f97316'][opt.index];
-                        ctx.fillRect(opt.x * 20, opt.y * 20, 18, 18);
-                        ctx.fillStyle = 'white';
-                        ctx.fillText(opt.letter, opt.x * 20 + 5, opt.y * 20 + 15);
-                    });
+                const draw = (c) => {
+                    c.fillStyle = '#fff'; c.fillRect(0,0,400,400);
+                    s.snake.forEach((p, i) => { c.fillStyle = i===0 ? '#b9121b' : '#334155'; c.fillRect(p.x*20, p.y*20, 19, 19); });
+                    s.optionsOnBoard.forEach(o => { c.fillStyle = '#2563eb'; c.fillRect(o.x*20, o.y*20, 19, 19); c.fillStyle='#fff'; c.fillText(o.letter, o.x*20+5, o.y*20+15); });
+                    s.projectiles.forEach(p => { c.fillText('🔥', p.x*20, p.y*20+15); });
                 };
         
                 animId = requestAnimationFrame(loop);
                 return () => cancelAnimationFrame(animId);
             }, [gameState, gameData.currentQ]);
         
-            // 控制按鈕
-            const handleControl = (dir) => {
+            const control = (d) => {
                 const s = stateRef.current;
-                if (dir === 'up' && s.dy !== 1) { s.nextDx = 0; s.nextDy = -1; }
-                if (dir === 'down' && s.dy !== -1) { s.nextDx = 0; s.nextDy = 1; }
-                if (dir === 'left' && s.dx !== 1) { s.nextDx = -1; s.nextDy = 0; }
-                if (dir === 'right' && s.dx !== -1) { s.nextDx = 1; s.nextDy = 0; }
+                if (d==='up' && s.dy!==1) { s.nextDx=0; s.nextDy=-1; }
+                if (d==='down' && s.dy!==-1) { s.nextDx=0; s.nextDy=1; }
+                if (d==='left' && s.dx!==1) { s.nextDx=-1; s.nextDy=0; }
+                if (d==='right' && s.dx!==-1) { s.nextDx=1; s.nextDy=0; }
             };
         
             return (
                 <div className="p-4 space-y-4 page-enter text-center font-bold pb-24">
-                    <BackButton onClick={onBack} title="限時活動：食安大戰" />
-                    
-                    {/* 遊戲狀態欄 */}
-                    <div className="flex justify-between items-center bg-slate-900 p-4 rounded-3xl text-white shadow-xl">
-                        <div>HP: <span className="text-red-500">{gameData.bossHp}</span></div>
-                        <div>Score: <span className="text-blue-400">{gameData.score}</span></div>
-                        <div>Lives: <span className="text-rose-500">{"❤️".repeat(gameData.lives)}</span></div>
+                    <BackButton onClick={onBack} title="限時活動：食安大作戰" />
+                    <div className="bg-slate-900 p-4 rounded-3xl text-white flex justify-between shadow-xl">
+                        <div>魔王 HP: <span className="text-brand-red">{gameData.bossHp}</span></div>
+                        <div>分數: {gameData.score}</div>
+                        <div>{"❤️".repeat(gameData.lives)}</div>
                     </div>
-        
-                    {/* Canvas 遊戲區 */}
-                    <div className="relative aspect-square w-full max-w-[360px] mx-auto bg-white border-2 rounded-2xl overflow-hidden shadow-inner">
-                        <canvas ref={canvasRef} width={400} height={400} className="w-full h-full block" />
-                        
+                    <div className="relative aspect-square w-full max-w-[360px] mx-auto bg-white border-2 rounded-2xl overflow-hidden">
+                        <canvas ref={canvasRef} width={400} height={400} className="w-full h-full" />
                         {gameState !== 'PLAYING' && (
                             <div className="absolute inset-0 bg-white/90 backdrop-blur flex flex-col items-center justify-center p-6">
-                                <h2 className="text-2xl font-black mb-4">{gameState === 'START' ? '食安魔王來襲' : '挑戰結束'}</h2>
-                                <button onClick={startGame} className="bg-brand-red text-white px-8 py-3 rounded-xl shadow-lg active:scale-95 transition-all">
-                                    {gameState === 'START' ? '開始戰鬥' : '重新挑戰'}
-                                </button>
+                                <h2 className="text-xl font-black mb-4">{gameState==='START'?'食安魔王來襲':'遊戲結束'}</h2>
+                                <button onClick={startGame} className="bg-brand-red text-white px-8 py-3 rounded-xl">開始戰鬥</button>
                             </div>
                         )}
                     </div>
-        
-                    {/* 題目區 */}
                     {gameState === 'PLAYING' && (
-                        <div className="text-left space-y-3 bg-white p-4 rounded-2xl border">
-                            <div className="text-blue-600">Q{gameData.questionsAnswered + 1}: {questionsData[gameData.currentQ][0]}</div>
-                            <div className="grid grid-cols-2 gap-2 text-xs">
-                                <div className="p-2 bg-blue-50 border border-blue-200 rounded-lg">A: {questionsData[gameData.currentQ][1]}</div>
-                                <div className="p-2 bg-yellow-50 border border-yellow-200 rounded-lg">B: {questionsData[gameData.currentQ][2]}</div>
-                                <div className="p-2 bg-purple-50 border border-purple-200 rounded-lg">C: {questionsData[gameData.currentQ][3]}</div>
-                                <div className="p-2 bg-orange-50 border border-orange-200 rounded-lg">D: {questionsData[gameData.currentQ][4]}</div>
+                        <div className="text-left p-4 bg-white border rounded-2xl text-sm">
+                            <div className="text-blue-600 mb-2">Q{gameData.questionsAnswered+1}: {questionsData[gameData.currentQ][0]}</div>
+                            <div className="grid grid-cols-2 gap-2 text-[10px]">
+                                {['A','B','C','D'].map((l, i) => <div key={l} className="p-2 bg-slate-50 border rounded-lg">{l}: {questionsData[gameData.currentQ][i+1]}</div>)}
                             </div>
                         </div>
                     )}
-        
-                    {/* 虛擬手把 */}
-                    <div className="grid grid-cols-3 gap-2 w-40 mx-auto">
-                        <div /> <button onClick={()=>handleControl('up')} className="p-4 bg-slate-100 rounded-xl">⬆️</button> <div />
-                        <button onClick={()=>handleControl('left')} className="p-4 bg-slate-100 rounded-xl">⬅️</button>
-                        <button onClick={()=>handleControl('down')} className="p-4 bg-slate-100 rounded-xl">⬇️</button>
-                        <button onClick={()=>handleControl('right')} className="p-4 bg-slate-100 rounded-xl">➡️</button>
+                    <div className="grid grid-cols-3 gap-2 w-36 mx-auto">
+                        <div /> <button onClick={()=>control('up')} className="p-4 bg-slate-100 rounded-xl">⬆️</button> <div />
+                        <button onClick={()=>control('left')} className="p-4 bg-slate-100 rounded-xl">⬅️</button>
+                        <button onClick={()=>control('down')} className="p-4 bg-slate-100 rounded-xl">⬇️</button>
+                        <button onClick={()=>control('right')} className="p-4 bg-slate-100 rounded-xl">➡️</button>
                     </div>
                 </div>
             );
