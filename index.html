@@ -3134,30 +3134,26 @@
                 </div>
             );
         };
-        // --- 貪食蛇遊戲中心組件 (終極修復版) ---
- // --- 貪食蛇遊戲中心組件 (排行榜 + 隨機題庫版) ---
+// --- 貪食蛇遊戲中心組件 (手機完美適配 + 排行榜版) ---
         const GameCenter = ({ onBack, config, currentBranch, currentUser, getPublicPath }) => {
             const [leaderboard, setLeaderboard] = useState([]);
             const [showLeaderboard, setShowLeaderboard] = useState(false);
 
-            // 監聽該分店的排行榜資料
             useEffect(() => {
                 if (!currentBranch) return;
                 const unsub = db.collection(getPublicPath(`game_leaderboard_${currentBranch}`))
                     .orderBy('score', 'desc')
-                    .limit(10) // 只取前10名
+                    .limit(10)
                     .onSnapshot(snap => {
                         setLeaderboard(snap.docs.map(d => ({ id: d.id, ...d.data() })));
                     });
                 return () => unsub();
             }, [currentBranch, getPublicPath]);
 
-            // 接收來自遊戲內部的「遊戲結束」訊息並寫入分數
             useEffect(() => {
                 const handleMessage = (e) => {
                     if (e.data && e.data.type === 'GAME_OVER') {
                         const score = e.data.score;
-                        // 分數大於0才記錄，避免洗版
                         if (currentUser && score > 0) {
                             db.collection(getPublicPath(`game_leaderboard_${currentBranch}`)).add({
                                 name: currentUser.name,
@@ -3165,7 +3161,6 @@
                                 timestamp: Date.now()
                             });
                         }
-                        // 遊戲結束自動跳出排行榜
                         setTimeout(() => setShowLeaderboard(true), 1500); 
                     }
                 };
@@ -3185,93 +3180,104 @@
             }
 
             const bossName = config.bossName || '食安魔王';
-            const bossImgHtml = config.bossImg ? `<img src="${config.bossImg}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 50%; border: 3px solid #ef4444; background: white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);" alt="Boss">` : `👿`;
-            const safeQuestions = config.questions && config.questions.length > 0 ? config.questions : [["請通知行政主廚至後台設定題目！", "知道", "了解", "收到", "明白", 0]];
+            const bossImgHtml = config.bossImg ? `<img src="${config.bossImg}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 50%; border: 3px solid #ef4444; background: white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);" alt="Boss">` : `<div style="font-size:40px;">👿</div>`;
+            // 將資料庫的物件轉換回貪食蛇遊戲認識的純陣列格式
+            const safeQuestions = config.questions && config.questions.length > 0 
+                ? config.questions.map(item => Array.isArray(item) ? item : [item.q, item.a, item.b, item.c, item.d, item.ansIdx]) 
+                : [["請通知行政主廚至後台設定題目！", "知道", "了解", "收到", "明白", 0]];
 
             const scriptStart = "<scr" + "ipt>";
             const scriptEnd = "</scr" + "ipt>";
 
-            // 遊戲本體字串
+            // --- 遊戲本體字串 (強制拼接變數避免破圖，並重構手機版面) ---
             const gameHTML = `
             <!DOCTYPE html>
             <html lang="zh-TW">
             <head>
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-                <script src="https://cdn.tailwindcss.com">${scriptEnd}
-                <style> body { touch-action: none; } @keyframes shake { 0% { transform: translate(-50%, 0); } 25% { transform: translate(-50%, -5px); } 50% { transform: translate(-50%, 5px); } 75% { transform: translate(-50%, -5px); } 100% { transform: translate(-50%, 0); } } .boss-shake { animation: shake 0.2s ease-in-out; } </style>
+                <script src="https://cdn.tailwindcss.com">` + scriptEnd + `
+                <style> 
+                    /* 鎖死畫面，防止手機上下亂捲動 */
+                    body { touch-action: none; overflow: hidden; background: #f8fafc; } 
+                    @keyframes shake { 0% { transform: translate(-50%, 0); } 25% { transform: translate(-50%, -5px); } 50% { transform: translate(-50%, 5px); } 75% { transform: translate(-50%, -5px); } 100% { transform: translate(-50%, 0); } } 
+                    .boss-shake { animation: shake 0.2s ease-in-out; } 
+                    .d-pad-btn { background: #f1f5f9; border: 2px solid #e2e8f0; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); transition: transform 0.1s; }
+                    .d-pad-btn:active { background: #e2e8f0; transform: scale(0.9); }
+                </style>
             </head>
-            <body class="bg-white text-gray-800 font-sans h-screen flex flex-col items-center justify-center p-2 overflow-hidden">
-                <div class="max-w-5xl w-full flex flex-col md:flex-row gap-6 items-start justify-center mt-4">
-                    <div class="relative w-[360px] sm:w-[400px] flex-shrink-0 mx-auto md:mx-0">
-                        <div class="text-center mb-2 relative">
-                            <div id="boss-icon" class="text-5xl inline-block transition-transform absolute -top-12 left-1/2 -translate-x-1/2 z-10">${bossImgHtml}</div>
-                            <div class="w-full bg-gray-200 h-4 rounded-full mt-2 overflow-hidden border border-gray-300 relative z-0">
-                                <div id="boss-hp-bar" class="bg-red-500 h-full w-full transition-all duration-300"></div>
-                            </div>
-                        </div>
-                        <div class="relative">
-                             <canvas id="gameCanvas" width="400" height="400" class="bg-white border-2 border-gray-300 shadow-sm block w-full h-auto max-w-[400px]"></canvas>
-                             <div id="flash" class="absolute inset-0 pointer-events-none opacity-0 transition-opacity duration-100 rounded"></div>
-                        </div>
+            <body class="text-gray-800 font-sans h-screen flex flex-col p-2">
+                
+                <div class="flex justify-between items-center mb-2 shrink-0 bg-white px-3 py-1.5 rounded-2xl shadow-sm border border-slate-200">
+                    <div class="font-bold text-slate-700 text-xs">魔王: <span id="boss-hp" class="text-red-500 text-lg font-black">50</span></div>
+                    <div id="boss-icon" class="relative z-10 transition-transform">` + bossImgHtml + `</div>
+                    <div class="font-bold text-slate-700 text-xs">生命: <span id="lives-display">❤️❤️❤️</span></div>
+                </div>
+
+                <div class="relative w-full max-w-[400px] mx-auto aspect-square shrink-0">
+                     <canvas id="gameCanvas" width="400" height="400" class="bg-white border-[3px] border-slate-300 shadow-sm w-full h-full rounded-2xl block touch-none"></canvas>
+                     <div id="flash" class="absolute inset-0 pointer-events-none opacity-0 transition-opacity duration-100 rounded-2xl"></div>
+                </div>
+
+                <div class="w-full max-w-[400px] mx-auto flex flex-col gap-2 mt-3 shrink-0">
+                    <div class="text-[13px] sm:text-sm font-black text-slate-800 bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm line-clamp-2 leading-snug flex items-start">
+                        <span class="text-blue-600 mr-1.5 shrink-0 mt-0.5">Q<span id="q-number">1</span>:</span>
+                        <span id="q-text">問題載入中...</span>
                     </div>
-                    <div class="w-full sm:w-[400px] flex flex-col gap-3 mx-auto">
-                        <div class="flex justify-between items-center pb-2 border-b border-gray-200">
-                            <div class="text-lg font-bold text-gray-700">魔王血量: <span id="boss-hp" class="text-red-500 text-xl">50</span></div>
-                            <div class="text-lg font-bold text-gray-700">生命: <span id="lives-display" class="text-xl">❤️❤️❤️</span></div>
-                        </div>
-                        <div class="text-xl font-bold text-gray-800 min-h-[80px]">
-                            <span class="text-blue-600">Q<span id="q-number">1</span>:</span> <span id="q-text">問題載入中...</span>
-                        </div>
-                        <div class="grid grid-cols-1 gap-2">
-                            <div class="border-2 border-blue-400 bg-blue-50 p-2 rounded shadow-sm flex items-center gap-3"><span class="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-blue-500 text-white font-bold rounded">A</span><span id="opt-a" class="text-gray-800 font-medium">選項A</span></div>
-                            <div class="border-2 border-yellow-400 bg-yellow-50 p-2 rounded shadow-sm flex items-center gap-3"><span class="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-yellow-500 text-white font-bold rounded">B</span><span id="opt-b" class="text-gray-800 font-medium">選項B</span></div>
-                            <div class="border-2 border-purple-400 bg-purple-50 p-2 rounded shadow-sm flex items-center gap-3"><span class="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-purple-500 text-white font-bold rounded">C</span><span id="opt-c" class="text-gray-800 font-medium">選項C</span></div>
-                            <div class="border-2 border-orange-400 bg-orange-50 p-2 rounded shadow-sm flex items-center gap-3"><span class="w-8 h-8 flex-shrink-0 flex items-center justify-center bg-orange-500 text-white font-bold rounded">D</span><span id="opt-d" class="text-gray-800 font-medium">選項D</span></div>
-                        </div>
-                        <div class="mt-2 grid grid-cols-3 gap-2 w-[180px] mx-auto md:hidden">
-                            <div></div><button id="btn-up" class="bg-gray-100 border border-gray-300 active:bg-gray-300 p-4 rounded-lg shadow text-xl flex justify-center items-center">⬆️</button><div></div>
-                            <button id="btn-left" class="bg-gray-100 border border-gray-300 active:bg-gray-300 p-4 rounded-lg shadow text-xl flex justify-center items-center">⬅️</button>
-                            <button id="btn-down" class="bg-gray-100 border border-gray-300 active:bg-gray-300 p-4 rounded-lg shadow text-xl flex justify-center items-center">⬇️</button>
-                            <button id="btn-right" class="bg-gray-100 border border-gray-300 active:bg-gray-300 p-4 rounded-lg shadow text-xl flex justify-center items-center">➡️</button>
-                        </div>
+                    
+                    <div class="grid grid-cols-2 gap-2 text-xs sm:text-sm font-bold">
+                        <div class="border-2 border-blue-300 bg-blue-50 p-2 rounded-xl flex items-center gap-2 overflow-hidden"><span class="w-6 h-6 shrink-0 flex items-center justify-center bg-blue-500 text-white rounded-md">A</span><span id="opt-a" class="truncate">選項A</span></div>
+                        <div class="border-2 border-yellow-300 bg-yellow-50 p-2 rounded-xl flex items-center gap-2 overflow-hidden"><span class="w-6 h-6 shrink-0 flex items-center justify-center bg-yellow-500 text-white rounded-md">B</span><span id="opt-b" class="truncate">選項B</span></div>
+                        <div class="border-2 border-purple-300 bg-purple-50 p-2 rounded-xl flex items-center gap-2 overflow-hidden"><span class="w-6 h-6 shrink-0 flex items-center justify-center bg-purple-500 text-white rounded-md">C</span><span id="opt-c" class="truncate">選項C</span></div>
+                        <div class="border-2 border-orange-300 bg-orange-50 p-2 rounded-xl flex items-center gap-2 overflow-hidden"><span class="w-6 h-6 shrink-0 flex items-center justify-center bg-orange-500 text-white rounded-md">D</span><span id="opt-d" class="truncate">選項D</span></div>
                     </div>
                 </div>
 
-                <div id="modal-start" class="fixed inset-0 bg-white/95 flex items-center justify-center z-50 p-4">
-                    <div class="bg-white p-6 sm:p-8 border-2 border-gray-300 shadow-xl rounded-xl max-w-md w-full text-center">
-                        <h1 class="text-2xl sm:text-3xl font-bold mb-4 text-gray-800">貪食蛇益智大挑戰</h1>
-                        <div class="text-gray-700 mb-6 text-left leading-relaxed text-sm sm:text-base">
-                            <div class="text-center mb-2">${bossImgHtml}</div>
-                            <p class="font-bold text-center text-red-600 mb-2">${bossName} 來襲！</p>
-                            <ul class="list-decimal pl-5 space-y-1">
-                                <li>使用<b>方向鍵</b> 控制貪食蛇。</li>
-                                <li>根據題目，吃掉正確的選項 (A/B/C/D)。</li>
-                                <li>答對削減魔王血量，答錯扣愛心。</li>
-                            </ul>
-                        </div>
-                        <button onclick="startGame()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg text-xl shadow transition-colors">開始挑戰</button>
+                <div class="mt-auto pb-4 flex-1 flex flex-col justify-end w-full max-w-[260px] mx-auto md:hidden">
+                    <p class="text-center text-[10px] text-slate-400 mb-2 font-bold animate-pulse">💡 提示：可直接在上方畫布「滑動」控制蛇</p>
+                    <div class="grid grid-cols-3 gap-2 w-full aspect-[3/2]">
+                        <div></div>
+                        <button id="btn-up" class="d-pad-btn touch-none">⬆️</button>
+                        <div></div>
+                        <button id="btn-left" class="d-pad-btn touch-none">⬅️</button>
+                        <button id="btn-down" class="d-pad-btn touch-none">⬇️</button>
+                        <button id="btn-right" class="d-pad-btn touch-none">➡️</button>
                     </div>
                 </div>
-                <div id="modal-gameover" class="fixed inset-0 bg-white/95 flex items-center justify-center z-50 p-4 hidden">
-                    <div class="bg-white p-8 border-2 border-red-300 shadow-xl rounded-xl max-w-md w-full text-center">
+
+                <div id="modal-start" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                    <div class="bg-white p-6 border-2 border-slate-200 shadow-2xl rounded-3xl max-w-sm w-full text-center">
+                        <div class="flex justify-center mb-3">` + bossImgHtml + `</div>
+                        <h1 class="text-2xl font-black mb-2 text-slate-800">` + bossName + ` 來襲！</h1>
+                        <div class="text-slate-600 mb-6 text-left text-xs space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-100 font-bold leading-relaxed">
+                            <p>🕹️ <b>操作：</b>滑動畫布，或使用下方按鈕。</p>
+                            <p>🎯 <b>目標：</b>吃掉與題目相符的正確答案。</p>
+                            <p>🔥 <b>注意：</b>答錯會扣血，小心魔王火焰！</p>
+                        </div>
+                        <button onclick="startGame()" class="w-full bg-blue-600 active:bg-blue-700 text-white font-black py-4 rounded-2xl text-lg shadow-lg">開始挑戰</button>
+                    </div>
+                </div>
+                
+                <div id="modal-gameover" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
+                    <div class="bg-white p-8 border-2 border-red-400 shadow-2xl rounded-3xl max-w-sm w-full text-center">
                         <div class="text-6xl mb-4">💀</div>
-                        <h1 class="text-3xl font-bold mb-2 text-red-600">挑戰失敗</h1>
-                        <p class="text-gray-600 mb-6">愛心耗盡... 魔王還剩下 <span id="end-boss-hp" class="font-bold text-red-500"></span> 滴血！</p>
-                        <button onclick="startGame()" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-8 rounded-lg text-xl shadow transition-colors">重新挑戰</button>
-                    </div>
-                </div>
-                <div id="modal-victory" class="fixed inset-0 bg-white/95 flex items-center justify-center z-50 p-4 hidden">
-                    <div class="bg-white p-8 border-2 border-green-300 shadow-xl rounded-xl max-w-md w-full text-center">
-                        <div class="text-6xl mb-4">🏆</div>
-                        <h1 class="text-3xl font-bold mb-2 text-green-600">挑戰成功！</h1>
-                        <p class="text-gray-600 mb-6">你具備了卓越的知識，成功擊退 ${bossName}！</p>
-                        <button onclick="startGame()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-8 rounded-lg text-xl shadow transition-colors">再玩一次</button>
+                        <h1 class="text-2xl font-black mb-2 text-red-600">挑戰失敗</h1>
+                        <p class="text-slate-600 mb-6 text-sm font-bold">魔王還剩下 <span id="end-boss-hp" class="font-black text-red-500 text-lg"></span> 滴血！</p>
+                        <button onclick="startGame()" class="w-full bg-red-600 active:bg-red-700 text-white font-black py-4 rounded-2xl text-lg shadow-lg">重新挑戰</button>
                     </div>
                 </div>
 
-            ${scriptStart}
-            const questionsData = ${JSON.stringify(safeQuestions)};
+                <div id="modal-victory" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
+                    <div class="bg-white p-8 border-2 border-emerald-400 shadow-2xl rounded-3xl max-w-sm w-full text-center">
+                        <div class="text-6xl mb-4">🏆</div>
+                        <h1 class="text-2xl font-black mb-2 text-emerald-600">挑戰成功！</h1>
+                        <p class="text-slate-600 mb-6 text-sm font-bold">你具備了卓越的知識，成功擊退 <br/><b>` + bossName + `</b>！</p>
+                        <button onclick="startGame()" class="w-full bg-emerald-600 active:bg-emerald-700 text-white font-black py-4 rounded-2xl text-lg shadow-lg">再玩一次</button>
+                    </div>
+                </div>
+
+            ` + scriptStart + `
+            const questionsData = ` + JSON.stringify(safeQuestions) + `;
             const canvas = document.getElementById('gameCanvas');
             const ctx = canvas.getContext('2d');
             const GRID_SIZE = 20; const TILE_COUNT = 20; const MAX_BOSS_HP = 50;
@@ -3285,10 +3291,7 @@
             function startGame() {
                 document.getElementById('modal-start').classList.add('hidden'); document.getElementById('modal-gameover').classList.add('hidden'); document.getElementById('modal-victory').classList.add('hidden');
                 bossHP = MAX_BOSS_HP; lives = 3; tickSpeed = 250; isPlaying = true;
-                
-                // --- 核心修改：開始時隨機抽取一題 ---
                 currentQ = Math.floor(Math.random() * questionsData.length);
-                
                 resetBoardState(); updateUI();
                 if (animationFrameId) cancelAnimationFrame(animationFrameId);
                 lastTickTime = performance.now(); animationFrameId = requestAnimationFrame(gameLoop);
@@ -3359,7 +3362,6 @@
                     isPlaying = false; 
                     document.getElementById('end-boss-hp').innerText = bossHP; 
                     document.getElementById('modal-gameover').classList.remove('hidden');
-                    // --- 核心修改：傳送分數給 React 主系統 ---
                     window.parent.postMessage({ type: 'GAME_OVER', score: MAX_BOSS_HP - bossHP }, '*');
                 } else { resetBoardState(); }
             }
@@ -3369,17 +3371,15 @@
                 if (bossHP <= 0) { 
                     isPlaying = false; updateUI(); 
                     document.getElementById('modal-victory').classList.remove('hidden');
-                    // --- 核心修改：傳送滿分給 React 主系統 ---
                     window.parent.postMessage({ type: 'GAME_OVER', score: MAX_BOSS_HP }, '*');
                 } else { 
-                    // --- 核心修改：答對後隨機抽取下一題 ---
                     currentQ = Math.floor(Math.random() * questionsData.length);
                     updateUI(); spawnOptions(); 
                 }
             }
 
             function flashScreen(colorClass) {
-                const flash = document.getElementById('flash'); flash.className = \`absolute inset-0 pointer-events-none transition-opacity duration-100 rounded \${colorClass}\`; flash.style.opacity = '0.4';
+                const flash = document.getElementById('flash'); flash.className = \`absolute inset-0 pointer-events-none transition-opacity duration-100 rounded-2xl \${colorClass}\`; flash.style.opacity = '0.4';
                 setTimeout(() => { flash.style.opacity = '0'; }, 150);
             }
 
@@ -3417,10 +3417,7 @@
             function updateUI() {
                 document.getElementById('boss-hp').innerText = bossHP;
                 let hearts = ''; for(let i = 0; i < 3; i++) hearts += i < lives ? '❤️' : '🖤'; document.getElementById('lives-display').innerText = hearts;
-                document.getElementById('boss-hp-bar').style.width = ((bossHP / MAX_BOSS_HP) * 100) + '%';
                 const qData = questionsData[currentQ];
-                
-                // 隱藏目前題數避免隨機跳號時看起來奇怪
                 document.getElementById('q-number').innerText = "?"; 
                 document.getElementById('q-text').innerText = qData[0];
                 document.getElementById('opt-a').innerText = qData[1]; document.getElementById('opt-b').innerText = qData[2]; document.getElementById('opt-c').innerText = qData[3]; document.getElementById('opt-d').innerText = qData[4];
@@ -3443,23 +3440,50 @@
             });
 
             ['up', 'down', 'left', 'right'].forEach(dir => {
-                const btn = document.getElementById(\`btn-\${dir}\`);
+                const btn = document.getElementById('btn-'+dir);
                 btn.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(dir); });
                 btn.addEventListener('mousedown', (e) => { e.preventDefault(); handleInput(dir); });
             });
-            ${scriptEnd}
+
+            // --- 手機版專屬：畫布滑動偵測 (Swipe) ---
+            let touchStartX = 0;
+            let touchStartY = 0;
+            
+            canvas.addEventListener('touchstart', function(e) {
+                touchStartX = e.changedTouches[0].screenX;
+                touchStartY = e.changedTouches[0].screenY;
+                e.preventDefault(); // 防止滾動
+            }, {passive: false});
+
+            canvas.addEventListener('touchend', function(e) {
+                let touchEndX = e.changedTouches[0].screenX;
+                let touchEndY = e.changedTouches[0].screenY;
+                let deltaX = touchEndX - touchStartX;
+                let deltaY = touchEndY - touchStartY;
+                
+                if(Math.abs(deltaX) > Math.abs(deltaY)) {
+                    if(Math.abs(deltaX) > 25) handleInput(deltaX > 0 ? 'right' : 'left');
+                } else {
+                    if(Math.abs(deltaY) > 25) handleInput(deltaY > 0 ? 'down' : 'up');
+                }
+                e.preventDefault();
+            }, {passive: false});
+            
+            canvas.addEventListener('touchmove', function(e) { e.preventDefault(); }, {passive: false});
+
+            ` + scriptEnd + `
             </body>
             </html>
             `;
 
             return (
-                <div className="fixed inset-0 z-[10000] bg-white flex flex-col page-enter">
-                    {/* 頂部導覽列與排行榜按鈕 */}
-                    <div className="p-4 border-b flex justify-between items-center bg-white shadow-sm shrink-0">
+                <div className="fixed inset-0 z-[10000] bg-slate-50 flex flex-col page-enter">
+                    {/* 頂部導覽列 */}
+                    <div className="p-3 sm:p-4 border-b flex justify-between items-center bg-white shadow-sm shrink-0">
                         <button onClick={onBack} className="p-2 bg-slate-100 rounded-xl active:scale-90 transition-all text-slate-600"><Icon name="chevron-left" /></button>
                         <div className="text-center">
                             <span className="block text-[10px] text-brand-red font-black uppercase tracking-widest">{currentBranch} 挑戰區</span>
-                            <span className="font-black text-slate-800 text-lg">{bossName}</span>
+                            <span className="font-black text-slate-800 text-base">{bossName}</span>
                         </div>
                         <button onClick={() => setShowLeaderboard(true)} className="p-2 bg-amber-100 text-amber-600 rounded-xl active:scale-90 transition-all shadow-sm">
                             <Icon name="trophy" size={20} />
@@ -3467,7 +3491,7 @@
                     </div>
                     
                     {/* 遊戲本體 */}
-                    <iframe srcDoc={gameHTML} className="flex-1 w-full border-none" sandbox="allow-scripts allow-same-origin" />
+                    <iframe srcDoc={gameHTML} className="flex-1 w-full border-none bg-slate-50" sandbox="allow-scripts allow-same-origin" />
 
                     {/* 🏆 分店排行榜彈窗 */}
                     {showLeaderboard && (
@@ -3503,6 +3527,185 @@
                 </div>
             );
         };
+        // --- 限時活動 (遊戲後台) 專屬管理組件 ---
+        const GameAdminManager = ({ getPublicPath, triggerNotify }) => {
+            const [config, setConfig] = useState({ isOpen: false, bossName: '食安魔王', bossImg: null, questions: [] });
+            const [showModal, setShowModal] = useState(false);
+            const [qForm, setQForm] = useState({ q: '', a: '', b: '', c: '', d: '', ansIdx: 0 });
+
+            // 監聽後台資料
+            useEffect(() => {
+                const unsub = db.doc(getPublicPath('system/game_config')).onSnapshot(d => {
+                    if(d.exists) setConfig(d.data());
+                });
+                return () => unsub();
+            }, [getPublicPath]);
+
+            const saveConfig = (updates) => {
+                db.doc(getPublicPath('system/game_config')).set(updates, { merge: true });
+            };
+
+            const handleSaveQuestion = () => {
+                if(!qForm.q || !qForm.a || !qForm.b || !qForm.c || !qForm.d) {
+                    triggerNotify("請填寫完整題目與四個選項", "error");
+                    return;
+                }
+                // 改用「物件」格式儲存，避開 Firebase 的嵌套陣列限制
+                const newQ = { 
+                    q: qForm.q, 
+                    a: qForm.a, 
+                    b: qForm.b, 
+                    c: qForm.c, 
+                    d: qForm.d, 
+                    ansIdx: parseInt(qForm.ansIdx) 
+                };
+                const updatedQs = [...(config.questions || []), newQ];
+                saveConfig({ questions: updatedQs });
+                setShowModal(false);
+                setQForm({ q: '', a: '', b: '', c: '', d: '', ansIdx: 0 }); // 清空表單
+                triggerNotify("題目已成功新增！", "success");
+            };
+
+            const handleDelete = (idx) => {
+                if(!window.confirm("確定刪除此題？")) return;
+                const updatedQs = config.questions.filter((_, i) => i !== idx);
+                saveConfig({ questions: updatedQs });
+                triggerNotify("題目已刪除", "info");
+            };
+
+            return (
+                <div className="space-y-6 animate-in fade-in">
+                    {/* 魔王與開關設定 */}
+                    <div className="glass-panel p-6 rounded-[2.5rem] bg-slate-900 text-white shadow-xl space-y-5">
+                        <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                            <h3 className="font-black text-sm flex items-center gap-2"><Icon name="gamepad-2" className="text-brand-red"/> 限時活動控制台</h3>
+                            <button onClick={() => saveConfig({ isOpen: !config.isOpen })}
+                                    className={`px-4 py-2 rounded-full text-xs font-black transition-all ${config.isOpen ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-slate-600 text-slate-300'}`}>
+                                {config.isOpen ? "活動：開啟中" : "活動：已關閉"}
+                            </button>
+                        </div>
+                        <div className="space-y-3">
+                            <label className="text-[10px] text-slate-400 font-bold">魔王名稱</label>
+                            <input type="text" value={config.bossName || ''} onChange={(e) => saveConfig({ bossName: e.target.value })} className="w-full bg-white/10 p-3 rounded-xl text-sm outline-none text-white focus:ring-1 focus:ring-brand-red" placeholder="例：食安大魔王"/>
+                            
+                            <label className="block w-full bg-white/10 border border-dashed border-white/20 py-3 rounded-xl text-[10px] font-black text-center cursor-pointer hover:bg-white/20 transition-all">
+                                {config.bossImg ? "✅ 魔王圖片已設定 (點擊更換)" : "+ 上傳魔王圖片 (建議正方形)"}
+                                <input type="file" className="hidden" accept="image/*" onChange={async (e)=>{
+                                    const file = e.target.files[0];
+                                    if (file) {
+                                        const r = new FileReader();
+                                        r.onloadend = async () => {
+                                            const compressed = await compressImage(r.result, 400, 0.6);
+                                            saveConfig({ bossImg: compressed });
+                                            triggerNotify("圖片上傳成功","success");
+                                        };
+                                        r.readAsDataURL(file);
+                                    }
+                                }}/>
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* 題庫管理列表 */}
+                    <div className="glass-panel p-6 rounded-[2.5rem] bg-white border shadow-sm space-y-4">
+                        
+                        {/* 這裡補回遺失的標題與「新增題目」按鈕 */}
+                        <div className="flex justify-between items-center">
+                            <h3 className="font-black text-brand-red text-sm flex items-center gap-2">
+                                <Icon name="list" size={18} /> 題庫管理 ({(config.questions || []).length}題)
+                            </h3>
+                            <button onClick={() => setShowModal(true)} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black shadow-sm active:scale-95 transition-all">
+                                + 新增題目
+                            </button>
+                        </div>
+                        
+                        {/* 這裡補回原本的捲動清單區塊 */}
+                        <div className="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+                            {(config.questions || []).map((item, idx) => {
+                                // 兼容處理：將新的物件格式解構出來
+                                const isArr = Array.isArray(item);
+                                const qText = isArr ? item[0] : item.q;
+                                const optA = isArr ? item[1] : item.a;
+                                const optB = isArr ? item[2] : item.b;
+                                const optC = isArr ? item[3] : item.c;
+                                const optD = isArr ? item[4] : item.d;
+                                const ans = isArr ? item[5] : item.ansIdx;
+
+                                return (
+                                    <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-start gap-4 shadow-sm">
+                                        <div className="flex-1">
+                                            <p className="font-black text-xs text-slate-800 mb-2">Q{idx+1}: {qText}</p>
+                                            <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500 font-bold">
+                                                <span className={`p-1.5 rounded-md ${ans===0?"bg-emerald-100 text-emerald-700 border-emerald-200 border":"bg-white border"}`}>A: {optA}</span>
+                                                <span className={`p-1.5 rounded-md ${ans===1?"bg-emerald-100 text-emerald-700 border-emerald-200 border":"bg-white border"}`}>B: {optB}</span>
+                                                <span className={`p-1.5 rounded-md ${ans===2?"bg-emerald-100 text-emerald-700 border-emerald-200 border":"bg-white border"}`}>C: {optC}</span>
+                                                <span className={`p-1.5 rounded-md ${ans===3?"bg-emerald-100 text-emerald-700 border-emerald-200 border":"bg-white border"}`}>D: {optD}</span>
+                                            </div>
+                                        </div>
+                                        <button onClick={() => handleDelete(idx)} className="text-slate-300 hover:text-red-500 p-2 bg-white rounded-lg border shadow-sm active:scale-90 transition-all"><Icon name="trash-2" size={16}/></button>
+                                    </div>
+                                );
+                            })}
+                            {!(config.questions?.length > 0) && <p className="text-center text-slate-400 text-xs py-8 glass-panel rounded-2xl">目前尚無題目，請點擊上方新增</p>}
+                        </div>
+                    </div>
+                    {/* 專屬：新增題目彈窗 (手機版友善設計) */}
+                    {showModal && (
+                        <div className="fixed inset-0 z-[10000] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 page-enter">
+                            <div className="bg-white w-full max-w-md rounded-[2.5rem] p-6 shadow-2xl relative">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="font-black text-lg text-slate-800 flex items-center gap-2"><Icon name="plus-circle" className="text-brand-red"/> 新增挑戰題目</h3>
+                                    <button onClick={() => setShowModal(false)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition-colors active:scale-90"><Icon name="x" size={20}/></button>
+                                </div>
+                                
+                                <div className="space-y-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black text-slate-500 ml-1">題目內容</label>
+                                        <textarea value={qForm.q} onChange={e=>setQForm({...qForm, q: e.target.value})} className="w-full input-light p-4 rounded-2xl text-sm font-bold outline-none border-slate-200 focus:border-brand-red focus:ring-1 focus:ring-brand-red" rows="2" placeholder="請輸入問題敘述..."></textarea>
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-500 ml-1">選項 A</label>
+                                            <input value={qForm.a} onChange={e=>setQForm({...qForm, a: e.target.value})} className="w-full input-light p-3 rounded-xl text-sm font-bold outline-none" placeholder="選項內容" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-500 ml-1">選項 B</label>
+                                            <input value={qForm.b} onChange={e=>setQForm({...qForm, b: e.target.value})} className="w-full input-light p-3 rounded-xl text-sm font-bold outline-none" placeholder="選項內容" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-500 ml-1">選項 C</label>
+                                            <input value={qForm.c} onChange={e=>setQForm({...qForm, c: e.target.value})} className="w-full input-light p-3 rounded-xl text-sm font-bold outline-none" placeholder="選項內容" />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <label className="text-[10px] font-black text-slate-500 ml-1">選項 D</label>
+                                            <input value={qForm.d} onChange={e=>setQForm({...qForm, d: e.target.value})} className="w-full input-light p-3 rounded-xl text-sm font-bold outline-none" placeholder="選項內容" />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1.5 pt-2">
+                                        <label className="text-[10px] font-black text-emerald-600 ml-1">正確答案是？</label>
+                                        <div className="relative">
+                                            <select value={qForm.ansIdx} onChange={e=>setQForm({...qForm, ansIdx: e.target.value})} className="w-full input-light p-4 rounded-xl text-sm font-black outline-none bg-emerald-50 border-emerald-200 text-emerald-700 appearance-none">
+                                                <option value={0}>A 選項為正解</option>
+                                                <option value={1}>B 選項為正解</option>
+                                                <option value={2}>C 選項為正解</option>
+                                                <option value={3}>D 選項為正解</option>
+                                            </select>
+                                            <Icon name="chevron-down" size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-600 pointer-events-none" />
+                                        </div>
+                                    </div>
+
+                                    <button onClick={handleSaveQuestion} className="w-full mt-4 bg-brand-red text-white font-black py-4 rounded-2xl shadow-lg shadow-brand-red/20 active:scale-95 transition-all text-sm">
+                                        確認儲存題目
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
         const AdminPage = ({ onBack, onLogout, announcements, standards, users, triggerNotify, menu, onboarding, benefits, rulesData, isSuperAdmin, currentBranch, setCurrentBranch, globalBranches, branchZones, getPublicPath, signatures, tickerText, setTickerText, globalRecipes }) => {
             const [tab, setTab] = useState('members'); const [subCat, setSubCat] = useState('list');
             const [selectedZone, setSelectedZone] = useState('');
@@ -3510,16 +3713,6 @@
             const [newZoneName, setNewZoneName] = useState('');
             const [newBranchName, setNewBranchName] = useState('');
             const [expandedSig, setExpandedSig] = useState(null);
-            // --- 貪食蛇後台專用狀態 ---
-            const [adminGameConfig, setAdminGameConfig] = useState({ isOpen: false, bossName: '食安魔王', bossImg: null, questions: [] });
-            useEffect(() => {
-                if (isSuperAdmin) {
-                    const unsub = db.doc(getPublicPath('system/game_config')).onSnapshot(d => {
-                        if(d.exists) setAdminGameConfig(d.data());
-                    });
-                    return () => unsub();
-                }
-            }, [isSuperAdmin, getPublicPath]);
 
             useEffect(() => {
                 if(branchZones && branchZones.length > 0 && !selectedZone) setSelectedZone(branchZones[0].id);
@@ -3703,85 +3896,7 @@
                                 </div>
                             </div>
                         )}
-                        {/* --- 限時活動 (遊戲後台) --- */}
-                        {tab === 'game' && isSuperAdmin && (
-                            <div className="space-y-6">
-                                {/* 魔王與開關設定 */}
-                                <div className="glass-panel p-6 rounded-[2.5rem] bg-slate-900 text-white shadow-xl space-y-5">
-                                    <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                                        <h3 className="font-black text-sm flex items-center gap-2"><Icon name="gamepad-2" className="text-brand-red"/> 限時活動控制台</h3>
-                                        <button onClick={() => db.doc(getPublicPath('system/game_config')).set({ isOpen: !adminGameConfig?.isOpen }, { merge: true })}
-                                                className={`px-4 py-1.5 rounded-full text-xs font-black transition-all ${adminGameConfig?.isOpen ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' : 'bg-slate-600 text-slate-300'}`}>
-                                            {adminGameConfig?.isOpen ? "活動：開啟中" : "活動：已關閉"}
-                                        </button>
-                                    </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[10px] text-slate-400 font-bold">魔王名稱</label>
-                                        <input type="text" defaultValue={adminGameConfig?.bossName} onBlur={(e) => db.doc(getPublicPath('system/game_config')).set({ bossName: e.target.value }, { merge: true })} className="w-full bg-white/10 p-3 rounded-xl text-sm outline-none text-white focus:ring-1 focus:ring-brand-red" placeholder="例：食安大魔王"/>
-                                        
-                                        <label className="block w-full bg-white/10 border border-dashed border-white/20 py-3 rounded-xl text-[10px] font-black text-center cursor-pointer hover:bg-white/20 transition-all">
-                                            {adminGameConfig?.bossImg ? "✅ 魔王圖片已設定 (點擊更換)" : "+ 上傳魔王圖片 (建議正方形)"}
-                                            <input type="file" className="hidden" accept="image/*" onChange={async (e)=>{
-                                                const file = e.target.files[0];
-                                                if (file) {
-                                                    const r = new FileReader();
-                                                    r.onloadend = async () => {
-                                                        const compressed = await compressImage(r.result, 400, 0.6);
-                                                        db.doc(getPublicPath('system/game_config')).set({ bossImg: compressed }, { merge: true });
-                                                        triggerNotify("圖片上傳成功","success");
-                                                    };
-                                                    r.readAsDataURL(file);
-                                                }
-                                            }}/>
-                                        </label>
-                                    </div>
-                                </div>
-
-                                {/* 題庫管理 */}
-                                <div className="glass-panel p-6 rounded-[2.5rem] bg-white border shadow-sm space-y-4">
-                                    <div className="flex justify-between items-center">
-                                        <h3 className="font-black text-brand-red text-sm flex items-center gap-2"><Icon name="list" size={18} /> 題庫管理 ({adminGameConfig?.questions?.length || 0}題)</h3>
-                                        <button onClick={()=>{
-                                            const q = prompt("1. 題目是？"); if(!q) return;
-                                            const a = prompt("2. 選項A："); if(!a) return;
-                                            const b = prompt("3. 選項B："); if(!b) return;
-                                            const c = prompt("4. 選項C："); if(!c) return;
-                                            const d = prompt("5. 選項D："); if(!d) return;
-                                            const ans = prompt("6. 正確答案是哪一個？ (輸入 A, B, C 或 D)").toUpperCase();
-                                            let ansIdx = 0;
-                                            if(ans === 'B') ansIdx = 1; else if(ans === 'C') ansIdx = 2; else if(ans === 'D') ansIdx = 3;
-                                            
-                                            const newQ = [q, a, b, c, d, ansIdx];
-                                            const updated = [...(adminGameConfig?.questions || []), newQ];
-                                            db.doc(getPublicPath('system/game_config')).set({ questions: updated }, { merge: true });
-                                            triggerNotify("題目已新增","success");
-                                        }} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black shadow-sm">+ 新增題目</button>
-                                    </div>
-                                    <div className="space-y-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-                                        {(adminGameConfig?.questions || []).map((qArr, idx) => (
-                                            <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-100 flex justify-between items-start gap-4">
-                                                <div className="flex-1">
-                                                    <p className="font-black text-xs text-slate-800 mb-2">Q{idx+1}: {qArr[0]}</p>
-                                                    <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-500">
-                                                        <span className={qArr[5]===0?"text-emerald-600 font-black":""}>A: {qArr[1]}</span>
-                                                        <span className={qArr[5]===1?"text-emerald-600 font-black":""}>B: {qArr[2]}</span>
-                                                        <span className={qArr[5]===2?"text-emerald-600 font-black":""}>C: {qArr[3]}</span>
-                                                        <span className={qArr[5]===3?"text-emerald-600 font-black":""}>D: {qArr[4]}</span>
-                                                    </div>
-                                                </div>
-                                                <button onClick={()=>{
-                                                    if(confirm("確定刪除此題？")) {
-                                                        const updated = adminGameConfig.questions.filter((_, i) => i !== idx);
-                                                        db.doc(getPublicPath('system/game_config')).set({ questions: updated }, { merge: true });
-                                                    }
-                                                }} className="text-slate-300 hover:text-red-500 p-1"><Icon name="trash-2" size={16}/></button>
-                                            </div>
-                                        ))}
-                                        {!(adminGameConfig?.questions?.length > 0) && <p className="text-center text-slate-400 text-xs py-4">目前尚無題目，請點擊上方新增</p>}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                        {tab === 'game' && <GameAdminManager getPublicPath={getPublicPath} triggerNotify={triggerNotify} />}
                         {tab === 'system' && isSuperAdmin && (
                             <div className="glass-panel p-6 rounded-[2.5rem] bg-white border shadow-sm space-y-4">
                                 <h3 className="font-black text-brand-red text-sm flex items-center gap-2"><Icon name="building-2" size={18} /> 全域分店管理</h3>
