@@ -3882,6 +3882,13 @@
             const renderPage = () => {
                 switch(currentPage) {
                     case 'home': {
+                    case 'game-center': return <FoodMonsterGame 
+                                        onBack={() => setCurrentPage('home')} 
+                                        user={currentUser} 
+                                        currentBranch={currentBranch}
+                                        getPublicPath={getPublicPath}
+                                        triggerNotify={triggerNotify} 
+                                    />;
                         const progressPercent = branchZones.length > 0 ? Math.round((completedZones.length / branchZones.length) * 100) : 0;
                         return (
                             <div className="page-enter pb-10">
