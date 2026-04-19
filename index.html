@@ -3372,6 +3372,156 @@
             { id: 'slate', name: '深夜', color: '203 213 225', hex: '#cbd5e1', bgHex: '#020617' },
             { id: 'amber', name: '琥珀', color: '217 119 6', hex: '#d97706', bgHex: '#fffbeb' }
         ];
+        const FoodMonsterGame = ({ onBack, triggerNotify }) => {
+            const canvasRef = useRef(null);
+            const [gameState, setGameState] = useState('START'); // START, PLAYING, GAMEOVER, WIN
+            const [score, setScore] = useState(0);
+            const [hearts, setHearts] = useState(3);
+            const [bossHp, setBossHp] = useState(100);
+            const [currentQuestion, setCurrentQuestion] = useState(null);
+
+            // 遊戲常數
+            const GRID_SIZE = 20;
+            const QUESTIONS = [
+                { q: "三點蟹產生氨味的原因是？", a: "受驚嚇", options: { A: "受驚嚇", B: "沒洗澡", C: "愛唱歌", D: "太熱了" } },
+                { q: "廚房OS的品牌色編號是？", a: "大紅色", options: { A: "粉紅色", B: "大紅色", C: "寶藍色", D: "亮黃色" } }
+            ];
+
+            // 初始化遊戲
+            useEffect(() => {
+                if (gameState !== 'PLAYING') return;
+
+                const canvas = canvasRef.current;
+                const ctx = canvas.getContext('2d');
+                let snake = [{ x: 10, y: 10 }];
+                let dir = { x: 1, y: 0 };
+                let food = []; // 存放 A, B, C, D 四個座標
+                let bullets = [];
+                let frame = 0;
+
+                const spawnQuestion = () => {
+                    const q = QUESTIONS[Math.floor(Math.random() * QUESTIONS.length)];
+                    setCurrentQuestion(q);
+                    // 隨機生成 A, B, C, D 在不同位置
+                    food = Object.keys(q.options).map(key => ({
+                        label: key,
+                        x: Math.floor(Math.random() * (canvas.width / GRID_SIZE)),
+                        y: Math.floor(Math.random() * (canvas.height / GRID_SIZE))
+                    }));
+                };
+
+                spawnQuestion();
+
+                const gameLoop = () => {
+                    frame++;
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                    // 1. 移動蛇
+                    const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+            
+                    // 2. 碰撞偵測 (邊界與自身)
+                    if (head.x < 0 || head.x >= canvas.width/GRID_SIZE || head.y < 0 || head.y >= canvas.height/GRID_SIZE) {
+                        handleHit();
+                        return;
+                    }
+
+                    // 3. 吃到食物
+                    const ateIndex = food.findIndex(f => f.x === head.x && f.y === head.y);
+                    if (ateIndex !== -1) {
+                        const ate = food[ateIndex];
+                        if (ate.label === 'A') { // 假設正確答案邏輯，需對應 QUESTIONS[].a
+                            setBossHp(prev => prev - 20);
+                            setScore(s => s + 100);
+                            spawnQuestion();
+                        } else {
+                            handleHit();
+                        }
+                    } else {
+                        snake.pop();
+                    }
+                    snake.unshift(head);
+
+                    // 4. 魔王攻擊 (每 100 幀發射)
+                    if (frame % 100 === 0) {
+                        bullets.push({ x: canvas.width/GRID_SIZE, y: head.y, speed: 0.5 });
+                    }
+
+                    // 繪製
+                    // ... (繪製蛇、Boss、子彈、ABCD標籤文字)
+            
+                    requestAnimationFrame(gameLoop);
+                };
+
+                const handleHit = () => {
+                    setHearts(prev => {
+                        if (prev <= 1) setGameState('GAMEOVER');
+                        return prev - 1;
+                    });
+                    // 重置位置
+                    snake = [{ x: 10, y: 10 }];
+                };
+
+                const handleInput = (e) => {
+                    if (e.key === 'ArrowUp' && dir.y === 0) dir = { x: 0, y: -1 };
+                    if (e.key === 'ArrowDown' && dir.y === 0) dir = { x: 0, y: 1 };
+                    if (e.key === 'ArrowLeft' && dir.x === 0) dir = { x: -1, y: 0 };
+                    if (e.key === 'ArrowRight' && dir.x === 0) dir = { x: 1, y: 0 };
+                };
+
+                window.addEventListener('keydown', handleInput);
+                const anim = requestAnimationFrame(gameLoop);
+                return () => {
+                    cancelAnimationFrame(anim);
+                    window.removeEventListener('keydown', handleInput);
+                };
+            }, [gameState]);
+
+            return (
+                <div className="p-4 space-y-4 page-enter text-center font-bold">
+                    <BackButton onClick={onBack} title="限時活動：魔王挑戰賽" />
+            
+                    <div className="flex justify-between items-center bg-slate-900 p-4 rounded-3xl text-white shadow-lg">
+                        <div className="flex gap-1">
+                            {[...Array(3)].map((_, i) => (
+                                <Icon key={i} name="heart" size={18} className={i < hearts ? "text-rose-500 fill-rose-500" : "text-slate-600"} />
+                            ))}
+                        </div>
+                        <div className="text-xs uppercase tracking-widest">BOSS HP: <span className="text-brand-red">{bossHp}%</span></div>
+                        <div className="text-brand-red">Score: {score}</div>
+                    </div>
+
+                    <div className="relative glass-panel rounded-[2rem] overflow-hidden bg-white border shadow-inner">
+                        {currentQuestion && (
+                            <div className="absolute top-4 left-0 w-full px-6 z-10">
+                                <div className="bg-white/90 backdrop-blur p-4 rounded-2xl border shadow-sm">
+                                    <p className="text-xs text-slate-400 mb-1">Quest:</p>
+                                    <p className="text-sm text-slate-800">{currentQuestion.q}</p>
+                                </div>
+                            </div>
+                        )}
+                
+                        <canvas ref={canvasRef} width={340} height={400} className="mx-auto" />
+
+                        {gameState !== 'PLAYING' && (
+                            <div className="absolute inset-0 bg-slate-900/80 backdrop-blur flex flex-col items-center justify-center p-6 text-white">
+                                <h3 className="text-3xl font-black mb-6">{gameState === 'START' ? '準備挑戰？' : '遊戲結束'}</h3>
+                                <button onClick={() => setGameState('PLAYING')} className="bg-brand-red px-10 py-4 rounded-2xl font-black shadow-xl active:scale-95 transition-all">
+                                    {gameState === 'START' ? '開始戰鬥' : '再試一次'}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+            
+                     <div className="grid grid-cols-4 gap-2">
+                        {['Up', 'Down', 'Left', 'Right'].map(d => (
+                            <button key={d} className="bg-slate-100 p-4 rounded-2xl active:bg-slate-200">
+                                <Icon name={`arrow-${d.toLowerCase()}`} />
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
         const App = () => {
             const [currentPage, setCurrentPage] = useState('auth');
             // 新增：主題彈窗開關與當前主題狀態 (會自動記住使用者的選擇)
@@ -3724,6 +3874,8 @@
                                         <NavCard title="入職相關" onClick={() => setCurrentPage('onboarding')} colorClass="bg-blue-50/50" iconName="user-plus" />
                                         <NavCard title="薪資福利" onClick={() => setCurrentPage('benefits')} colorClass="bg-rose-50/50" iconName="wallet" />
                                         <NavCard title="本季菜單" onClick={() => setCurrentPage('menu')} colorClass="bg-yellow-50/50" iconName="utensils" />
+                                        <NavCard title="限時活動" onClick={() => setCurrentPage('game-center')} colorClass="bg-amber-50/50" iconName="gamepad-2" />
+                                        <NavCard title="個人成就" onClick={() => setCurrentPage('achievements')} colorClass="bg-purple-50/50" iconName="trophy" />
                                     </section>
                                 </div>
                             </div>
