@@ -3134,7 +3134,7 @@
                 </div>
             );
         };
-// --- 貪食蛇遊戲中心組件 (手機完美適配 + 單次傷害排行榜 + 隨機道具版) ---
+// --- 貪食蛇遊戲中心組件 (手機完美適配 + 傷害排行榜 + 隨機道具 + 血條背景版) ---
         const GameCenter = ({ onBack, config, currentBranch, currentUser, getPublicPath }) => {
             const [leaderboard, setLeaderboard] = useState([]);
             const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -3180,7 +3180,8 @@
             }
 
             const bossName = config.bossName || '食安魔王';
-            const bossImgHtml = config.bossImg ? `<img src="${config.bossImg}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 50%; border: 3px solid #ef4444; background: white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);" alt="Boss">` : `<div style="font-size:40px;">👿</div>`;
+            const bossImgHtml = config.bossImg ? `<img src="${config.bossImg}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 50%; border: 4px solid #ef4444; background: white; box-shadow: 0 4px 10px -1px rgba(0, 0, 0, 0.2);" alt="Boss">` : `<div style="font-size:70px; line-height: 1; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));">👿</div>`;
+            const bgImgHtml = config.bgImg ? `<div class="absolute inset-0 bg-cover bg-center opacity-30 z-0 pointer-events-none" style="background-image: url('${config.bgImg}');"></div>` : `<div class="absolute inset-0 bg-white z-0 pointer-events-none"></div>`;
             const safeQuestions = config.questions && config.questions.length > 0 
                 ? config.questions.map(item => Array.isArray(item) ? item : [item.q, item.a, item.b, item.c, item.d, item.ansIdx]) 
                 : [["請通知行政主廚至後台設定題目！", "知道", "了解", "收到", "明白", 0]];
@@ -3207,11 +3208,14 @@
                 
                 <div class="flex flex-col gap-1 mb-2 shrink-0 bg-white px-3 py-1.5 rounded-2xl shadow-sm border border-slate-200">
                     <div class="flex justify-between items-center">
-                        <div class="font-bold text-slate-700 text-xs">魔王: <span id="boss-hp" class="text-red-500 text-lg font-black">50</span></div>
+                        <div class="font-bold text-slate-700 text-xs">魔王: <span id="boss-hp-text" class="text-red-500 text-lg font-black">100</span></div>
                         <div id="boss-icon" class="relative z-10 transition-transform">` + bossImgHtml + `</div>
                         <div class="font-bold text-slate-700 text-xs">生命: <span id="lives-display">❤️❤️❤️</span></div>
                     </div>
-                    <div class="flex justify-center items-center gap-1.5 border-t border-slate-100 pt-1.5 mt-0.5 min-h-[24px]">
+                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden border border-slate-200 shadow-inner mt-1">
+                        <div id="boss-hp-bar" class="h-full bg-gradient-to-r from-red-500 to-rose-400 transition-all duration-300" style="width: 100%;"></div>
+                    </div>
+                    <div class="flex justify-center items-center gap-1.5 pt-1 min-h-[24px]">
                         <span class="text-[10px] font-bold text-slate-400">狀態：</span>
                         <span id="buff-shield" style="display:none;" class="text-base drop-shadow-sm" title="防護罩 (抵擋一次傷害)">🛡️</span>
                         <span id="buff-helmet" style="display:none;" class="text-base drop-shadow-sm" title="頭盔 (撞牆穿透)">⛑️</span>
@@ -3221,9 +3225,10 @@
                     </div>
                 </div>
 
-                <div class="relative w-full max-w-[400px] mx-auto aspect-square shrink-0">
-                     <canvas id="gameCanvas" width="400" height="400" class="bg-white border-[3px] border-slate-300 shadow-sm w-full h-full rounded-2xl block touch-none"></canvas>
-                     <div id="flash" class="absolute inset-0 pointer-events-none opacity-0 transition-opacity duration-100 rounded-2xl"></div>
+                <div class="relative w-full max-w-[400px] mx-auto aspect-square shrink-0 bg-white rounded-2xl overflow-hidden border-[3px] border-slate-300 shadow-sm">
+                     ` + bgImgHtml + `
+                     <canvas id="gameCanvas" width="400" height="400" class="relative z-10 w-full h-full block touch-none"></canvas>
+                     <div id="flash" class="absolute inset-0 pointer-events-none opacity-0 transition-opacity duration-100 z-20"></div>
                 </div>
 
                 <div class="w-full max-w-[400px] mx-auto flex flex-col gap-2 mt-3 shrink-0">
@@ -3281,7 +3286,7 @@
                         <h1 class="text-2xl font-black mb-2 text-emerald-600">完美擊殺！</h1>
                         <div class="bg-emerald-50 p-5 rounded-2xl border border-emerald-100 mb-6">
                             <p class="text-emerald-600 text-xs font-bold mb-1">本次單場造成傷害</p>
-                            <p class="text-4xl font-black text-emerald-600 mb-2">50 <span class="text-sm text-emerald-500">點</span></p>
+                            <p class="text-4xl font-black text-emerald-600 mb-2">100 <span class="text-sm text-emerald-500">點</span></p>
                             <p class="text-[10px] text-emerald-500 font-bold border-t border-emerald-200 pt-2">你成功討伐了魔王！</p>
                         </div>
                         <button onclick="startGame()" class="w-full bg-emerald-600 active:bg-emerald-700 text-white font-black py-4 rounded-2xl text-lg shadow-lg">再玩一次</button>
@@ -3292,7 +3297,7 @@
             const questionsData = ` + JSON.stringify(safeQuestions) + `;
             const canvas = document.getElementById('gameCanvas');
             const ctx = canvas.getContext('2d');
-            const GRID_SIZE = 20; const TILE_COUNT = 20; const MAX_BOSS_HP = 50;
+            const GRID_SIZE = 20; const TILE_COUNT = 20; const MAX_BOSS_HP = 100;
 
             let snake = []; let dx = 0, dy = -1; let nextDx = 0, nextDy = -1; let inputLocked = false; 
             let bossHP = MAX_BOSS_HP; let lives = 3; let currentQ = 0; let optionsOnBoard = []; 
@@ -3308,7 +3313,6 @@
                 document.getElementById('modal-start').classList.add('hidden'); document.getElementById('modal-gameover').classList.add('hidden'); document.getElementById('modal-victory').classList.add('hidden');
                 bossHP = MAX_BOSS_HP; lives = 3; tickSpeed = 250; isPlaying = true;
                 
-                // 重置所有裝備與道具
                 hasShield = false; hasHelmet = false; hasSword = false; hasWand = false; showAnswerHint = false; itemsOnBoard = []; skippedOptionIndex = -1;
                 updateBuffUI();
 
@@ -3327,14 +3331,13 @@
                 const correctAnsIndex = questionsData[currentQ][5];
                 skippedOptionIndex = -1;
                 
-                // 魔杖效果：隨機選一個錯誤答案不顯示
                 if (hasWand) {
                     let wrongs = [0, 1, 2, 3].filter(i => i !== correctAnsIndex);
                     skippedOptionIndex = wrongs[Math.floor(Math.random() * wrongs.length)];
                 }
 
                 for (let i = 0; i < 4; i++) {
-                    if (i === skippedOptionIndex) continue; // 魔杖剔除的選項不產生
+                    if (i === skippedOptionIndex) continue;
 
                     let pos;
                     while (true) {
@@ -3361,7 +3364,7 @@
             }
 
             function applyItemEffect(type) {
-                flashScreen('bg-yellow-200'); // 吃道具特效
+                flashScreen('bg-yellow-200'); 
                 if (type === 'heart') {
                     lives++; updateUI();
                 } else if (type === 'shield') {
@@ -3373,7 +3376,6 @@
                 } else if (type === 'wand') {
                     if (!hasWand) {
                         hasWand = true; updateBuffUI();
-                        // 立即套用魔杖效果：找出目前場上一個錯誤選項並直接刪除
                         const correctAnsIndex = questionsData[currentQ][5];
                         let wrongs = optionsOnBoard.filter(o => o.index !== correctAnsIndex);
                         if (wrongs.length > 0) {
@@ -3400,7 +3402,6 @@
                 dx = nextDx; dy = nextDy; inputLocked = false; 
                 let head = { x: snake[0].x + dx, y: snake[0].y + dy };
                 
-                // 撞牆判定與頭盔穿透效果
                 if (head.x < 0 || head.x >= TILE_COUNT || head.y < 0 || head.y >= TILE_COUNT) { 
                     if (hasHelmet) {
                         if (head.x < 0) head.x = TILE_COUNT - 1; else if (head.x >= TILE_COUNT) head.x = 0;
@@ -3445,7 +3446,7 @@
                         snake.pop(); handleDamage("吃錯了！"); return; 
                     }
                 } else {
-                    snake.pop(); // 若不是吃答案，無論是空地還是道具都會縮短尾巴
+                    snake.pop();
                     if (hitItemIndex !== -1) {
                         let item = itemsOnBoard[hitItemIndex];
                         itemsOnBoard.splice(hitItemIndex, 1);
@@ -3455,7 +3456,6 @@
             }
 
             function handleDamage(reason) {
-                // 泡泡護盾抵擋傷害 (吃錯答案不在此限)
                 if (hasShield) {
                     hasShield = false; updateBuffUI(); flashScreen('bg-blue-300'); resetBoardState(); return;
                 }
@@ -3472,20 +3472,31 @@
             }
 
             function handleCorrectAnswer() {
-                bossHP -= (hasSword ? 2 : 1); // 寶劍效果：2倍傷害
+                bossHP -= (hasSword ? 2 : 1); 
                 flashScreen('bg-green-500'); tickSpeed = Math.max(125, tickSpeed - 2.5); 
-                showAnswerHint = false; // 消耗書本效果
+                showAnswerHint = false; 
 
-                // 道具隨機掉落輪盤
+                const dropRates = {
+                    'heart': 10,   // 愛心 10%
+                    'shield': 10,  // 泡泡護盾 10%
+                    'helmet': 1,  // 頭盔 1%
+                    'book': 5,     // 書本 5%
+                    'pill': 5,     // 減肥藥 5% (如果不想掉落，改成 0 即可)
+                    'sword': 1,    // 寶劍 1%
+                    'wand': 1      // 魔杖 1%
+                };
+
+                // 以下是系統自動幫你抽籤的程式碼 (不需要動)
                 let roll = Math.random() * 100;
                 let itemToSpawn = null;
-                if (roll < 10) itemToSpawn = 'heart';
-                else if (roll < 20) itemToSpawn = 'shield';
-                else if (roll < 25) itemToSpawn = 'helmet';
-                else if (roll < 30) itemToSpawn = 'book';
-                else if (roll < 35) itemToSpawn = 'pill';
-                else if (roll < 37) itemToSpawn = 'sword';
-                else if (roll < 39) itemToSpawn = 'wand';
+                let currentThreshold = 0;
+                for (const [item, rate] of Object.entries(dropRates)) {
+                    currentThreshold += rate;
+                    if (roll < currentThreshold && rate > 0) {
+                        itemToSpawn = item;
+                        break;
+                    }
+                }
                 
                 if (itemToSpawn) spawnItem(itemToSpawn);
 
@@ -3500,19 +3511,20 @@
             }
 
             function flashScreen(colorClass) {
-                const flash = document.getElementById('flash'); flash.className = \`absolute inset-0 pointer-events-none transition-opacity duration-100 rounded-2xl \${colorClass}\`; flash.style.opacity = '0.4';
+                const flash = document.getElementById('flash'); flash.className = \`absolute inset-0 pointer-events-none transition-opacity duration-100 rounded-2xl z-20 \${colorClass}\`; flash.style.opacity = '0.4';
                 setTimeout(() => { flash.style.opacity = '0'; }, 150);
             }
 
             function drawCanvas() {
-                ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // 修改處：清除畫布取代原本填滿白色的做法，這樣下方的半透明背景圖才會顯現
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
                 ctx.strokeStyle = COLORS.gridLines; ctx.lineWidth = 1;
                 for(let i = 0; i <= TILE_COUNT; i++) {
                     ctx.beginPath(); ctx.moveTo(i * GRID_SIZE, 0); ctx.lineTo(i * GRID_SIZE, canvas.height); ctx.stroke();
                     ctx.beginPath(); ctx.moveTo(0, i * GRID_SIZE); ctx.lineTo(canvas.width, i * GRID_SIZE); ctx.stroke();
                 }
                 
-                // 繪製掉落道具
                 itemsOnBoard.forEach(item => {
                     let icon = '';
                     if(item.type === 'heart') icon = '❤️'; if(item.type === 'shield') icon = '🛡️';
@@ -3525,7 +3537,6 @@
                     ctx.fillText(icon, item.x * GRID_SIZE + GRID_SIZE / 2, item.y * GRID_SIZE + GRID_SIZE / 2 + 2);
                 });
 
-                // 繪製選項方塊
                 optionsOnBoard.forEach(opt => {
                     ctx.fillStyle = COLORS.opts[opt.index]; ctx.beginPath();
                     ctx.roundRect(opt.x * GRID_SIZE + 1, opt.y * GRID_SIZE + 1, GRID_SIZE - 2, GRID_SIZE - 2, 4); ctx.fill();
@@ -3533,7 +3544,6 @@
                     ctx.fillText(opt.letter, opt.x * GRID_SIZE + GRID_SIZE / 2, opt.y * GRID_SIZE + GRID_SIZE / 2 + 1);
                 });
 
-                // 繪製貪食蛇
                 snake.forEach((segment, index) => {
                     ctx.fillStyle = index === 0 ? COLORS.snakeHead : COLORS.snakeBody; ctx.beginPath();
                     ctx.roundRect(segment.x * GRID_SIZE + 1, segment.y * GRID_SIZE + 1, GRID_SIZE - 2, GRID_SIZE - 2, 4); ctx.fill();
@@ -3547,7 +3557,6 @@
                     }
                 });
 
-                // 繪製魔王火焰
                 ctx.font = '16px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 projectiles.forEach(p => {
                     ctx.shadowColor = 'rgba(239, 68, 68, 0.5)'; ctx.shadowBlur = 5; ctx.fillText('🔥', p.x * GRID_SIZE + GRID_SIZE / 2, p.y * GRID_SIZE + GRID_SIZE / 2 + 2); ctx.shadowBlur = 0; 
@@ -3555,14 +3564,15 @@
             }
 
             function updateUI() {
-                document.getElementById('boss-hp').innerText = bossHP;
+                document.getElementById('boss-hp-text').innerText = bossHP;
                 let hearts = ''; for(let i = 0; i < 3; i++) hearts += i < lives ? '❤️' : '🖤'; document.getElementById('lives-display').innerText = hearts;
+                document.getElementById('boss-hp-bar').style.width = ((bossHP / MAX_BOSS_HP) * 100) + '%';
+                
                 const qData = questionsData[currentQ];
                 document.getElementById('q-number').innerText = "?"; 
                 document.getElementById('q-text').innerText = qData[0];
                 document.getElementById('opt-a').innerText = qData[1]; document.getElementById('opt-b').innerText = qData[2]; document.getElementById('opt-c').innerText = qData[3]; document.getElementById('opt-d').innerText = qData[4];
                 
-                // 書本效果：高亮正確答案
                 const correctAnsIndex = qData[5];
                 ['opt-a-box', 'opt-b-box', 'opt-c-box', 'opt-d-box'].forEach((id, idx) => {
                     const el = document.getElementById(id);
@@ -3675,8 +3685,9 @@
             );
         };
         // --- 限時活動 (遊戲後台) 專屬管理組件 ---
+// --- 限時活動 (遊戲後台) 專屬管理組件 ---
         const GameAdminManager = ({ getPublicPath, triggerNotify, globalBranches }) => {
-            const [config, setConfig] = useState({ isOpen: false, bossName: '食安魔王', bossImg: null, questions: [] });
+            const [config, setConfig] = useState({ isOpen: false, bossName: '食安魔王', bossImg: null, bgImg: null, questions: [] });
             const [showModal, setShowModal] = useState(false);
             const [qForm, setQForm] = useState({ q: '', a: '', b: '', c: '', d: '', ansIdx: 0 });
 
@@ -3689,16 +3700,14 @@
                 setIsLoadingLeaderboard(true);
                 try {
                     let allRecords = [];
-                    // 同時去所有分店的資料庫抓取前30名
                     await Promise.all(globalBranches.map(async (branch) => {
                         const snap = await db.collection(getPublicPath(`game_leaderboard_${branch}`)).orderBy('score', 'desc').limit(30).get();
                         snap.forEach(doc => {
                             allRecords.push({ id: doc.id, branch, ...doc.data() });
                         });
                     }));
-                    // 將所有分店的成績混合後，依分數降冪排序
                     allRecords.sort((a, b) => b.score - a.score);
-                    setGlobalLeaderboard(allRecords.slice(0, 30)); // 擷取全台最強前 30 名
+                    setGlobalLeaderboard(allRecords.slice(0, 30)); 
                 } catch (error) {
                     console.error("讀取總排行榜失敗", error);
                     triggerNotify("讀取排行榜失敗", "error");
@@ -3706,12 +3715,10 @@
                 setIsLoadingLeaderboard(false);
             };
 
-            // 初次載入時自動抓取排行榜
             useEffect(() => {
                 fetchGlobalLeaderboard();
             }, [globalBranches, getPublicPath]);
 
-            // 監聽後台資料
             useEffect(() => {
                 const unsub = db.doc(getPublicPath('system/game_config')).onSnapshot(d => {
                     if(d.exists) setConfig(d.data());
@@ -3739,7 +3746,7 @@
                 const updatedQs = [...(config.questions || []), newQ];
                 saveConfig({ questions: updatedQs });
                 setShowModal(false);
-                setQForm({ q: '', a: '', b: '', c: '', d: '', ansIdx: 0 }); // 清空表單
+                setQForm({ q: '', a: '', b: '', c: '', d: '', ansIdx: 0 });
                 triggerNotify("題目已成功新增！", "success");
             };
 
@@ -3752,7 +3759,6 @@
 
             return (
                 <div className="space-y-6 animate-in fade-in">
-                    {/* 魔王與開關設定 */}
                     <div className="glass-panel p-6 rounded-[2.5rem] bg-slate-900 text-white shadow-xl space-y-5">
                         <div className="flex items-center justify-between border-b border-white/10 pb-4">
                             <h3 className="font-black text-sm flex items-center gap-2"><Icon name="gamepad-2" className="text-brand-red"/> 限時活動控制台</h3>
@@ -3765,25 +3771,41 @@
                             <label className="text-[10px] text-slate-400 font-bold">魔王名稱</label>
                             <input type="text" value={config.bossName || ''} onChange={(e) => saveConfig({ bossName: e.target.value })} className="w-full bg-white/10 p-3 rounded-xl text-sm outline-none text-white focus:ring-1 focus:ring-brand-red" placeholder="例：食安大魔王"/>
                             
-                            <label className="block w-full bg-white/10 border border-dashed border-white/20 py-3 rounded-xl text-[10px] font-black text-center cursor-pointer hover:bg-white/20 transition-all">
-                                {config.bossImg ? "✅ 魔王圖片已設定 (點擊更換)" : "+ 上傳魔王圖片 (建議正方形)"}
-                                <input type="file" className="hidden" accept="image/*" onChange={async (e)=>{
-                                    const file = e.target.files[0];
-                                    if (file) {
-                                        const r = new FileReader();
-                                        r.onloadend = async () => {
-                                            const compressed = await compressImage(r.result, 400, 0.6);
-                                            saveConfig({ bossImg: compressed });
-                                            triggerNotify("圖片上傳成功","success");
-                                        };
-                                        r.readAsDataURL(file);
-                                    }
-                                }}/>
-                            </label>
+                            <div className="grid grid-cols-2 gap-3 pt-2">
+                                <label className="block w-full bg-white/10 border border-dashed border-white/20 py-3 px-2 rounded-xl text-[10px] font-black text-center cursor-pointer hover:bg-white/20 transition-all">
+                                    {config.bossImg ? "✅ 魔王圖片已設 (點擊換)" : "+ 上傳魔王圖 (正方形)"}
+                                    <input type="file" className="hidden" accept="image/*" onChange={async (e)=>{
+                                        const file = e.target.files[0];
+                                        if (file) {
+                                            const r = new FileReader();
+                                            r.onloadend = async () => {
+                                                const compressed = await compressImage(r.result, 400, 0.6);
+                                                saveConfig({ bossImg: compressed });
+                                                triggerNotify("魔王圖片上傳成功","success");
+                                            };
+                                            r.readAsDataURL(file);
+                                        }
+                                    }}/>
+                                </label>
+                                <label className="block w-full bg-white/10 border border-dashed border-white/20 py-3 px-2 rounded-xl text-[10px] font-black text-center cursor-pointer hover:bg-white/20 transition-all">
+                                    {config.bgImg ? "✅ 遊戲背景已設 (點擊換)" : "+ 上傳遊戲背景圖"}
+                                    <input type="file" className="hidden" accept="image/*" onChange={async (e)=>{
+                                        const file = e.target.files[0];
+                                        if (file) {
+                                            const r = new FileReader();
+                                            r.onloadend = async () => {
+                                                const compressed = await compressImage(r.result, 800, 0.6);
+                                                saveConfig({ bgImg: compressed });
+                                                triggerNotify("背景圖片上傳成功","success");
+                                            };
+                                            r.readAsDataURL(file);
+                                        }
+                                    }}/>
+                                </label>
+                            </div>
                         </div>
                     </div>
 
-                    {/* 題庫管理列表 */}
                     <div className="glass-panel p-6 rounded-[2.5rem] bg-white border shadow-sm space-y-4">
                         <div className="flex justify-between items-center">
                             <h3 className="font-black text-brand-red text-sm flex items-center gap-2">
@@ -3820,7 +3842,6 @@
                         </div>
                     </div>
                     
-                    {/* --- 全分店總排行榜區塊 --- */}
                     <div className="glass-panel p-6 rounded-[2.5rem] bg-white border shadow-sm space-y-4">
                         <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                             <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><Icon name="trophy" size={18} className="text-amber-500" /> 全台傷害排行榜 (Top 30)</h3>
@@ -3856,7 +3877,6 @@
                         </div>
                     </div>
 
-                    {/* 專屬：新增題目彈窗 (手機版友善設計) */}
                     {showModal && (
                         <div className="fixed inset-0 z-[10000] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 page-enter">
                             <div className="bg-white w-full max-w-md rounded-[2.5rem] p-6 shadow-2xl relative">
@@ -3864,48 +3884,27 @@
                                     <h3 className="font-black text-lg text-slate-800 flex items-center gap-2"><Icon name="plus-circle" className="text-brand-red"/> 新增挑戰題目</h3>
                                     <button onClick={() => setShowModal(false)} className="text-slate-400 hover:bg-slate-100 p-2 rounded-full transition-colors active:scale-90"><Icon name="x" size={20}/></button>
                                 </div>
-                                
                                 <div className="space-y-4">
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-black text-slate-500 ml-1">題目內容</label>
                                         <textarea value={qForm.q} onChange={e=>setQForm({...qForm, q: e.target.value})} className="w-full input-light p-4 rounded-2xl text-sm font-bold outline-none border-slate-200 focus:border-brand-red focus:ring-1 focus:ring-brand-red" rows="2" placeholder="請輸入問題敘述..."></textarea>
                                     </div>
-                                    
                                     <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-slate-500 ml-1">選項 A</label>
-                                            <input value={qForm.a} onChange={e=>setQForm({...qForm, a: e.target.value})} className="w-full input-light p-3 rounded-xl text-sm font-bold outline-none" placeholder="選項內容" />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-slate-500 ml-1">選項 B</label>
-                                            <input value={qForm.b} onChange={e=>setQForm({...qForm, b: e.target.value})} className="w-full input-light p-3 rounded-xl text-sm font-bold outline-none" placeholder="選項內容" />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-slate-500 ml-1">選項 C</label>
-                                            <input value={qForm.c} onChange={e=>setQForm({...qForm, c: e.target.value})} className="w-full input-light p-3 rounded-xl text-sm font-bold outline-none" placeholder="選項內容" />
-                                        </div>
-                                        <div className="space-y-1.5">
-                                            <label className="text-[10px] font-black text-slate-500 ml-1">選項 D</label>
-                                            <input value={qForm.d} onChange={e=>setQForm({...qForm, d: e.target.value})} className="w-full input-light p-3 rounded-xl text-sm font-bold outline-none" placeholder="選項內容" />
-                                        </div>
+                                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 ml-1">選項 A</label><input value={qForm.a} onChange={e=>setQForm({...qForm, a: e.target.value})} className="w-full input-light p-3 rounded-xl text-sm font-bold outline-none" placeholder="選項內容" /></div>
+                                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 ml-1">選項 B</label><input value={qForm.b} onChange={e=>setQForm({...qForm, b: e.target.value})} className="w-full input-light p-3 rounded-xl text-sm font-bold outline-none" placeholder="選項內容" /></div>
+                                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 ml-1">選項 C</label><input value={qForm.c} onChange={e=>setQForm({...qForm, c: e.target.value})} className="w-full input-light p-3 rounded-xl text-sm font-bold outline-none" placeholder="選項內容" /></div>
+                                        <div className="space-y-1.5"><label className="text-[10px] font-black text-slate-500 ml-1">選項 D</label><input value={qForm.d} onChange={e=>setQForm({...qForm, d: e.target.value})} className="w-full input-light p-3 rounded-xl text-sm font-bold outline-none" placeholder="選項內容" /></div>
                                     </div>
-
                                     <div className="space-y-1.5 pt-2">
                                         <label className="text-[10px] font-black text-emerald-600 ml-1">正確答案是？</label>
                                         <div className="relative">
                                             <select value={qForm.ansIdx} onChange={e=>setQForm({...qForm, ansIdx: e.target.value})} className="w-full input-light p-4 rounded-xl text-sm font-black outline-none bg-emerald-50 border-emerald-200 text-emerald-700 appearance-none">
-                                                <option value={0}>A 選項為正解</option>
-                                                <option value={1}>B 選項為正解</option>
-                                                <option value={2}>C 選項為正解</option>
-                                                <option value={3}>D 選項為正解</option>
+                                                <option value={0}>A 選項為正解</option><option value={1}>B 選項為正解</option><option value={2}>C 選項為正解</option><option value={3}>D 選項為正解</option>
                                             </select>
                                             <Icon name="chevron-down" size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-600 pointer-events-none" />
                                         </div>
                                     </div>
-
-                                    <button onClick={handleSaveQuestion} className="w-full mt-4 bg-brand-red text-white font-black py-4 rounded-2xl shadow-lg shadow-brand-red/20 active:scale-95 transition-all text-sm">
-                                        確認儲存題目
-                                    </button>
+                                    <button onClick={handleSaveQuestion} className="w-full mt-4 bg-brand-red text-white font-black py-4 rounded-2xl shadow-lg shadow-brand-red/20 active:scale-95 transition-all text-sm">確認儲存題目</button>
                                 </div>
                             </div>
                         </div>
