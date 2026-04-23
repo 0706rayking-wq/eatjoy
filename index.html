@@ -3468,15 +3468,28 @@
                 flashScreen('bg-green-500'); tickSpeed = Math.max(125, tickSpeed - 2.5); 
                 showAnswerHint = false; 
 
+// --- 無腦機率設定區 (只要改這裡的數字就好，機率總和不用是 100) ---
+                const dropRates = {
+                    'heart': 10,   // 愛心 10%
+                    'shield': 10,  // 泡泡護盾 10%
+                    'helmet': 10,  // 頭盔 5%
+                    'book': 5,     // 書本 5%
+                    'pill': 5,     // 減肥藥 5% (如果不想掉落，改成 0 即可)
+                    'sword': 2,    // 寶劍 2%
+                    'wand': 2      // 魔杖 2%
+                };
+
+                // 以下是系統自動幫你抽籤的程式碼 (不需要動)
                 let roll = Math.random() * 100;
                 let itemToSpawn = null;
-                if (roll < 10) itemToSpawn = 'heart';
-                else if (roll < 20) itemToSpawn = 'shield';
-                else if (roll < 25) itemToSpawn = 'helmet';
-                else if (roll < 30) itemToSpawn = 'book';
-                else if (roll < 35) itemToSpawn = 'pill';
-                else if (roll < 37) itemToSpawn = 'sword';
-                else if (roll < 39) itemToSpawn = 'wand';
+                let currentThreshold = 0;
+                for (const [item, rate] of Object.entries(dropRates)) {
+                    currentThreshold += rate;
+                    if (roll < currentThreshold && rate > 0) {
+                        itemToSpawn = item;
+                        break;
+                    }
+                }
                 
                 if (itemToSpawn) spawnItem(itemToSpawn);
 
@@ -3661,7 +3674,7 @@
         // --- 限時活動 (遊戲後台) 專屬管理組件 ---
 // --- 限時活動 (遊戲後台) 專屬管理組件 ---
         const GameAdminManager = ({ getPublicPath, triggerNotify, globalBranches }) => {
-            const [config, setConfig] = useState({ isOpen: false, bossName: '魔王', bossImg: null, bgImg: null, questions: [] });
+            const [config, setConfig] = useState({ isOpen: false, bossName: '被感染的小雷神', bossImg: null, bgImg: null, questions: [] });
             const [showModal, setShowModal] = useState(false);
             const [qForm, setQForm] = useState({ q: '', a: '', b: '', c: '', d: '', ansIdx: 0 });
 
