@@ -3206,7 +3206,7 @@
                 
                 <div id="boss-bar-container" class="flex flex-col gap-1 mb-2 shrink-0 bg-white px-4 py-2.5 rounded-2xl shadow-sm border border-slate-200 transition-transform">
                     <div class="flex justify-between items-center">
-                        <div class="font-bold text-slate-700 text-sm">魔王血量: <span id="boss-hp-text" class="text-red-500 text-xl font-black">50</span></div>
+                        <div class="font-bold text-slate-700 text-sm">魔王血量: <span id="boss-hp-text" class="text-red-500 text-xl font-black">100</span></div>
                         <div class="font-bold text-slate-700 text-sm">生命: <span id="lives-display">❤️❤️❤️</span></div>
                     </div>
                     <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden border border-slate-200 shadow-inner mt-0.5">
@@ -3279,7 +3279,7 @@
                         <h1 class="text-2xl font-black mb-2 text-emerald-600">完美擊殺！</h1>
                         <div class="bg-emerald-50 p-5 rounded-2xl border border-emerald-100 mb-6">
                             <p class="text-emerald-600 text-xs font-bold mb-1">本次單場造成傷害</p>
-                            <p class="text-4xl font-black text-emerald-600 mb-2">50 <span class="text-sm text-emerald-500">點</span></p>
+                            <p class="text-4xl font-black text-emerald-600 mb-2">100 <span class="text-sm text-emerald-500">點</span></p>
                             <p class="text-[10px] text-emerald-500 font-bold border-t border-emerald-200 pt-2">你成功討伐了魔王！</p>
                         </div>
                         <button onclick="startGame()" class="w-full bg-emerald-600 active:bg-emerald-700 text-white font-black py-4 rounded-2xl text-lg shadow-lg">再玩一次</button>
@@ -3290,7 +3290,7 @@
             const questionsData = ` + JSON.stringify(safeQuestions) + `;
             const canvas = document.getElementById('gameCanvas');
             const ctx = canvas.getContext('2d');
-            const GRID_SIZE = 20; const TILE_COUNT = 20; const MAX_BOSS_HP = 50;
+            const GRID_SIZE = 20; const TILE_COUNT = 20; const MAX_BOSS_HP = 100;
 
             let snake = []; let dx = 0, dy = -1; let nextDx = 0, nextDy = -1; let inputLocked = false; 
             let bossHP = MAX_BOSS_HP; let lives = 3; let currentQ = 0; let optionsOnBoard = []; 
