@@ -3134,7 +3134,7 @@
                 </div>
             );
         };
-// --- 貪食蛇遊戲中心組件 (版面極致壓縮 + 動態適配版) ---
+// --- 貪食蛇遊戲中心組件 (移除方向鍵、放大畫布版) ---
         const GameCenter = ({ onBack, config, currentBranch, currentUser, getPublicPath }) => {
             const [leaderboard, setLeaderboard] = useState([]);
             const [showLeaderboard, setShowLeaderboard] = useState(false);
@@ -3180,7 +3180,6 @@
             }
 
             const bossName = config.bossName || '食安魔王';
-            // 保留給 Modal 顯示用，但在遊戲主畫面中隱藏
             const bossImgHtml = config.bossImg ? `<img src="${config.bossImg}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 50%; border: 4px solid #ef4444; background: white; box-shadow: 0 4px 10px -1px rgba(0, 0, 0, 0.2);" alt="Boss">` : `<div style="font-size:70px; line-height: 1; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));">👿</div>`;
             const bgImgHtml = config.bgImg ? `<div class="absolute inset-0 bg-cover bg-center opacity-30 z-0 pointer-events-none" style="background-image: url('${config.bgImg}');"></div>` : `<div class="absolute inset-0 bg-white z-0 pointer-events-none"></div>`;
             const safeQuestions = config.questions && config.questions.length > 0 
@@ -3201,8 +3200,6 @@
                     body { touch-action: none; overflow: hidden; background: #f8fafc; } 
                     @keyframes shake { 0% { transform: translate(-50%, 0); } 25% { transform: translate(-50%, -5px); } 50% { transform: translate(-50%, 5px); } 75% { transform: translate(-50%, -5px); } 100% { transform: translate(-50%, 0); } } 
                     .boss-shake { animation: shake 0.2s ease-in-out; } 
-                    .d-pad-btn { background: #f1f5f9; border: 2px solid #e2e8f0; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 26px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); transition: transform 0.1s; }
-                    .d-pad-btn:active { background: #e2e8f0; transform: scale(0.9); }
                 </style>
             </head>
             <body class="text-gray-800 font-sans h-screen flex flex-col p-1.5 sm:p-2">
@@ -3225,13 +3222,13 @@
                     </div>
                 </div>
 
-                <div class="relative mx-auto shrink bg-white rounded-2xl overflow-hidden border-[3px] border-slate-300 shadow-sm" style="aspect-ratio: 1/1; max-height: 45vh; max-width: min(400px, 45vh); width: 100%;">
+                <div class="relative mx-auto shrink bg-white rounded-2xl overflow-hidden border-[3px] border-slate-300 shadow-sm" style="aspect-ratio: 1/1; max-height: 55vh; max-width: min(400px, 55vh); width: 100%;">
                      ` + bgImgHtml + `
                      <canvas id="gameCanvas" width="400" height="400" class="relative z-10 w-full h-full block touch-none"></canvas>
                      <div id="flash" class="absolute inset-0 pointer-events-none opacity-0 transition-opacity duration-100 z-20"></div>
                 </div>
 
-                <div class="w-full max-w-[400px] mx-auto flex flex-col gap-1.5 mt-2 shrink-0">
+                <div class="w-full max-w-[400px] mx-auto flex flex-col gap-1.5 mt-3 shrink-0">
                     <div class="text-[13px] sm:text-sm font-black text-slate-800 bg-white p-2 rounded-xl border border-slate-200 shadow-sm line-clamp-2 leading-snug flex items-start">
                         <span class="text-blue-600 mr-1.5 shrink-0 mt-0.5">Q<span id="q-number">1</span>:</span>
                         <span id="q-text">問題載入中...</span>
@@ -3245,12 +3242,8 @@
                     </div>
                 </div>
 
-                <div class="mt-auto pb-2 pt-1 flex-1 flex flex-col justify-end w-full max-w-[240px] mx-auto md:hidden">
-                    <p class="text-center text-[10px] text-slate-400 mb-1 font-bold animate-pulse">💡 提示：可直接在上方畫布「滑動」控制蛇</p>
-                    <div class="grid grid-cols-3 gap-1.5 w-full aspect-[3/2]">
-                        <div></div><button id="btn-up" class="d-pad-btn touch-none">⬆️</button><div></div>
-                        <button id="btn-left" class="d-pad-btn touch-none">⬅️</button><button id="btn-down" class="d-pad-btn touch-none">⬇️</button><button id="btn-right" class="d-pad-btn touch-none">➡️</button>
-                    </div>
+                <div class="mt-auto pb-4 pt-2 text-center text-[12px] text-slate-400 font-black animate-pulse shrink-0">
+                    👆 提示：請直接在畫布上「上下左右滑動」控制方向
                 </div>
 
                 <div id="modal-start" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -3258,7 +3251,7 @@
                         <div class="flex justify-center mb-3">` + bossImgHtml + `</div>
                         <h1 class="text-2xl font-black mb-2 text-slate-800">` + bossName + ` 來襲！</h1>
                         <div class="text-slate-600 mb-6 text-left text-xs space-y-2 bg-slate-50 p-4 rounded-xl border border-slate-100 font-bold leading-relaxed">
-                            <p>🕹️ <b>操作：</b>滑動畫布，或使用下方按鈕。</p>
+                            <p>🕹️ <b>操作：</b>請直接在畫布上滑動控制。</p>
                             <p>🎯 <b>目標：</b>吃掉與題目相符的正確選項方塊。</p>
                             <p class="text-[10px] text-brand-red border-t border-slate-200 pt-2 mt-2">🎁 <b>隨機道具：</b>答對時有機率在場上掉落道具！</p>
                             <p class="text-[10px] text-slate-500">❤️愛心：回復生命<br/>🛡️泡泡：抵擋一次傷害<br/>⛑️頭盔：撞牆不會受傷 (該局永久)<br/>⚔️寶劍：兩倍傷害 (該局永久)<br/>🪄魔杖：刪除一個錯誤選項 (該局永久)<br/>📖書本：立即顯示答案<br/>💊減肥藥：大幅縮短身體</p>
@@ -3415,7 +3408,6 @@
                 let attackChance = 0.05 + ((MAX_BOSS_HP - bossHP) / MAX_BOSS_HP) * 0.15;
                 if (Math.random() < attackChance) {
                     projectiles.push({ x: Math.floor(Math.random() * TILE_COUNT), y: 0 });
-                    // 改為震動上方整個血條區塊
                     const bossBar = document.getElementById('boss-bar-container');
                     if(bossBar) { bossBar.classList.remove('boss-shake'); void bossBar.offsetWidth; bossBar.classList.add('boss-shake'); }
                 }
@@ -3601,12 +3593,7 @@
                 if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') handleInput('right');
             });
 
-            ['up', 'down', 'left', 'right'].forEach(dir => {
-                const btn = document.getElementById('btn-'+dir);
-                btn.addEventListener('touchstart', (e) => { e.preventDefault(); handleInput(dir); });
-                btn.addEventListener('mousedown', (e) => { e.preventDefault(); handleInput(dir); });
-            });
-
+            // 觸控滑動核心邏輯
             let touchStartX = 0; let touchStartY = 0;
             canvas.addEventListener('touchstart', function(e) { touchStartX = e.changedTouches[0].screenX; touchStartY = e.changedTouches[0].screenY; e.preventDefault(); }, {passive: false});
             canvas.addEventListener('touchend', function(e) {
