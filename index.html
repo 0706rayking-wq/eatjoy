@@ -3304,7 +3304,7 @@
             const questionsData = ` + JSON.stringify(safeQuestions) + `;
             const canvas = document.getElementById('gameCanvas');
             const ctx = canvas.getContext('2d');
-            const GRID_SIZE = 20; const TILE_COUNT = 20; const MAX_BOSS_HP = 50;
+            const GRID_SIZE = 20; const TILE_COUNT = 20; const MAX_BOSS_HP = 100;
 
             let snake = []; let dx = 0, dy = -1; let nextDx = 0, nextDy = -1; let inputLocked = false; 
             let bossHP = MAX_BOSS_HP; let lives = 3; let currentQ = 0; let optionsOnBoard = []; 
@@ -3871,7 +3871,7 @@
                         {/* --- 新增：後台切換排行榜的按鈕區塊 --- */}
                         <div className="flex bg-slate-50 p-1 rounded-xl mb-4 w-full max-w-[320px]">
                             <button onClick={() => setGlobalTab('scores')} className={`flex-1 py-1.5 text-xs font-black rounded-lg transition-all ${globalTab === 'scores' ? 'bg-white text-amber-600 shadow-sm border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>歷史高分 (可重複)</button>
-                            <button onClick={() => setGlobalTab('employees')} className={`flex-1 py-1.5 text-xs font-black rounded-lg transition-all ${globalTab === 'employees' ? 'bg-white text-amber-600 shadow-sm border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>員工實力榜 (不重複)</button>
+                            <button onClick={() => setGlobalTab('employees')} className={`flex-1 py-1.5 text-xs font-black rounded-lg transition-all ${globalTab === 'employees' ? 'bg-white text-amber-600 shadow-sm border border-slate-200' : 'text-slate-400 hover:text-slate-600'}`}>員工實力榜</button>
                         </div>
                         
                         <div className="space-y-3 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
