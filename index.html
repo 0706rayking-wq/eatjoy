@@ -1387,6 +1387,41 @@
                     });
                 }
             };
+            
+            const importPreviousData = () => {
+                if (!isManager) return;
+                
+                // 找出所有過去的月份並由近到遠排序
+                const pastMonths = scheduleData.months 
+                    ? Object.keys(scheduleData.months).filter(k => k < monthKey).sort((a, b) => b.localeCompare(a)) 
+                    : [];
+
+                if (pastMonths.length === 0) {
+                    triggerNotify("找不到過去的月份資料可供載入", "error");
+                    return;
+                }
+
+                const lastMonthKey = pastMonths[0];
+                const lastStaffList = scheduleData.months[lastMonthKey].staffList || [];
+
+                if (lastStaffList.length === 0) {
+                    triggerNotify(`上個月 (${lastMonthKey}) 沒有人員資料`, "error");
+                    return;
+                }
+
+                if (window.confirm(`確定要載入 ${lastMonthKey} 的人員名單與職位嗎？\n(注意：這會清空當月已排的班表，並套用上月名單)`)) {
+                    // 複製人員，但清空 shifts (班別) 以便重新排班
+                    const importedStaff = lastStaffList.map(staff => ({
+                        ...staff,
+                        shifts: {} 
+                    }));
+
+                    updateMonthData((latestMonthData) => {
+                        return { staffList: importedStaff };
+                    });
+                    triggerNotify(`已成功載入 ${lastMonthKey} 人員名單！`, "success");
+                }
+            };
 
             const openHolidayEdit = (dateString) => {
                 if (!isManager) return;
@@ -1719,6 +1754,9 @@
                             </button>
                             {isManager && (
                                 <>
+                                    <button onClick={importPreviousData} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-indigo-600 text-white rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap">
+                                        <Icon name="copy" size={14} /> 載入上月
+                                    </button>
                                     <button onClick={() => setIsHighlightMode(!isHighlightMode)} className={`flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap ${isHighlightMode ? 'bg-yellow-400 text-yellow-900 border border-yellow-500 shadow-inner' : 'bg-slate-100 text-slate-700 border border-slate-300'}`}>
                                         <Icon name="edit-3" size={14} /> {isHighlightMode ? '結束標記' : '標記修改'}
                                     </button>
