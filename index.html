@@ -3208,14 +3208,14 @@
             }, [currentUser, currentBranch, getPublicPath]);
 
             // --- 新增：計算兩種排行榜資料 ---
-            const topScores = leaderboard.slice(0, 10);
+            const topScores = leaderboard.slice(0, 20);
             const topEmployees = Object.values(leaderboard.reduce((acc, curr) => {
                 // 如果該員工還沒被記錄，或是有更高分的紀錄，就更新他
                 if (!acc[curr.name] || acc[curr.name].score < curr.score) {
                     acc[curr.name] = curr;
                 }
                 return acc;
-            }, {})).sort((a, b) => b.score - a.score).slice(0, 10);
+            }, {})).sort((a, b) => b.score - a.score).slice(0, 20);
             
             // 決定目前要顯示哪一個陣列
             const currentDisplayList = leaderboardTab === 'scores' ? topScores : topEmployees;
