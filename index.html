@@ -3182,7 +3182,7 @@
                 if (!currentBranch) return;
                 const unsub = db.collection(getPublicPath(`game_leaderboard_${currentBranch}`))
                     .orderBy('score', 'desc')
-                    .limit(100) // 修改：抓多一點資料才能過濾出不重複的玩家
+                    .limit(500) // 修改：抓多一點資料才能過濾出不重複的玩家
                     .onSnapshot(snap => {
                         setLeaderboard(snap.docs.map(d => ({ id: d.id, ...d.data() })));
                     });
@@ -3745,7 +3745,7 @@
                     let allRecords = [];
                     await Promise.all(globalBranches.map(async (branch) => {
                         // 修改：一樣抓多一點來讓過濾效果更精準
-                        const snap = await db.collection(getPublicPath(`game_leaderboard_${branch}`)).orderBy('score', 'desc').limit(100).get();
+                        const snap = await db.collection(getPublicPath(`game_leaderboard_${branch}`)).orderBy('score', 'desc').limit(500).get();
                         snap.forEach(doc => {
                             allRecords.push({ id: doc.id, branch, ...doc.data() });
                         });
