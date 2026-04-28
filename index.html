@@ -3272,7 +3272,7 @@
             }, {})).sort((a, b) => b.score - a.score).slice(0, 20);
             const currentDisplayList = leaderboardTab === 'scores' ? topScores : topEmployees;
 
-// ==========================================
+            // ==========================================
             // 視圖一：限時活動大廳 (卡片選單)
             // ==========================================
             if (!selectedActivity) {
@@ -3284,35 +3284,40 @@
                             <div className="w-10"></div>
                         </div>
                         
-                        <div className="p-5 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-5 overflow-y-auto custom-scrollbar pb-24">
+                        <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 overflow-y-auto custom-scrollbar pb-24">
                             {activities.map(act => (
                                 <div 
                                     key={act.id} 
                                     onClick={() => { if(act.isOpen) setSelectedActivity(act.id); }} 
-                                    className={`relative rounded-[2.5rem] overflow-hidden border-2 flex flex-col transition-all duration-300 ${act.isOpen ? 'bg-white border-brand-red/30 shadow-md cursor-pointer active:scale-[0.98] hover:shadow-xl hover:-translate-y-1' : 'bg-slate-100 border-slate-200 grayscale-[80%] cursor-not-allowed opacity-70'}`}
+                                    className={`relative w-full aspect-[21/9] sm:aspect-[16/7] rounded-[2rem] overflow-hidden border-2 transition-all duration-300 shadow-sm ${act.isOpen ? 'border-brand-red/40 cursor-pointer active:scale-[0.98] hover:shadow-xl hover:-translate-y-1' : 'border-slate-200 grayscale-[80%] cursor-not-allowed opacity-90'}`}
                                 >
-                                    {/* 上半部：圖片區 */}
-                                    <div className="h-40 sm:h-48 bg-slate-200 relative shrink-0">
-                                        {act.img ? (
-                                            <img src={act.img} className="w-full h-full object-cover" alt={act.title} />
-                                        ) : (
-                                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 bg-slate-200 gap-2">
-                                                <Icon name="image" size={32}/>
-                                                <span className="text-[10px] font-bold">尚未設定封面圖</span>
+                                    {/* 第一層：背景圖片 */}
+                                    {act.img ? (
+                                        <img src={act.img} className="absolute inset-0 w-full h-full object-cover" alt={act.title} />
+                                    ) : (
+                                        <div className="absolute inset-0 w-full h-full flex items-center justify-center text-slate-400 bg-slate-200">
+                                            <Icon name="image" size={32}/>
+                                        </div>
+                                    )}
+
+                                    {/* 第二層：黑色漸層遮罩 (由下往上，確保白色文字清晰可見) */}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent z-0"></div>
+
+                                    {/* 未開放時的中央鎖定標籤與額外模糊遮罩 */}
+                                    {!act.isOpen && (
+                                        <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center z-10">
+                                            <div className="bg-slate-900/90 text-white px-5 py-2.5 rounded-full font-black flex items-center gap-2 text-sm shadow-xl border border-slate-700">
+                                                <Icon name="lock" size={16}/> 即將開放
                                             </div>
-                                        )}
-                                        {/* 未開放時的半透明遮罩 */}
-                                        {!act.isOpen && (
-                                            <div className="absolute inset-0 bg-slate-900/50 flex flex-col items-center justify-center backdrop-blur-[2px] z-10">
-                                                <div className="bg-slate-900/90 text-white px-5 py-2.5 rounded-full font-black flex items-center gap-2 text-sm shadow-xl border border-slate-700"><Icon name="lock" size={16}/> 即將開放</div>
-                                            </div>
-                                        )}
-                                    </div>
-                                    
-                                    {/* 下半部：文字區 (排版置中，已移除膠囊按鈕) */}
-                                    <div className="p-5 flex flex-col items-center justify-center bg-white text-center flex-1 border-t border-slate-100">
-                                        <h3 className="font-black text-slate-800 text-xl leading-tight mb-1.5">{act.title}</h3>
-                                        <p className="text-xs font-bold text-slate-500">{act.subtitle}</p>
+                                        </div>
+                                    )}
+
+                                    {/* 第三層：純文字區 (移除播放按鈕) */}
+                                    <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5 z-20">
+                                        <div className="text-left">
+                                            <h3 className="font-black text-white text-xl sm:text-2xl leading-tight mb-1 drop-shadow-md">{act.title}</h3>
+                                            <p className="text-[11px] sm:text-xs font-bold text-slate-300 drop-shadow-md">{act.subtitle}</p>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
