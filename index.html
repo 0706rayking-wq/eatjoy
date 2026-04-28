@@ -3272,7 +3272,7 @@
             }, {})).sort((a, b) => b.score - a.score).slice(0, 20);
             const currentDisplayList = leaderboardTab === 'scores' ? topScores : topEmployees;
 
-            // ==========================================
+// ==========================================
             // 視圖一：限時活動大廳 (卡片選單)
             // ==========================================
             if (!selectedActivity) {
@@ -3289,9 +3289,10 @@
                                 <div 
                                     key={act.id} 
                                     onClick={() => { if(act.isOpen) setSelectedActivity(act.id); }} 
-                                    className={`relative rounded-[2.5rem] overflow-hidden border-2 transition-all duration-300 ${act.isOpen ? 'bg-white border-brand-red/30 shadow-md cursor-pointer active:scale-[0.98] hover:shadow-xl hover:-translate-y-1' : 'bg-slate-100 border-slate-200 grayscale-[80%] cursor-not-allowed opacity-70'}`}
+                                    className={`relative rounded-[2.5rem] overflow-hidden border-2 flex flex-col transition-all duration-300 ${act.isOpen ? 'bg-white border-brand-red/30 shadow-md cursor-pointer active:scale-[0.98] hover:shadow-xl hover:-translate-y-1' : 'bg-slate-100 border-slate-200 grayscale-[80%] cursor-not-allowed opacity-70'}`}
                                 >
-                                    <div className="h-36 sm:h-48 bg-slate-200 relative overflow-hidden">
+                                    {/* 上半部：圖片區 */}
+                                    <div className="h-40 sm:h-48 bg-slate-200 relative shrink-0">
                                         {act.img ? (
                                             <img src={act.img} className="w-full h-full object-cover" alt={act.title} />
                                         ) : (
@@ -3300,18 +3301,25 @@
                                                 <span className="text-[10px] font-bold">尚未設定封面圖</span>
                                             </div>
                                         )}
+                                        {/* 未開放時的半透明遮罩 */}
                                         {!act.isOpen && (
-                                            <div className="absolute inset-0 bg-slate-900/40 flex items-center justify-center backdrop-blur-[2px]">
-                                                <div className="bg-slate-900 text-white px-5 py-2.5 rounded-full font-black flex items-center gap-2 text-sm shadow-xl"><Icon name="lock" size={16}/> 即將開放</div>
+                                            <div className="absolute inset-0 bg-slate-900/50 flex flex-col items-center justify-center backdrop-blur-[2px] z-10">
+                                                <div className="bg-slate-900/90 text-white px-5 py-2.5 rounded-full font-black flex items-center gap-2 text-sm shadow-xl border border-slate-700"><Icon name="lock" size={16}/> 即將開放</div>
                                             </div>
                                         )}
                                     </div>
-                                    <div className="p-5 flex justify-between items-center bg-white border-t border-slate-50">
-                                        <div>
-                                            <h3 className="font-black text-slate-800 text-lg leading-tight mb-1">{act.title}</h3>
-                                            <p className="text-[11px] font-bold text-slate-500">{act.subtitle}</p>
-                                        </div>
-                                        {act.isOpen && <Icon name="play-circle" size={36} className="text-brand-red drop-shadow-sm" />}
+                                    
+                                    {/* 下半部：文字與按鈕區 (排版置中) */}
+                                    <div className="p-5 flex flex-col items-center justify-center bg-white text-center flex-1 border-t border-slate-100">
+                                        <h3 className="font-black text-slate-800 text-xl leading-tight mb-1.5">{act.title}</h3>
+                                        <p className="text-xs font-bold text-slate-500">{act.subtitle}</p>
+                                        
+                                        {/* 開放狀態下顯示的點擊按鈕 */}
+                                        {act.isOpen && (
+                                            <div className="mt-1 flex items-center justify-center gap-1.5 bg-rose-50 text-brand-red px-2 py-1 rounded-full text-xs font-black shadow-sm border border-rose-100">
+                                                <Icon name="play-circle" size={16} /> 點擊進入
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             ))}
@@ -3319,7 +3327,7 @@
                     </div>
                 );
             }
-
+            
             // ==========================================
             // 視圖二：建置中的通用畫面 (攔截尚未完成的活動)
             // ==========================================
