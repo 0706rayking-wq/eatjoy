@@ -3309,17 +3309,10 @@
                                         )}
                                     </div>
                                     
-                                    {/* 下半部：文字與按鈕區 (排版置中) */}
+                                    {/* 下半部：文字區 (排版置中，已移除膠囊按鈕) */}
                                     <div className="p-5 flex flex-col items-center justify-center bg-white text-center flex-1 border-t border-slate-100">
                                         <h3 className="font-black text-slate-800 text-xl leading-tight mb-1.5">{act.title}</h3>
                                         <p className="text-xs font-bold text-slate-500">{act.subtitle}</p>
-                                        
-                                        {/* 開放狀態下顯示的點擊按鈕 */}
-                                        {act.isOpen && (
-                                            <div className="mt-1 flex items-center justify-center gap-1.5 bg-rose-50 text-brand-red px-2 py-1 rounded-full text-xs font-black shadow-sm border border-rose-100">
-                                                <Icon name="play-circle" size={16} /> 點擊進入
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
                             ))}
