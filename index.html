@@ -37,101 +37,537 @@
     <script src="https://www.gstatic.com/firebasejs/11.6.1/firebase-analytics-compat.js"></script>
 
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
-        
-        :root { 
-            /* 預設配色 (已改為您圖片中沉穩的深紅色) */
-            --brand-red: 185 18 27; 
-            --app-bg: #f8fafc; 
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700;900&family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+
+        /* ═══════════════════════════════════════════════════════
+           EATJOY OS — 奢華皮革金邊 LUXURY EDITION
+           深酒紅皮革底 × 燙金雕花邊框 × 復古鑲嵌質感
+        ═══════════════════════════════════════════════════════ */
+
+        :root {
+            --brand-red: 185 18 27;
+
+            /* ── 皮革色系 ── */
+            --leather-deep:   #2a0508;   /* 最深底色 */
+            --leather-base:   #3d0a0e;   /* 主背景皮革 */
+            --leather-mid:    #4e0f14;   /* 卡片底色 */
+            --leather-light:  #5e1519;   /* 淺層卡片 */
+            --leather-lift:   #701a1f;   /* 懸浮元素 */
+            --leather-hover:  #821e24;   /* hover 狀態 */
+
+            /* ── 金色系 ── */
+            --gold-bright:  #f0c040;   /* 高亮金 */
+            --gold-mid:     #d4a017;   /* 主要金色 */
+            --gold-dim:     #a07c10;   /* 暗金 */
+            --gold-shadow:  #6b5208;   /* 陰影金 */
+            --gold-glow:    rgba(212,160,23,0.35);
+            --gold-subtle:  rgba(212,160,23,0.12);
+            --gold-border:  rgba(212,160,23,0.55);
+
+            /* ── 品牌紅（可由主題切換） ── */
+            --accent:     rgb(var(--brand-red));
+            --accent-10:  rgba(var(--brand-red), 0.15);
+            --accent-20:  rgba(var(--brand-red), 0.25);
+            --accent-30:  rgba(var(--brand-red), 0.40);
+
+            /* ── 文字 ── */
+            --t1: #f8e8c8;   /* 主文字：溫暖米金 */
+            --t2: #c9a870;   /* 次要：暗金文字 */
+            --t3: #8a6a3a;   /* 第三層：銅褐 */
+            --t4: #5a3e20;   /* 最暗：深棕 */
+
+            /* ── 金邊漸層 ── */
+            --gold-gradient: linear-gradient(
+                135deg,
+                #6b5208 0%, #d4a017 20%, #f0c040 38%,
+                #d4a017 50%, #a07c10 62%, #d4a017 75%,
+                #f0c040 88%, #a07c10 100%
+            );
+            --gold-gradient-h: linear-gradient(
+                90deg,
+                #6b5208 0%, #d4a017 15%, #f0c040 35%,
+                #d4a017 50%, #a07c10 65%, #d4a017 80%,
+                #f0c040 92%, #a07c10 100%
+            );
+
+            /* ── 皮革紋理背景 ── */
+            --leather-texture: 
+                radial-gradient(ellipse at 20% 30%, rgba(255,180,80,0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 70%, rgba(255,100,50,0.03) 0%, transparent 50%),
+                linear-gradient(160deg, var(--leather-base) 0%, var(--leather-deep) 100%);
         }
-        
-        body { 
-            font-family: 'Noto Sans TC', sans-serif; 
-            -webkit-tap-highlight-color: transparent; 
-            background-color: var(--app-bg) !important; 
-            color: #1e293b; 
-            overflow-x: hidden; 
-            transition: background-color 0.4s ease;
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Noto Sans TC', serif;
+            -webkit-tap-highlight-color: transparent;
+            background: var(--leather-texture) !important;
+            background-color: var(--leather-base) !important;
+            color: var(--t1);
+            overflow-x: hidden;
+            transition: background-color 0.3s;
+            min-height: 100vh;
         }
-        
-        /* 動態深色模式支援 (Dark Mode Overrides) */
-        body.theme-dark .bg-white { background-color: #1e293b !important; border-color: #334155 !important; }
-        body.theme-dark .text-slate-800 { color: #f8fafc !important; }
-        body.theme-dark .text-slate-700 { color: #e2e8f0 !important; }
-        body.theme-dark .text-slate-600 { color: #cbd5e1 !important; }
-        body.theme-dark .text-slate-500 { color: #94a3b8 !important; }
-        body.theme-dark .text-slate-400 { color: #64748b !important; }
-        body.theme-dark .text-slate-300 { color: #475569 !important; }
-        body.theme-dark .bg-slate-50 { background-color: #0f172a !important; border-color: #1e293b !important; }
-        body.theme-dark .bg-slate-100 { background-color: #1e293b !important; }
-        body.theme-dark .border-slate-100, body.theme-dark .border-slate-200 { border-color: #334155 !important; }
-        body.theme-dark .glass-panel { background: rgba(30, 41, 59, 0.95) !important; border-color: rgba(255,255,255,0.1) !important; }
-        body.theme-dark .input-light { background-color: #0f172a !important; color: #f8fafc !important; border-color: #334155 !important; }
-        body.theme-dark input, body.theme-dark textarea, body.theme-dark select { color: #f8fafc !important; background-color: #0f172a !important; }
-        body.theme-dark .text-white { color: #ffffff !important; }
-        body.theme-dark .bg-slate-900 { background-color: #020617 !important; border-color: #1e293b !important; }
-        body.theme-dark .shadow-sm, body.theme-dark .shadow-md, body.theme-dark .shadow-lg, body.theme-dark .shadow-xl, body.theme-dark .shadow-2xl { box-shadow: 0 4px 12px -1px rgba(0,0,0,0.5) !important; }
-        
-        /* 特殊漸層柔和背景色，在深色模式強制壓暗 */
-        body.theme-dark .bg-rose-50\/80, body.theme-dark .bg-rose-50\/50, 
-        body.theme-dark .bg-emerald-50\/50, body.theme-dark .bg-indigo-50\/50, 
+
+        /* ── 皮革縫線紋路（body 偽元素） ── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 28px,
+                    rgba(0,0,0,0.08) 28px,
+                    rgba(0,0,0,0.08) 29px
+                ),
+                repeating-linear-gradient(
+                    90deg,
+                    transparent,
+                    transparent 28px,
+                    rgba(0,0,0,0.04) 28px,
+                    rgba(0,0,0,0.04) 29px
+                );
+            pointer-events: none;
+            z-index: 0;
+        }
+        body > * { position: relative; z-index: 1; }
+        #root { position: relative; z-index: 1; }
+
+        /* ── Scrollbar ── */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: var(--leather-deep); }
+        ::-webkit-scrollbar-thumb { background: var(--gold-shadow); border-radius: 2px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--gold-mid); }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* ── Animations ── */
+        .page-enter { animation: pgIn 0.35s cubic-bezier(0.22,1,0.36,1) both; }
+        @keyframes pgIn {
+            from { opacity:0; transform:translateY(14px) scale(0.98); }
+            to   { opacity:1; transform:translateY(0) scale(1); }
+        }
+        .toast-enter { animation: slideDown 0.45s cubic-bezier(0.34,1.56,0.64,1) both; }
+        @keyframes slideDown {
+            from { opacity:0; transform:translateY(-120%) scale(0.90); }
+            to   { opacity:1; transform:translateY(0) scale(1); }
+        }
+
+        /* ══════════════════════════════════════════
+           GLASS PANEL → 皮革卡片 + 金邊框
+        ══════════════════════════════════════════ */
+        .glass-panel {
+            background: linear-gradient(145deg, var(--leather-light) 0%, var(--leather-mid) 100%);
+            border: 1px solid var(--gold-border);
+            box-shadow:
+                0 0 0 0.5px rgba(0,0,0,0.5),
+                inset 0 1px 0 rgba(255,220,120,0.12),
+                inset 0 -1px 0 rgba(0,0,0,0.3),
+                0 4px 20px -4px rgba(0,0,0,0.6),
+                0 0 12px -4px var(--gold-glow);
+        }
+
+        /* ── 所有卡片的金邊裝飾線 ── */
+        .glass-panel::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: inherit;
+            background: var(--gold-gradient);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask-composite: exclude;
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: destination-out;
+            padding: 1px;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+
+        /* ── Inputs → 皮革輸入框 ── */
+        .input-light {
+            background: linear-gradient(145deg, var(--leather-deep), var(--leather-base)) !important;
+            border: 1px solid var(--gold-border) !important;
+            color: var(--t1) !important;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.4), 0 1px 0 rgba(255,200,80,0.1);
+        }
+        .input-light::placeholder { color: var(--t3) !important; }
+        .input-light:focus {
+            border-color: var(--gold-bright) !important;
+            outline: none !important;
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.4), 0 0 0 3px var(--gold-subtle), 0 0 12px var(--gold-glow) !important;
+        }
+
+        /* 全域 input/select/textarea */
+        input, textarea, select {
+            background: linear-gradient(145deg, var(--leather-deep), var(--leather-base)) !important;
+            color: var(--t1) !important;
+            border-color: var(--gold-border) !important;
+        }
+        input::placeholder, textarea::placeholder { color: var(--t3) !important; }
+        input:focus, textarea:focus, select:focus {
+            border-color: var(--gold-bright) !important;
+            box-shadow: 0 0 0 2px var(--gold-subtle), 0 0 10px var(--gold-glow) !important;
+            outline: none !important;
+        }
+        select option { background: var(--leather-mid); color: var(--t1); }
+        input[type="checkbox"] { accent-color: var(--gold-mid); }
+
+        /* ── Ticker ── */
+        .ticker-wrap {
+            overflow: hidden;
+            white-space: nowrap;
+            background: linear-gradient(90deg, var(--leather-deep), var(--leather-base), var(--leather-deep));
+            border-bottom: 1px solid var(--gold-border);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+        .ticker-move { display: inline-block; animation: ticker 30s linear infinite; }
+        @keyframes ticker { 0%{transform:translateX(100vw)} 100%{transform:translateX(-100%)} }
+
+        /* ── Signature canvas ── */
+        .signature-canvas {
+            border: 1px solid var(--gold-border);
+            background: var(--leather-deep);
+            cursor: crosshair; touch-action: none;
+            border-radius: 1rem; width: 100%; height: 200px;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
+        }
+
+        /* ── Ordering / drag ── */
+        .active-scale:active { transform: scale(0.96); }
+        .drag-ghost {
+            opacity: 0.3; transform: scale(0.97);
+            border: 1px dashed var(--gold-mid) !important;
+            background: var(--gold-subtle) !important;
+        }
+        .drag-handle { cursor: grab; }
+        .drag-handle:active { cursor: grabbing; }
+        .btn-touch { min-width:44px; min-height:44px; display:flex; align-items:center; justify-content:center; }
+
+        .editable-order-text {
+            background: var(--leather-deep) !important;
+            color: var(--t1) !important;
+            font-family: ui-monospace, monospace;
+            line-height: 1.7; width: 100%; border-radius: 1rem;
+            padding: 1.1rem 1.25rem; resize: none; outline: none;
+            border: 1px solid var(--gold-border) !important;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
+            transition: border-color 0.2s;
+        }
+        .editable-order-text:focus {
+            border-color: var(--gold-bright) !important;
+            box-shadow: inset 0 2px 8px rgba(0,0,0,0.5), 0 0 0 2px var(--gold-subtle) !important;
+        }
+
+        /* ── Schedule ── */
+        .writing-vertical-lr { writing-mode: vertical-lr; }
+        .custom-scrollbar { -webkit-overflow-scrolling: touch; }
+        .custom-scrollbar::-webkit-scrollbar { height: 5px; width: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: var(--leather-deep); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--gold-shadow); border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--gold-mid); }
+        th.sticky, td.sticky { background-clip: padding-box; }
+
+        /* ── Number input ── */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type="number"] { -moz-appearance: textfield; }
+
+        /* ═══════════════════════════════════════════════════════
+           TAILWIND OVERRIDES — 皮革主題色彩映射
+        ═══════════════════════════════════════════════════════ */
+
+        /* Backgrounds → 皮革層次 */
+        .bg-white          { background: linear-gradient(145deg, var(--leather-light), var(--leather-mid)) !important; }
+        .bg-slate-50       { background-color: var(--leather-base) !important; }
+        .bg-slate-100      { background-color: var(--leather-mid) !important; }
+        .bg-slate-900      { background-color: var(--leather-deep) !important; }
+        .bg-white\/80      { background-color: rgba(62,10,14,0.88) !important; }
+        .bg-white\/95      { background-color: rgba(62,10,14,0.96) !important; }
+
+        /* Soft tint → 皮革面板 */
+        .bg-rose-50, .bg-rose-50\/80, .bg-rose-50\/50,
+        .bg-emerald-50, .bg-emerald-50\/50, .bg-emerald-100,
+        .bg-indigo-50, .bg-indigo-50\/50,
+        .bg-blue-50, .bg-blue-50\/50,
+        .bg-yellow-50, .bg-yellow-50\/50,
+        .bg-amber-50\/50, .bg-purple-50\/50,
+        .bg-orange-50, .bg-cyan-50, .bg-sky-50,
+        .bg-orange-100 {
+            background-color: var(--leather-lift) !important;
+            border-color: var(--gold-border) !important;
+        }
+
+        /* Text → 金色文字層次 */
+        .text-slate-800, .text-slate-900 { color: var(--t1) !important; }
+        .text-slate-700 { color: #e8d5a8 !important; }
+        .text-slate-600 { color: #c8a870 !important; }
+        .text-slate-500 { color: var(--t2) !important; }
+        .text-slate-400 { color: var(--t3) !important; }
+        .text-slate-300 { color: var(--t4) !important; }
+
+        /* Borders → 金邊 */
+        .border-slate-100, .border-slate-200 { border-color: var(--gold-border) !important; }
+        .border-slate-300, .border-slate-400 { border-color: var(--gold-mid) !important; }
+
+        /* Brand-red 映射 */
+        .text-brand-red    { color: var(--gold-bright) !important; }
+        .bg-brand-red      { background: var(--gold-gradient) !important; color: #2a0508 !important; }
+        .border-brand-red  { border-color: var(--gold-mid) !important; }
+        .border-l-brand-red{ border-left-color: var(--gold-mid) !important; }
+        .ring-brand-red\/40 { --tw-ring-color: var(--gold-glow) !important; }
+        .shadow-brand-red\/20 { box-shadow: 0 8px 24px -4px var(--gold-glow) !important; }
+        .bg-brand-red.text-white, .bg-brand-red .text-white { color: #2a0508 !important; }
+
+        /* Rose/red tints → 深皮革 + 金邊 */
+        .bg-rose-50        { background-color: var(--leather-lift) !important; }
+        .border-rose-100, .border-rose-200 { border-color: var(--gold-border) !important; }
+        .border-brand-red\/30 { border-color: var(--gold-border) !important; }
+
+        /* Emerald → 翠玉色 */
+        .text-emerald-600, .text-emerald-700 { color: #6ee7b7 !important; }
+        .bg-emerald-600    { background-color: #064e3b !important; }
+        .bg-emerald-50     { background-color: rgba(6,78,59,0.3) !important; }
+        .border-l-emerald-500 { border-left-color: #34d399 !important; }
+        .border-emerald-100,.border-emerald-200 { border-color: rgba(52,211,153,0.3) !important; }
+
+        /* Blue → 寶石藍 */
+        .text-blue-500,.text-blue-600,.text-blue-700,.text-blue-800 { color: #93c5fd !important; }
+        .bg-blue-500, .bg-blue-600 { background-color: #1e3a8a !important; }
+        .bg-blue-50, .border-blue-200 { background-color: rgba(30,58,138,0.25) !important; border-color: rgba(147,197,253,0.3) !important; }
+        .bg-blue-800 { background-color: #1e3a5f !important; }
+        .border-l-blue-500 { border-left-color: #93c5fd !important; }
+        .shadow-blue-500\/10, .shadow-blue-600\/20 { box-shadow: 0 4px 16px -4px rgba(30,58,138,0.4) !important; }
+
+        /* Orange/Amber → 暖銅色 */
+        .text-orange-600   { color: #fbbf24 !important; }
+        .bg-orange-50      { background-color: rgba(120,53,15,0.3) !important; }
+        .border-orange-100,.border-orange-200 { border-color: rgba(251,191,36,0.3) !important; }
+        .text-amber-600,.text-amber-700 { color: #fcd34d !important; }
+
+        /* Yellow highlight */
+        .bg-yellow-400     { background-color: #d97706 !important; }
+        .text-yellow-900   { color: #451a03 !important; }
+
+        /* Red */
+        .text-red-500,.text-red-600 { color: #fca5a5 !important; }
+        .bg-red-50         { background-color: rgba(127,29,29,0.3) !important; }
+        .border-red-100    { border-color: rgba(252,165,165,0.25) !important; }
+
+        /* Modal overlays */
+        .bg-slate-900\/60 { background-color: rgba(20,4,6,0.78) !important; }
+        .bg-slate-900\/80 { background-color: rgba(20,4,6,0.88) !important; }
+
+        /* Shadows */
+        .shadow-sm  { box-shadow: 0 1px 4px rgba(0,0,0,0.5), 0 0 6px var(--gold-subtle) !important; }
+        .shadow-md  { box-shadow: 0 3px 12px rgba(0,0,0,0.6), 0 0 8px var(--gold-subtle) !important; }
+        .shadow-lg  { box-shadow: 0 6px 20px rgba(0,0,0,0.65), 0 0 16px var(--gold-subtle) !important; }
+        .shadow-xl  { box-shadow: 0 10px 32px rgba(0,0,0,0.7), 0 0 20px var(--gold-subtle) !important; }
+        .shadow-2xl { box-shadow: 0 18px 48px rgba(0,0,0,0.75), 0 0 30px var(--gold-subtle) !important; }
+        .shadow-inner { box-shadow: inset 0 2px 8px rgba(0,0,0,0.55) !important; }
+
+        /* Backdrop */
+        .backdrop-blur-md, .backdrop-blur-sm {
+            backdrop-filter: blur(16px) saturate(120%);
+            -webkit-backdrop-filter: blur(16px);
+        }
+
+        /* theme-dark compat */
+        body.theme-dark .glass-panel   { background: linear-gradient(145deg, var(--leather-light), var(--leather-mid)) !important; border-color: var(--gold-border) !important; }
+        body.theme-dark .input-light   { background: var(--leather-deep) !important; color: var(--t1) !important; border-color: var(--gold-border) !important; }
+        body.theme-dark input, body.theme-dark textarea, body.theme-dark select { background: var(--leather-deep) !important; color: var(--t1) !important; }
+        body.theme-dark .bg-white      { background: linear-gradient(145deg, var(--leather-light), var(--leather-mid)) !important; }
+        body.theme-dark .bg-slate-50   { background-color: var(--leather-base) !important; }
+        body.theme-dark .bg-slate-100  { background-color: var(--leather-mid) !important; }
+        body.theme-dark .text-slate-800 { color: var(--t1) !important; }
+        body.theme-dark .bg-rose-50\/80, body.theme-dark .bg-rose-50\/50,
+        body.theme-dark .bg-emerald-50\/50, body.theme-dark .bg-indigo-50\/50,
         body.theme-dark .bg-blue-50\/50, body.theme-dark .bg-yellow-50\/50,
         body.theme-dark .bg-rose-50, body.theme-dark .bg-emerald-50, body.theme-dark .bg-emerald-100,
         body.theme-dark .bg-blue-50, body.theme-dark .bg-indigo-50 {
-            background-color: #1e293b !important; 
-            border-color: #334155 !important;
+            background-color: var(--leather-lift) !important;
+            border-color: var(--gold-border) !important;
         }
 
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .page-enter { animation: fadeIn 0.4s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .toast-enter { animation: slideDown 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28); }
-        @keyframes slideDown { from { opacity: 0; transform: translate(-50%, -100%); } to { opacity: 1; transform: translate(-50%, 0); } }
-        .glass-panel { 
-            background: rgba(255, 255, 255, 0.95); 
-            backdrop-filter: blur(12px); 
-            border: 1px solid rgba(255, 255, 255, 0.8); 
-            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05); 
-        }
-        .input-light { background: #ffffff; border: 1px solid #e2e8f0; color: #1e293b; transition: all 0.2s; }
-        .input-light:focus { border-color: rgb(var(--brand-red)); outline: none; box-shadow: 0 0 0 3px rgba(var(--brand-red) / 0.1); }
-        .ticker-wrap { overflow: hidden; white-space: nowrap; }
-        .ticker-move { display: inline-block; animation: ticker 25s linear infinite; }
-        @keyframes ticker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
-        .signature-canvas { border: 2px dashed #cbd5e1; background: #fff; cursor: crosshair; touch-action: none; border-radius: 1.5rem; width: 100%; height: 200px; }
-        
-        /* 點貨系統進階樣式 */
-        .active-scale:active { transform: scale(0.95); }
-        .drag-ghost { opacity: 0.2; transform: scale(0.95); border: 2px dashed rgb(var(--brand-red)) !important; background-color: rgba(var(--brand-red)/0.05) !important; }
-        .drag-handle { cursor: grab; }
-        .drag-handle:active { cursor: grabbing; }
-        .btn-touch { min-width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center; }
-        
-        .editable-order-text {
-            background-color: #1e293b; color: #f8fafc; font-family: ui-monospace, monospace;
-            line-height: 1.625; width: 100%; border-radius: 1.5rem; padding: 1.25rem; resize: none; outline: none; border: 2px solid transparent; transition: border-color 0.2s;
-        }
-        .editable-order-text:focus { border-color: rgb(var(--brand-red)); }
-        
-        /* 班表系統專用樣式 */
-        .writing-vertical-lr { writing-mode: vertical-lr; }
-        .custom-scrollbar { -webkit-overflow-scrolling: touch; }
-        .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f8fafc; border-radius: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 8px; border: 2px solid #f8fafc; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
-        th.sticky, td.sticky { background-clip: padding-box; } /* 防止 iOS Sticky 元素破圖 */
+        /* ═══════════════════════════════════════════════════════
+           COMPONENT ENHANCEMENTS — 純 CSS，不動 JSX
+        ═══════════════════════════════════════════════════════ */
 
-        /* 隱藏數字輸入框上下箭頭 */
-        input[type="number"]::-webkit-outer-spin-button,
-        input[type="number"]::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
+        /* ── Header → 深皮革頂欄 + 金底線 ── */
+        header.sticky {
+            background: linear-gradient(180deg, var(--leather-deep) 0%, rgba(42,5,8,0.95) 100%) !important;
+            backdrop-filter: blur(20px) !important;
+            border-bottom: 1px solid var(--gold-border) !important;
+            box-shadow: 0 2px 16px rgba(0,0,0,0.6), 0 1px 0 var(--gold-glow) !important;
         }
-        input[type="number"] {
-            -moz-appearance: textfield;
+
+        /* ── Logo icon → 金色印章 ── */
+        .bg-brand-red.rounded-xl.flex.items-center.justify-center.text-white {
+            background: var(--gold-gradient) !important;
+            color: var(--leather-deep) !important;
+            box-shadow: 0 3px 12px var(--gold-glow), inset 0 1px 0 rgba(255,255,255,0.2) !important;
         }
+
+        /* ── 主要按鈕 → 金色漸層 ── */
+        button.bg-brand-red, a.bg-brand-red {
+            background: var(--gold-gradient) !important;
+            color: var(--leather-deep) !important;
+            font-weight: 900 !important;
+            box-shadow: 0 4px 16px var(--gold-glow), inset 0 1px 0 rgba(255,255,255,0.2) !important;
+            border: 1px solid var(--gold-bright) !important;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        button.bg-brand-red:active {
+            transform: scale(0.97);
+            box-shadow: 0 2px 8px var(--gold-glow) !important;
+        }
+
+        /* ── Ghost buttons → 皮革鏤空 ── */
+        button.bg-slate-100 {
+            background: linear-gradient(145deg, var(--leather-lift), var(--leather-mid)) !important;
+            color: var(--t2) !important;
+            border: 1px solid var(--gold-border) !important;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,200,80,0.08) !important;
+        }
+        button.bg-slate-100:hover { background: linear-gradient(145deg, var(--leather-hover), var(--leather-lift)) !important; }
+
+        /* bg-slate-900 buttons */
+        button.bg-slate-900 {
+            background: linear-gradient(145deg, var(--leather-base), var(--leather-deep)) !important;
+            color: var(--t1) !important;
+            border: 1px solid var(--gold-border) !important;
+        }
+
+        /* Emerald/Blue/Indigo action buttons */
+        button.bg-emerald-600 { background: linear-gradient(135deg, #064e3b, #065f46) !important; color: #6ee7b7 !important; border: 1px solid rgba(52,211,153,0.4) !important; }
+        button.bg-blue-500, button.bg-blue-600 { background: linear-gradient(135deg, #1e3a8a, #1d4ed8) !important; color: #bfdbfe !important; border: 1px solid rgba(147,197,253,0.3) !important; }
+        button.bg-indigo-600 { background: linear-gradient(135deg, #312e81, #3730a3) !important; color: #c7d2fe !important; border: 1px solid rgba(199,210,254,0.3) !important; }
+
+        /* ── Nav cards → 皮革鑲嵌卡片 ── */
+        .rounded-\[2\.5rem\].border.border-slate-100.shadow-sm,
+        .rounded-\[2rem\].border.border-slate-100.shadow-sm {
+            background: linear-gradient(145deg, var(--leather-light) 0%, var(--leather-mid) 100%) !important;
+            border: 1px solid var(--gold-border) !important;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,200,80,0.1), 0 0 8px var(--gold-subtle) !important;
+            position: relative;
+        }
+
+        /* ── 進度條 → 金色流光 ── */
+        .bg-brand-red.opacity-80 {
+            background: var(--gold-gradient-h) !important;
+            opacity: 1 !important;
+            box-shadow: 0 0 8px var(--gold-glow) !important;
+        }
+        .bg-brand-red.h-full {
+            background: var(--gold-gradient-h) !important;
+            box-shadow: 0 0 8px var(--gold-glow) !important;
+        }
+        .bg-slate-100.h-3\.5 {
+            background: var(--leather-deep) !important;
+            border: 1px solid var(--gold-shadow) !important;
+        }
+
+        /* ── Tab bars → 皮革切換欄 ── */
+        .flex.bg-slate-100.p-1\.5,
+        .flex.bg-\[\#f1f5f9\].p-1\.5 {
+            background: linear-gradient(145deg, var(--leather-deep), var(--leather-base)) !important;
+            border: 1px solid var(--gold-border) !important;
+            box-shadow: inset 0 2px 6px rgba(0,0,0,0.4) !important;
+        }
+        button.bg-brand-red.shadow-md {
+            background: var(--gold-gradient) !important;
+            color: var(--leather-deep) !important;
+            box-shadow: 0 2px 8px var(--gold-glow) !important;
+        }
+        .flex.bg-\[\#f1f5f9\] button.bg-white,
+        .flex.bg-slate-100 button.bg-white {
+            background: linear-gradient(145deg, var(--leather-lift), var(--leather-mid)) !important;
+            border: 1px solid var(--gold-border) !important;
+        }
+
+        /* Auth tabs active */
+        button.bg-white.shadow-sm.text-brand-red {
+            background: linear-gradient(145deg, var(--leather-lift), var(--leather-mid)) !important;
+            color: var(--gold-bright) !important;
+            border: 1px solid var(--gold-border) !important;
+        }
+
+        /* ── Auth card ── */
+        .glass-panel.p-6.rounded-\[2rem\],
+        .glass-panel.p-6.sm\:p-8.rounded-\[2rem\] {
+            background: linear-gradient(160deg, var(--leather-light), var(--leather-mid)) !important;
+            border: 1px solid var(--gold-border) !important;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 20px var(--gold-subtle) !important;
+        }
+
+        /* ── Toast → 金邊通知 ── */
+        .toast-enter.glass-panel {
+            background: linear-gradient(135deg, var(--leather-light), var(--leather-mid)) !important;
+            border: 1px solid var(--gold-mid) !important;
+            box-shadow: 0 12px 36px rgba(0,0,0,0.7), 0 0 20px var(--gold-glow) !important;
+        }
+
+        /* ── Modals → 皮革彈窗 ── */
+        .bg-white.rounded-\[2\.5rem\],
+        .bg-white.rounded-\[2rem\] {
+            background: linear-gradient(160deg, var(--leather-light), var(--leather-mid)) !important;
+            border: 1px solid var(--gold-border) !important;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.75), 0 0 30px var(--gold-subtle) !important;
+        }
+
+        /* ── Section item active ── */
+        .glass-panel:active {
+            background: linear-gradient(145deg, var(--leather-hover), var(--leather-lift)) !important;
+        }
+
+        /* ── Table → 皮革表格 ── */
+        table { border-collapse: collapse; }
+        th {
+            background: linear-gradient(180deg, var(--leather-base), var(--leather-deep)) !important;
+            color: var(--t2) !important;
+            border-color: var(--gold-border) !important;
+        }
+        td { border-color: rgba(212,160,23,0.2) !important; }
+
+        /* ── 公告未讀點 → 金色脈衝 ── */
+        .bg-brand-red.animate-pulse {
+            background: var(--gold-bright) !important;
+            box-shadow: 0 0 8px var(--gold-glow) !important;
+        }
+
+        /* ── 公告未讀邊框 ── */
+        .border-brand-red\/30 { border-color: var(--gold-border) !important; }
+
+        /* ── Ordering items ── */
+        .bg-slate-50.rounded-2xl { background-color: var(--leather-base) !important; }
+
+        /* ── 金色標題文字效果 ── */
+        h1, h2 {
+            font-family: 'Noto Serif TC', 'Noto Sans TC', serif;
+        }
+
+        /* ── 金色光暈動畫（裝飾用） ── */
+        @keyframes goldShimmer {
+            0%   { background-position: -200% center; }
+            100% { background-position: 200% center; }
+        }
+        .text-brand-red {
+            background: var(--gold-gradient-h);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: goldShimmer 4s linear infinite;
+        }
+
+        /* ── 特殊：bg-brand-red.text-white 修正 ── */
+        .bg-brand-red { color: var(--leather-deep) !important; }
+        .bg-brand-red * { color: var(--leather-deep) !important; }
+        .bg-brand-red.text-white { color: var(--leather-deep) !important; }
+
     </style>
 </head>
 <body class="pb-12">
@@ -985,6 +1421,7 @@
                         setIsManager(true); 
                         localStorage.setItem('k_super_admin', 'true');
                         setCurrentBranch(branch);
+                        localStorage.setItem('k_last_branch', branch);
                         setCurrentPage('home'); 
                         triggerNotify("行政主廚權限", "success"); 
                     }
@@ -1010,12 +1447,15 @@
                         triggerNotify("此手機號碼已註冊過", "error");
                         return;
                     }
-                    await db.collection(getPublicPath('users')).doc(phone).set({ phone, name, status: 'pending', branch, role });
+                    // 將新註冊的分店儲存為陣列格式
+                    await db.collection(getPublicPath('users')).doc(phone).set({ phone, name, status: 'pending', branch: [branch], role });
                     triggerNotify(`申請已提交(${role})，請聯絡主管`, "info");
                 } else {
                     if (existing) { 
-                        if (existing.branch !== branch) {
-                            triggerNotify(`登入失敗：您的帳號隸屬於「${existing.branch}」，請選擇正確的分店。`, "error");
+                        // 向下相容：將字串轉回陣列進行判斷
+                        const allowedBranches = Array.isArray(existing.branch) ? existing.branch : [existing.branch];
+                        if (!allowedBranches.includes(branch)) {
+                            triggerNotify(`登入失敗：您的帳號隸屬於「${allowedBranches.join(', ')}」，請選擇正確的分店。`, "error");
                             return;
                         }
                         setCurrentUser(existing); localStorage.setItem('k_active_user', JSON.stringify(existing));
@@ -4192,37 +4632,65 @@
                 </div>
             );
         };
-        const AdminPage = ({ onBack, onLogout, announcements, standards, users, triggerNotify, menu, onboarding, benefits, rulesData, isSuperAdmin, currentBranch, setCurrentBranch, globalBranches, branchZones, getPublicPath, signatures, tickerText, setTickerText, globalRecipes }) => {
+        const AdminPage = ({ onBack, onLogout, announcements, standards, users, triggerNotify, menu, onboarding, benefits, rulesData, isSuperAdmin, currentBranch, setCurrentBranch, globalBranches, branchZones, getPublicPath, signatures, tickerText, setTickerText, globalRecipes, currentUser }) => {
             const [tab, setTab] = useState('members'); const [subCat, setSubCat] = useState('list');
             const [selectedZone, setSelectedZone] = useState('');
             const [signSubCat, setSignSubCat] = useState('廚房規則');
             const [newZoneName, setNewZoneName] = useState('');
             const [newBranchName, setNewBranchName] = useState('');
             const [expandedSig, setExpandedSig] = useState(null);
+            
+            // 新增：編輯人員狀態
+            const [editingUser, setEditingUser] = useState(null);
+            const [editFormData, setEditFormData] = useState({ role: '', branches: [] });
 
             useEffect(() => {
                 if(branchZones && branchZones.length > 0 && !selectedZone) setSelectedZone(branchZones[0].id);
             }, [branchZones]);
 
-            // 過濾顯示的成員：最高權限看全部(或當前分店與所有主管)，分店主管只看本店的非主管人員
+            // 過濾顯示的成員 (相容字串與陣列)
             const visibleUsers = users.filter(u => {
+                const uBranches = Array.isArray(u.branch) ? u.branch : [u.branch].filter(Boolean);
                 if (isSuperAdmin) {
-                    return u.branch === currentBranch || u.role === '主管';
+                    return uBranches.includes(currentBranch) || u.role === '主管';
                 } else {
-                    return u.branch === currentBranch && u.role !== '主管';
+                    return uBranches.includes(currentBranch) && u.role !== '主管';
                 }
             });
+
+            // 儲存編輯後的人員資料
+            const handleSaveUserEdit = async () => {
+                if(editFormData.branches.length === 0) {
+                    triggerNotify("請至少選擇一間分店", "error");
+                    return;
+                }
+                try {
+                    await db.collection(getPublicPath('users')).doc(editingUser.phone).update({
+                        role: editFormData.role,
+                        branch: editFormData.branches
+                    });
+                    triggerNotify("員工資料更新成功", "success");
+                    setEditingUser(null);
+                } catch(e) { triggerNotify("更新失敗", "error"); }
+            };
 
             return (
                 <div className="p-4 pb-24 page-enter text-left font-bold">
                     <div className="flex justify-between items-center mb-4"><BackButton onClick={onBack} title="管理後台" /><button onClick={onLogout} className="bg-red-50 text-red-600 font-black text-[10px] px-4 py-2 rounded-full border border-red-100 active:scale-90 transition-all">登出</button></div>
                     
-                    {isSuperAdmin && (
+{/* 支援最高權限與多店主管：後台快速切換分店 */}
+                    {(isSuperAdmin || (Array.isArray(currentUser?.branch) && currentUser.branch.length > 1)) && (
                         <div className="mb-6 bg-slate-900 text-white p-4 rounded-3xl flex items-center justify-between shadow-xl mb-2">
                             <div>
-                                <p className="text-[10px] uppercase tracking-widest text-slate-400">目前管理分店 (最高權限)</p>
-                                <select value={currentBranch} onChange={e=>setCurrentBranch(e.target.value)} className="bg-transparent border-none text-lg font-black outline-none appearance-none cursor-pointer">
-                                    {globalBranches.map(b => <option key={b} value={b} className="text-black">{b}</option>)}
+                                <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">目前管理分店</p>
+                                <select 
+                                    value={currentBranch} 
+                                    onChange={e => { setCurrentBranch(e.target.value); if(isSuperAdmin) { try { localStorage.setItem('k_last_branch', e.target.value); } catch(err) {} } }} 
+                                    className="bg-transparent border-none text-lg font-black outline-none appearance-none cursor-pointer text-white"
+                                >
+                                    {(isSuperAdmin ? globalBranches : currentUser.branch).map(b => (
+                                        <option key={b} value={b} className="text-slate-900">{b}</option>
+                                    ))}
                                 </select>
                             </div>
                             <Icon name="chevron-down" className="text-brand-red"/>
@@ -4239,23 +4707,106 @@
                         {tab === 'members' && (
                             <div>
                                 <h3 className="text-xs text-slate-400 mb-2 pl-2">顯示：{isSuperAdmin ? `${currentBranch} 人員 & 全部分店主管` : `${currentBranch} 店內人員`}</h3>
-                                {visibleUsers.map(u=>(
-                                    <div key={u.phone} className="glass-panel p-5 rounded-[2rem] border flex justify-between items-center bg-white mb-2 shadow-sm">
-                                        <div>
-                                            <p className="font-bold text-slate-800 mb-1 flex items-center gap-2">
+                                {visibleUsers.map(u=>{
+                                    const displayBranches = Array.isArray(u.branch) ? u.branch.join(', ') : u.branch;
+                                    return (
+                                    <div key={u.phone} className="glass-panel p-4 rounded-[2rem] border flex justify-between items-center bg-white mb-2 shadow-sm">
+                                        <div className="flex-1 min-w-0 pr-2">
+                                            <p className="font-bold text-slate-800 mb-1 flex flex-wrap items-center gap-2">
                                                 {u.name} 
-                                                <span className={`text-[9px] px-2 py-0.5 rounded-full ${u.role==='主管' ? 'bg-brand-red text-white' : 'bg-slate-100 text-slate-500'}`}>{u.role}</span>
-                                                {isSuperAdmin && u.branch !== currentBranch && <span className="text-[9px] text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full">{u.branch}</span>}
+                                                <span className={`text-[9px] px-2 py-0.5 rounded-full whitespace-nowrap ${u.role==='主管' ? 'bg-brand-red text-white' : 'bg-slate-100 text-slate-500'}`}>{u.role}</span>
+                                                <span className="text-[9px] text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px]" title={displayBranches}>{displayBranches}</span>
                                             </p>
                                             <p className="text-[10px] text-slate-400">{u.phone}</p>
                                         </div>
-                                        <div className="flex gap-2">
-                                            {u.status==='pending' ? <button onClick={()=>db.collection(getPublicPath('users')).doc(u.phone).update({status:'approved'})} className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-[10px] font-black active-scale">核准</button> : <span className="text-[9px] font-black text-emerald-600 border px-3 py-2 rounded-lg bg-emerald-50">已授權</span>}
-                                            <button onClick={()=>db.collection(getPublicPath('users')).doc(u.phone).delete()} className="p-2 text-slate-300 hover:text-red-500 transition-all"><Icon name="trash-2" size={16}/></button>
+                                        <div className="flex gap-1.5 shrink-0">
+                                            {u.status==='pending' ? (
+                                                <button onClick={()=>db.collection(getPublicPath('users')).doc(u.phone).update({status:'approved'})} className="bg-emerald-600 text-white px-3.5 py-2 rounded-xl text-[10px] font-black active:scale-95 shadow-sm">核准</button>
+                                            ) : (
+                                                <span className="text-[9px] font-black text-emerald-600 border px-2.5 py-1.5 rounded-lg bg-emerald-50 flex items-center">已授權</span>
+                                            )}
+                                            {/* 新增：編輯按鈕 */}
+                                            <button onClick={() => {
+                                                setEditingUser(u);
+                                                setEditFormData({
+                                                    role: u.role || '正職人員',
+                                                    branches: Array.isArray(u.branch) ? u.branch : [u.branch].filter(Boolean)
+                                                });
+                                            }} className="p-2 text-slate-400 hover:text-blue-500 transition-all bg-slate-50 rounded-xl hover:bg-blue-50">
+                                                <Icon name="edit-3" size={16}/>
+                                            </button>
+                                            {/* 修改：加上防呆二次確認 */}
+                                            <button onClick={() => {
+                                                if(window.confirm(`確定要刪除「${u.name}」的帳號嗎？此動作無法復原。`)) {
+                                                    db.collection(getPublicPath('users')).doc(u.phone).delete();
+                                                    triggerNotify("員工帳號已刪除", "info");
+                                                }
+                                            }} className="p-2 text-slate-400 hover:text-red-500 transition-all bg-slate-50 rounded-xl hover:bg-red-50">
+                                                <Icon name="trash-2" size={16}/>
+                                            </button>
                                         </div>
                                     </div>
-                                ))}
+                                )})}
                                 {visibleUsers.length === 0 && <p className="text-center text-slate-400 py-10 text-xs">尚無人員紀錄</p>}
+                            </div>
+                        )}
+                        
+                        {/* === 編輯人員 Modal === */}
+                        {editingUser && (
+                            <div className="fixed inset-0 z-[10000] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 page-enter">
+                                <div className="bg-white rounded-[2.5rem] p-6 w-full max-w-sm shadow-2xl relative">
+                                    <h3 className="text-xl font-black text-slate-800 mb-4 flex items-center gap-2">
+                                        <Icon name="user" className="text-brand-red" /> 變更員工資料
+                                    </h3>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <p className="text-[10px] font-black text-slate-500 mb-1">員工</p>
+                                            <p className="font-bold text-slate-800 bg-slate-50 p-3 rounded-xl border">{editingUser.name} ({editingUser.phone})</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-slate-500 mb-1">職位 / 權限</p>
+                                            <select
+                                                value={editFormData.role}
+                                                onChange={e => setEditFormData({...editFormData, role: e.target.value})}
+                                                className="w-full bg-white border border-slate-200 p-3 rounded-xl outline-none font-bold text-sm"
+                                            >
+                                                <option value="正職人員">正職人員</option>
+                                                <option value="計時人員">計時人員</option>
+                                                <option value="主管">主管 (有後台管理權限)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-slate-500 mb-2">
+                                                所屬分店 {isSuperAdmin ? '(可複選)' : '(僅最高權限可變更)'}
+                                            </p>
+                                            <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                                {globalBranches.map(b => (
+                                                    <label key={b} className={`flex items-center gap-3 ${isSuperAdmin ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={editFormData.branches.includes(b)}
+                                                            onChange={(e) => {
+                                                                if (!isSuperAdmin) return; // 防呆：不是最高權限就不能改
+                                                                if(e.target.checked) {
+                                                                    setEditFormData({...editFormData, branches: [...editFormData.branches, b]});
+                                                                } else {
+                                                                    setEditFormData({...editFormData, branches: editFormData.branches.filter(br => br !== b)});
+                                                                }
+                                                            }}
+                                                            disabled={!isSuperAdmin} // 鎖定勾選框
+                                                            className="w-4 h-4 accent-brand-red rounded disabled:grayscale"
+                                                        />
+                                                        <span className="font-bold text-sm text-slate-700">{b}</span>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div className="flex gap-3 pt-2">
+                                            <button onClick={() => setEditingUser(null)} className="flex-1 bg-slate-100 text-slate-600 font-black py-4 rounded-xl active:scale-95 transition-all text-sm">取消</button>
+                                            <button onClick={handleSaveUserEdit} className="flex-1 bg-brand-red text-white font-black py-4 rounded-xl active:scale-95 transition-all shadow-lg shadow-brand-red/20 text-sm">儲存變更</button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         )}
                         
@@ -4418,17 +4969,448 @@
             );
         };
         // --- 主題配色設定陣列 (加入專屬極淺背景色) ---
+        /* ═══════════════════════════════════════════════
+           20 款完整風格主題
+           每款含：品牌色 + 背景 + 面板層次 + 邊框 + 文字 + 特效
+        ═══════════════════════════════════════════════ */
         const APP_THEMES = [
-            { id: 'red', name: '經典', color: '185 18 27', hex: '#b9121b', bgHex: '#fef2f2' },
-            { id: 'blue', name: '科技', color: '37 99 235', hex: '#2563eb', bgHex: '#eff6ff' },
-            { id: 'emerald', name: '翡翠', color: '5 150 105', hex: '#059669', bgHex: '#ecfdf5' },
-            { id: 'orange', name: '活力', color: '234 88 12', hex: '#ea580c', bgHex: '#fff7ed' },
-            { id: 'purple', name: '神祕', color: '147 51 234', hex: '#9333ea', bgHex: '#faf5ff' },
-            { id: 'rose', name: '櫻花', color: '219 39 119', hex: '#db2777', bgHex: '#fff1f2' },
-            { id: 'teal', name: '森藍', color: '13 148 136', hex: '#0d9488', bgHex: '#f0fdfa' },
-            { id: 'indigo', name: '靛青', color: '79 70 229', hex: '#4f46e5', bgHex: '#e0e7ff' },
-            { id: 'slate', name: '深夜', color: '203 213 225', hex: '#cbd5e1', bgHex: '#020617' },
-            { id: 'amber', name: '琥珀', color: '217 119 6', hex: '#d97706', bgHex: '#fffbeb' }
+            // ── 奢華系列 (Luxury) ──────────────────────────
+            {
+                id: 'crimson-gold',
+                name: '酒紅金箔',
+                emoji: '🏆',
+                desc: '奢華皮革',
+                hex: '#b9121b',
+                previewBg: 'linear-gradient(135deg,#2a0508,#5e1519)',
+                previewAccent: '#d4a017',
+                color: '185 18 27',
+                bgHex: '#3d0a0e',
+                vars: {
+                    '--leather-deep':'#2a0508','--leather-base':'#3d0a0e',
+                    '--leather-mid':'#4e0f14','--leather-light':'#5e1519',
+                    '--leather-lift':'#701a1f','--leather-hover':'#821e24',
+                    '--gold-bright':'#f0c040','--gold-mid':'#d4a017',
+                    '--gold-dim':'#a07c10','--gold-shadow':'#6b5208',
+                    '--gold-glow':'rgba(212,160,23,0.35)','--gold-subtle':'rgba(212,160,23,0.12)',
+                    '--gold-border':'rgba(212,160,23,0.55)',
+                    '--t1':'#f8e8c8','--t2':'#c9a870','--t3':'#8a6a3a','--t4':'#5a3e20',
+                    '--s0':'#2a0508','--s1':'#3d0a0e','--s2':'#4e0f14','--s3':'#5e1519','--s4':'#701a1f',
+                    '--b1':'rgba(212,160,23,0.25)','--b2':'rgba(212,160,23,0.45)','--b3':'rgba(212,160,23,0.70)',
+                    '--accent-10':'rgba(185,18,27,0.15)','--accent-20':'rgba(185,18,27,0.25)','--accent-30':'rgba(185,18,27,0.40)',
+                }
+            },
+            {
+                id: 'midnight-sapphire',
+                name: '午夜藍寶',
+                emoji: '💎',
+                desc: '深海奢藍',
+                hex: '#1e3a8a',
+                previewBg: 'linear-gradient(135deg,#060d1f,#0d1f4a)',
+                previewAccent: '#60a5fa',
+                color: '37 99 235',
+                bgHex: '#060d1f',
+                vars: {
+                    '--s0':'#060d1f','--s1':'#0d1a3a','--s2':'#112348','--s3':'#162d5a','--s4':'#1e3a6e',
+                    '--b1':'rgba(96,165,250,0.15)','--b2':'rgba(96,165,250,0.30)','--b3':'rgba(96,165,250,0.50)',
+                    '--t1':'#e0f0ff','--t2':'#93c5fd','--t3':'#3b72c5','--t4':'#1e3a6e',
+                    '--gold-border':'rgba(96,165,250,0.40)','--gold-glow':'rgba(96,165,250,0.25)',
+                    '--gold-subtle':'rgba(96,165,250,0.10)','--gold-bright':'#93c5fd','--gold-mid':'#60a5fa',
+                    '--gold-dim':'#3b82f6','--gold-shadow':'#1d4ed8',
+                    '--gold-gradient':'linear-gradient(135deg,#1d4ed8,#3b82f6,#93c5fd,#60a5fa,#1d4ed8)',
+                    '--gold-gradient-h':'linear-gradient(90deg,#1d4ed8,#60a5fa,#93c5fd,#60a5fa,#1d4ed8)',
+                    '--leather-deep':'#060d1f','--leather-base':'#0d1a3a','--leather-mid':'#112348',
+                    '--leather-light':'#162d5a','--leather-lift':'#1e3a6e','--leather-hover':'#254888',
+                    '--accent-10':'rgba(37,99,235,0.15)','--accent-20':'rgba(37,99,235,0.25)','--accent-30':'rgba(37,99,235,0.40)',
+                }
+            },
+            {
+                id: 'obsidian-emerald',
+                name: '黑曜翡翠',
+                emoji: '🌿',
+                desc: '暗夜林綠',
+                hex: '#065f46',
+                previewBg: 'linear-gradient(135deg,#021510,#053d2c)',
+                previewAccent: '#34d399',
+                color: '5 150 105',
+                bgHex: '#021510',
+                vars: {
+                    '--s0':'#021510','--s1':'#042e20','--s2':'#064030','--s3':'#085540','--s4':'#0a6a50',
+                    '--b1':'rgba(52,211,153,0.15)','--b2':'rgba(52,211,153,0.28)','--b3':'rgba(52,211,153,0.50)',
+                    '--t1':'#d1fae5','--t2':'#6ee7b7','--t3':'#1d6b50','--t4':'#0d4030',
+                    '--gold-border':'rgba(52,211,153,0.40)','--gold-glow':'rgba(52,211,153,0.25)',
+                    '--gold-subtle':'rgba(52,211,153,0.10)','--gold-bright':'#6ee7b7','--gold-mid':'#34d399',
+                    '--gold-dim':'#10b981','--gold-shadow':'#059669',
+                    '--gold-gradient':'linear-gradient(135deg,#059669,#34d399,#6ee7b7,#34d399,#059669)',
+                    '--gold-gradient-h':'linear-gradient(90deg,#059669,#34d399,#6ee7b7,#34d399,#059669)',
+                    '--leather-deep':'#021510','--leather-base':'#042e20','--leather-mid':'#064030',
+                    '--leather-light':'#085540','--leather-lift':'#0a6a50','--leather-hover':'#0c7a5c',
+                    '--accent-10':'rgba(5,150,105,0.15)','--accent-20':'rgba(5,150,105,0.25)','--accent-30':'rgba(5,150,105,0.40)',
+                }
+            },
+            {
+                id: 'volcanic-amber',
+                name: '火山琥珀',
+                emoji: '🔥',
+                desc: '熔岩橘金',
+                hex: '#b45309',
+                previewBg: 'linear-gradient(135deg,#1c0a00,#4a1800)',
+                previewAccent: '#fbbf24',
+                color: '217 119 6',
+                bgHex: '#1c0a00',
+                vars: {
+                    '--s0':'#1c0a00','--s1':'#2e1000','--s2':'#3d1500','--s3':'#4f1c00','--s4':'#652400',
+                    '--b1':'rgba(251,191,36,0.18)','--b2':'rgba(251,191,36,0.35)','--b3':'rgba(251,191,36,0.55)',
+                    '--t1':'#fef3c7','--t2':'#fcd34d','--t3':'#a16207','--t4':'#633d0a',
+                    '--gold-border':'rgba(251,191,36,0.50)','--gold-glow':'rgba(251,191,36,0.30)',
+                    '--gold-subtle':'rgba(251,191,36,0.12)','--gold-bright':'#fde68a','--gold-mid':'#fbbf24',
+                    '--gold-dim':'#f59e0b','--gold-shadow':'#d97706',
+                    '--gold-gradient':'linear-gradient(135deg,#d97706,#fbbf24,#fde68a,#fbbf24,#d97706)',
+                    '--gold-gradient-h':'linear-gradient(90deg,#d97706,#fbbf24,#fde68a,#fbbf24,#d97706)',
+                    '--leather-deep':'#1c0a00','--leather-base':'#2e1000','--leather-mid':'#3d1500',
+                    '--leather-light':'#4f1c00','--leather-lift':'#652400','--leather-hover':'#7a2d00',
+                    '--accent-10':'rgba(217,119,6,0.15)','--accent-20':'rgba(217,119,6,0.25)','--accent-30':'rgba(217,119,6,0.40)',
+                }
+            },
+            {
+                id: 'royal-violet',
+                name: '皇家紫羅',
+                emoji: '👑',
+                desc: '暗夜紫晶',
+                hex: '#6d28d9',
+                previewBg: 'linear-gradient(135deg,#0d0518,#200a40)',
+                previewAccent: '#a78bfa',
+                color: '109 40 217',
+                bgHex: '#0d0518',
+                vars: {
+                    '--s0':'#0d0518','--s1':'#160824','--s2':'#1e0d30','--s3':'#28103e','--s4':'#33154e',
+                    '--b1':'rgba(167,139,250,0.15)','--b2':'rgba(167,139,250,0.28)','--b3':'rgba(167,139,250,0.50)',
+                    '--t1':'#ede9fe','--t2':'#c4b5fd','--t3':'#6d3ec0','--t4':'#3b1f70',
+                    '--gold-border':'rgba(167,139,250,0.40)','--gold-glow':'rgba(167,139,250,0.28)',
+                    '--gold-subtle':'rgba(167,139,250,0.10)','--gold-bright':'#c4b5fd','--gold-mid':'#a78bfa',
+                    '--gold-dim':'#7c3aed','--gold-shadow':'#5b21b6',
+                    '--gold-gradient':'linear-gradient(135deg,#5b21b6,#7c3aed,#a78bfa,#c4b5fd,#7c3aed)',
+                    '--gold-gradient-h':'linear-gradient(90deg,#5b21b6,#a78bfa,#c4b5fd,#a78bfa,#5b21b6)',
+                    '--leather-deep':'#0d0518','--leather-base':'#160824','--leather-mid':'#1e0d30',
+                    '--leather-light':'#28103e','--leather-lift':'#33154e','--leather-hover':'#3f1a60',
+                    '--accent-10':'rgba(109,40,217,0.15)','--accent-20':'rgba(109,40,217,0.25)','--accent-30':'rgba(109,40,217,0.40)',
+                }
+            },
+            // ── 科技系列 (Tech) ──────────────────────────
+            {
+                id: 'cyber-neon',
+                name: '霓虹賽博',
+                emoji: '⚡',
+                desc: '科技青光',
+                hex: '#0891b2',
+                previewBg: 'linear-gradient(135deg,#020d14,#041e2e)',
+                previewAccent: '#22d3ee',
+                color: '8 145 178',
+                bgHex: '#020d14',
+                vars: {
+                    '--s0':'#020d14','--s1':'#041e2e','--s2':'#062840','--s3':'#083550','--s4':'#0a4260',
+                    '--b1':'rgba(34,211,238,0.15)','--b2':'rgba(34,211,238,0.28)','--b3':'rgba(34,211,238,0.55)',
+                    '--t1':'#e0f7ff','--t2':'#67e8f9','--t3':'#0e7490','--t4':'#064e63',
+                    '--gold-border':'rgba(34,211,238,0.45)','--gold-glow':'rgba(34,211,238,0.30)',
+                    '--gold-subtle':'rgba(34,211,238,0.10)','--gold-bright':'#a5f3fc','--gold-mid':'#22d3ee',
+                    '--gold-dim':'#06b6d4','--gold-shadow':'#0891b2',
+                    '--gold-gradient':'linear-gradient(135deg,#0891b2,#06b6d4,#22d3ee,#67e8f9,#22d3ee)',
+                    '--gold-gradient-h':'linear-gradient(90deg,#0891b2,#22d3ee,#67e8f9,#22d3ee,#0891b2)',
+                    '--leather-deep':'#020d14','--leather-base':'#041e2e','--leather-mid':'#062840',
+                    '--leather-light':'#083550','--leather-lift':'#0a4260','--leather-hover':'#0c5070',
+                    '--accent-10':'rgba(8,145,178,0.15)','--accent-20':'rgba(8,145,178,0.25)','--accent-30':'rgba(8,145,178,0.40)',
+                }
+            },
+            {
+                id: 'matrix-green',
+                name: '駭客綠陣',
+                emoji: '🖥️',
+                desc: '終端矩陣',
+                hex: '#16a34a',
+                previewBg: 'linear-gradient(135deg,#000d04,#011a08)',
+                previewAccent: '#4ade80',
+                color: '22 163 74',
+                bgHex: '#000d04',
+                vars: {
+                    '--s0':'#000d04','--s1':'#011a08','--s2':'#02260d','--s3':'#033312','--s4':'#044018',
+                    '--b1':'rgba(74,222,128,0.15)','--b2':'rgba(74,222,128,0.28)','--b3':'rgba(74,222,128,0.55)',
+                    '--t1':'#dcfce7','--t2':'#86efac','--t3':'#16a34a','--t4':'#0d6030',
+                    '--gold-border':'rgba(74,222,128,0.40)','--gold-glow':'rgba(74,222,128,0.25)',
+                    '--gold-subtle':'rgba(74,222,128,0.08)','--gold-bright':'#bbf7d0','--gold-mid':'#4ade80',
+                    '--gold-dim':'#22c55e','--gold-shadow':'#16a34a',
+                    '--gold-gradient':'linear-gradient(135deg,#16a34a,#22c55e,#4ade80,#86efac,#4ade80)',
+                    '--gold-gradient-h':'linear-gradient(90deg,#16a34a,#4ade80,#86efac,#4ade80,#16a34a)',
+                    '--leather-deep':'#000d04','--leather-base':'#011a08','--leather-mid':'#02260d',
+                    '--leather-light':'#033312','--leather-lift':'#044018','--leather-hover':'#054e1e',
+                    '--accent-10':'rgba(22,163,74,0.15)','--accent-20':'rgba(22,163,74,0.25)','--accent-30':'rgba(22,163,74,0.40)',
+                }
+            },
+            {
+                id: 'titanium',
+                name: '鈦金屬',
+                emoji: '🔩',
+                desc: '冷調銀灰',
+                hex: '#475569',
+                previewBg: 'linear-gradient(135deg,#0a0c0e,#1a1e24)',
+                previewAccent: '#94a3b8',
+                color: '71 85 105',
+                bgHex: '#0a0c0e',
+                vars: {
+                    '--s0':'#0a0c0e','--s1':'#131619','--s2':'#1a1e24','--s3':'#222730','--s4':'#2c323c',
+                    '--b1':'rgba(148,163,184,0.12)','--b2':'rgba(148,163,184,0.22)','--b3':'rgba(148,163,184,0.40)',
+                    '--t1':'#f1f5f9','--t2':'#94a3b8','--t3':'#475569','--t4':'#2d3748',
+                    '--gold-border':'rgba(148,163,184,0.35)','--gold-glow':'rgba(148,163,184,0.18)',
+                    '--gold-subtle':'rgba(148,163,184,0.08)','--gold-bright':'#e2e8f0','--gold-mid':'#94a3b8',
+                    '--gold-dim':'#64748b','--gold-shadow':'#475569',
+                    '--gold-gradient':'linear-gradient(135deg,#475569,#64748b,#94a3b8,#cbd5e1,#94a3b8)',
+                    '--gold-gradient-h':'linear-gradient(90deg,#475569,#94a3b8,#cbd5e1,#94a3b8,#475569)',
+                    '--leather-deep':'#0a0c0e','--leather-base':'#131619','--leather-mid':'#1a1e24',
+                    '--leather-light':'#222730','--leather-lift':'#2c323c','--leather-hover':'#363d48',
+                    '--accent-10':'rgba(71,85,105,0.15)','--accent-20':'rgba(71,85,105,0.25)','--accent-30':'rgba(71,85,105,0.40)',
+                }
+            },
+            // ── 自然系列 (Nature) ──────────────────────────
+            {
+                id: 'cherry-blossom',
+                name: '京都櫻花',
+                emoji: '🌸',
+                desc: '粉紫和風',
+                hex: '#db2777',
+                previewBg: 'linear-gradient(135deg,#1a0510,#320a1e)',
+                previewAccent: '#f9a8d4',
+                color: '219 39 119',
+                bgHex: '#1a0510',
+                vars: {
+                    '--s0':'#1a0510','--s1':'#280818','--s2':'#380c22','--s3':'#461030','--s4':'#58143c',
+                    '--b1':'rgba(249,168,212,0.15)','--b2':'rgba(249,168,212,0.28)','--b3':'rgba(249,168,212,0.55)',
+                    '--t1':'#fce7f3','--t2':'#f9a8d4','--t3':'#be185d','--t4':'#831843',
+                    '--gold-border':'rgba(249,168,212,0.45)','--gold-glow':'rgba(249,168,212,0.28)',
+                    '--gold-subtle':'rgba(249,168,212,0.10)','--gold-bright':'#fce7f3','--gold-mid':'#f9a8d4',
+                    '--gold-dim':'#ec4899','--gold-shadow':'#db2777',
+                    '--gold-gradient':'linear-gradient(135deg,#db2777,#ec4899,#f9a8d4,#fce7f3,#f9a8d4)',
+                    '--gold-gradient-h':'linear-gradient(90deg,#be185d,#ec4899,#f9a8d4,#ec4899,#be185d)',
+                    '--leather-deep':'#1a0510','--leather-base':'#280818','--leather-mid':'#380c22',
+                    '--leather-light':'#461030','--leather-lift':'#58143c','--leather-hover':'#6a1848',
+                    '--accent-10':'rgba(219,39,119,0.15)','--accent-20':'rgba(219,39,119,0.25)','--accent-30':'rgba(219,39,119,0.40)',
+                }
+            },
+            {
+                id: 'deep-ocean',
+                name: '深海蔚藍',
+                emoji: '🌊',
+                desc: '海洋藍綠',
+                hex: '#0d9488',
+                previewBg: 'linear-gradient(135deg,#010d10,#021e24)',
+                previewAccent: '#5eead4',
+                color: '13 148 136',
+                bgHex: '#010d10',
+                vars: {
+                    '--s0':'#010d10','--s1':'#021e24','--s2':'#022e38','--s3':'#033d48','--s4':'#044e5c',
+                    '--b1':'rgba(94,234,212,0.15)','--b2':'rgba(94,234,212,0.28)','--b3':'rgba(94,234,212,0.55)',
+                    '--t1':'#ccfbf1','--t2':'#5eead4','--t3':'#0d9488','--t4':'#065f58',
+                    '--gold-border':'rgba(94,234,212,0.40)','--gold-glow':'rgba(94,234,212,0.28)',
+                    '--gold-subtle':'rgba(94,234,212,0.10)','--gold-bright':'#99f6e4','--gold-mid':'#5eead4',
+                    '--gold-dim':'#2dd4bf','--gold-shadow':'#0d9488',
+                    '--gold-gradient':'linear-gradient(135deg,#0d9488,#14b8a6,#5eead4,#99f6e4,#5eead4)',
+                    '--gold-gradient-h':'linear-gradient(90deg,#0d9488,#5eead4,#99f6e4,#5eead4,#0d9488)',
+                    '--leather-deep':'#010d10','--leather-base':'#021e24','--leather-mid':'#022e38',
+                    '--leather-light':'#033d48','--leather-lift':'#044e5c','--leather-hover':'#056070',
+                    '--accent-10':'rgba(13,148,136,0.15)','--accent-20':'rgba(13,148,136,0.25)','--accent-30':'rgba(13,148,136,0.40)',
+                }
+            },
+            // ── 復古系列 (Retro) ──────────────────────────
+            {
+                id: 'vintage-burgundy',
+                name: '波爾多紅',
+                emoji: '🍷',
+                desc: '復古酒館',
+                hex: '#881337',
+                previewBg: 'linear-gradient(135deg,#14020a,#2d0615)',
+                previewAccent: '#fb7185',
+                color: '136 19 55',
+                bgHex: '#14020a',
+                vars: {
+                    '--s0':'#14020a','--s1':'#200410','--s2':'#2d0615','--s3':'#3a081c','--s4':'#480a24',
+                    '--b1':'rgba(251,113,133,0.15)','--b2':'rgba(251,113,133,0.28)','--b3':'rgba(251,113,133,0.55)',
+                    '--t1':'#ffe4e6','--t2':'#fda4af','--t3':'#e11d48','--t4':'#881337',
+                    '--gold-border':'rgba(251,113,133,0.40)','--gold-glow':'rgba(251,113,133,0.25)',
+                    '--gold-subtle':'rgba(251,113,133,0.10)','--gold-bright':'#fecdd3','--gold-mid':'#fb7185',
+                    '--gold-dim':'#f43f5e','--gold-shadow':'#e11d48',
+                    '--gold-gradient':'linear-gradient(135deg,#881337,#e11d48,#fb7185,#fecdd3,#fb7185)',
+                    '--gold-gradient-h':'linear-gradient(90deg,#881337,#f43f5e,#fb7185,#f43f5e,#881337)',
+                    '--leather-deep':'#14020a','--leather-base':'#200410','--leather-mid':'#2d0615',
+                    '--leather-light':'#3a081c','--leather-lift':'#480a24','--leather-hover':'#580c2c',
+                    '--accent-10':'rgba(136,19,55,0.15)','--accent-20':'rgba(136,19,55,0.25)','--accent-30':'rgba(136,19,55,0.40)',
+                }
+            },
+            {
+                id: 'antique-bronze',
+                name: '古銅歲月',
+                emoji: '⚗️',
+                desc: '蒸汽朋克',
+                hex: '#92400e',
+                previewBg: 'linear-gradient(135deg,#0f0800,#241500)',
+                previewAccent: '#d97706',
+                color: '146 64 14',
+                bgHex: '#0f0800',
+                vars: {
+                    '--s0':'#0f0800','--s1':'#1e1000','--s2':'#2a1500','--s3':'#351b00','--s4':'#422200',
+                    '--b1':'rgba(217,119,6,0.20)','--b2':'rgba(217,119,6,0.38)','--b3':'rgba(217,119,6,0.60)',
+                    '--t1':'#fef3c7','--t2':'#fcd34d','--t3':'#b45309','--t4':'#78350f',
+                    '--gold-border':'rgba(217,119,6,0.55)','--gold-glow':'rgba(217,119,6,0.30)',
+                    '--gold-subtle':'rgba(217,119,6,0.12)','--gold-bright':'#fde68a','--gold-mid':'#d97706',
+                    '--gold-dim':'#b45309','--gold-shadow':'#92400e',
+                    '--gold-gradient':'linear-gradient(135deg,#78350f,#b45309,#d97706,#fbbf24,#d97706)',
+                    '--gold-gradient-h':'linear-gradient(90deg,#92400e,#d97706,#fbbf24,#d97706,#92400e)',
+                    '--leather-deep':'#0f0800','--leather-base':'#1e1000','--leather-mid':'#2a1500',
+                    '--leather-light':'#351b00','--leather-lift':'#422200','--leather-hover':'#502800',
+                    '--accent-10':'rgba(146,64,14,0.15)','--accent-20':'rgba(146,64,14,0.25)','--accent-30':'rgba(146,64,14,0.40)',
+                }
+            },
+            {
+                id: 'ink-indigo',
+                name: '墨水靛藍',
+                emoji: '🖊️',
+                desc: '書法禪意',
+                hex: '#312e81',
+                previewBg: 'linear-gradient(135deg,#05040f,#0e0c24)',
+                previewAccent: '#818cf8',
+                color: '99 102 241',
+                bgHex: '#05040f',
+                vars: {
+                    '--s0':'#05040f','--s1':'#0e0c24','--s2':'#141238','--s3':'#1c1848','--s4':'#241e5c',
+                    '--b1':'rgba(129,140,248,0.15)','--b2':'rgba(129,140,248,0.28)','--b3':'rgba(129,140,248,0.55)',
+                    '--t1':'#e0e7ff','--t2':'#a5b4fc','--t3':'#4f46e5','--t4':'#312e81',
+                    '--gold-border':'rgba(129,140,248,0.40)','--gold-glow':'rgba(129,140,248,0.28)',
+                    '--gold-subtle':'rgba(129,140,248,0.10)','--gold-bright':'#c7d2fe','--gold-mid':'#818cf8',
+                    '--gold-dim':'#6366f1','--gold-shadow':'#4f46e5',
+                    '--gold-gradient':'linear-gradient(135deg,#312e81,#4f46e5,#818cf8,#c7d2fe,#818cf8)',
+                    '--gold-gradient-h':'linear-gradient(90deg,#312e81,#6366f1,#a5b4fc,#6366f1,#312e81)',
+                    '--leather-deep':'#05040f','--leather-base':'#0e0c24','--leather-mid':'#141238',
+                    '--leather-light':'#1c1848','--leather-lift':'#241e5c','--leather-hover':'#2e2570',
+                    '--accent-10':'rgba(99,102,241,0.15)','--accent-20':'rgba(99,102,241,0.25)','--accent-30':'rgba(99,102,241,0.40)',
+                }
+            },
+            // ── 特殊系列 (Special) ──────────────────────────
+            {
+                id: 'rose-gold',
+                name: '閃亮玫瑰',
+                emoji: '🌹',
+                desc: '時尚玫瑰',
+                hex: '#c2185b',
+                previewBg: 'linear-gradient(135deg,#1a0810,#32121e)',
+                previewAccent: '#f48fb1',
+                color: '194 24 91',
+                bgHex: '#1a0810',
+                vars: {
+                    '--s0':'#1a0810','--s1':'#280d18','--s2':'#361222','--s3':'#44162c','--s4':'#541a38',
+                    '--b1':'rgba(244,143,177,0.18)','--b2':'rgba(244,143,177,0.32)','--b3':'rgba(244,143,177,0.55)',
+                    '--t1':'#fce4ec','--t2':'#f48fb1','--t3':'#c2185b','--t4':'#880e4f',
+                    '--gold-border':'rgba(244,143,177,0.48)','--gold-glow':'rgba(244,143,177,0.30)',
+                    '--gold-subtle':'rgba(244,143,177,0.12)','--gold-bright':'#fce4ec','--gold-mid':'#f48fb1',
+                    '--gold-dim':'#e91e63','--gold-shadow':'#c2185b',
+                    '--gold-gradient':'linear-gradient(135deg,#880e4f,#c2185b,#f48fb1,#fce4ec,#f48fb1)',
+                    '--gold-gradient-h':'linear-gradient(90deg,#ad1457,#e91e63,#f48fb1,#e91e63,#ad1457)',
+                    '--leather-deep':'#1a0810','--leather-base':'#280d18','--leather-mid':'#361222',
+                    '--leather-light':'#44162c','--leather-lift':'#541a38','--leather-hover':'#651e44',
+                    '--accent-10':'rgba(194,24,91,0.15)','--accent-20':'rgba(194,24,91,0.25)','--accent-30':'rgba(194,24,91,0.40)',
+                }
+            },
+            {
+                id: 'arctic-white',
+                name: '北極冰原',
+                emoji: '❄️',
+                desc: '純白冰藍',
+                hex: '#0284c7',
+                previewBg: 'linear-gradient(135deg,#f0f9ff,#e0f2fe)',
+                previewAccent: '#0ea5e9',
+                color: '2 132 199',
+                bgHex: '#f0f9ff',
+                vars: {
+                    '--s0':'#f0f9ff','--s1':'#e0f2fe','--s2':'#bae6fd','--s3':'#ffffff','--s4':'#f8fafc',
+                    '--b1':'rgba(2,132,199,0.15)','--b2':'rgba(2,132,199,0.25)','--b3':'rgba(2,132,199,0.45)',
+                    '--t1':'#0c4a6e','--t2':'#0369a1','--t3':'#38bdf8','--t4':'#7dd3fc',
+                    '--gold-border':'rgba(2,132,199,0.35)','--gold-glow':'rgba(2,132,199,0.20)',
+                    '--gold-subtle':'rgba(2,132,199,0.08)','--gold-bright':'#0c4a6e','--gold-mid':'#0284c7',
+                    '--gold-dim':'#0ea5e9','--gold-shadow':'#38bdf8',
+                    '--gold-gradient':'linear-gradient(135deg,#0c4a6e,#0284c7,#0ea5e9,#38bdf8,#0ea5e9)',
+                    '--gold-gradient-h':'linear-gradient(90deg,#0c4a6e,#0284c7,#38bdf8,#0284c7,#0c4a6e)',
+                    '--leather-deep':'#e0f2fe','--leather-base':'#f0f9ff','--leather-mid':'#ffffff',
+                    '--leather-light':'#f8fafc','--leather-lift':'#ffffff','--leather-hover':'#f0f9ff',
+                    '--accent-10':'rgba(2,132,199,0.10)','--accent-20':'rgba(2,132,199,0.18)','--accent-30':'rgba(2,132,199,0.30)',
+                }
+            },
+            {
+                id: 'sakura-white',
+                name: '和風白紙',
+                emoji: '🗾',
+                desc: '日式簡約',
+                hex: '#be123c',
+                previewBg: 'linear-gradient(135deg,#fff5f5,#fff1f2)',
+                previewAccent: '#f43f5e',
+                color: '190 18 60',
+                bgHex: '#fff5f5',
+                vars: {
+                    '--s0':'#fff5f5','--s1':'#fff1f2','--s2':'#ffe4e6','--s3':'#fecdd3','--s4':'#fda4af',
+                    '--b1':'rgba(190,18,60,0.12)','--b2':'rgba(190,18,60,0.22)','--b3':'rgba(190,18,60,0.40)',
+                    '--t1':'#1e293b','--t2':'#475569','--t3':'#94a3b8','--t4':'#cbd5e1',
+                    '--gold-border':'rgba(190,18,60,0.30)','--gold-glow':'rgba(190,18,60,0.15)',
+                    '--gold-subtle':'rgba(190,18,60,0.06)','--gold-bright':'#be123c','--gold-mid':'#e11d48',
+                    '--gold-dim':'#f43f5e','--gold-shadow':'#fb7185',
+                    '--gold-gradient':'linear-gradient(135deg,#be123c,#e11d48,#f43f5e,#fb7185,#f43f5e)',
+                    '--gold-gradient-h':'linear-gradient(90deg,#9f1239,#e11d48,#f43f5e,#e11d48,#9f1239)',
+                    '--leather-deep':'#ffe4e6','--leather-base':'#fff1f2','--leather-mid':'#fff5f5',
+                    '--leather-light':'#ffffff','--leather-lift':'#fef2f2','--leather-hover':'#ffe4e6',
+                    '--accent-10':'rgba(190,18,60,0.08)','--accent-20':'rgba(190,18,60,0.15)','--accent-30':'rgba(190,18,60,0.25)',
+                }
+            },
+            {
+                id: 'forest-moss',
+                name: '苔蘚森林',
+                emoji: '🍃',
+                desc: '自然綠調',
+                hex: '#15803d',
+                previewBg: 'linear-gradient(135deg,#f0fdf4,#dcfce7)',
+                previewAccent: '#22c55e',
+                color: '21 128 61',
+                bgHex: '#f0fdf4',
+                vars: {
+                    '--s0':'#f0fdf4','--s1':'#dcfce7','--s2':'#bbf7d0','--s3':'#ffffff','--s4':'#f8fafc',
+                    '--b1':'rgba(21,128,61,0.15)','--b2':'rgba(21,128,61,0.25)','--b3':'rgba(21,128,61,0.45)',
+                    '--t1':'#14532d','--t2':'#15803d','--t3':'#4ade80','--t4':'#86efac',
+                    '--gold-border':'rgba(21,128,61,0.35)','--gold-glow':'rgba(21,128,61,0.20)',
+                    '--gold-subtle':'rgba(21,128,61,0.08)','--gold-bright':'#14532d','--gold-mid':'#15803d',
+                    '--gold-dim':'#16a34a','--gold-shadow':'#22c55e',
+                    '--gold-gradient':'linear-gradient(135deg,#14532d,#15803d,#16a34a,#22c55e,#16a34a)',
+                    '--gold-gradient-h':'linear-gradient(90deg,#14532d,#16a34a,#4ade80,#16a34a,#14532d)',
+                    '--leather-deep':'#dcfce7','--leather-base':'#f0fdf4','--leather-mid':'#ffffff',
+                    '--leather-light':'#f8fafc','--leather-lift':'#ffffff','--leather-hover':'#f0fdf4',
+                    '--accent-10':'rgba(21,128,61,0.10)','--accent-20':'rgba(21,128,61,0.18)','--accent-30':'rgba(21,128,61,0.28)',
+                }
+            },
+            {
+                id: 'lava-orange',
+                name: '活力橘焰',
+                emoji: '🧡',
+                desc: '熱情暖橙',
+                hex: '#ea580c',
+                previewBg: 'linear-gradient(135deg,#fff7ed,#ffedd5)',
+                previewAccent: '#f97316',
+                color: '234 88 12',
+                bgHex: '#fff7ed',
+                vars: {
+                    '--s0':'#fff7ed','--s1':'#ffedd5','--s2':'#fed7aa','--s3':'#ffffff','--s4':'#fef3c7',
+                    '--b1':'rgba(234,88,12,0.15)','--b2':'rgba(234,88,12,0.25)','--b3':'rgba(234,88,12,0.45)',
+                    '--t1':'#431407','--t2':'#9a3412','--t3':'#f97316','--t4':'#fdba74',
+                    '--gold-border':'rgba(234,88,12,0.35)','--gold-glow':'rgba(234,88,12,0.20)',
+                    '--gold-subtle':'rgba(234,88,12,0.08)','--gold-bright':'#431407','--gold-mid':'#ea580c',
+                    '--gold-dim':'#f97316','--gold-shadow':'#fb923c',
+                    '--gold-gradient':'linear-gradient(135deg,#9a3412,#ea580c,#f97316,#fb923c,#f97316)',
+                    '--gold-gradient-h':'linear-gradient(90deg,#7c2d12,#ea580c,#f97316,#ea580c,#7c2d12)',
+                    '--leather-deep':'#ffedd5','--leather-base':'#fff7ed','--leather-mid':'#ffffff',
+                    '--leather-light':'#fef9f5','--leather-lift':'#ffffff','--leather-hover':'#fff7ed',
+                    '--accent-10':'rgba(234,88,12,0.10)','--accent-20':'rgba(234,88,12,0.18)','--accent-30':'rgba(234,88,12,0.28)',
+                }
+            },
         ];
         const App = () => {
             const [currentPage, setCurrentPage] = useState('auth');
@@ -4436,11 +5418,25 @@
             const [showThemeModal, setShowThemeModal] = useState(false);
             const [activeTheme, setActiveTheme] = useState(() => localStorage.getItem('k_app_theme') || 'red');
 
-            // 這段 useEffect 是關鍵：它負責把顏色寫入 CSS 變數，讓全站變色
+            // useEffect：切換主題時把所有 CSS 變數寫入 :root
             useEffect(() => {
                 const themeObj = APP_THEMES.find(t => t.id === activeTheme) || APP_THEMES[0];
-                document.documentElement.style.setProperty('--brand-red', themeObj.color);
-                document.documentElement.style.setProperty('--app-bg', themeObj.bgHex);
+                const root = document.documentElement;
+                // 基礎品牌色（必要）
+                root.style.setProperty('--brand-red', themeObj.color);
+                root.style.setProperty('--app-bg', themeObj.bgHex);
+                // 完整主題變數
+                if (themeObj.vars) {
+                    Object.entries(themeObj.vars).forEach(([k, v]) => {
+                        root.style.setProperty(k, v);
+                    });
+                }
+                // accent helpers from brand-red
+                const [r,g,b] = themeObj.color.split(' ');
+                root.style.setProperty('--accent', `rgb(${r},${g},${b})`);
+                root.style.setProperty('--accent-10', themeObj.vars?.['--accent-10'] || `rgba(${r},${g},${b},0.15)`);
+                root.style.setProperty('--accent-20', themeObj.vars?.['--accent-20'] || `rgba(${r},${g},${b},0.25)`);
+                root.style.setProperty('--accent-30', themeObj.vars?.['--accent-30'] || `rgba(${r},${g},${b},0.40)`);
                 localStorage.setItem('k_app_theme', activeTheme);
             }, [activeTheme]);
             const [currentUser, setCurrentUser] = useState(() => { const saved = localStorage.getItem('k_active_user'); return saved ? JSON.parse(saved) : null; });
@@ -4461,8 +5457,36 @@
             const [activeAnnouncement, setActiveAnnouncement] = useState(null);
             
             // 全域資料
-            const [globalBranches, setGlobalBranches] = useState(['南港Lalaport']);
-            const [currentBranch, setCurrentBranch] = useState('南港Lalaport');
+            const [globalBranches, setGlobalBranches] = useState(() => {
+                // 從 localStorage 讀取快取的分店清單，避免每次載入都閃現舊預設值
+                try {
+                    const cached = localStorage.getItem('k_cached_branches');
+                    if (cached) { const list = JSON.parse(cached); if (list.length > 0) return list; }
+                } catch(e) {}
+                return ['南港Lalaport'];
+            });
+            const [currentBranch, setCurrentBranch] = useState(() => {
+                // 最高權限：記憶上次選擇的分店
+                if (localStorage.getItem('k_super_admin') === 'true') {
+                    const last = localStorage.getItem('k_last_branch');
+                    if (last) return last;
+                    try {
+                        const cached = localStorage.getItem('k_cached_branches');
+                        if (cached) { const list = JSON.parse(cached); if (list.length > 0) return list[0]; }
+                    } catch(e) {}
+                    return '南港Lalaport';
+                }
+                // 一般使用者：從帳號資料取得
+                try {
+                    const saved = localStorage.getItem('k_active_user');
+                    if (saved) {
+                        const u = JSON.parse(saved);
+                        const branches = Array.isArray(u.branch) ? u.branch : [u.branch];
+                        return branches[0] || '南港Lalaport';
+                    }
+                } catch(e) {}
+                return '南港Lalaport';
+            });
             const [branchZones, setBranchZones] = useState([]);
             const [announcements, setAnnouncements] = useState([]);
             const [tickerText, setTickerText] = useState('');
@@ -4488,6 +5512,8 @@
                 setCurrentUser(null); setIsManager(false); setIsSuperAdmin(false); setCurrentPage('auth'); 
                 localStorage.removeItem('k_active_user'); 
                 localStorage.removeItem('k_super_admin');
+                localStorage.removeItem('k_last_branch');
+                // 保留 k_cached_branches 讓下次載入仍快
             };
             const triggerNotify = useCallback((msg, type = "info") => {
                 const id = Date.now(); setNotifications(prev => [...prev, { id, msg, type }]);
@@ -4613,7 +5639,14 @@
                 if (!user) return;
                 const errH = () => triggerNotify("讀取失敗", "error");
                 const subs = [
-                    db.doc(getPublicPath('system/branches')).onSnapshot(d => d.exists && d.data().list && setGlobalBranches(d.data().list), errH),
+                    db.doc(getPublicPath('system/branches')).onSnapshot(d => {
+                        if (d.exists && d.data().list) {
+                            const list = d.data().list;
+                            setGlobalBranches(list);
+                            // 快取到 localStorage，下次載入直接使用，不閃爍
+                            try { localStorage.setItem('k_cached_branches', JSON.stringify(list)); } catch(e) {}
+                        }
+                    }, errH),
                     db.collection(getPublicPath('global_recipes')).onSnapshot(s => setGlobalRecipes(s.docs.map(d => ({id: d.id, ...d.data()}))), errH),
                     db.collection(getPublicPath('users')).onSnapshot(s => { 
                         const all = s.docs.map(d => d.data()); setUsers(all); 
@@ -4728,12 +5761,16 @@
                 };
             }, [user, currentBranch]);
 
-            // 確保非最高權限者強制綁定自己的分店
+// 確保非最高權限者強制綁定自己的分店 (支援複數分店切換)
             useEffect(() => {
-                if(!isSuperAdmin && currentUser && currentUser.branch) {
-                    setCurrentBranch(currentUser.branch);
+                if (!isSuperAdmin && currentUser && currentUser.branch) {
+                    const allowedBranches = Array.isArray(currentUser.branch) ? currentUser.branch : [currentUser.branch];
+                    // 如果當前選擇的分店不在該使用者的允許清單內，則強制跳回他的第一間分店
+                    if (!allowedBranches.includes(currentBranch)) {
+                        setCurrentBranch(allowedBranches[0]);
+                    }
                 }
-            }, [currentUser, isSuperAdmin]);
+            }, [currentUser, isSuperAdmin, currentBranch]);
 
             const renderPage = () => {
                 switch(currentPage) {
@@ -4744,13 +5781,19 @@
                                 <Ticker text={tickerText} />
                                 <div className="p-4 space-y-6 mt-2 text-left font-bold">
                                     
-                                    {/* 最高權限專屬：首頁快速切換分店 */}
-                                    {isSuperAdmin && (
+{/* 支援最高權限與多店主管：首頁快速切換分店 */}
+                                    {(isSuperAdmin || (Array.isArray(currentUser?.branch) && currentUser.branch.length > 1)) && (
                                         <div className="bg-slate-900 text-white p-4 rounded-[2rem] flex items-center justify-between shadow-xl mb-2">
                                             <div>
-                                                <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">目前檢視分店 (最高權限)</p>
-                                                <select value={currentBranch} onChange={e => setCurrentBranch(e.target.value)} className="bg-transparent border-none text-xl font-black outline-none appearance-none cursor-pointer text-white">
-                                                    {globalBranches.map(b => <option key={b} value={b} className="text-slate-900">{b}</option>)}
+                                                <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">目前檢視分店</p>
+                                                <select 
+                                                    value={currentBranch} 
+                                                    onChange={e => { setCurrentBranch(e.target.value); if(isSuperAdmin) { try { localStorage.setItem('k_last_branch', e.target.value); } catch(err) {} } }} 
+                                                    className="bg-transparent border-none text-xl font-black outline-none appearance-none cursor-pointer text-white"
+                                                >
+                                                    {(isSuperAdmin ? globalBranches : currentUser.branch).map(b => (
+                                                        <option key={b} value={b} className="text-slate-900">{b}</option>
+                                                    ))}
                                                 </select>
                                             </div>
                                             <div className="bg-brand-red w-10 h-10 rounded-xl flex items-center justify-center shadow-lg">
@@ -4840,15 +5883,15 @@
                     );
                     case 'benefit-eval': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="考核標準" list={benefitsData?.evaluation} />;
                     case 'benefit-wel': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="福利項目" list={benefitsData?.welfare} />;
-                    case 'admin': return <AdminPage onBack={()=>setCurrentPage('home')} onLogout={logout} announcements={announcements} standards={standards} users={users} triggerNotify={triggerNotify} menu={menuData} onboarding={onboardingData} benefits={benefitsData} rulesData={rulesData} isSuperAdmin={isSuperAdmin} currentBranch={currentBranch} setCurrentBranch={setCurrentBranch} globalBranches={globalBranches} branchZones={branchZones} getPublicPath={getPublicPath} signatures={signatures} tickerText={tickerText} setTickerText={setTickerText} globalRecipes={globalRecipes} />;
+                    case 'admin': return <AdminPage onBack={()=>setCurrentPage('home')} onLogout={logout} announcements={announcements} standards={standards} users={users} triggerNotify={triggerNotify} menu={menuData} onboarding={onboardingData} benefits={benefitsData} rulesData={rulesData} isSuperAdmin={isSuperAdmin} currentBranch={currentBranch} setCurrentBranch={setCurrentBranch} globalBranches={globalBranches} branchZones={branchZones} getPublicPath={getPublicPath} signatures={signatures} tickerText={tickerText} setTickerText={setTickerText} globalRecipes={globalRecipes} currentUser={currentUser} />;
                     default: return <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><Icon name="loader-2" className="animate-spin text-brand-red" size={32}/> 系統啟動中...</div>;
                 }
             };
 
             return (
                 <div className="min-h-screen flex flex-col">
-                    <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[1000] w-full max-w-xs space-y-3 px-4">
-                        {notifications.map(n => (<div key={n.id} className={`toast-enter p-5 rounded-[2rem] shadow-2xl flex items-center gap-4 glass-panel border-l-4 ${n.type === 'success' ? 'border-l-emerald-500 text-emerald-700' : 'border-l-brand-red text-brand-red'}`}><Icon name={n.type === 'success' ? 'check-circle' : 'alert-triangle'} size={24} /><span className="font-bold text-xs leading-tight">{n.msg}</span></div>))}
+                    <div className="fixed z-[1000] flex flex-col gap-2.5 pointer-events-none" style={{top:'4.5rem', left:0, right:0, marginLeft:'auto', marginRight:'auto', width:'calc(100% - 2rem)', maxWidth:'22rem'}}>
+                        {notifications.map(n => (<div key={n.id} className={`toast-enter pointer-events-auto px-4 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 glass-panel border-l-4 w-full ${n.type === 'success' ? 'border-l-emerald-500 text-emerald-700' : 'border-l-brand-red text-brand-red'}`}><Icon name={n.type === 'success' ? 'check-circle' : 'alert-triangle'} size={18} /><span className="font-bold text-xs leading-tight flex-1">{n.msg}</span></div>))}
                     </div>
 
                     {currentPage !== 'auth' && (
@@ -4893,22 +5936,86 @@
                         {/* 主題選擇彈跳視窗 */}
                         {showThemeModal && (
                             <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 page-enter" onClick={() => setShowThemeModal(false)}>
-                                <div className="bg-white rounded-[2.5rem] p-6 w-full max-w-xs shadow-2xl font-bold text-left" onClick={e => e.stopPropagation()}>
-                                    <div className="flex justify-between items-center mb-6">
-                                        <h2 className="text-xl font-black text-slate-800 flex items-center gap-2"><Icon name="palette" className="text-brand-red" /> 個人化配色</h2>
-                                        <button onClick={() => setShowThemeModal(false)} className="p-2 bg-slate-100 rounded-full text-slate-400 hover:text-brand-red transition-colors active:scale-90"><Icon name="x" size={18} /></button>
+                                <div className="bg-white rounded-[2.5rem] w-full max-w-sm shadow-2xl font-bold text-left flex flex-col" style={{maxHeight:'85vh'}} onClick={e => e.stopPropagation()}>
+                                    {/* Header */}
+                                    <div className="flex justify-between items-center px-6 pt-6 pb-4 shrink-0" style={{borderBottom:'1px solid var(--gold-border,rgba(255,255,255,0.1))'}}>
+                                        <h2 className="text-base font-black text-slate-800 flex items-center gap-2">
+                                            <Icon name="sparkles" size={18} className="text-brand-red" />
+                                            介面風格選擇
+                                        </h2>
+                                        <button onClick={() => setShowThemeModal(false)} className="p-2 bg-slate-100 rounded-full text-slate-400 hover:text-brand-red transition-colors active:scale-90"><Icon name="x" size={16} /></button>
                                     </div>
-                                    <div className="grid grid-cols-5 gap-3 mb-6">
-                                        {APP_THEMES.map(t => (
-                                            <button key={t.id} onClick={() => { setActiveTheme(t.id); triggerNotify(`已切換為 ${t.name}`, "success"); }} 
-                                                className={`relative aspect-square rounded-2xl shadow-sm transition-all active:scale-90 flex items-center justify-center ${activeTheme === t.id ? 'ring-4 ring-offset-2 ring-brand-red/40 scale-105' : 'hover:scale-105'}`}
-                                                style={{ backgroundColor: t.hex }}>
-                                                {activeTheme === t.id && <Icon name="check" size={16} className="text-white drop-shadow-md" />}
-                                            </button>
+
+                                    {/* Theme grid — scrollable */}
+                                    <div className="overflow-y-auto no-scrollbar px-5 py-4 flex-1">
+                                        {/* Group labels */}
+                                        {[
+                                            { label: '✨ 奢華系列', ids: ['crimson-gold','midnight-sapphire','obsidian-emerald','volcanic-amber','royal-violet'] },
+                                            { label: '⚡ 科技系列', ids: ['cyber-neon','matrix-green','titanium'] },
+                                            { label: '🌿 自然系列', ids: ['cherry-blossom','deep-ocean','forest-moss'] },
+                                            { label: '🕯️ 復古系列', ids: ['vintage-burgundy','antique-bronze','ink-indigo'] },
+                                            { label: '✦ 特殊系列', ids: ['rose-gold','arctic-white','sakura-white','lava-orange'] },
+                                        ].map(group => (
+                                            <div key={group.label} className="mb-5">
+                                                <p className="text-[10px] font-black uppercase tracking-widest mb-2.5 px-1" style={{color:'var(--t3,#888)'}}>{group.label}</p>
+                                                <div className="grid grid-cols-1 gap-2">
+                                                    {APP_THEMES.filter(t => group.ids.includes(t.id)).map(t => (
+                                                        <button
+                                                            key={t.id}
+                                                            onClick={() => { setActiveTheme(t.id); triggerNotify(`已切換：${t.name}`, "success"); }}
+                                                            className="relative flex items-center gap-3 p-3 rounded-2xl transition-all active:scale-[0.98] text-left overflow-hidden"
+                                                            style={{
+                                                                background: t.previewBg,
+                                                                border: activeTheme === t.id
+                                                                    ? `2px solid ${t.previewAccent}`
+                                                                    : '2px solid rgba(255,255,255,0.08)',
+                                                                boxShadow: activeTheme === t.id
+                                                                    ? `0 0 0 1px ${t.previewAccent}40, 0 4px 16px rgba(0,0,0,0.4)`
+                                                                    : '0 2px 8px rgba(0,0,0,0.25)',
+                                                            }}
+                                                        >
+                                                            {/* Color dot */}
+                                                            <div className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-lg"
+                                                                style={{background:`linear-gradient(135deg,${t.hex},${t.previewAccent})`,boxShadow:`0 2px 8px ${t.previewAccent}50`}}>
+                                                                {t.emoji}
+                                                            </div>
+                                                            {/* Text */}
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="font-black text-sm leading-none mb-0.5" style={{color:'#fff',textShadow:'0 1px 4px rgba(0,0,0,0.6)'}}>{t.name}</div>
+                                                                <div className="text-[10px] font-bold" style={{color:'rgba(255,255,255,0.55)'}}>{t.desc}</div>
+                                                            </div>
+                                                            {/* Active check */}
+                                                            {activeTheme === t.id && (
+                                                                <div className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center"
+                                                                    style={{background:t.previewAccent,boxShadow:`0 2px 6px ${t.previewAccent}60`}}>
+                                                                    <Icon name="check" size={13} style={{color:'#000'}} />
+                                                                </div>
+                                                            )}
+                                                            {/* Shimmer overlay for active */}
+                                                            {activeTheme === t.id && (
+                                                                <div className="absolute inset-0 rounded-2xl pointer-events-none"
+                                                                    style={{background:`linear-gradient(90deg,transparent,${t.previewAccent}15,transparent)`,animation:'shimmerSlide 2s ease-in-out infinite'}} />
+                                                            )}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
                                         ))}
                                     </div>
-                                    <button onClick={() => setShowThemeModal(false)} className="w-full bg-slate-100 text-slate-600 hover:bg-slate-200 font-black py-4 rounded-2xl active:scale-95 transition-all">完成</button>
+
+                                    {/* Footer */}
+                                    <div className="px-5 pb-5 pt-3 shrink-0" style={{borderTop:'1px solid var(--gold-border,rgba(255,255,255,0.1))'}}>
+                                        <button onClick={() => setShowThemeModal(false)} className="w-full bg-brand-red text-white font-black py-4 rounded-2xl active:scale-95 transition-all text-sm">
+                                            套用風格
+                                        </button>
+                                    </div>
                                 </div>
+                                <style>{`
+                                    @keyframes shimmerSlide {
+                                        0%   { transform: translateX(-100%); }
+                                        100% { transform: translateX(100%); }
+                                    }
+                                `}</style>
                             </div>
                         )}
                         
