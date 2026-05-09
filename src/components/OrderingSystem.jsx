@@ -231,4 +231,4 @@ const handleQuantityChange = (itemId, newVal) => {
     docRef.set({ activeQuantities: { [itemId]: val } }, { merge: true });
   });
 };
-
+export default OrderingSystem
