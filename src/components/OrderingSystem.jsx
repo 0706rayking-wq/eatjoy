@@ -232,5 +232,3 @@ const handleQuantityChange = (itemId, newVal) => {
   });
 };
 
-
-export default OrderingSystem
