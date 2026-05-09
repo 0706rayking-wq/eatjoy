@@ -4649,52 +4649,50 @@ canvas{display:block;width:100%;height:100%}
 .charBarEmoji{font-size:24px;flex-shrink:0}
 .charBarInfo{display:flex;flex-direction:column;gap:1px}
 .charBarName{font-size:13px;font-weight:900;color:#92400e;white-space:nowrap}
-.charBarTrack{width:200px;height:17px;background:#fde8c8;border-radius:8px;border:2px solid #f59e0b;overflow:hidden}
+.charBarTrack{width:200px;height:16px;background:#fee2e2;border-radius:8px;border:2px solid #fca5a5;overflow:hidden}
 .charBarFill{height:100%;border-radius:7px;transition:width .2s}
-.charBarNum{font-size:13px;font-weight:900;color:#b45309}
+.charBarNum{font-size:12px;font-weight:900;color:#dc2626}
 #stamRow{display:flex;align-items:center;gap:6px;margin-top:5px}
-#stamTrack{width:190px;height:13px;background:#e0e7ff;border-radius:7px;border:2px solid #818cf8;overflow:hidden}
-#stamFill{height:100%;border-radius:6px;transition:width .15s;background:linear-gradient(90deg,#6366f1,#a5b4fc)}
-#stamNum{font-size:14px;font-weight:900;color:#4338ca}
+#stamTrack{width:190px;height:12px;background:#dcfce7;border-radius:7px;border:2px solid #86efac;overflow:hidden}
+#stamFill{height:100%;border-radius:6px;transition:width .15s;background:linear-gradient(90deg,#22c55e,#86efac)}
+#stamNum{font-size:13px;font-weight:900;color:#16a34a}
 .hM{text-align:center;pointer-events:none;flex-shrink:0}
 #formBadge{display:block;font-size:15px;font-weight:900;color:#92400e;background:rgba(251,191,36,.18);border-radius:10px;padding:3px 10px}
 #formPassive{font-size:11px;color:#7c3aed;font-weight:700}
-.hR{text-align:right;font-size:14px;font-weight:900;line-height:1.9;color:#78350f;flex-shrink:0}
+.hR{text-align:right;font-size:15px;font-weight:900;line-height:2;color:#78350f;flex-shrink:0;z-index:21;position:relative}
 /* Boss HUD */
 #bossHud{position:absolute;top:88px;left:50%;transform:translateX(-50%);width:90%;max-width:460px;z-index:20;pointer-events:none;display:none}
 #bossName{text-align:center;font-size:18px;font-weight:900;color:#b91c1c;margin-bottom:6px}
 #bossTrack{height:18px;background:#fee2e2;border-radius:9px;border:2px solid #f87171;overflow:hidden}
 #bossFill{height:100%;background:linear-gradient(90deg,#ef4444,#f97316);border-radius:8px;transition:width .25s}
 /* Skill row */
-#skillRow{position:absolute;top:72px;left:50%;transform:translateX(-50%);display:flex;gap:12px;z-index:20}
-.skBadge{width:90px;height:90px;border-radius:26px;border:2px solid #d97706;background:rgba(253,248,240,.95);display:flex;align-items:center;justify-content:center;font-size:42px;position:relative;cursor:pointer;box-shadow:0 4px 16px rgba(180,83,9,.3)}
-.skCd{position:absolute;inset:0;border-radius:25px;background:rgba(253,248,240,.88);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:900;color:#92400e}
+#skillRow{display:none}
+.skBadge{width:74px;height:74px;border-radius:22px;border:2px solid #d97706;background:rgba(253,248,240,.95);display:flex;align-items:center;justify-content:center;font-size:34px;position:relative;cursor:pointer;box-shadow:0 3px 12px rgba(180,83,9,.25)}
+.skCd{display:none!important}
 /* ── 搖桿（左下） ── */
 #joystickWrap{position:absolute;left:14px;bottom:18px;width:140px;height:140px;z-index:20}
 #joystickBase{position:absolute;inset:0;border-radius:50%;background:rgba(253,248,240,.78);border:3px solid rgba(217,119,6,.45);box-shadow:0 4px 18px rgba(0,0,0,.18)}
 #joystickThumb{position:absolute;width:58px;height:58px;border-radius:50%;background:radial-gradient(circle at 38% 38%,rgba(253,248,240,.98),rgba(253,220,160,.92));border:2px solid #d97706;box-shadow:0 4px 14px rgba(0,0,0,.28);top:50%;left:50%;transform:translate(-50%,-50%);touch-action:none}
 /* ── 角色切換欄（右側中間，直排） ── */
-#charSwitchBar{position:absolute;right:14px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:12px;z-index:20}
-.cSwBtn{display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 7px;border-radius:18px;border:2px solid #e5e7eb;background:rgba(253,248,240,.95);cursor:pointer;width:84px;transition:all .15s;box-shadow:0 3px 12px rgba(0,0,0,.14)}
+#charSwitchBar{position:absolute;right:14px;top:50%;transform:translateY(-60%);display:flex;flex-direction:column;gap:8px;z-index:25}
+.cSwBtn{display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 5px;border-radius:14px;border:2px solid #e5e7eb;background:rgba(253,248,240,.95);cursor:pointer;width:68px;transition:all .15s;box-shadow:0 2px 8px rgba(0,0,0,.12)}
 .cSwBtn.active-char{border-color:#f59e0b;background:rgba(251,191,36,.3);box-shadow:0 0 20px rgba(245,158,11,.55)}
 .cSwBtn.dead-char{opacity:.32;filter:grayscale(1);cursor:not-allowed}
-.cSwEmoji{font-size:30px;line-height:1}
-.cSwName{font-size:12px;font-weight:900;color:#92400e;max-width:72px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:center}
-.cSwHpTrack{width:68px;height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden}
+.cSwEmoji{font-size:24px;line-height:1}
+.cSwName{font-size:10px;font-weight:900;color:#92400e;max-width:60px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;text-align:center}
+.cSwHpTrack{width:56px;height:7px;background:#e5e7eb;border-radius:4px;overflow:hidden}
 .cSwHpFill{height:100%;background:#22c55e;border-radius:4px;transition:width .2s}
 .cSwDead{font-size:16px;color:#9ca3af;display:none}
 /* ── 右側主控制（右下） ── */
-#rightCtrl{position:absolute;right:14px;bottom:18px;display:flex;flex-direction:column;align-items:center;gap:14px;z-index:20}
-.rBtn{width:96px;height:96px;border-radius:28px;border:2px solid;background:rgba(253,248,240,.95);display:flex;align-items:center;justify-content:center;font-size:44px;cursor:pointer;font-weight:900;position:relative;box-shadow:0 4px 18px rgba(0,0,0,.2)}
+#rightCtrl{position:absolute;right:10px;bottom:14px;display:flex;flex-direction:column;align-items:center;gap:10px;z-index:20}
+.rBtn{width:76px;height:76px;border-radius:22px;border:2px solid;background:rgba(253,248,240,.95);display:flex;align-items:center;justify-content:center;font-size:36px;cursor:pointer;font-weight:900;position:relative;box-shadow:0 3px 12px rgba(0,0,0,.15)}
 .rBtn:active{opacity:.65;transform:scale(.92)}
-#dodgeBtnR{border-color:#dc2626;background:linear-gradient(145deg,#fee2e2,#fecaca);box-shadow:0 5px 22px rgba(220,38,38,.45);width:112px;height:112px;border-radius:34px;font-size:52px}
-#dodgeBtnR.cooling{opacity:.35}
-.skRow{display:flex;gap:12px}
-#wpnToggle{border-color:#d97706;background:rgba(251,191,36,.2);width:88px;height:88px;border-radius:26px;font-size:42px}
+.skRow{display:flex;gap:8px}
+#wpnToggle{border-color:#d97706;background:rgba(251,191,36,.2);width:72px;height:72px;border-radius:22px;font-size:36px}
 /* Toast */
 #toast{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(253,248,240,.97);border:2px solid #d97706;border-radius:20px;padding:18px 24px;text-align:center;font-size:16px;font-weight:900;color:#92400e;z-index:60;pointer-events:none;opacity:0;transition:opacity .3s;line-height:1.7;max-width:85%;box-shadow:0 5px 24px rgba(0,0,0,.18)}
 /* Back btn */
-#backBtn{position:absolute;top:10px;left:10px;z-index:25;background:rgba(253,248,240,.88);border:2px solid #d97706;border-radius:14px;padding:7px 13px;font-size:15px;font-weight:900;color:#92400e;cursor:pointer;box-shadow:0 3px 10px rgba(0,0,0,.15)}
+#backBtn{display:none}
 /* QA Overlay */
 #qaOverlay{position:absolute;inset:0;z-index:80;display:none;pointer-events:none}
 #qaCard{position:absolute;top:10px;left:50%;transform:translateX(-50%);width:90%;max-width:360px;background:rgba(253,248,240,.97);border:2px solid #d97706;border-radius:14px;padding:12px 16px;z-index:82;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,.18)}
@@ -4735,11 +4733,10 @@ canvas{display:block;width:100%;height:100%}
 <body>
 <div id="gc">
 <canvas id="gameCanvas"></canvas>
-<div id="backBtn" onclick="goBackToCamp()">🏕️</div>
 <div id="hud">
 <div>
  <div id="charBars"></div>
- <div id="stamRow"><div style="font-size:13px">💨</div><div id="stamTrack"><div id="stamFill" style="width:100%"></div></div><div id="stamNum"></div></div>
+ <div id="stamRow"><div style="font-size:13px">⚡</div><div id="stamTrack"><div id="stamFill" style="width:100%"></div></div><div id="stamNum"></div></div>
 </div>
 <div class="hM"><span id="formBadge">🍙 原味</span><br><span id="formPassive">✨ 普通型</span></div>
 <div class="hR"><span style="color:#e96d2a">💰<span id="coinDisp">0</span></span><br><span style="color:#7c3aed">🏆<span id="scoreDisp">0</span></span><br><span style="color:#059669">LV<span id="lvlDisp">1</span></span></div>
@@ -4769,7 +4766,6 @@ canvas{display:block;width:100%;height:100%}
 </div>
 <!-- 右側控制（右下） -->
 <div id="rightCtrl">
-<div id="dodgeBtnR" class="rBtn" onclick="dodge()">💨</div>
 <div id="wpnToggle" class="rBtn" onclick="toggleWeapon()">🏹</div>
 <div class="skRow">
  <div class="skBadge" id="sk1" onclick="useSkill1()"><span id="sk1I">⚡</span><div class="skCd" id="sk1Cd" style="display:none"></div></div>
@@ -5012,17 +5008,31 @@ takeDamage(amt){
  this._defeated=true;
  if(qaActive){qaActive=false;document.getElementById('qaOverlay').style.display='none';document.getElementById('pzr').style.display='none';}
  document.getElementById('bossHud').style.display='none';
- for(let i=0;i<5;i++)setTimeout(()=>burst(this.x+(Math.random()-.5)*80,this.y+(Math.random()-.5)*80,this.color,25),i*200);
+ // ── 大型爆炸特效 ──
+ const bx=this.x,by=this.y,bc=this.color;
+ const colors=['#ef4444','#f97316','#fbbf24','#a3e635','#38bdf8','#c084fc','#fb7185'];
+ // 第一波：立即大爆炸
+ for(let i=0;i<20;i++)burst(bx+(Math.random()-.5)*120,by+(Math.random()-.5)*120,colors[i%colors.length],30);
+ // 第二到六波：連續爆炸
+ for(let w=1;w<=6;w++){
+  setTimeout(()=>{
+   for(let i=0;i<15;i++)burst(bx+(Math.random()-.5)*150,by+(Math.random()-.5)*150,colors[Math.floor(Math.random()*colors.length)],25);
+   addText('💥',bx+(Math.random()-.5)*100,by+(Math.random()-.5)*80,'#ef4444');
+  },w*180);
+ }
+ // 金幣爆散
+ for(let i=0;i<18;i++)coins.push(new Coin(bx+(Math.random()-.5)*100,by+(Math.random()-.5)*80));
+ // 畫面閃光
+ const fl2=document.getElementById('flash');if(fl2){fl2.style.background='rgba(255,255,255,.85)';fl2.style.opacity='1';setTimeout(()=>{fl2.style.opacity='0';},400);}
  score+=this.scoreVal;gold+=100;updateHUD();reportBossKill();
- for(let i=0;i<10;i++)coins.push(new Coin(this.x+(Math.random()-.5)*50,this.y+(Math.random()-.5)*30));
  stageCleared=true;gameRunning=false;
  setTimeout(()=>{
 stage++;
 const fl=document.getElementById('stageFlash'),fm=document.getElementById('stageFlashMsg');
-fm.textContent='💰 +100　關卡 '+stage+' 開始！';fl.style.display='flex';
-setTimeout(()=>fl.style.display='none',1200);
+fm.textContent='🎉 BOSS擊倒！💰 +100　關卡 '+stage+' 開始！';fl.style.display='flex';
+setTimeout(()=>fl.style.display='none',1500);
 buildStage(stage);gameRunning=true;last=performance.now();requestAnimationFrame(loop);
- },1800);
+ },2200);
  }
 }
 }
@@ -5051,7 +5061,7 @@ function dodge(){
 if(!gameRunning||dodgeCd>0||stamina<30)return;
 stamina=Math.max(0,stamina-30);dodgeCd=DODGE_CD;player.invTimer=60;
 burst(player.x,player.y,'#88d4ff',12);updateHUD();
-const btn=document.getElementById('dodgeBtnR');btn.classList.add('cooling');setTimeout(()=>btn.classList.remove('cooling'),DODGE_CD);
+const btn=document.getElementById('dodgeBtnR');if(btn){btn.classList.add('cooling');setTimeout(()=>btn.classList.remove('cooling'),DODGE_CD);}
 }
 function startSwipe(){swipeAnim={active:true,progress:0,color:currentForm.bulletColor||'#d97706'};}
 const WEAPON_CD=10,MELEE_CD=28;
@@ -5083,7 +5093,9 @@ function fire(x,y,vx,vy,color,dmg,r,pierce=false,homing=false){bullets.push(new 
 function updateSkillUI(){document.getElementById('sk1I').textContent=currentForm.sk1Icon;document.getElementById('sk2I').textContent=currentForm.sk2Icon;document.getElementById('skPI').textContent=currentForm.pIcon;document.getElementById('sk1Cd').style.display='none';document.getElementById('sk2Cd').style.display='none';}
 function setForm(fid){const f=FOOD_FORMS[fid];if(!f)return;currentForm={...f};sk1Cd=0;sk2Cd=0;player.speed=3.5*(1+(f.speedBonus||0));updateSkillUI();document.getElementById('formBadge').textContent=f.emoji+' '+f.name;document.getElementById('formPassive').textContent=f.pIcon+' '+f.passive;}
 function useSkill1(){
-if(!gameRunning||sk1Cd>0)return;sk1Cd=currentForm.sk1Cd;
+const SK1_COST=25;
+if(!gameRunning||stamina<SK1_COST)return;
+stamina=Math.max(0,stamina-SK1_COST);
 const f=currentForm;
 if(f.name==='漢堡型')fire(player.x,player.y,0,-14,f.bulletColor,35,9);
 else if(f.name==='辣椒型')fire(player.x,player.y,0,-10,f.bulletColor,25,7,false,true);
@@ -5094,7 +5106,9 @@ else{fire(player.x-4,player.y,-1,-12,f.bulletColor,14,5);fire(player.x+4,player.
 burst(player.x,player.y,f.bulletColor,7);
 }
 function useSkill2(){
-if(!gameRunning||sk2Cd>0)return;sk2Cd=currentForm.sk2Cd;
+const SK2_COST=40;
+if(!gameRunning||stamina<SK2_COST)return;
+stamina=Math.max(0,stamina-SK2_COST);
 const f=currentForm;
 if(f.name==='漢堡型'){for(let i=0;i<12;i++){const a=(i/12)*Math.PI*2;fire(player.x,player.y,Math.cos(a)*7,Math.sin(a)*7,f.bulletColor,20,6);}}
 else if(f.name==='辣椒型'){player.invTimer=90;enemies.forEach(e=>{if(Math.hypot(e.x-player.x,e.y-player.y)<80)e.hp-=40*atkMult;});if(boss&&!boss._defeated)boss.hp-=40*atkMult;burst(player.x,player.y,'#f97316',22);}
@@ -5156,7 +5170,7 @@ if(bars&&charSlots.length>0){
  bars.innerHTML=charSlots.map((ch,i)=>{
  const isActive=i===activeChar,alive=ch.alive;
  const pct=Math.max(0,ch.hp/ch.maxHp*100);
- const barColor=isActive?'linear-gradient(90deg,#f97316,#fbbf24)':alive?'linear-gradient(90deg,#fb923c,#fcd34d)':'#d1d5db';
+ const barColor=isActive?'linear-gradient(90deg,#ef4444,#f87171)':alive?'linear-gradient(90deg,#fca5a5,#fecaca)':'#d1d5db'
  if(!alive)return '<div class="charBar"><span class="charBarEmoji" style="opacity:.4">'+ch.emoji+'</span><div class="charBarInfo"><div class="charBarName" style="color:#9ca3af">'+ch.name+'</div><div style="font-size:11px;color:#9ca3af">💀 陣亡</div></div></div>';
  const canSwitch=!isActive&&alive;
  return '<div class="charBar" style="cursor:'+(canSwitch?'pointer':'default')+'"'+(canSwitch?' onclick="switchToChar('+i+')"':'')+'>'+
