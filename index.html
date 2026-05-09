@@ -4643,23 +4643,23 @@ html,body{width:100%;height:100%;overflow:hidden;background:#f5f0e8;font-family:
 #gc{position:relative;width:100%;height:100%;background:#fdf8f0;overflow:hidden}
 canvas{display:block;width:100%;height:100%}
 /* ── HUD ── */
-#hud{position:absolute;top:0;left:0;right:0;padding:10px 14px 8px;display:flex;align-items:flex-start;justify-content:space-between;z-index:20;background:linear-gradient(rgba(253,248,240,.96),transparent 90%)}
-#charBars{display:flex;flex-direction:column;gap:5px;pointer-events:auto}
-.charBar{display:flex;align-items:center;gap:7px;margin-bottom:1px}
-.charBarEmoji{font-size:24px;flex-shrink:0}
+#hud{position:absolute;top:0;left:0;right:0;padding:8px 10px 8px 10px;display:flex;align-items:flex-start;justify-content:space-between;z-index:20;background:linear-gradient(rgba(253,248,240,.96),transparent 90%)}
+#charBars{display:flex;flex-direction:column;gap:2px;pointer-events:auto}
+.charBar{display:flex;align-items:center;gap:4px;margin-bottom:0px}
+.charBarEmoji{font-size:14px;flex-shrink:0}
 .charBarInfo{display:flex;flex-direction:column;gap:1px}
-.charBarName{font-size:13px;font-weight:900;color:#92400e;white-space:nowrap}
-.charBarTrack{width:200px;height:16px;background:#fee2e2;border-radius:8px;border:2px solid #fca5a5;overflow:hidden}
+.charBarName{font-size:9px;font-weight:900;color:#92400e;white-space:nowrap}
+.charBarTrack{width:110px;height:11px;background:#fee2e2;border-radius:6px;border:1px solid #fca5a5;overflow:hidden}
 .charBarFill{height:100%;border-radius:7px;transition:width .2s}
-.charBarNum{font-size:12px;font-weight:900;color:#dc2626}
-#stamRow{display:flex;align-items:center;gap:6px;margin-top:5px}
-#stamTrack{width:190px;height:12px;background:#dcfce7;border-radius:7px;border:2px solid #86efac;overflow:hidden}
+.charBarNum{font-size:9px;font-weight:900;color:#dc2626}
+#stamRow{display:flex;align-items:center;gap:3px;margin-top:2px}
+#stamTrack{width:110px;height:9px;background:#dcfce7;border-radius:5px;border:1px solid #86efac;overflow:hidden}
 #stamFill{height:100%;border-radius:6px;transition:width .15s;background:linear-gradient(90deg,#22c55e,#86efac)}
-#stamNum{font-size:13px;font-weight:900;color:#16a34a}
+#stamNum{font-size:9px;font-weight:900;color:#16a34a}
 .hM{text-align:center;pointer-events:none;flex-shrink:0}
 #formBadge{display:block;font-size:15px;font-weight:900;color:#92400e;background:rgba(251,191,36,.18);border-radius:10px;padding:3px 10px}
 #formPassive{font-size:11px;color:#7c3aed;font-weight:700}
-.hR{text-align:right;font-size:15px;font-weight:900;line-height:2;color:#78350f;flex-shrink:0;z-index:21;position:relative}
+.hR{position:absolute;top:8px;right:10px;text-align:right;font-size:14px;font-weight:900;line-height:1.8;color:#78350f;z-index:22;background:rgba(253,248,240,.85);padding:2px 6px;border-radius:8px}
 /* Boss HUD */
 #bossHud{position:absolute;top:88px;left:50%;transform:translateX(-50%);width:90%;max-width:460px;z-index:20;pointer-events:none;display:none}
 #bossName{text-align:center;font-size:18px;font-weight:900;color:#b91c1c;margin-bottom:6px}
@@ -4684,11 +4684,11 @@ canvas{display:block;width:100%;height:100%}
 .cSwHpFill{height:100%;background:#22c55e;border-radius:4px;transition:width .2s}
 .cSwDead{font-size:16px;color:#9ca3af;display:none}
 /* ── 右側主控制（右下） ── */
-#rightCtrl{position:absolute;right:10px;bottom:14px;display:flex;flex-direction:column;align-items:center;gap:10px;z-index:20}
+#rightCtrl{position:absolute;right:10px;bottom:14px;display:flex;flex-direction:column;align-items:flex-end;gap:10px;z-index:20}
 .rBtn{width:76px;height:76px;border-radius:22px;border:2px solid;background:rgba(253,248,240,.95);display:flex;align-items:center;justify-content:center;font-size:36px;cursor:pointer;font-weight:900;position:relative;box-shadow:0 3px 12px rgba(0,0,0,.15)}
 .rBtn:active{opacity:.65;transform:scale(.92)}
 .skRow{display:flex;gap:8px}
-#wpnToggle{border-color:#d97706;background:rgba(251,191,36,.2);width:72px;height:72px;border-radius:22px;font-size:36px}
+#wpnToggle{border-color:#d97706;background:rgba(251,191,36,.2);width:72px;height:72px;border-radius:22px;font-size:36px;align-self:flex-end}
 /* Toast */
 #toast{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(253,248,240,.97);border:2px solid #d97706;border-radius:20px;padding:18px 24px;text-align:center;font-size:16px;font-weight:900;color:#92400e;z-index:60;pointer-events:none;opacity:0;transition:opacity .3s;line-height:1.7;max-width:85%;box-shadow:0 5px 24px rgba(0,0,0,.18)}
 /* Back btn */
@@ -4808,8 +4808,7 @@ canvas{display:block;width:100%;height:100%}
 </div>
 </div>
 <div id="stageFlash"><div style="font-size:24px;font-weight:900;color:#4ade80;text-shadow:0 0 20px #4ade80;text-align:center;line-height:1.6" id="stageFlashMsg"></div></div>
-</div>
-` + frSS + `
+</div>frSS + `
 const PARTNERS = ${partnerData};
 const SAVE = ${saveData};
 const FOOD_FORMS = {
@@ -5008,22 +5007,20 @@ takeDamage(amt){
  this._defeated=true;
  if(qaActive){qaActive=false;document.getElementById('qaOverlay').style.display='none';document.getElementById('pzr').style.display='none';}
  document.getElementById('bossHud').style.display='none';
- // ── 大型爆炸特效 ──
- const bx=this.x,by=this.y,bc=this.color;
- const colors=['#ef4444','#f97316','#fbbf24','#a3e635','#38bdf8','#c084fc','#fb7185'];
- // 第一波：立即大爆炸
- for(let i=0;i<20;i++)burst(bx+(Math.random()-.5)*120,by+(Math.random()-.5)*120,colors[i%colors.length],30);
- // 第二到六波：連續爆炸
- for(let w=1;w<=6;w++){
-  setTimeout(()=>{
-   for(let i=0;i<15;i++)burst(bx+(Math.random()-.5)*150,by+(Math.random()-.5)*150,colors[Math.floor(Math.random()*colors.length)],25);
-   addText('💥',bx+(Math.random()-.5)*100,by+(Math.random()-.5)*80,'#ef4444');
-  },w*180);
- }
- // 金幣爆散
- for(let i=0;i<18;i++)coins.push(new Coin(bx+(Math.random()-.5)*100,by+(Math.random()-.5)*80));
- // 畫面閃光
- const fl2=document.getElementById('flash');if(fl2){fl2.style.background='rgba(255,255,255,.85)';fl2.style.opacity='1';setTimeout(()=>{fl2.style.opacity='0';},400);}
+ // ── 爆炸特效（分幀執行，不卡）──
+ const bx=this.x,by=this.y;
+ const ec=['#ef4444','#f97316','#fbbf24','#c084fc','#38bdf8'];
+ // 當幀只跑4粒子，後續全用setTimeout分散
+ for(let i=0;i<4;i++)burst(bx+(Math.random()-.5)*50,by+(Math.random()-.5)*50,ec[i%5],10);
+ setTimeout(()=>{for(let i=0;i<5;i++)burst(bx+(Math.random()-.5)*70,by+(Math.random()-.5)*70,ec[i%5],10);addText('💥',bx,by-30,'#ef4444');},200);
+ setTimeout(()=>{for(let i=0;i<5;i++)burst(bx+(Math.random()-.5)*80,by+(Math.random()-.5)*80,ec[i%5],10);},420);
+ setTimeout(()=>{for(let i=0;i<4;i++)burst(bx+(Math.random()-.5)*90,by+(Math.random()-.5)*90,ec[i%5],8);addText('+100💰',bx,by-50,'#d97706');},650);
+ // 金幣分批（每次2枚，共3批）
+ setTimeout(()=>coins.push(new Coin(bx+(Math.random()-.5)*60,by+(Math.random()-.5)*40),new Coin(bx+(Math.random()-.5)*60,by+(Math.random()-.5)*40)),100);
+ setTimeout(()=>coins.push(new Coin(bx+(Math.random()-.5)*70,by+(Math.random()-.5)*50),new Coin(bx+(Math.random()-.5)*70,by+(Math.random()-.5)*50)),300);
+ setTimeout(()=>coins.push(new Coin(bx+(Math.random()-.5)*60,by+(Math.random()-.5)*40),new Coin(bx+(Math.random()-.5)*60,by+(Math.random()-.5)*40)),500);
+ // 畫面快閃（輕量）
+ const fl2=document.getElementById('flash');if(fl2){fl2.style.background='rgba(255,200,50,.5)';fl2.style.opacity='1';setTimeout(()=>{fl2.style.opacity='0';},220);}
  score+=this.scoreVal;gold+=100;updateHUD();reportBossKill();
  stageCleared=true;gameRunning=false;
  setTimeout(()=>{
@@ -5179,7 +5176,7 @@ if(bars&&charSlots.length>0){
 '<div class="charBarName" style="font-size:'+(isActive?'14px':'11px')+';color:'+(isActive?'#92400e':'#78350f')+'">'+
 (isActive?'▶ ':canSwitch?'↩ ':'')+ch.name+
 '</div>'+
-'<div class="charBarTrack" style="width:'+(isActive?'200px':'160px')+';height:'+(isActive?'17px':'12px')+'"><div class="charBarFill" style="width:'+pct+'%;background:'+barColor+'"></div></div>'+
+'<div class="charBarTrack" style="width:'+(isActive?'150px':'120px')+';height:'+(isActive?'14px':'10px')+'"><div class="charBarFill" style="width:'+pct+'%;background:'+barColor+'"></div></div>'+
 '<div class="charBarNum" style="font-size:'+(isActive?'13px':'11px')+'">'+Math.ceil(ch.hp)+' / '+ch.maxHp+'</div>'+
 '</div></div>';
  }).join('');
@@ -5437,6 +5434,7 @@ updateSkillUI();updateHUD();
 }
 function safeInit(){if(CW===0||CH===0){requestAnimationFrame(safeInit);return;}initUI();}
 requestAnimationFrame(safeInit);
+it);
 ` + frSE + `
 </body>
 </html>`;
