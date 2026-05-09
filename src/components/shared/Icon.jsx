@@ -34,4 +34,45 @@ const ChefHatIcon = ({ size = 24 }) => (
 );
 
 
+export const BackButton = ({ onClick, title }) => (
+  <div className="flex items-center gap-4 mb-8 text-left border-b border-slate-200/50 pb-4">
+    <button onClick={onClick} className="p-3 glass-panel rounded-2xl border active:scale-90 transition-all bg-white shadow-sm">
+      <Icon name="arrow-left" size={20}/>
+    </button>
+    <h2 className="text-2xl font-black text-slate-800 tracking-tighter leading-tight">{title}</h2>
+  </div>
+);
+
+export const SectionItem = ({ title, iconName, onClick }) => (
+  <div onClick={onClick} className="glass-panel p-6 rounded-[2rem] flex items-center justify-between active:bg-slate-50 cursor-pointer group transition-all mb-3 text-left bg-white shadow-sm">
+    <div className="flex items-center gap-4 text-slate-400 group-active:text-brand-red font-bold">
+      {iconName && <Icon name={iconName} size={18} />}
+      <span className="text-slate-800 text-sm font-bold leading-none">{title}</span>
+    </div>
+    <Icon name="chevron-right" size={18} className="text-slate-300" />
+  </div>
+);
+
+export const NavCard = ({ title, onClick, colorClass, iconName }) => (
+  <button onClick={onClick} className={`${colorClass} py-10 flex flex-col items-center justify-center rounded-[2.5rem] border border-slate-100 shadow-sm active:scale-95 transition-all group`}>
+    <div className="mb-3 text-brand-red/80 group-hover:text-brand-red transition-colors">
+      <Icon name={iconName} size={28} />
+    </div>
+    <span className="font-black text-slate-800 text-sm tracking-widest uppercase">{title}</span>
+  </button>
+);
+
+export const RuleStandardBlock = ({ id, title, desc, img }) => (
+  <div className="glass-panel rounded-3xl p-6 border border-slate-100 mb-4 bg-white shadow-sm flex flex-col gap-4 text-left">
+    <div className="flex gap-4">
+      <div className="w-9 h-9 bg-rose-50 text-brand-red border border-rose-100 rounded-full flex items-center justify-center text-[10px] font-black shrink-0">{id}</div>
+      <div className="space-y-1">
+        <h3 className="font-bold text-slate-800 text-sm leading-tight">{title}</h3>
+        <p className="text-[10px] text-slate-600 leading-relaxed whitespace-pre-wrap">{desc}</p>
+      </div>
+    </div>
+    {img && <img src={img} className="w-full rounded-2xl border border-slate-100 shadow-inner object-cover max-h-64" alt="附圖" />}
+  </div>
+);
+
 export default Icon
