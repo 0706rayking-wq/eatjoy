@@ -2171,6 +2171,5 @@ return (
 );
 };
 // --- 限時活動 (遊戲後台) 專屬管理組件 (支援大廳分頁管理版) ---
-const GameAdminManager = ({ getPublicPath, triggerNotify, globalBranches }) => {
 
 export default GameCenter

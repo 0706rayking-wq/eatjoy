@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { db, auth, getPublicPath } from './firebase.js'
 import Icon from './components/shared/Icon.jsx'
+import { NavCard, SectionItem, BackButton, RuleStandardBlock } from './components/shared/Icon.jsx'
 import Ticker from './components/shared/Ticker.jsx'
 import Nav from './components/Nav.jsx'
 import AuthPage from './components/AuthPage.jsx'
@@ -15,11 +16,7 @@ import GameCenter from './components/game/GameCenter.jsx'
 
 // --- 1. 配置與核心常數 ---
 const appIdGlobal = 'kitchen-v16';
-// firebaseConfig in firebase.js
-
-// db from firebase.js
-// auth from firebase.js
-// getPublicPath from firebase.js
+// firebaseConfig -> firebase.js
 
 const DEFAULT_ZONES = [
 { id: 'beverage', name: '飲調區' }, { id: 'light-meal', name: '輕食區' },

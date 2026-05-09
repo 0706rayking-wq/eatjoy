@@ -129,6 +129,5 @@ return (
 };
 
 // 1. 參數新增 currentUser
-const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, branchZones, currentBranch, getPublicPath, currentUser }) => {
 
 export default UnifiedRulesPage

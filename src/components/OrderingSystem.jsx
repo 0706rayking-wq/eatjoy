@@ -232,6 +232,5 @@ const handleQuantityChange = (itemId, newVal) => {
   });
 };
 
-const Nav = ({ title, onBackAction, rightAction }) => (
 
 export default OrderingSystem

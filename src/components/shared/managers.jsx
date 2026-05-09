@@ -180,6 +180,7 @@ return (
 };
 
 // --- 專屬食譜管理器 (支援食材、做法、備註與全域同步、拖曳排序，以及從資料庫匯入) ---
+
 const RecipeAdminManager = ({ categoryPath, currentBranch, globalBranches, isSuperAdmin, items = [], triggerNotify, getPublicPath, categories, globalRecipes = [] }) => {
 const [newT, setNewT] = useState(''); 
 const [newCat, setNewCat] = useState(categories ? categories[0] : '');
@@ -462,6 +463,7 @@ return (
 };
 
 // --- 分店專用公告管理器 (支援編輯、全域同步、拖曳排序、已讀名單) ---
+
 const AnnouncementAdminManager = ({ currentBranch, globalBranches, isSuperAdmin, announcements, triggerNotify, getPublicPath }) => {
 const [newT, setNewT] = useState('');
 const [newC, setNewC] = useState('');
@@ -635,6 +637,5 @@ return (
 );
 };
 
-const SignaturePad = ({ onSave }) => {
 
-export default UniversalListManager
+export { UniversalListManager, RecipeAdminManager, AnnouncementAdminManager }

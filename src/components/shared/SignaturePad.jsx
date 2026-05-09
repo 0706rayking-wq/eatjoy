@@ -37,6 +37,5 @@ return (
 );
 };
 
-const AuthPage = ({ users, setCurrentUser, setCurrentPage, setIsManager, setIsSuperAdmin, setCurrentBranch, globalBranches, triggerNotify, getPublicPath }) => {
 
 export default SignaturePad

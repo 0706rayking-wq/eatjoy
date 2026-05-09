@@ -177,6 +177,5 @@ setIsResetting(false);
   );
 };
 
-const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, isSuperAdmin, getPublicPath }) => {
 
 export default InspectionPage

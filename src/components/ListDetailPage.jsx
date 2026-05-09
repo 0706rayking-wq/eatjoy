@@ -14,6 +14,5 @@ const ListDetailPage = ({ onBack, title, list = [] }) => (
 );
 
 // --- 優化輸入體驗 (解決注音輸入法中斷問題) ---
-const SyncInput = ({ value, onChange, readOnly, className, maxLength, placeholder, autoFocus }) => {
 
 export default ListDetailPage

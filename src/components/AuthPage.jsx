@@ -132,6 +132,5 @@ return (
 );
 };
 
-const ListDetailPage = ({ onBack, title, list = [] }) => (
 
 export default AuthPage

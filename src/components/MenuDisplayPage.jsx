@@ -218,6 +218,5 @@ return (
 );
 };
 
-const UnifiedRulesPage = ({ rulesData, onBack, user, currentBranch, triggerNotify, getPublicPath, signatures = [] }) => {
 
 export default MenuDisplayPage

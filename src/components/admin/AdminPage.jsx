@@ -784,6 +784,5 @@ const APP_THEMES = [
   }
 },
 ];
-const App = () => {
 
 export default AdminPage

@@ -355,6 +355,5 @@ return (
   </div>
 );
 };
-const AdminPage = ({ onBack, onLogout, announcements, standards, users, triggerNotify, menu, onboarding, benefits, rulesData, isSuperAdmin, currentBranch, setCurrentBranch, globalBranches, branchZones, getPublicPath, signatures, tickerText, setTickerText, globalRecipes, currentUser }) => {
 
 export default GameAdminManager
