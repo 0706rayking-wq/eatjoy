@@ -13,6 +13,7 @@ import OrderingSystem from './components/OrderingSystem.jsx'
 import ListDetailPage from './components/ListDetailPage.jsx'
 import AdminPage from './components/admin/AdminPage.jsx'
 import GameCenter from './components/game/GameCenter.jsx'
+import { APP_THEMES } from './constants.js'
 
 // --- 1. 配置與核心常數 ---
 const appIdGlobal = 'kitchen-v16';
