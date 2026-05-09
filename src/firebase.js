@@ -1,7 +1,7 @@
-import { initializeApp } from 'firebase/app'
-import { getFirestore } from 'firebase/firestore'
-import { getAuth } from 'firebase/auth'
-import { getAnalytics } from 'firebase/analytics'
+// Firebase v8 compat — 與現有程式碼完全相容
+import firebase from 'firebase/compat/app'
+import 'firebase/compat/firestore'
+import 'firebase/compat/auth'
 
 const firebaseConfig = {
   apiKey: "AIzaSyA3zTUa8Whw5X_jEJzqBTkQIPWWq84koHY",
@@ -13,11 +13,10 @@ const firebaseConfig = {
   measurementId: "G-JYWNHMJV0T"
 }
 
-const app = initializeApp(firebaseConfig)
-export const db = getFirestore(app)
-export const auth = getAuth(app)
-export const analytics = getAnalytics(app)
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig)
+}
 
-// 路徑 helper（與現有系統相容）
-const APP_ID = "nangangeatjoycook"
-export const getPublicPath = (col) => `artifacts/${APP_ID}/public/data/${col}`
+export const db = firebase.firestore()
+export const auth = firebase.auth()
+export const getPublicPath = (col) => `artifacts/nangangeatjoycook/public/data/${col}`
