@@ -16,7 +16,6 @@ import GameCenter from './components/game/GameCenter.jsx'
 
 // --- 1. 配置與核心常數 ---
 const appIdGlobal = 'kitchen-v16';
-// firebaseConfig -> firebase.js
 
 const DEFAULT_ZONES = [
 { id: 'beverage', name: '飲調區' }, { id: 'light-meal', name: '輕食區' },
@@ -662,7 +661,5 @@ return (
 );
 };
 
-
-  
 
 export default App
