@@ -152,8 +152,8 @@
         }
         .toast-enter { animation: slideDown 0.45s cubic-bezier(0.34,1.56,0.64,1) both; }
         @keyframes slideDown {
-            from { opacity:0; transform:translateY(-120%) scale(0.90); }
-            to   { opacity:1; transform:translateY(0) scale(1); }
+            from { opacity:0; transform:translate(-50%,-120%) scale(0.90); }
+            to   { opacity:1; transform:translate(-50%,0) scale(1); }
         }
 
         /* ══════════════════════════════════════════
@@ -1421,7 +1421,6 @@
                         setIsManager(true); 
                         localStorage.setItem('k_super_admin', 'true');
                         setCurrentBranch(branch);
-                        localStorage.setItem('k_last_branch', branch);
                         setCurrentPage('home'); 
                         triggerNotify("行政主廚權限", "success"); 
                     }
@@ -1999,9 +1998,10 @@
 
             const getHeaderBg = useCallback((dateString, isWeekend) => {
                 const h = getHolidayData(dateString);
-                if (h && h.isRed) return 'bg-red-200 text-brand-red font-black';
+                // 使用 text-[var(--accent)] 替換 text-brand-red，避開漸層透明特效導致的破圖
+                if (h && h.isRed) return 'bg-red-200 text-[var(--accent)] font-black';
                 if (h && !h.isRed) return 'bg-slate-200 text-slate-700 font-black';
-                if (isWeekend) return 'bg-rose-100 text-brand-red font-black';
+                if (isWeekend) return 'bg-rose-100 text-[var(--accent)] font-black';
                 return 'bg-slate-100 text-slate-800 font-bold';
             }, [getHolidayData]);
 
@@ -2308,7 +2308,7 @@
                                                                     </div>
                                                                 </div>
                                                             ) : (
-                                                                h && <div className={`writing-vertical-lr font-black text-[13px] mx-auto pt-1 tracking-widest ${h.isRed ? 'text-brand-red' : 'text-slate-600'}`}>{h.text}</div>
+                                                                h && <div className={`writing-vertical-lr font-black text-[13px] mx-auto pt-1 tracking-widest ${h.isRed ? 'text-[var(--accent)]' : 'text-slate-600'}`}>{h.text}</div>
                                                             )}
                                                         </th>
                                                     );
@@ -3407,10 +3407,13 @@
                                                 return (
                                                     <button 
                                                         key={zone.name} 
-                                                        onClick={() => setAnalyticsZone(zone.name)}
+                                                        onClick={() => {
+                                                            setAnalyticsZone(zone.name);
+                                                            // 加入這行：切換畫面時強制回到最上方，避免 Sticky Header 錯誤下壓
+                                                            window.scrollTo(0, 0);
+                                                        }}
                                                         className="p-5 bg-white rounded-[2rem] border border-slate-100 shadow-sm hover:border-brand-red/30 active:scale-95 transition-all text-left flex flex-col justify-between aspect-square group"
-                                                    >
-                                                        <div className={`${zone.color} w-12 h-12 rounded-2xl shadow-sm flex items-center justify-center font-black text-white text-xl mb-2 group-hover:scale-110 transition-transform`}>
+                                                    >                                              <div className={`${zone.color} w-12 h-12 rounded-2xl shadow-sm flex items-center justify-center font-black text-white text-xl mb-2 group-hover:scale-110 transition-transform`}>
                                                             <OrderSymbolIcon name={zone.icon} />
                                                         </div>
                                                         <div>
@@ -3427,7 +3430,7 @@
                                 ) : (
                                     // 第二層：顯示該區站的所有食材叫貨量
                                     <div className="space-y-4 animate-in slide-in-from-right-4 duration-300 pb-20">
-                                        <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100 flex items-center justify-between sticky top-[61px] z-40">
+                                        <div className="bg-white p-5 rounded-[2rem] shadow-sm border border-slate-100 flex items-center justify-between relative z-10 mb-2">
                                             <h3 className="font-black text-slate-800 text-lg flex items-center gap-2">
                                                 <span className="w-2.5 h-6 bg-brand-red rounded-full block"></span>
                                                 {analyticsZone}
@@ -4685,7 +4688,7 @@
                                 <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">目前管理分店</p>
                                 <select 
                                     value={currentBranch} 
-                                    onChange={e => { setCurrentBranch(e.target.value); if(isSuperAdmin) { try { localStorage.setItem('k_last_branch', e.target.value); } catch(err) {} } }} 
+                                    onChange={e => setCurrentBranch(e.target.value)} 
                                     className="bg-transparent border-none text-lg font-black outline-none appearance-none cursor-pointer text-white"
                                 >
                                     {(isSuperAdmin ? globalBranches : currentUser.branch).map(b => (
@@ -5293,7 +5296,7 @@
             // ── 特殊系列 (Special) ──────────────────────────
             {
                 id: 'rose-gold',
-                name: '閃亮玫瑰',
+                name: '玫瑰金',
                 emoji: '🌹',
                 desc: '時尚玫瑰',
                 hex: '#c2185b',
@@ -5457,36 +5460,8 @@
             const [activeAnnouncement, setActiveAnnouncement] = useState(null);
             
             // 全域資料
-            const [globalBranches, setGlobalBranches] = useState(() => {
-                // 從 localStorage 讀取快取的分店清單，避免每次載入都閃現舊預設值
-                try {
-                    const cached = localStorage.getItem('k_cached_branches');
-                    if (cached) { const list = JSON.parse(cached); if (list.length > 0) return list; }
-                } catch(e) {}
-                return ['南港Lalaport'];
-            });
-            const [currentBranch, setCurrentBranch] = useState(() => {
-                // 最高權限：記憶上次選擇的分店
-                if (localStorage.getItem('k_super_admin') === 'true') {
-                    const last = localStorage.getItem('k_last_branch');
-                    if (last) return last;
-                    try {
-                        const cached = localStorage.getItem('k_cached_branches');
-                        if (cached) { const list = JSON.parse(cached); if (list.length > 0) return list[0]; }
-                    } catch(e) {}
-                    return '南港Lalaport';
-                }
-                // 一般使用者：從帳號資料取得
-                try {
-                    const saved = localStorage.getItem('k_active_user');
-                    if (saved) {
-                        const u = JSON.parse(saved);
-                        const branches = Array.isArray(u.branch) ? u.branch : [u.branch];
-                        return branches[0] || '南港Lalaport';
-                    }
-                } catch(e) {}
-                return '南港Lalaport';
-            });
+            const [globalBranches, setGlobalBranches] = useState(['南港Lalaport']);
+            const [currentBranch, setCurrentBranch] = useState('南港Lalaport');
             const [branchZones, setBranchZones] = useState([]);
             const [announcements, setAnnouncements] = useState([]);
             const [tickerText, setTickerText] = useState('');
@@ -5512,8 +5487,6 @@
                 setCurrentUser(null); setIsManager(false); setIsSuperAdmin(false); setCurrentPage('auth'); 
                 localStorage.removeItem('k_active_user'); 
                 localStorage.removeItem('k_super_admin');
-                localStorage.removeItem('k_last_branch');
-                // 保留 k_cached_branches 讓下次載入仍快
             };
             const triggerNotify = useCallback((msg, type = "info") => {
                 const id = Date.now(); setNotifications(prev => [...prev, { id, msg, type }]);
@@ -5639,14 +5612,7 @@
                 if (!user) return;
                 const errH = () => triggerNotify("讀取失敗", "error");
                 const subs = [
-                    db.doc(getPublicPath('system/branches')).onSnapshot(d => {
-                        if (d.exists && d.data().list) {
-                            const list = d.data().list;
-                            setGlobalBranches(list);
-                            // 快取到 localStorage，下次載入直接使用，不閃爍
-                            try { localStorage.setItem('k_cached_branches', JSON.stringify(list)); } catch(e) {}
-                        }
-                    }, errH),
+                    db.doc(getPublicPath('system/branches')).onSnapshot(d => d.exists && d.data().list && setGlobalBranches(d.data().list), errH),
                     db.collection(getPublicPath('global_recipes')).onSnapshot(s => setGlobalRecipes(s.docs.map(d => ({id: d.id, ...d.data()}))), errH),
                     db.collection(getPublicPath('users')).onSnapshot(s => { 
                         const all = s.docs.map(d => d.data()); setUsers(all); 
@@ -5788,7 +5754,7 @@
                                                 <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">目前檢視分店</p>
                                                 <select 
                                                     value={currentBranch} 
-                                                    onChange={e => { setCurrentBranch(e.target.value); if(isSuperAdmin) { try { localStorage.setItem('k_last_branch', e.target.value); } catch(err) {} } }} 
+                                                    onChange={e => setCurrentBranch(e.target.value)} 
                                                     className="bg-transparent border-none text-xl font-black outline-none appearance-none cursor-pointer text-white"
                                                 >
                                                     {(isSuperAdmin ? globalBranches : currentUser.branch).map(b => (
@@ -5890,8 +5856,8 @@
 
             return (
                 <div className="min-h-screen flex flex-col">
-                    <div className="fixed z-[1000] flex flex-col gap-2.5 pointer-events-none" style={{top:'4.5rem', left:0, right:0, marginLeft:'auto', marginRight:'auto', width:'calc(100% - 2rem)', maxWidth:'22rem'}}>
-                        {notifications.map(n => (<div key={n.id} className={`toast-enter pointer-events-auto px-4 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 glass-panel border-l-4 w-full ${n.type === 'success' ? 'border-l-emerald-500 text-emerald-700' : 'border-l-brand-red text-brand-red'}`}><Icon name={n.type === 'success' ? 'check-circle' : 'alert-triangle'} size={18} /><span className="font-bold text-xs leading-tight flex-1">{n.msg}</span></div>))}
+                    <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[1000] w-full max-w-xs space-y-3 px-4">
+                        {notifications.map(n => (<div key={n.id} className={`toast-enter p-5 rounded-[2rem] shadow-2xl flex items-center gap-4 glass-panel border-l-4 ${n.type === 'success' ? 'border-l-emerald-500 text-emerald-700' : 'border-l-brand-red text-brand-red'}`}><Icon name={n.type === 'success' ? 'check-circle' : 'alert-triangle'} size={24} /><span className="font-bold text-xs leading-tight">{n.msg}</span></div>))}
                     </div>
 
                     {currentPage !== 'auth' && (
