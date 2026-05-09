@@ -1583,7 +1583,7 @@
                         }}
                         onKeyDown={e => { if(e.key === 'Enter') e.target.blur(); }}
                         placeholder="0"
-                        className={`w-full text-xl font-black text-center bg-transparent outline-none p-0 border-none m-0 h-6 ${(!localVal || localVal === 0) ? 'text-slate-300' : 'text-brand-red'}`}
+                        className={`w-full text-xl font-black text-center bg-transparent outline-none p-0 border-none m-0 h-6 ${(!localVal || localVal === 0) ? 'text-slate-300' : 'text-[var(--accent)]'}`}
                         style={{ WebkitAppearance: 'none', margin: 0, MozAppearance: 'textfield' }}
                     />
                     <p className="text-[9px] text-slate-400 font-black leading-none mt-1">{unit}</p>
