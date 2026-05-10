@@ -5495,24 +5495,19 @@ if(player.shieldActive){ctx.strokeStyle='#67e8f9';ctx.lineWidth=3;ctx.globalAlph
 if(swipeAnim.active){
  const p=swipeAnim.progress;
  const r=swipeAnim.r||130;
- 
- // 【修改點 1】從左側 (π) 開始，增加到右側 (π + π = 2π)
  const startA = Math.PI; 
  const endA = Math.PI + Math.PI * p; 
  
  ctx.save();
  
- // 外層扇形（主色，半透明）
  ctx.globalAlpha=(1-p)*.55;
  ctx.fillStyle=swipeAnim.color;
  ctx.beginPath();
  ctx.moveTo(0,0);
- // 【修改點 2】最後一個參數設為 false，代表順時針繪製
  ctx.arc(0,0,r, startA, endA, false); 
  ctx.closePath();
  ctx.fill();
  
- // 內層扇形（更淡）
  ctx.globalAlpha=(1-p)*.25;
  ctx.beginPath();
  ctx.moveTo(0,0);
@@ -5520,17 +5515,21 @@ if(swipeAnim.active){
  ctx.closePath();
  ctx.fill();
  
- // 弧形邊線（銳利感）
  ctx.globalAlpha=(1-p)*.8;
  ctx.strokeStyle=swipeAnim.color;
  ctx.lineWidth=3;
  ctx.beginPath();
- // 【修改點 3】修正原程式碼邊線角度與扇形本體不一致的問題，統一使用相同的 startA, endA 與繪製方向
  ctx.arc(0,0,r, startA, endA, false); 
  ctx.stroke();
  
  ctx.restore();
 }
+
+// 👇 請確保這三行沒有被刪除，這非常重要，少了大括號整個遊戲就會無法執行
+ctx.globalAlpha=1;
+ctx.restore();
+}
+
 let last=0;
 function loop(ts){
 if(!gameRunning||stageCleared)return;
