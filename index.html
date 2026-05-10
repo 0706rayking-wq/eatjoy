@@ -5143,7 +5143,7 @@ stage++;
 const fl=document.getElementById('stageFlash'),fm=document.getElementById('stageFlashMsg');
 fm.textContent='⚔️ 關卡 '+stage;fl.style.display='flex';
 setTimeout(()=>fl.style.display='none',800);
-buildStage(stage);gameRunning=true;last=performance.now();requestAnimationFrame(loop);
+buildStage(stage);if(!window._gamePaused){gameRunning=true;last=performance.now();if(_rafId)cancelAnimationFrame(_rafId);requestAnimationFrame(loop);}
  },600);
  }
 }
@@ -5484,7 +5484,11 @@ ctx.restore();
 let last=0;
 function loop(ts){
 if(!gameRunning||stageCleared)return;
-const dt=Math.min(ts-last,50);last=ts;
+// iOS: canvas context 可能在背景後遺失
+if(!ctx||ctx.isContextLost&&ctx.isContextLost()){
+ ctx=canvas.getContext('2d');if(!ctx)return;
+}
+const dt=Math.min(ts-last,16);last=ts; // iOS: 限制最大dt=1幀，防止背景恢復後跳幀
 // Stars scroll
 stars.forEach(s=>{s.y+=s.spd;if(s.y>CH){s.y=0;s.x=Math.random()*CW;}});
 // Player move (joystick)
@@ -5530,6 +5534,9 @@ if(player.weaponCd>0)player.weaponCd--; else if(!qaActive)autoFire();
 // Coins
 for(let i=coins.length-1;i>=0;i--){const c=coins[i];c.update();if(Math.hypot(player.x-c.x,player.y-c.y)<player.radius+c.r){gold+=1;addText('+1💰',c.x,c.y,'#92400e');updateHUD();coins.splice(i,1);continue;}if(c.y>CH+20)coins.splice(i,1);}
 // Particles & texts
+if(particles.length>200)particles.length=200;
+if(eBullets.length>120)eBullets.length=120;
+if(texts.length>25)texts.length=25;
 for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.vx;p.y+=p.vy;p.vy+=.1;p.life-=p.decay;if(p.life<=0)particles.splice(i,1);}
 for(let i=texts.length-1;i>=0;i--){const t=texts[i];t.y+=t.vy;t.life-=.022;if(t.life<=0)texts.splice(i,1);}
 // DRAW
@@ -5540,7 +5547,7 @@ drawPlayer();
 bullets.forEach(b=>b.draw());eBullets.forEach(b=>b.draw());
 particles.forEach(p=>{ctx.globalAlpha=Math.max(0,p.life);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();});ctx.globalAlpha=1;
 texts.forEach(t=>{ctx.globalAlpha=Math.max(0,t.life);ctx.fillStyle=t.color;ctx.font='bold '+t.sz+'px sans-serif';ctx.textAlign='center';ctx.fillText(t.t,t.x,t.y);});ctx.globalAlpha=1;ctx.textAlign='left';
-requestAnimationFrame(loop);
+_rafId=requestAnimationFrame(loop);
 }
 function reportKill(){window.parent.postMessage({type:'FR_QUEST_KILL'},'*');}
 function reportBossKill(){window.parent.postMessage({type:'FR_BOSS_KILLED',gold},'*');}
@@ -5548,14 +5555,14 @@ function goBackToCamp(){window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold},
 function startGame(){
 document.getElementById('startModal').style.display='none';
 setForm(startForm);buildStage(stage);initCharSlots();
-gameRunning=true;last=performance.now();requestAnimationFrame(loop);
+if(!window._gamePaused){gameRunning=true;last=performance.now();if(_rafId)cancelAnimationFrame(_rafId);requestAnimationFrame(loop);}
 }
 function restartGame(){
 // 需求4：從上次失敗的關卡繼續（存localStorage）
 const savedStage=parseInt(localStorage.getItem('fr_last_stage')||'1');
 stage=Math.max(1,savedStage-1)||1;score=0;['gameOverModal','revModal'].forEach(id=>document.getElementById(id).style.display='none');
 setForm(startForm);buildStage(stage);initCharSlots();updateHUD();
-gameRunning=true;last=performance.now();requestAnimationFrame(loop);
+if(!window._gamePaused){gameRunning=true;last=performance.now();if(_rafId)cancelAnimationFrame(_rafId);requestAnimationFrame(loop);}
 }
 
 // Init UI
@@ -5569,6 +5576,70 @@ document.getElementById('formPassive').textContent=ff.pIcon+' '+ff.passive;
 updateSkillUI();updateHUD();
 }
 function safeInit(){if(CW===0||CH===0){requestAnimationFrame(safeInit);return;}initUI();}
+
+// ── iOS Safari 背景閃退修復 ──
+let _rafId=null;
+const _origRaf=window.requestAnimationFrame.bind(window);
+// 攔截 rAF，記錄最後的 ID
+window.requestAnimationFrame=function(cb){_rafId=_origRaf(cb);return _rafId;};
+
+document.addEventListener('visibilitychange',()=>{
+ if(document.hidden){
+  // 進入背景：取消 rAF，停止遊戲
+  if(_rafId){cancelAnimationFrame(_rafId);_rafId=null;}
+  if(gameRunning){window._gamePaused=true;gameRunning=false;}
+ } else {
+  // 回到前台
+  last=performance.now();
+  if(window._gamePaused){
+   window._gamePaused=false;
+   // 重新取得 canvas context（iOS 可能已清除）
+   if(!ctx||!canvas){
+    canvas=document.getElementById('gameCanvas');
+    if(canvas)ctx=canvas.getContext('2d');
+   }
+   // 確認 rAF 沒有重複啟動
+   if(!_rafId&&ctx){
+    gameRunning=true;
+    _rafId=requestAnimationFrame(loop);
+   }
+  }
+ }
+});
+
+// iOS Safari: 按 Home 鍵觸發 pagehide，確保停止 rAF
+window.addEventListener('pagehide',()=>{
+ if(_rafId){cancelAnimationFrame(_rafId);_rafId=null;}
+ gameRunning=false;
+});
+
+// iOS Safari: 回到前台觸發 pageshow
+window.addEventListener('pageshow',(e)=>{
+ if(e.persisted&&window._gamePaused){
+  last=performance.now();
+  window._gamePaused=false;
+  if(!_rafId&&ctx){
+   gameRunning=true;
+   _rafId=requestAnimationFrame(loop);
+  }
+ }
+});
+
+// 接收主頁面的暫停/恢復指令（iOS 切換 App 時使用）
+window.addEventListener('message',e=>{
+ if(!e.data||!e.data.type)return;
+ if(e.data.type==='PAUSE_GAME'){
+  if(_rafId){cancelAnimationFrame(_rafId);_rafId=null;}
+  if(gameRunning){window._gamePaused=true;gameRunning=false;}
+ } else if(e.data.type==='RESUME_GAME'){
+  if(window._gamePaused&&!_rafId&&ctx){
+   last=performance.now();window._gamePaused=false;gameRunning=true;
+   _rafId=requestAnimationFrame(loop);
+  }
+ }
+},false);
+
+// pagehide 已整合至上方
 requestAnimationFrame(safeInit);
 ` + frSE + `
 </body>
@@ -5581,6 +5652,14 @@ requestAnimationFrame(safeInit);
     style={{width:'100%',height:'100%',border:'none',display:'block'}}
     sandbox="allow-scripts allow-same-origin"
     onLoad={() => {
+     // iOS：主頁面進後台時通知 iframe 暫停
+     const visHandler = () => {
+      const iframe = document.querySelector('iframe[sandbox]');
+      if(iframe && iframe.contentWindow){
+       iframe.contentWindow.postMessage({type: document.hidden ? 'PAUSE_GAME' : 'RESUME_GAME'},'*');
+      }
+     };
+     document.addEventListener('visibilitychange', visHandler);
      const handler = msg => {
       if (!msg.data) return;
       if (msg.data.type === 'FR_BACK_TO_CAMP') {
