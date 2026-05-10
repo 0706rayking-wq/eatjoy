@@ -4751,7 +4751,7 @@ canvas{display:block;width:100%;height:100%}
 #bossFill{height:100%;background:linear-gradient(90deg,#ef4444,#f97316);border-radius:8px;transition:width .25s}
 /* Skill row */
 #skillRow{display:none}
-.skBadge{width:72px;height:72px;border-radius:20px;border:3px solid #d97706;background:rgba(253,248,240,.95);display:flex;align-items:center;justify-content:center;font-size:32px;position:relative;cursor:pointer;box-shadow:0 3px 12px rgba(180,83,9,.25)}
+.skBadge{width:70px;height:70px;border-radius:20px;border:3px solid #d97706;background:rgba(253,248,240,.95);display:flex;align-items:center;justify-content:center;font-size:30px;position:relative;cursor:pointer;box-shadow:0 3px 12px rgba(180,83,9,.25)}
 .skCd{display:none!important}
 /* ── 搖桿（左下） ── */
 #joystickWrap{position:absolute;left:14px;bottom:18px;width:140px;height:140px;z-index:20}
@@ -4768,10 +4768,10 @@ canvas{display:block;width:100%;height:100%}
 .cSwHpFill{height:100%;background:#22c55e;border-radius:4px;transition:width .2s}
 .cSwDead{font-size:16px;color:#9ca3af;display:none}
 /* ── 右側主控制（右下） ── */
-#rightCtrl{position:absolute;right:8px;bottom:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;z-index:20}
+#rightCtrl{position:absolute;right:8px;bottom:12px;display:flex;flex-direction:column;align-items:flex-end;gap:8px;z-index:20}
 .rBtn{width:72px;height:72px;border-radius:20px;border:3px solid;background:rgba(253,248,240,.95);display:flex;align-items:center;justify-content:center;font-size:32px;cursor:pointer;font-weight:900;position:relative;box-shadow:0 3px 12px rgba(0,0,0,.18)}
 .rBtn:active{opacity:.65;transform:scale(.92)}
-.skRow{display:flex;gap:8px}
+.skRow{display:flex;gap:6px}
 #wpnToggle{border-color:#dc2626;background:rgba(220,38,38,.15);border-radius:20px}
 #dodgeBtn{border-color:#2563eb;background:rgba(37,99,235,.15);border-radius:20px}
 #sk1Wrap{border-color:#16a34a;background:rgba(22,163,74,.15);border-radius:20px}
@@ -4854,6 +4854,7 @@ canvas{display:block;width:100%;height:100%}
 <!-- 右側控制（右下） -->
 <div id="rightCtrl">
 <div id="wpnToggle" class="rBtn" onclick="toggleWeapon()">🏹</div>
+<div id="dodgeBtn" class="rBtn" onclick="doDodge()">💨</div>
 <div class="skRow">
  <div class="skBadge" id="sk1" onclick="useSkill1()"><span id="sk1I">⚡</span><div class="skCd" id="sk1Cd" style="display:none"></div></div>
  <div class="skBadge" id="sk2" onclick="useSkill2()"><span id="sk2I">🌟</span><div class="skCd" id="sk2Cd" style="display:none"></div></div>
@@ -5186,18 +5187,17 @@ stamina=Math.max(0,stamina-30);dodgeCd=DODGE_CD;player.invTimer=60;
 burst(player.x,player.y,'#88d4ff',12);updateHUD();
 const btn=document.getElementById('dodgeBtnR');if(btn){btn.classList.add('cooling');setTimeout(()=>btn.classList.remove('cooling'),DODGE_CD);}
 }
-function startSwipe(){swipeAnim={active:true,progress:0,color:currentForm.bulletColor||'#d97706'};}
+function startSwipe(){swipeAnim={active:true,progress:0,color:currentForm.bulletColor||'#d97706',r:130};}
 const WEAPON_CD=10,MELEE_CD=28;
 function autoFire(){
 if(player.weaponCd>0){player.weaponCd--;return;}
 if(currentWeapon==='melee'){
  player.weaponCd=MELEE_CD;
  startSwipe();
- const sRange=110; // 近戰範圍放大（68→110），左右斬擊弧形
+ const sRange=140; // 近戰範圍再放大（110→140），180度扇形
  enemies.forEach(e=>{const d=Math.sqrt((e.x-player.x)**2+(e.y-player.y)**2);if(d<sRange){e.takeDamage(currentForm.bulletDmg*2.2);burst(e.x,e.y,currentForm.bulletColor,5);}});
  if(boss&&!boss._defeated&&Math.hypot(boss.x-player.x,boss.y-player.y)<sRange+20)boss.takeDamage(currentForm.bulletDmg*2.2);
- // 斬擊弧形粒子軌跡（從左掃到右）
- for(let i=0;i<14;i++){const ang=-Math.PI*0.7+(i/13)*Math.PI*1.4;const px=player.x+Math.cos(ang)*(sRange*.7);const py=player.y+Math.sin(ang)*(sRange*.7);particles.push({x:px,y:py,vx:Math.cos(ang)*2,vy:Math.sin(ang)*2-0.5,life:.9,decay:.07,r:5,color:currentForm.bulletColor||'#f97316'});}
+
  // 子彈反彈
  let reflected=0;
  for(let i=eBullets.length-1;i>=0;i--){
@@ -5491,17 +5491,36 @@ ctx.fillStyle='#fb923c';ctx.globalAlpha=.5+Math.random()*.35;
 ctx.beginPath();ctx.moveTo(-7,15);ctx.lineTo(0,26+Math.random()*8);ctx.lineTo(7,15);ctx.closePath();ctx.fill();
 ctx.globalAlpha=1;
 if(player.shieldActive){ctx.strokeStyle='#67e8f9';ctx.lineWidth=3;ctx.globalAlpha=.55;ctx.beginPath();ctx.arc(0,0,26,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=.12;ctx.fillStyle='#67e8f9';ctx.fill();ctx.globalAlpha=1;}
-// 揮刀弧線
+// 揮刀 180 度扇形（無粒子，實心半圓弧）
 if(swipeAnim.active){
  const p=swipeAnim.progress;
- const startA=Math.PI*.8,endA=-Math.PI*.1;
- const curA=startA+(endA-startA)*p;
- ctx.strokeStyle=swipeAnim.color;ctx.lineWidth=7*(1-p*.5);ctx.lineCap='round';
- ctx.globalAlpha=(1-p)*.92;ctx.shadowBlur=16;ctx.shadowColor=swipeAnim.color;
- ctx.beginPath();ctx.arc(0,0,44,startA,curA);ctx.stroke();
- ctx.fillStyle=swipeAnim.color;ctx.globalAlpha=(1-p);
- ctx.beginPath();ctx.arc(Math.cos(curA)*44,Math.sin(curA)*44,6,0,Math.PI*2);ctx.fill();
- ctx.restore();ctx.save();ctx.translate(player.x,player.y);ctx.globalAlpha=1;ctx.shadowBlur=0;
+ const r=swipeAnim.r||130;
+ // 扇形從右(0)逆時針掃到左(π)，模擬從右到左揮刀
+ const endA=Math.PI*p; // 從 0 → π，揮滿 180 度
+ ctx.save();
+ // 外層扇形（主色，半透明）
+ ctx.globalAlpha=(1-p)*.55;
+ ctx.fillStyle=swipeAnim.color;
+ ctx.beginPath();
+ ctx.moveTo(0,0);
+ ctx.arc(0,0,r,0,endA,false);
+ ctx.closePath();
+ ctx.fill();
+ // 內層扇形（更淡）
+ ctx.globalAlpha=(1-p)*.25;
+ ctx.beginPath();
+ ctx.moveTo(0,0);
+ ctx.arc(0,0,r*.65,0,endA,false);
+ ctx.closePath();
+ ctx.fill();
+ // 弧形邊線（銳利感）
+ ctx.globalAlpha=(1-p)*.8;
+ ctx.strokeStyle=swipeAnim.color;
+ ctx.lineWidth=3;
+ ctx.beginPath();
+ ctx.arc(0,0,r,0,endA,false);
+ ctx.stroke();
+ ctx.restore();
 }
 ctx.globalAlpha=1;
 ctx.restore();
