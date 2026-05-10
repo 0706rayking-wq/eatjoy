@@ -4730,20 +4730,20 @@ canvas{display:block;width:100%;height:100%}
 #hud{position:absolute;top:0;left:0;right:0;padding:8px 10px 8px 10px;display:flex;align-items:flex-start;justify-content:space-between;z-index:20;background:linear-gradient(rgba(253,248,240,.96),transparent 90%)}
 #charBars{display:flex;flex-direction:column;gap:2px;pointer-events:auto}
 .charBar{display:flex;align-items:center;gap:4px;margin-bottom:0px}
-.charBarEmoji{font-size:14px;flex-shrink:0}
+.charBarEmoji{font-size:12px;flex-shrink:0}
 .charBarInfo{display:flex;flex-direction:column;gap:1px}
-.charBarName{font-size:9px;font-weight:900;color:#92400e;white-space:nowrap}
-.charBarTrack{width:110px;height:11px;background:#fee2e2;border-radius:6px;border:1px solid #fca5a5;overflow:hidden}
+.charBarName{font-size:8px;font-weight:900;color:#92400e;white-space:nowrap}
+.charBarTrack{width:88px;height:9px;background:#fee2e2;border-radius:5px;border:1px solid #fca5a5;overflow:hidden}
 .charBarFill{height:100%;border-radius:7px;transition:width .2s}
-.charBarNum{font-size:9px;font-weight:900;color:#dc2626}
+.charBarNum{font-size:8px;font-weight:900;color:#dc2626}
 #stamRow{display:flex;align-items:center;gap:3px;margin-top:2px}
-#stamTrack{width:110px;height:9px;background:#dcfce7;border-radius:5px;border:1px solid #86efac;overflow:hidden}
+#stamTrack{width:88px;height:7px;background:#dcfce7;border-radius:4px;border:1px solid #86efac;overflow:hidden}
 #stamFill{height:100%;border-radius:6px;transition:width .15s;background:linear-gradient(90deg,#22c55e,#86efac)}
-#stamNum{font-size:9px;font-weight:900;color:#16a34a}
+#stamNum{font-size:8px;font-weight:900;color:#16a34a}
 .hM{text-align:center;pointer-events:none;flex-shrink:0}
 #formBadge{display:block;font-size:15px;font-weight:900;color:#92400e;background:rgba(251,191,36,.18);border-radius:10px;padding:3px 10px}
 #formPassive{font-size:11px;color:#7c3aed;font-weight:700}
-.hR{position:absolute;top:8px;right:10px;text-align:right;font-size:14px;font-weight:900;line-height:1.8;color:#78350f;z-index:22;background:rgba(253,248,240,.85);padding:2px 6px;border-radius:8px}
+.hR{position:absolute;top:6px;right:8px;text-align:right;font-size:13px;font-weight:900;line-height:1;color:#78350f;z-index:22;display:flex;flex-direction:column;gap:4px;align-items:flex-end}
 /* Boss HUD */
 #bossHud{position:absolute;top:88px;left:50%;transform:translateX(-50%);width:90%;max-width:460px;z-index:20;pointer-events:none;display:none}
 #bossName{text-align:center;font-size:18px;font-weight:900;color:#b91c1c;margin-bottom:6px}
@@ -4751,7 +4751,7 @@ canvas{display:block;width:100%;height:100%}
 #bossFill{height:100%;background:linear-gradient(90deg,#ef4444,#f97316);border-radius:8px;transition:width .25s}
 /* Skill row */
 #skillRow{display:none}
-.skBadge{width:74px;height:74px;border-radius:22px;border:2px solid #d97706;background:rgba(253,248,240,.95);display:flex;align-items:center;justify-content:center;font-size:34px;position:relative;cursor:pointer;box-shadow:0 3px 12px rgba(180,83,9,.25)}
+.skBadge{width:72px;height:72px;border-radius:20px;border:3px solid #d97706;background:rgba(253,248,240,.95);display:flex;align-items:center;justify-content:center;font-size:32px;position:relative;cursor:pointer;box-shadow:0 3px 12px rgba(180,83,9,.25)}
 .skCd{display:none!important}
 /* ── 搖桿（左下） ── */
 #joystickWrap{position:absolute;left:14px;bottom:18px;width:140px;height:140px;z-index:20}
@@ -4768,11 +4768,14 @@ canvas{display:block;width:100%;height:100%}
 .cSwHpFill{height:100%;background:#22c55e;border-radius:4px;transition:width .2s}
 .cSwDead{font-size:16px;color:#9ca3af;display:none}
 /* ── 右側主控制（右下） ── */
-#rightCtrl{position:absolute;right:10px;bottom:14px;display:flex;flex-direction:column;align-items:flex-end;gap:10px;z-index:20}
-.rBtn{width:76px;height:76px;border-radius:22px;border:2px solid;background:rgba(253,248,240,.95);display:flex;align-items:center;justify-content:center;font-size:36px;cursor:pointer;font-weight:900;position:relative;box-shadow:0 3px 12px rgba(0,0,0,.15)}
+#rightCtrl{position:absolute;right:8px;bottom:12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;z-index:20}
+.rBtn{width:72px;height:72px;border-radius:20px;border:3px solid;background:rgba(253,248,240,.95);display:flex;align-items:center;justify-content:center;font-size:32px;cursor:pointer;font-weight:900;position:relative;box-shadow:0 3px 12px rgba(0,0,0,.18)}
 .rBtn:active{opacity:.65;transform:scale(.92)}
 .skRow{display:flex;gap:8px}
-#wpnToggle{border-color:#d97706;background:rgba(251,191,36,.2);width:72px;height:72px;border-radius:22px;font-size:36px;align-self:flex-end}
+#wpnToggle{border-color:#dc2626;background:rgba(220,38,38,.15);border-radius:20px}
+#dodgeBtn{border-color:#2563eb;background:rgba(37,99,235,.15);border-radius:20px}
+#sk1Wrap{border-color:#16a34a;background:rgba(22,163,74,.15);border-radius:20px}
+#sk2Wrap{border-color:#16a34a;background:rgba(22,163,74,.1);border-radius:20px}
 /* Toast */
 #toast{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(253,248,240,.97);border:2px solid #d97706;border-radius:20px;padding:18px 24px;text-align:center;font-size:16px;font-weight:900;color:#92400e;z-index:60;pointer-events:none;opacity:0;transition:opacity .3s;line-height:1.7;max-width:85%;box-shadow:0 5px 24px rgba(0,0,0,.18)}
 /* Back btn */
@@ -4823,7 +4826,7 @@ canvas{display:block;width:100%;height:100%}
  <div id="stamRow"><div style="font-size:13px">⚡</div><div id="stamTrack"><div id="stamFill" style="width:100%"></div></div><div id="stamNum"></div></div>
 </div>
 <div class="hM"><span id="formBadge">🍙 原味</span><br><span id="formPassive">✨ 普通型</span></div>
-<div class="hR"><span style="color:#e96d2a">💰<span id="coinDisp">0</span></span><br><span style="color:#7c3aed">🏆<span id="scoreDisp">0</span></span><br><span style="color:#059669">LV<span id="lvlDisp">1</span></span></div>
+<div class="hR"><span style="background:rgba(233,109,42,.12);border-radius:8px;padding:2px 7px;color:#e96d2a;font-size:12px;white-space:nowrap">💰 <span id="coinDisp">0</span></span><span style="background:rgba(124,58,237,.1);border-radius:8px;padding:2px 7px;color:#7c3aed;font-size:12px;white-space:nowrap">🏆 <span id="scoreDisp">0</span></span><span style="background:rgba(5,150,105,.1);border-radius:8px;padding:2px 7px;color:#059669;font-size:12px;white-space:nowrap">LV<span id="lvlDisp">1</span></span></div>
 </div>
 <div id="skillRow">
 <div class="skBadge" id="skP"><span id="skPI">✨</span></div>
@@ -5190,9 +5193,11 @@ if(player.weaponCd>0){player.weaponCd--;return;}
 if(currentWeapon==='melee'){
  player.weaponCd=MELEE_CD;
  startSwipe();
- const sRange=68;
- enemies.forEach(e=>{const d=Math.sqrt((e.x-player.x)**2+(e.y-player.y)**2);if(d<sRange){e.takeDamage(currentForm.bulletDmg*2.0);burst(e.x,e.y,currentForm.bulletColor,5);}});
- if(boss&&!boss._defeated&&Math.hypot(boss.x-player.x,boss.y-player.y)<sRange+20)boss.takeDamage(currentForm.bulletDmg*2.0);
+ const sRange=110; // 近戰範圍放大（68→110），左右斬擊弧形
+ enemies.forEach(e=>{const d=Math.sqrt((e.x-player.x)**2+(e.y-player.y)**2);if(d<sRange){e.takeDamage(currentForm.bulletDmg*2.2);burst(e.x,e.y,currentForm.bulletColor,5);}});
+ if(boss&&!boss._defeated&&Math.hypot(boss.x-player.x,boss.y-player.y)<sRange+20)boss.takeDamage(currentForm.bulletDmg*2.2);
+ // 斬擊弧形粒子軌跡（從左掃到右）
+ for(let i=0;i<14;i++){const ang=-Math.PI*0.7+(i/13)*Math.PI*1.4;const px=player.x+Math.cos(ang)*(sRange*.7);const py=player.y+Math.sin(ang)*(sRange*.7);particles.push({x:px,y:py,vx:Math.cos(ang)*2,vy:Math.sin(ang)*2-0.5,life:.9,decay:.07,r:5,color:currentForm.bulletColor||'#f97316'});}
  // 子彈反彈
  let reflected=0;
  for(let i=eBullets.length-1;i>=0;i--){
@@ -5224,6 +5229,16 @@ else if(f.name==='麵條型'){for(let i=-2;i<=2;i++)fire(player.x,player.y,i*2.5
 else if(f.name==='炒飯型'){for(let i=-1;i<=1;i++)fire(player.x,player.y,i*1.5,-10,'#fde047',20,6);}
 else{fire(player.x-4,player.y,-1,-12,f.bulletColor,14,5);fire(player.x+4,player.y,1,-12,f.bulletColor,14,5);}
 burst(player.x,player.y,f.bulletColor,7);
+}
+function doDodge(){
+const DODGE_COST=30;
+if(!gameRunning||stamina<DODGE_COST||player.dodging)return;
+stamina=Math.max(0,stamina-DODGE_COST);updateHUD();
+player.dodging=true;player.invTimer=60; // 1秒無敵（60fps）
+// 視覺：玩家半透明
+const orig=player.alpha;player.alpha=0.25;
+addText('💨',player.x,player.y-30,'#60a5fa');
+setTimeout(()=>{player.dodging=false;player.alpha=1;},1000);
 }
 function useSkill2(){
 const SK2_COST=40;
@@ -5350,7 +5365,7 @@ function buildStage(s){
 bullets=[];eBullets=[];enemies=[];particles=[];coins=[];texts=[];
 boss=null;bossSpawned=false;stageCleared=false;spawnTimer=0;spawnQueue=[];
 player.x=Math.max(50,CW/2);player.y=Math.max(100,CH*.8);
-player.invTimer=30;player.shieldActive=false;player.shieldHp=0;player.weaponCd=0;
+player.invTimer=30;player.shieldActive=false;player.shieldHp=0;player.weaponCd=0;player.alpha=1;player.dodging=false;
 if(charSlots.length>0&&charSlots[activeChar]){player.hp=charSlots[activeChar].hp;player.maxHp=charSlots[activeChar].maxHp;}
 pCds=[0,0];passiveTimer=0;
 document.getElementById('bossHud').style.display='none';
@@ -5468,8 +5483,9 @@ for(let x=0;x<CW;x+=30){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,CH);ctx.str
 for(let y=0;y<CH;y+=30){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(CW,y);ctx.stroke();}
 }
 function drawPlayer(){
-if(player.invTimer>0&&Math.floor(Date.now()/80)%2===0)return;
+if(player.invTimer>0&&!player.dodging&&Math.floor(Date.now()/80)%2===0)return;
 ctx.save();ctx.translate(player.x,player.y);
+ctx.globalAlpha=player.alpha||1;
 ctx.font='36px sans-serif';ctx.textBaseline='middle';ctx.textAlign='center';ctx.fillText(currentForm.emoji,0,0);
 ctx.fillStyle='#fb923c';ctx.globalAlpha=.5+Math.random()*.35;
 ctx.beginPath();ctx.moveTo(-7,15);ctx.lineTo(0,26+Math.random()*8);ctx.lineTo(7,15);ctx.closePath();ctx.fill();
@@ -5487,6 +5503,7 @@ if(swipeAnim.active){
  ctx.beginPath();ctx.arc(Math.cos(curA)*44,Math.sin(curA)*44,6,0,Math.PI*2);ctx.fill();
  ctx.restore();ctx.save();ctx.translate(player.x,player.y);ctx.globalAlpha=1;ctx.shadowBlur=0;
 }
+ctx.globalAlpha=1;
 ctx.restore();
 }
 let last=0;
