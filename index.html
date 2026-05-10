@@ -5194,7 +5194,7 @@ if(player.weaponCd>0){player.weaponCd--;return;}
 if(currentWeapon==='melee'){
  player.weaponCd=MELEE_CD;
  startSwipe();
- const sRange=110; // 近戰範圍再放大（110→140），180度扇形
+ const sRange=80; // 近戰範圍再放大（110→140），180度扇形
  enemies.forEach(e=>{const d=Math.sqrt((e.x-player.x)**2+(e.y-player.y)**2);if(d<sRange){e.takeDamage(currentForm.bulletDmg*2.2);burst(e.x,e.y,currentForm.bulletColor,5);}});
  if(boss&&!boss._defeated&&Math.hypot(boss.x-player.x,boss.y-player.y)<sRange+20)boss.takeDamage(currentForm.bulletDmg*2.2);
 
