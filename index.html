@@ -5504,14 +5504,14 @@ if(swipeAnim.active){
  ctx.fillStyle=swipeAnim.color;
  ctx.beginPath();
  ctx.moveTo(0,0);
- ctx.arc(0,0,r,0,endA,false);
+ ctx.arc(0,0,r, startA, endA, false);
  ctx.closePath();
  ctx.fill();
  // 內層扇形（更淡）
  ctx.globalAlpha=(1-p)*.25;
  ctx.beginPath();
  ctx.moveTo(0,0);
- ctx.arc(0,0,r*.65,0,endA,false);
+ ctx.arc(0,0,r, startA, endA, false);
  ctx.closePath();
  ctx.fill();
  // 弧形邊線（銳利感）
@@ -5519,7 +5519,7 @@ if(swipeAnim.active){
  ctx.strokeStyle=swipeAnim.color;
  ctx.lineWidth=3;
  ctx.beginPath();
- ctx.arc(0,0,r,0,endA,false);
+ ctx.arc(0,0,r,endA,false);
  ctx.stroke();
  ctx.restore();
 }
