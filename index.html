@@ -4492,7 +4492,11 @@ if (selectedActivity === 'food_research') {
   };
   const setAmuletSlot = (idx, val) => {
    const s3=loadSave(); const e3={...(s3.equip||{ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']})};
-   const am3=[...(e3.amulets||['','',''])]; am3[idx]=val; e3.amulets=am3;
+   // 需求1：護符不重複
+   const am3=[...(e3.amulets||['','',''])];
+   // 如果其他欄位已有此護符，先清掉
+   if(val!==''){for(let si=0;si<3;si++){if(si!==idx&&am3[si]===val)am3[si]='';}}
+   am3[idx]=val; e3.amulets=am3;
    writeSave({equip:e3}); setFrPhase('camp'); setTimeout(()=>setFrPhase('equip'),10);
   };
 
@@ -4502,6 +4506,43 @@ if (selectedActivity === 'food_research') {
    ramen:{name:'豚骨型',emoji:'🍲'}, sushi:{name:'壽司型',emoji:'🍣'}, steak:{name:'牛排型',emoji:'🥩'},
   };
 
+  // ── 裝備效果說明字典（對應實際武器名稱）──
+  const RANGED_DESC = {
+   '初始食材砲':'直線射擊，傷害適中，無特殊效果，適合入門',
+   '食材砲':'直線射擊，傷害適中，無特殊效果，適合入門',
+   '調味料噴射器':'扇形廣域彈幕，覆蓋範圍廣，適合對付密集敵人',
+   '冷凍光線':'冰結光束，命中後凍結敵人，大幅降低移動速度',
+   '辣油火焰炮':'燃燒彈幕，點燃敵人持續掉血，範圍傷害強',
+   '醬汁雷射':'高傷害穿透彈，可貫穿多個敵人，長距離有效',
+  };
+  const MELEE_DESC = {
+   '初始鍋鏟':'短距揮砍，傷害穩定，無特殊效果，適合入門',
+   '鍋鏟劍':'基礎近戰，攻速與傷害均衡，全能型武器',
+   '擀麵棍':'重型棍棒，傷害極高，單次打擊震退敵人',
+   '菜刀':'高速連斬，攻速最快，連續輕砍輸出爆發',
+   '炒菜鍋':'圓弧揮擊，攻擊範圍大，可同時打到多個敵人',
+   '砧板護盾':'格擋型武器，受擊減傷，技能冷卻縮短30%',
+  };
+  const AMULET_DESC = {
+   '廚神護符':'攻擊力+15%，所有傷害提升',
+   '食安符':'最大血量+30，生存能力增強',
+   '鮮度符':'持續回血效果，每秒回復少量HP',
+   '辛香符':'爆擊率+8%，有機率造成雙倍傷害',
+   '溫度符':'受到傷害-10%，防禦型護符',
+   '時令符':'金幣獲取+20%，擊敗敵人掉更多金幣',
+  };
+  const FORM_DESC = {
+   normal:'🔹被動：普通型（均衡屬性）｜⚡技能1：雙彈衝刺（發射2道衝刺彈）｜💥技能2：能量爆發（釋放能量衝擊波）',
+   burger:'🔹被動：護盾再生（每10秒回復護盾）｜⚡技能1：衝撞攻擊（衝向敵人造成傷害）｜💥技能2：超級護盾（短暫無敵護盾）',
+   chili:'🔹被動：灼燒光環（附近敵人持續掉血）｜⚡技能1：辣椒爆炸（範圍爆炸傷害）｜💥技能2：火焰噴射（短距高傷火焰）',
+   tofu:'🔹被動：減傷護盾（受傷-20%）｜⚡技能1：豆腐防禦（短暫無敵幀）｜💥技能2：反射力場（反彈子彈）',
+   noodle:'🔹被動：連擊加成（連續攻擊傷害遞增）｜⚡技能1：麵條纏繞（定身敵人）｜💥技能2：速度暴走（大幅提升攻速）',
+   rice:'🔹被動：金幣加成（金幣獲取+45%）｜⚡技能1：炒飯散彈（8方向散射）｜💥技能2：黃金雨（範圍金幣子彈）',
+   ramen:'🔹被動：生命吸取（攻擊回血）｜⚡技能1：湯汁滾燙（噴出燙傷液體）｜💥技能2：衝擊波（全屏震波傷害）',
+   sushi:'🔹被動：閃避加速（閃避後移動加快）｜⚡技能1：精準投擲（高傷單體）｜💥技能2：完美迴避（短距瞬移）',
+   steak:'🔹被動：暴擊加成（爆擊率+15%）｜⚡技能1：重擊斬裂（單次超高傷）｜💥技能2：霸王衝（無敵衝鋒撞飛）',
+  };
+
   return (
    <div className="fixed inset-0 z-[10000] flex flex-col" style={campBg}>
     <NavBar title="🔧 整備所" onBack={()=>setFrPhase('camp')} />
@@ -4509,34 +4550,64 @@ if (selectedActivity === 'food_research') {
      {/* Ranged */}
      <div style={cardStyle}>
       <div style={sectionTitle}>🏹 遠程武器</div>
-      <div style={{display:'flex', flexWrap:'wrap', gap:'6px'}}>
+      <div style={{display:'flex', flexDirection:'column', gap:'6px'}}>
        {(ws2.ranged||['初始食材砲']).map(w=>(
-        <button key={w} onClick={()=>setEq('ranged',w)} style={{padding:'7px 12px', borderRadius:'9px', fontSize:'11px', fontWeight:900, border:'2px solid '+(eq2.ranged===w?'#1f6feb':'#30363d'), background:eq2.ranged===w?'rgba(31,111,235,.2)':'transparent', color:eq2.ranged===w?'#58a6ff':'#8b949e', cursor:'pointer'}}>{w}</button>
+        <div key={w} onClick={()=>setEq('ranged',w)} style={{padding:'8px 12px', borderRadius:'9px', border:'2px solid '+(eq2.ranged===w?'#1f6feb':'#30363d'), background:eq2.ranged===w?'rgba(31,111,235,.15)':'transparent', cursor:'pointer'}}>
+         <div style={{fontSize:'12px', fontWeight:900, color:eq2.ranged===w?'#58a6ff':'#8b949e'}}>{eq2.ranged===w?'✓ ':''}{w}</div>
+         <div style={{fontSize:'10px', color:'#6e7681', marginTop:'3px'}}>{RANGED_DESC[w]||'點擊裝備此武器'}</div>
+        </div>
        ))}
       </div>
      </div>
      {/* Melee */}
      <div style={cardStyle}>
       <div style={sectionTitle}>🗡️ 近戰武器</div>
-      <div style={{display:'flex', flexWrap:'wrap', gap:'6px'}}>
+      <div style={{display:'flex', flexDirection:'column', gap:'6px'}}>
        {(ws2.melee||['初始鍋鏟']).map(w=>(
-        <button key={w} onClick={()=>setEq('melee',w)} style={{padding:'7px 12px', borderRadius:'9px', fontSize:'11px', fontWeight:900, border:'2px solid '+(eq2.melee===w?'#f0883e':'#30363d'), background:eq2.melee===w?'rgba(240,136,62,.2)':'transparent', color:eq2.melee===w?'#ffa657':'#8b949e', cursor:'pointer'}}>{w}</button>
+        <div key={w} onClick={()=>setEq('melee',w)} style={{padding:'8px 12px', borderRadius:'9px', border:'2px solid '+(eq2.melee===w?'#f0883e':'#30363d'), background:eq2.melee===w?'rgba(240,136,62,.15)':'transparent', cursor:'pointer'}}>
+         <div style={{fontSize:'12px', fontWeight:900, color:eq2.melee===w?'#ffa657':'#8b949e'}}>{eq2.melee===w?'✓ ':''}{w}</div>
+         <div style={{fontSize:'10px', color:'#6e7681', marginTop:'3px'}}>{MELEE_DESC[w]||'點擊裝備此武器'}</div>
+        </div>
        ))}
       </div>
      </div>
-     {/* Amulets x3 */}
-     {[0,1,2].map(idx=>(
-      <div key={idx} style={cardStyle}>
-       <div style={sectionTitle}>📿 護身符欄位 {idx+1}</div>
-       <div style={{display:'flex', flexWrap:'wrap', gap:'6px'}}>
-        <button onClick={()=>setAmuletSlot(idx,'')} style={{padding:'7px 12px', borderRadius:'9px', fontSize:'11px', fontWeight:900, border:'2px solid '+(eq2.amulets[idx]===''?'#30363d':'#21262d'), background:eq2.amulets[idx]===''?'rgba(255,255,255,.06)':'transparent', color:'#6e7681', cursor:'pointer'}}>空</button>
-        {am2.map(a=>(
-         <button key={a} onClick={()=>setAmuletSlot(idx,a)} style={{padding:'7px 12px', borderRadius:'9px', fontSize:'11px', fontWeight:900, border:'2px solid '+(eq2.amulets[idx]===a?'#bc8cff':'#30363d'), background:eq2.amulets[idx]===a?'rgba(188,140,255,.2)':'transparent', color:eq2.amulets[idx]===a?'#d2a8ff':'#8b949e', cursor:'pointer'}}>{a}</button>
-        ))}
-        {am2.length===0&&<span style={{fontSize:'11px',color:'#6e7681'}}>前往神社抽取護符</span>}
-       </div>
+     {/* Amulets - 單一區塊，3個欄位不重複 */}
+     <div style={cardStyle}>
+      <div style={sectionTitle}>📿 護身符（最多選3個，不重複）</div>
+      {/* 已裝備欄位 */}
+      <div style={{display:'flex', gap:'8px', marginBottom:'10px'}}>
+       {[0,1,2].map(idx=>(
+        <div key={idx} style={{flex:1, textAlign:'center', border:'2px solid '+(eq2.amulets[idx]?'#bc8cff':'#30363d'), borderRadius:'10px', padding:'6px 4px', background:eq2.amulets[idx]?'rgba(188,140,255,.15)':'rgba(255,255,255,.03)', minHeight:'40px', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', cursor:eq2.amulets[idx]?'pointer':'default'}} onClick={()=>eq2.amulets[idx]&&setAmuletSlot(idx,'')}>
+         {eq2.amulets[idx]
+          ? <><div style={{fontSize:'10px', fontWeight:900, color:'#d2a8ff'}}>{eq2.amulets[idx]}</div><div style={{fontSize:'9px', color:'#8b5cf6', marginTop:'1px'}}>{AMULET_DESC[eq2.amulets[idx]]||'護符效果'}</div><div style={{fontSize:'9px', color:'#6e7681', marginTop:'2px'}}>點擊移除</div></>
+          : <div style={{fontSize:'10px', color:'#6e7681'}}>空欄 {idx+1}</div>}
+        </div>
+       ))}
       </div>
-     ))}
+      {/* 護符選擇清單 */}
+      <div style={{display:'flex', flexWrap:'wrap', gap:'6px'}}>
+       {am2.length===0 && <span style={{fontSize:'11px',color:'#6e7681'}}>前往神社抽取護符</span>}
+       {am2.map(a=>{
+        const equippedIdx=eq2.amulets.indexOf(a);
+        const isEquipped=equippedIdx>=0;
+        const emptySlot=eq2.amulets.indexOf('');
+        return (
+         <button key={a}
+          onClick={()=>{
+           if(isEquipped)setAmuletSlot(equippedIdx,'');
+           else if(emptySlot>=0)setAmuletSlot(emptySlot,a);
+          }}
+          style={{padding:'7px 12px 5px', borderRadius:'9px', fontSize:'11px', fontWeight:900,
+           border:'2px solid '+(isEquipped?'#bc8cff':emptySlot<0?'#21262d':'#30363d'),
+           background:isEquipped?'rgba(188,140,255,.2)':'transparent',
+           color:isEquipped?'#d2a8ff':emptySlot<0?'#3d444d':'#8b949e',
+           cursor:isEquipped||emptySlot>=0?'pointer':'not-allowed',
+           opacity:!isEquipped&&emptySlot<0?.4:1, textAlign:'left'
+          }}><div>{isEquipped?'✓ ':''}{a}</div><div style={{fontSize:'9px',color:'#6e7681',fontWeight:400,marginTop:'2px'}}>{AMULET_DESC[a]||'特殊護符效果'}</div></button>
+        );
+       })}
+      </div>
+     </div>
      {/* Form slot */}
      <div style={cardStyle}>
       <div style={sectionTitle}>🍴 切換型態</div>
@@ -4544,7 +4615,10 @@ if (selectedActivity === 'food_research') {
        {['normal', ...of2].map(fid=>{
         const fm = FOOD_FORMS_META[fid]||{name:fid,emoji:'🍽️'};
         return (
-         <button key={fid} onClick={()=>{writeSave({equippedForm:fid});setFrPhase('camp');setTimeout(()=>setFrPhase('equip'),10);}} style={{padding:'7px 12px', borderRadius:'9px', fontSize:'11px', fontWeight:900, border:'2px solid '+(ef2===fid?'#3fb950':'#30363d'), background:ef2===fid?'rgba(63,185,80,.2)':'transparent', color:ef2===fid?'#7ee787':'#8b949e', cursor:'pointer'}}>{fm.emoji} {fm.name}</button>
+         <div key={fid} onClick={()=>{writeSave({equippedForm:fid});setFrPhase('camp');setTimeout(()=>setFrPhase('equip'),10);}} style={{padding:'8px 12px', borderRadius:'9px', border:'2px solid '+(ef2===fid?'#3fb950':'#30363d'), background:ef2===fid?'rgba(63,185,80,.15)':'transparent', cursor:'pointer'}}>
+          <div style={{fontSize:'12px', fontWeight:900, color:ef2===fid?'#7ee787':'#8b949e'}}>{ef2===fid?'✓ ':''}{fm.emoji} {fm.name}</div>
+          <div style={{fontSize:'10px', color:'#6e7681', marginTop:'3px', lineHeight:'1.5'}}>{FORM_DESC[fid]||'點擊選擇此型態'}</div>
+         </div>
         );
        })}
       </div>
@@ -4702,7 +4776,7 @@ canvas{display:block;width:100%;height:100%}
 #timerBar{width:100%;height:7px;background:#fde8c8;border-radius:4px;overflow:hidden}
 #timerFill{height:100%;background:linear-gradient(90deg,#22c55e,#eab308,#ef4444);border-radius:4px;transition:width .1s linear}
 #timerLabel{text-align:center;font-size:12px;color:#92400e;margin-top:3px;font-weight:700}
-#qaZones{position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;z-index:81;pointer-events:none}
+#qaZones{position:absolute;inset:0;display:grid;grid-template-columns:1fr 1fr 1fr 1fr;grid-template-rows:1fr;z-index:81;pointer-events:none}
 .qzone{display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;border:1px solid rgba(255,255,255,.1)}
 .qzone .zLetter{font-size:80px;font-weight:900;opacity:.18;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}
 .qzone .zLabel{position:absolute;bottom:8%;font-size:18px;font-weight:900;text-align:center;padding:0 8px;line-height:1.4;text-shadow:0 2px 4px rgba(0,0,0,.6);width:100%}
@@ -4754,7 +4828,7 @@ canvas{display:block;width:100%;height:100%}
 <div class="cSwBtn" id="csBtn1" onclick="switchToChar(1)"><div class="cSwEmoji" id="csEmoji1">🐾</div><div class="cSwName" id="csName1">—</div><div class="cSwHpTrack"><div class="cSwHpFill" id="csHpFill1" style="width:100%"></div></div><div class="cSwDead" id="csDead1">💀</div></div>
 <div class="cSwBtn" id="csBtn2" onclick="switchToChar(2)"><div class="cSwEmoji" id="csEmoji2">🐾</div><div class="cSwName" id="csName2">—</div><div class="cSwHpTrack"><div class="cSwHpFill" id="csHpFill2" style="width:100%"></div></div><div class="cSwDead" id="csDead2">💀</div></div>
 </div>
-<div id="bossHud"><div id="bossName">👿 魔王</div><div id="bossTrack"><div id="bossFill" style="width:100%"></div></div></div>
+<div id="bossHud"><div id="bossName">👿 魔王</div><div id="bossTrack"><div id="bossFill" style="width:100%"></div></div><div id="bossShieldTrack" style="width:100%;height:7px;background:#1e3a5f;border-radius:3px;overflow:hidden;margin-top:3px"><div id="bossShieldBar" style="height:100%;width:100%;background:linear-gradient(90deg,#93c5fd,#3b82f6);border-radius:3px;transition:width .2s"></div></div><div id="bossShieldLbl" style="font-size:9px;color:#93c5fd;text-align:right">🛡️</div></div>
 <div id="toast"></div>
 <div id="qaOverlay">
 <div id="qaZones">
@@ -4809,7 +4883,7 @@ canvas{display:block;width:100%;height:100%}
  <button class="mbtn red" onclick="goBackToCamp()">🏕️ 返回營地</button>
 </div>
 </div>
-<div id="stageFlash"><div style="font-size:24px;font-weight:900;color:#4ade80;text-shadow:0 0 20px #4ade80;text-align:center;line-height:1.6" id="stageFlashMsg"></div></div>
+<div id="stageFlash"><div style="font-size:32px;font-weight:900;color:#4ade80;text-shadow:0 0 24px #4ade80;text-align:center;line-height:1.4;letter-spacing:2px" id="stageFlashMsg"></div></div>
 </div>
 ` + frSS + `
 const PARTNERS = ${partnerData};
@@ -4931,8 +5005,11 @@ draw(){ctx.save();ctx.fillStyle=this.color;ctx.shadowBlur=8;ctx.shadowColor=this
 dead(){return this.x<-20||this.x>CW+20||this.y<-20||this.y>CH+20||this.age>200;}
 }
 class Enemy{
-constructor(x,y,type,hp,sv){
- Object.assign(this,{x,y,type,maxHp:hp,hp,scoreVal:sv,r:type===2?18:14,timer:0,vy:type===1?3:type===2?1.5:2,vx:0,frozenTimer:0});
+constructor(x,y,type,hp,sv,stg=1){
+const sMult=1+stg*.12; // 每關強度+12%
+const sHp=Math.floor(hp*sMult);
+const sVy=(type===1?3:type===2?2.6:1.4)*(1+stg*.04);
+Object.assign(this,{x,y,type,maxHp:sHp,hp:sHp,scoreVal:sv,r:type===2?18:14,timer:0,atk:Math.ceil((type===2?18:type===3?12:8)*(1+stg*.1)),vy:sVy,vx:0,frozenTimer:0});
  if(type===3)this.startX=x;
 }
 update(){
@@ -4969,9 +5046,12 @@ addText('+'+earn+'💰',this.x,this.y-20,'#92400e');updateHUD();
 }
 class Boss extends Enemy{
 constructor(stg){
- super(CW/2,-90,10,Math.floor((200+stg*80)*Math.pow(1/atkMult,.5)),stg<=1?500:stg===2?1000:2000);
+ super(CW/2,-90,10,Math.floor((800+stg*300)*Math.pow(1/atkMult,.5)),stg<=1?800:stg===2?1800:3500);
  this.r=64;this.phase=0;this.stg=stg;this.targetX=CW/2;this.targetY=130;this.atkTimer=0;this._defeated=false;
  this.color=stg<=1?'#f87171':stg===2?'#c084fc':'#f472b6';
+ // 需求6：Boss護盾
+ const sMax=Math.floor((300+stg*150));
+ this.shield=sMax;this.maxShield=sMax;this.shieldResetTimer=0;this.shieldBroken=false;
  this.name=stg<=1?'腐敗食神':stg===2?'毒素領主':'終焉主廚';
  document.getElementById('bossHud').style.display='block';
  document.getElementById('bossName').textContent='👿 '+this.name;
@@ -4980,16 +5060,34 @@ constructor(stg){
 update(){
  this.timer++;if(this.y<this.targetY){this.y+=2.5;return;}
  const sm=this.frozenTimer>0?.7:1;if(this.frozenTimer>0)this.frozenTimer--;
+ // 護盾破裂計時（每幀-1，60fps=20秒=1200幀）
+ if(this.shieldBroken){
+  this.shieldResetTimer--;
+  updateBossShield();
+  if(this.shieldResetTimer<=0){
+   this.shield=this.maxShield;this.shieldBroken=false;
+   addText('🛡️護盾重置！',this.x,this.y-50,'#60a5fa');
+   updateBossShield();
+  }
+ }
  if(this.timer%100===0)this.targetX=50+Math.random()*(CW-100);
  this.x+=(this.targetX-this.x)*.025*sm;this.y+=(this.targetY-this.y)*.025*sm;
- this.atkTimer++;const intv=this.phase>=2?100:this.phase===1?140:200;
+ this.atkTimer++;const intv=this.phase>=3?55:this.phase>=2?80:this.phase===1?120:180;
  if(this.atkTimer>=intv){this.atkTimer=0;this.fire();}
 }
 fire(){
  const bx=this.x,by=this.y+this.r,a=Math.atan2(player.y-by,player.x-bx);
- if(this.phase===0){for(let i=0;i<8;i++){const ang=(Math.PI*2/8)*i+(this.timer*.015);eBullets.push(new Bullet(this.x,this.y,Math.cos(ang)*3.5,Math.sin(ang)*3.5,15,'#f87171',6));}eBullets.push(new Bullet(bx,by,Math.cos(a)*5,Math.sin(a)*5,20,'#facc15',8));}
- else if(this.phase===1){for(let i=-2;i<=2;i++)eBullets.push(new Bullet(bx,by,i*2.5,5,18,'#d8b4fe',6));eBullets.push(new Bullet(bx,by,Math.cos(a)*6,Math.sin(a)*6,22,'#f87171',7));}
- else{for(let i=0;i<10;i++){const ang=(Math.PI*2/10)*i;eBullets.push(new Bullet(this.x,this.y,Math.cos(ang)*4.5,Math.sin(ang)*4.5,16,'#f472b6',5));}for(let i=-1;i<=1;i++)eBullets.push(new Bullet(bx,by,i*3,6,20,'#fbbf24',7));}
+ if(this.phase===0){
+  for(let i=0;i<8;i++){const ang=(Math.PI*2/8)*i+(this.timer*.015);eBullets.push(new Bullet(this.x,this.y,Math.cos(ang)*2.4,Math.sin(ang)*2.4,14,this.color,8));}
+ }else if(this.phase===1){
+  for(let i=-2;i<=2;i++)eBullets.push(new Bullet(bx,by,Math.cos(a)+i*.6,Math.sin(a)+i*.4,18,'#d8b4fe',8));
+ }else if(this.phase===2){
+  for(let i=0;i<12;i++){const ang=(Math.PI*2/12)*i+(this.timer*.03);eBullets.push(new Bullet(this.x,this.y,Math.cos(ang)*4,Math.sin(ang)*4,16,this.color,12));}
+  if(this.atkTimer===0){const spd=5;eBullets.push(new Bullet(bx,by,Math.cos(a)*spd,Math.sin(a)*spd,20,'#fbbf24',14,false,true));}
+ }else{
+  for(let i=0;i<16;i++){const ang=(Math.PI*2/16)*i+(this.timer*.025);eBullets.push(new Bullet(this.x,this.y,Math.cos(ang)*3.2,Math.sin(ang)*3.2,14,this.color,10));}
+  for(let j=-1;j<=1;j++)eBullets.push(new Bullet(bx,by,Math.cos(a+j*.3)*6,Math.sin(a+j*.3)*6,22,'#ff4444',16));
+ }
 }
 draw(){
  ctx.save();ctx.translate(this.x,this.y);ctx.shadowBlur=14;ctx.shadowColor=this.color;ctx.fillStyle=this.color;
@@ -5000,12 +5098,25 @@ draw(){
  ctx.closePath();ctx.fill();
  ctx.fillStyle='#fff';ctx.shadowBlur=0;ctx.beginPath();ctx.arc(0,0,12+Math.sin(this.timer*.1)*6,0,Math.PI*2);ctx.fill();ctx.restore();
 }
-takeDamage(amt){
+takeDamage(amt,isQa=false){
  if(this._defeated)return;
+ // 需求6：護盾先吸傷害
+ if(this.shield>0&&!this.shieldBroken){
+  const shieldDmg=isQa?Math.floor(this.maxShield*.3):Math.floor(amt*atkMult*.5);
+  this.shield=Math.max(0,this.shield-shieldDmg);
+  addText(isQa?'🛡️破盾！':'🛡️'+shieldDmg,this.x,this.y-30,'#60a5fa');
+  updateBossShield();
+  if(this.shield<=0){this.shieldBroken=true;this.shieldResetTimer=20*60;addText('護盾破裂！',this.x,this.y-50,'#ef4444');}
+  if(!isQa){this.hp-=Math.floor(amt*atkMult*.3);addText(Math.floor(amt*atkMult*.3).toString(),this.x,this.y,'#92400e');updateBossHp();return;}
+ }
+ // 護盾破裂後重置計時
+
  this.hp-=amt*atkMult;addText(Math.floor(amt*atkMult).toString(),this.x,this.y,'#92400e');
  updateBossHp();
- if(this.hp<this.maxHp*.66&&this.phase===0){this.phase=1;setTimeout(triggerQa,0);}
- if(this.hp<this.maxHp*.33&&this.phase===1){this.phase=2;setTimeout(triggerQa,0);}
+ // 需求7：每削減1/4血量觸發QA
+if(this.hp<this.maxHp*.75&&this.phase===0){this.phase=1;setTimeout(triggerQa,0);}
+if(this.hp<this.maxHp*.50&&this.phase===1){this.phase=2;setTimeout(triggerQa,0);}
+if(this.hp<this.maxHp*.25&&this.phase===2){this.phase=3;setTimeout(triggerQa,0);}
  if(this.hp<=0){
  this._defeated=true;
  if(qaActive){qaActive=false;document.getElementById('qaOverlay').style.display='none';document.getElementById('pzr').style.display='none';}
@@ -5028,11 +5139,12 @@ takeDamage(amt){
  stageCleared=true;gameRunning=false;
  setTimeout(()=>{
 stage++;
+// 需求2：直接顯示關卡數，不顯示BOSS擊倒動畫
 const fl=document.getElementById('stageFlash'),fm=document.getElementById('stageFlashMsg');
-fm.textContent='🎉 BOSS擊倒！💰 +100　關卡 '+stage+' 開始！';fl.style.display='flex';
-setTimeout(()=>fl.style.display='none',1500);
+fm.textContent='⚔️ 關卡 '+stage;fl.style.display='flex';
+setTimeout(()=>fl.style.display='none',800);
 buildStage(stage);gameRunning=true;last=performance.now();requestAnimationFrame(loop);
- },2200);
+ },600);
  }
 }
 }
@@ -5206,6 +5318,15 @@ charSlots.forEach((ch,i)=>{
  else{btn.className='cSwBtn';if(deadEl)deadEl.style.display='none';}
 });
 }
+function updateBossShield(){
+const shBar=document.getElementById('bossShieldBar');
+if(!shBar||!boss)return;
+const pct=boss.maxShield>0?Math.max(0,boss.shield/boss.maxShield*100):0;
+shBar.style.width=pct+'%';
+shBar.style.background=boss.shieldBroken?'#6b7280':'linear-gradient(90deg,#93c5fd,#3b82f6)';
+const lbl=document.getElementById('bossShieldLbl');
+if(lbl)lbl.textContent=boss.shieldBroken?'護盾冷卻'+Math.ceil(boss.shieldResetTimer/60)+'s':'🛡️'+boss.shield+'/'+boss.maxShield;
+}
 function updateBossHp(){if(boss&&!boss._defeated)document.getElementById('bossFill').style.width=Math.max(0,boss.hp/boss.maxHp*100)+'%';}
 function hurtPlayer(raw){
 if(player.invTimer>0)return;
@@ -5226,12 +5347,21 @@ if(charSlots.length>0&&charSlots[activeChar]){player.hp=charSlots[activeChar].hp
 pCds=[0,0];passiveTimer=0;
 document.getElementById('bossHud').style.display='none';
 document.getElementById('lvlDisp').textContent=s;updateHUD();
-const n=12+s*6;
-for(let i=0;i<n;i++)spawnQueue.push({frame:i*35+20,x:20+Math.random()*(CW-40),type:Math.random()>.55?(Math.random()>.5?2:3):1});
+// 需求5：20波小兵才出Boss；需求3：隨關卡兵力增強
+const WAVES=20+Math.floor(s/3);
+const baseFrame=200;
+for(let w=0;w<WAVES;w++){
+ const wf=baseFrame+w*180;
+ const count=2+Math.floor(s/2)+Math.floor(Math.random()*3); // 每波兵數隨關卡增加
+ for(let k=0;k<count;k++){
+  const t=Math.random()>.55?(Math.random()>.5?2:3):1;
+  spawnQueue.push({frame:wf+k*25,x:20+Math.random()*(CW-40),type:t,wave:w,stg:s});
+ }
+}
 }
 function tickSpawner(){
 spawnTimer++;
-while(spawnQueue.length&&spawnQueue[0].frame<=spawnTimer){const cfg=spawnQueue.shift();enemies.push(new Enemy(cfg.x,-20,cfg.type,18+stage*5,10*stage));}
+while(spawnQueue.length&&spawnQueue[0].frame<=spawnTimer){const cfg=spawnQueue.shift();enemies.push(new Enemy(cfg.x,-20,cfg.type,18+stage*5,10*stage,cfg.stg||stage));}
 if(!bossSpawned&&!spawnQueue.length&&!enemies.length){bossSpawned=true;boss=new Boss(stage);}
 }
 let qaActive=false,qaTimer=0,qaAns=0;
@@ -5250,8 +5380,8 @@ document.getElementById('qaOverlay').style.display='block';
 document.getElementById('pzr').style.display='block';
 updatePzr();
 }
-function updatePzr(){const r=document.getElementById('pzr');r.style.left=(player.x-28)+'px';r.style.top=(player.y-28)+'px';}
-function getPlayerZone(){const hx=player.x<CW/2,hy=player.y<CH/2;return hx&&hy?0:!hx&&hy?1:hx&&!hy?2:3;}
+function updatePzr(){const r=document.getElementById('pzr');r.style.left=(player.x-18)+'px';r.style.top=(player.y-18)+'px';}
+function getPlayerZone(){const q=CW/4;if(player.x<q)return 0;if(player.x<q*2)return 1;if(player.x<q*3)return 2;return 3;}
 function resolveQa(dt){
 qaTimer-=dt;
 document.getElementById('timerFill').style.width=(qaTimer/QA_TIME*100)+'%';
@@ -5263,6 +5393,7 @@ function endQa(correct){
 qaActive=false;document.getElementById('qaOverlay').style.display='none';document.getElementById('pzr').style.display='none';
 const ids=['zA','zB','zC','zD'];
 if(correct){document.getElementById(ids[qaAns]).classList.add('cf');setTimeout(()=>document.getElementById(ids[qaAns]).classList.remove('cf'),700);burst(player.x,player.y,'#4ade80',16);}
+if(boss&&!boss._defeated)boss.takeDamage(boss.maxHp*.08,true);
 else{const wc=getPlayerZone();document.getElementById(ids[Math.min(3,wc)]).classList.add('wf');setTimeout(()=>document.getElementById(ids[Math.min(3,wc)]).classList.remove('wf'),600);hurtPlayer(45);burst(player.x,player.y,'#ef4444',20);}
 }
 let revCorrect=0,revWrong=0,revPool=[];
@@ -5420,7 +5551,9 @@ setForm(startForm);buildStage(stage);initCharSlots();
 gameRunning=true;last=performance.now();requestAnimationFrame(loop);
 }
 function restartGame(){
-stage=1;score=0;['gameOverModal','revModal'].forEach(id=>document.getElementById(id).style.display='none');
+// 需求4：從上次失敗的關卡繼續（存localStorage）
+const savedStage=parseInt(localStorage.getItem('fr_last_stage')||'1');
+stage=Math.max(1,savedStage-1)||1;score=0;['gameOverModal','revModal'].forEach(id=>document.getElementById(id).style.display='none');
 setForm(startForm);buildStage(stage);initCharSlots();updateHUD();
 gameRunning=true;last=performance.now();requestAnimationFrame(loop);
 }
