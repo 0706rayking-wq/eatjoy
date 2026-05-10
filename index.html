@@ -4563,15 +4563,17 @@ if (selectedActivity === 'food_research') {
     return [...prev, u];
    });
   };
-  const handleDeparture = async () => {
-   for (const partner of chosenPartners) {
+  const handleDeparture = () => {
+   // 背景更新夥伴金幣，不等待，直接出征
+   chosenPartners.forEach(partner => {
     try {
      const ref = db.collection(getPublicPath('users')).doc(partner.phone);
-     const snap = await ref.get();
-     const cur = (snap.exists && snap.data().gameGold) || 0;
-     await ref.update({ gameGold: cur + 1 });
+     ref.get().then(snap => {
+      const cur = (snap.exists && snap.data().gameGold) || 0;
+      ref.update({ gameGold: cur + 1 }).catch(e => console.warn('gold update fail', e));
+     }).catch(e => console.warn('gold fetch fail', e));
     } catch(e) { console.warn('gold update fail', e); }
-   }
+   });
    setFrPhase('game');
   };
   return (
