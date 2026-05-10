@@ -5495,41 +5495,37 @@ if(player.shieldActive){ctx.strokeStyle='#67e8f9';ctx.lineWidth=3;ctx.globalAlph
 if(swipeAnim.active){
  const p=swipeAnim.progress;
  const r=swipeAnim.r||130;
+ // 扇形從右(0)逆時針掃到左(π)，模擬從右到左揮刀
  const startA = Math.PI; 
  const endA = Math.PI + Math.PI * p; 
- 
  ctx.save();
- 
+ // 外層扇形（主色，半透明）
  ctx.globalAlpha=(1-p)*.55;
  ctx.fillStyle=swipeAnim.color;
  ctx.beginPath();
  ctx.moveTo(0,0);
- ctx.arc(0,0,r, startA, endA, false); 
+ ctx.arc(0,0,r,0,endA,false);
  ctx.closePath();
  ctx.fill();
- 
+ // 內層扇形（更淡）
  ctx.globalAlpha=(1-p)*.25;
  ctx.beginPath();
  ctx.moveTo(0,0);
- ctx.arc(0,0,r, startA, endA, false);
+ ctx.arc(0,0,r*.65,0,endA,false);
  ctx.closePath();
  ctx.fill();
- 
+ // 弧形邊線（銳利感）
  ctx.globalAlpha=(1-p)*.8;
  ctx.strokeStyle=swipeAnim.color;
  ctx.lineWidth=3;
  ctx.beginPath();
- ctx.arc(0,0,r, startA, endA, false); 
+ ctx.arc(0,0,r,0,endA,false);
  ctx.stroke();
- 
  ctx.restore();
 }
-
-// 👇 請確保這三行沒有被刪除，這非常重要，少了大括號整個遊戲就會無法執行
 ctx.globalAlpha=1;
 ctx.restore();
 }
-
 let last=0;
 function loop(ts){
 if(!gameRunning||stageCleared)return;
