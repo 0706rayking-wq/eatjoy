@@ -7929,8 +7929,8 @@ return (
 
       return (
         <div className="min-h-screen flex flex-col">
-          <div style={{position:"fixed", top:"80px", left:"50%", transform:"translateX(-50%)", zIndex:9999, width:"100%", maxWidth:"320px", padding:"0 16px"}} className="space-y-3 pointer-events-none">
-            {notifications.map(n => (<div key={n.id} className={`toast-enter p-5 rounded-[2rem] shadow-2xl flex items-center gap-4 glass-panel border-l-4 ${n.type === 'success' ? 'border-l-emerald-500 text-emerald-700' : 'border-l-brand-red text-brand-red'}`}><Icon name={n.type === 'success' ? 'check-circle' : 'alert-triangle'} size={24} /><span className="font-bold text-xs leading-tight">{n.msg}</span></div>))}
+          <div style={{position:"fixed", top:"80px", left:0, right:0, zIndex:9999, display:"flex", flexDirection:"column", alignItems:"center", gap:"12px", pointerEvents:"none", padding:"0 16px"}}>
+            {notifications.map(n => (<div key={n.id} style={{width:"100%", maxWidth:"320px"}} className={`toast-enter p-5 rounded-[2rem] shadow-2xl flex items-center gap-4 glass-panel border-l-4 ${n.type === 'success' ? 'border-l-emerald-500 text-emerald-700' : 'border-l-brand-red text-brand-red'}`}><Icon name={n.type === 'success' ? 'check-circle' : 'alert-triangle'} size={24} /><span className="font-bold text-xs leading-tight">{n.msg}</span></div>))}
           </div>
 
           {currentPage !== 'auth' && (
