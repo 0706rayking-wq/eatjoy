@@ -5194,7 +5194,7 @@ if(player.weaponCd>0){player.weaponCd--;return;}
 if(currentWeapon==='melee'){
  player.weaponCd=MELEE_CD;
  startSwipe();
- const sRange=140; // 近戰範圍再放大（110→140），180度扇形
+ const sRange=125; // 近戰範圍再放大（110→125），180度扇形
  enemies.forEach(e=>{const d=Math.sqrt((e.x-player.x)**2+(e.y-player.y)**2);if(d<sRange){e.takeDamage(currentForm.bulletDmg*2.2);burst(e.x,e.y,currentForm.bulletColor,5);}});
  if(boss&&!boss._defeated&&Math.hypot(boss.x-player.x,boss.y-player.y)<sRange+20)boss.takeDamage(currentForm.bulletDmg*2.2);
 
@@ -5510,7 +5510,7 @@ if(swipeAnim.active){
  ctx.globalAlpha=(1-p)*.25;
  ctx.beginPath();
  ctx.moveTo(0,0);
- ctx.arc(0,0,r*.65,0,endA,false);
+ ctx.arc(0,0,r,0,-endA,true);
  ctx.closePath();
  ctx.fill();
  // 弧形邊線（銳利感）
