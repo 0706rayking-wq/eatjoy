@@ -5194,7 +5194,7 @@ if(player.weaponCd>0){player.weaponCd--;return;}
 if(currentWeapon==='melee'){
  player.weaponCd=MELEE_CD;
  startSwipe();
- const sRange=80; // 近戰範圍再放大（110→140），180度扇形
+ const sRange=90; // 近戰範圍再放大（110→140），180度扇形
  enemies.forEach(e=>{const d=Math.sqrt((e.x-player.x)**2+(e.y-player.y)**2);if(d<sRange){e.takeDamage(currentForm.bulletDmg*2.2);burst(e.x,e.y,currentForm.bulletColor,5);}});
  if(boss&&!boss._defeated&&Math.hypot(boss.x-player.x,boss.y-player.y)<sRange+20)boss.takeDamage(currentForm.bulletDmg*2.2);
 
@@ -5494,7 +5494,7 @@ if(player.shieldActive){ctx.strokeStyle='#67e8f9';ctx.lineWidth=3;ctx.globalAlph
 // 揮刀 180 度扇形（無粒子，實心半圓弧）
 if(swipeAnim.active){
  const p=swipeAnim.progress;
- const r=swipeAnim.r||130;
+ const r=swipeAnim.r||90;
  // 扇形從右(0)逆時針掃到左(π)，模擬從右到左揮刀
  const startA = Math.PI; 
  const endA = Math.PI + Math.PI * p; 
