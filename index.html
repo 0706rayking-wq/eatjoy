@@ -2995,7 +2995,7 @@
     };
 
     // 1. 參數新增 currentUser
-    const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, branchZones, currentBranch, getPublicPath, currentUser }) => {
+    const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, branchZones, currentBranch, getPublicPath, currentUser, isManager, isSuperAdmin }) => {
   const [activeZone, setActiveZone] = useState(null);
   const [dailyPhotos, setDailyPhotos] = useState({});
   const [loading, setLoading] = useState(false);
@@ -3132,12 +3132,14 @@
         <div className="w-14 h-14 rounded-full border-4 border-white/20 flex items-center justify-center font-bold text-xs">{branchZones.length > 0 ? Math.round((completedZones.length/branchZones.length)*100) : 0}%</div>
       </div>
 
+      {(isManager || isSuperAdmin) && (
       <div className="flex justify-end mb-4 px-1">
         <button onClick={handleResetAll} disabled={isResetting || (completedZones.length === 0 && Object.keys(dailyPhotos).length === 0)} className={`text-[10px] px-4 py-2.5 rounded-xl font-black flex items-center gap-1.5 transition-all shadow-sm ${isResetting || (completedZones.length === 0 && Object.keys(dailyPhotos).length === 0) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-rose-50 text-brand-red border border-rose-100 active:scale-95'}`}>
           <Icon name="refresh-cw" size={14} className={isResetting ? "animate-spin" : ""} />
           {isResetting ? "重置中..." : "重置所有巡視紀錄"}
         </button>
       </div>
+      )}
 
       {branchZones.length === 0 && <p className="text-center text-slate-400 py-10 text-xs">此分店尚未設定任何區站，請至後台設定。</p>}
       <div className="grid grid-cols-1 gap-3">
@@ -7880,7 +7882,7 @@ return (
             );
           }
           case 'ordering': return <OrderingSystem onBack={()=>setCurrentPage('home')} triggerNotify={triggerNotify} globalBranches={globalBranches} currentBranch={currentBranch} isSuperAdmin={isSuperAdmin} getPublicPath={getPublicPath} />;
-          case 'inspection': return <InspectionPage onBack={()=>setCurrentPage('home')} standards={standards} completedZones={completedZones} triggerNotify={triggerNotify} branchZones={branchZones} currentBranch={currentBranch} getPublicPath={getPublicPath} currentUser={currentUser} />;
+          case 'inspection': return <InspectionPage onBack={()=>setCurrentPage('home')} standards={standards} completedZones={completedZones} triggerNotify={triggerNotify} branchZones={branchZones} currentBranch={currentBranch} getPublicPath={getPublicPath} currentUser={currentUser} isManager={isManager} isSuperAdmin={isSuperAdmin} />;
           case 'unifiedRules': return <UnifiedRulesPage rulesData={rulesData} onBack={()=>setCurrentPage('home')} user={currentUser} currentBranch={currentBranch} triggerNotify={triggerNotify} getPublicPath={getPublicPath} signatures={signatures} />;
           case 'menu': return <MenuDisplayPage onBack={()=>setCurrentPage('home')} items={menuData?.items} />;
           case 'game-center': return <GameCenter onBack={()=>setCurrentPage('home')} config={gameConfig} currentBranch={currentBranch} currentUser={currentUser} getPublicPath={getPublicPath} allUsers={users} isSuperAdmin={isSuperAdmin} />;
