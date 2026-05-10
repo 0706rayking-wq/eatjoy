@@ -782,6 +782,7 @@
 </head>
 <body class="pb-12">
     <div id="root"></div>
+    <div id="notify-root" style="position:fixed;top:80px;left:0;right:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none;padding:0 16px;isolation:isolate;"></div>
 
     <script type="text/babel">
     const { useState, useEffect, useCallback, useMemo, useRef } = React;
@@ -7503,7 +7504,7 @@ return (
       });
       const [fbReady, setFbReady] = useState(false);
       const [user, setUser] = useState(null);
-      const [notifications, setNotifications] = useState([]);
+      const [notifications] = useState([]); // 已改用純JS DOM通知
       const [users, setUsers] = useState([]);
 
       const [activeAnnouncement, setActiveAnnouncement] = useState(null);
@@ -7929,9 +7930,7 @@ return (
 
       return (
         <div className="min-h-screen flex flex-col">
-          <div style={{position:"fixed", top:"80px", left:0, right:0, zIndex:9999, display:"flex", flexDirection:"column", alignItems:"center", gap:"12px", pointerEvents:"none", padding:"0 16px"}}>
-            {notifications.map(n => (<div key={n.id} style={{width:"100%", maxWidth:"320px"}} className={`toast-enter p-5 rounded-[2rem] shadow-2xl flex items-center gap-4 glass-panel border-l-4 ${n.type === 'success' ? 'border-l-emerald-500 text-emerald-700' : 'border-l-brand-red text-brand-red'}`}><Icon name={n.type === 'success' ? 'check-circle' : 'alert-triangle'} size={24} /><span className="font-bold text-xs leading-tight">{n.msg}</span></div>))}
-          </div>
+
 
           {currentPage !== 'auth' && (
             <header className="p-5 sticky top-0 z-50 flex justify-between items-center bg-white/80 backdrop-blur-md border-b">
