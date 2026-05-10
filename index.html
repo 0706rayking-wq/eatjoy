@@ -800,6 +800,11 @@
 
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    // iOS 優化：啟用離線快取，減少重連時的資料重新載入量
+    try {
+      db.settings({ cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED });
+      db.enablePersistence({ synchronizeTabs: false }).catch(() => {});
+    } catch(e) {}
     const auth = firebase.auth();
     const getPublicPath = (col) => `artifacts/${appIdGlobal}/public/data/${col}`;
 
@@ -7639,8 +7644,13 @@ return (
         const errH = () => triggerNotify("讀取失敗", "error");
         const subs = [
           db.doc(getPublicPath('system/branches')).onSnapshot(d => d.exists && d.data().list && setGlobalBranches(d.data().list), errH),
-          db.collection(getPublicPath('global_recipes')).onSnapshot(s => setGlobalRecipes(s.docs.map(d => ({id: d.id, ...d.data()}))), errH),
-          db.collection(getPublicPath('users')).onSnapshot(s => { 
+          db.collection(getPublicPath('global_recipes')).onSnapshot({ includeMetadataChanges: false }, s => {
+            if (s.metadata.fromCache) return;
+            setGlobalRecipes(s.docs.map(d => ({id: d.id, ...d.data()})));
+          }, errH),
+          db.collection(getPublicPath('users')).onSnapshot({ includeMetadataChanges: false }, s => { 
+            // 只處理來自伺服器的更新（非本地快取），減少後台觸發次數
+            if (s.metadata.fromCache) return;
             const all = s.docs.map(d => d.data()); setUsers(all); 
             if (currentUser) { 
               const upd = all.find(u => u.phone === currentUser.phone); 
@@ -7653,6 +7663,28 @@ return (
         ];
         return () => subs.forEach(un => un());
       }, [user, currentUser]);
+
+      // ══ iOS 後台保護：進後台停止 Firebase 網路，避免 WebSocket 重連爆記憶體 ══
+      useEffect(() => {
+        const handleVisibility = () => {
+          if (document.hidden) {
+            // 進後台：暫停所有 Firestore 監聽（保留訂閱，不重新載入）
+            db.disableNetwork().catch(() => {});
+          } else {
+            // 回前台：恢復連線（監聽器自動補差量更新，不重新載入全部）
+            db.enableNetwork().catch(() => {});
+          }
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+        // iOS pagehide/pageshow
+        window.addEventListener('pagehide', () => db.disableNetwork().catch(() => {}));
+        window.addEventListener('pageshow', (e) => {
+          if (e.persisted) db.enableNetwork().catch(() => {});
+        });
+        return () => {
+          document.removeEventListener('visibilitychange', handleVisibility);
+        };
+      }, []);
 
       // 依據目前選擇的分店 (currentBranch) 動態切換資料庫監聽 (全面分流)
       useEffect(() => {
