@@ -3834,6 +3834,14 @@ const [leaderboard, setLeaderboard] = useState([]);
 const [showLeaderboard, setShowLeaderboard] = useState(false);
 const [leaderboardTab, setLeaderboardTab] = useState('scores');
 const [frPhase, setFrPhase] = useState('camp');
+const [gameJsReady, setGameJsReady] = useState(!!window._gameJsReady);
+useEffect(() => {
+  if(window._gameJsReady){ setGameJsReady(true); return; }
+  const _t = setInterval(() => {
+    if(window._gameJsReady){ setGameJsReady(true); clearInterval(_t); }
+  }, 100);
+  return () => clearInterval(_t);
+}, []);
 const [chosenPartners, setChosenPartners] = useState([]);
 const [puzzleState, setPuzzleState] = useState({placed:{}, done:false});
 const [imageAns, setImageAns] = useState(null);
@@ -4609,16 +4617,7 @@ if (selectedActivity === 'food_research') {
   );
  }
     if (frPhase === 'game') {
- // 等待 game.js 載入完成
- const [gameReady, setGameReady] = React.useState(!!window._gameJsReady);
- React.useEffect(() => {
-  if(window._gameJsReady){ setGameReady(true); return; }
-  const t = setInterval(() => {
-   if(window._gameJsReady){ setGameReady(true); clearInterval(t); }
-  }, 100);
-  return () => clearInterval(t);
- }, []);
- if(!gameReady) return (
+ if(!gameJsReady) return (
   <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',flexDirection:'column',gap:'16px',background:'#f5ede0'}}>
    <div style={{fontSize:'48px',animation:'spin 1s linear infinite'}}>🍙</div>
    <div style={{fontSize:'16px',fontWeight:900,color:'#92400e'}}>遊戲載入中...</div>
