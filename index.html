@@ -3958,7 +3958,14 @@ if (selectedActivity === 'food_research') {
   try { return JSON.parse(localStorage.getItem(saveKey)) || {}; } catch { return {}; }
  };
  const writeSave = (data) => {
-  try { localStorage.setItem(saveKey, JSON.stringify({...loadSave(), ...data})); } catch {}
+  try {
+   const merged = {...loadSave(), ...data};
+   localStorage.setItem(saveKey, JSON.stringify(merged));
+   if (currentUser?.phone) {
+    db.collection(getPublicPath('users')).doc(currentUser.phone)
+     .update({ gameSave: merged }).catch(()=>{});
+   }
+  } catch {}
  };
 
  const save = loadSave();
@@ -4555,16 +4562,32 @@ if (selectedActivity === 'food_research') {
     return [...prev, u];
    });
   };
-  const handleDeparture = () => {
-   chosenPartners.forEach(partner => {
+  const handleDeparture = async () => {
+   // 需求2：從 Firebase 載入每位夥伴的個人存檔
+   const enrichedPartners = await Promise.all(chosenPartners.map(async (partner) => {
     try {
+     // 給夥伴 +1 金幣同時讀取其存檔
+     const saveKey = 'fr_save_' + partner.phone;
      const ref = db.collection(getPublicPath('users')).doc(partner.phone);
-     ref.get().then(snap => {
-     const cur = (snap.exists && snap.data().gameGold) || 0;
-     ref.update({ gameGold: cur + 1 }).catch(e => console.warn('gold update fail', e));
-     }).catch(e => console.warn('gold fetch fail', e));
-    } catch(e) { console.warn('gold update fail', e); }
-   });
+     const snap = await ref.get().catch(() => null);
+     if (snap && snap.exists) {
+      const data = snap.data();
+      // 更新金幣
+      const cur = data.gameGold || 0;
+      ref.update({ gameGold: cur + 1 }).catch(() => {});
+      // 取得夥伴存檔（存在 Firestore 的 gameSave 欄位）
+      const pSave = data.gameSave || {};
+      return {
+       ...partner,
+       training: pSave.training || {atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0},
+       equip: pSave.equip || {ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']},
+       equippedForm: pSave.equippedForm || 'normal',
+      };
+     }
+    } catch(e) { console.warn('partner load fail', e); }
+    return { ...partner, training:{atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0}, equip:{ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']}, equippedForm:'normal' };
+   }));
+   setChosenPartners(enrichedPartners);
    setFrPhase('game');
   };
   return (
@@ -4613,7 +4636,17 @@ if (selectedActivity === 'food_research') {
  const frSS = "<scr" + "ipt>";
  const frSE = "</scr" + "ipt>";
  const s2 = loadSave();
- const partnerData = JSON.stringify(chosenPartners.map(p => ({ name: p.name, phone: p.phone })));
+ const playerPhone = currentUser?.phone || 'guest';
+ // 需求1：讀取該玩家的續關進度
+ const savedStageKey = 'fr_stage_' + playerPhone;
+ // 需求2：夥伴已在 handleDeparture 載入個人存檔
+ const partnerData = JSON.stringify(chosenPartners.map(p => ({
+  name: p.name,
+  phone: p.phone,
+  formId: p.equippedForm || 'normal',
+  training: p.training || {atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0},
+  equip: p.equip || {ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']},
+ })));
  const saveData = JSON.stringify({
   training: s2.training||{atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0},
   equip: s2.equip||{ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']},
@@ -4621,6 +4654,8 @@ if (selectedActivity === 'food_research') {
   gold: s2.gold||0,
   quests: s2.quests||null,
   playerName: currentUser?.name || (isSuperAdmin ? '主廚' : '玩家'),
+  playerPhone: playerPhone,
+  savedStageKey: savedStageKey,
  });
 
  // 遊戲 HTML 由 game.js 提供，這裡動態組裝
@@ -4657,7 +4692,17 @@ if (selectedActivity === 'food_research') {
       if (q2 && !q2.tasks[0].done) { q2.tasks[0].progress = Math.min(q2.tasks[0].target, (q2.tasks[0].progress||0)+1); writeSave({ quests: q2 }); }
      }
      if (msg.data.type === 'FR_PENALTY_RETURN') {
-      writeSave({ gold: 0, equip: { ranged:'初始食材砲', melee:'初始鍋鏟', amulets:['','',''] } });
+      // 需求2：只扣本場金幣及非初始裝備，不動其他存檔
+      const pen = msg.data.penalty || {};
+      const cur = loadSave();
+      const newEquip = { ...cur.equip };
+      if (pen.loseRanged && newEquip.ranged === pen.loseRanged) newEquip.ranged = '初始食材砲';
+      if (pen.loseMelee && newEquip.melee === pen.loseMelee) newEquip.melee = '初始鍋鏟';
+      if (pen.loseAmulets && pen.loseAmulets.length > 0) newEquip.amulets = ['','',''];
+      // 金幣：扣掉本場獲得的（不影響出征前的金幣）
+      const goldLost = pen.loseGold || 0;
+      const newGold = Math.max(0, (cur.gold||0) - goldLost);
+      writeSave({ gold: newGold, equip: newEquip });
       window.removeEventListener('message', handler);
       setFrPhase('camp');
      }
