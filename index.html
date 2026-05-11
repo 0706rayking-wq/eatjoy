@@ -3834,14 +3834,7 @@ const [leaderboard, setLeaderboard] = useState([]);
 const [showLeaderboard, setShowLeaderboard] = useState(false);
 const [leaderboardTab, setLeaderboardTab] = useState('scores');
 const [frPhase, setFrPhase] = useState('camp');
-const [gameJsReady, setGameJsReady] = useState(!!window._gameJsReady);
-useEffect(() => {
-  if(window._gameJsReady){ setGameJsReady(true); return; }
-  const _t = setInterval(() => {
-    if(window._gameJsReady){ setGameJsReady(true); clearInterval(_t); }
-  }, 100);
-  return () => clearInterval(_t);
-}, []);
+
 const [chosenPartners, setChosenPartners] = useState([]);
 const [puzzleState, setPuzzleState] = useState({placed:{}, done:false});
 const [imageAns, setImageAns] = useState(null);
@@ -4609,7 +4602,7 @@ if (selectedActivity === 'food_research') {
      })}
     </div>
     <div style={{padding:'14px', borderTop:'1px solid #21262d', background:'#161b22', flexShrink:0}}>
-     <button onClick={handleDeparture} style={{...btnPrimary, padding:'14px 0', fontSize:'14px'}}>
+     <button onClick={() => { if(!window._gameJsReady){ triggerNotify('遊戲載入中，請稍候...','info'); return; } handleDeparture(); }} style={{...btnPrimary, padding:'14px 0', fontSize:'14px'}}>
      ⚔️ 帶著{chosenPartners.length>0?chosenPartners.map(p=>p.name).join('、'):'單人'}出征！
      </button>
     </div>
@@ -4617,13 +4610,6 @@ if (selectedActivity === 'food_research') {
   );
  }
     if (frPhase === 'game') {
- if(!gameJsReady) return (
-  <div style={{display:'flex',alignItems:'center',justifyContent:'center',height:'100vh',flexDirection:'column',gap:'16px',background:'#f5ede0'}}>
-   <div style={{fontSize:'48px',animation:'spin 1s linear infinite'}}>🍙</div>
-   <div style={{fontSize:'16px',fontWeight:900,color:'#92400e'}}>遊戲載入中...</div>
-   <style>{'@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}'}</style>
-  </div>
- );
  const frSS = "<scr" + "ipt>";
  const frSE = "</scr" + "ipt>";
  const s2 = loadSave();
