@@ -4692,17 +4692,29 @@ if (selectedActivity === 'food_research') {
       if (q2 && !q2.tasks[0].done) { q2.tasks[0].progress = Math.min(q2.tasks[0].target, (q2.tasks[0].progress||0)+1); writeSave({ quests: q2 }); }
      }
      if (msg.data.type === 'FR_PENALTY_RETURN') {
-      // 需求2：只扣本場金幣及非初始裝備，不動其他存檔
+      // 需求4：遺失本場金幣 + 移除裝備武器/護符（從擁有清單也刪除）
       const pen = msg.data.penalty || {};
       const cur = loadSave();
       const newEquip = { ...cur.equip };
-      if (pen.loseRanged && newEquip.ranged === pen.loseRanged) newEquip.ranged = '初始食材砲';
-      if (pen.loseMelee && newEquip.melee === pen.loseMelee) newEquip.melee = '初始鍋鏟';
-      if (pen.loseAmulets && pen.loseAmulets.length > 0) newEquip.amulets = ['','',''];
-      // 金幣：扣掉本場獲得的（不影響出征前的金幣）
-      const goldLost = pen.loseGold || 0;
-      const newGold = Math.max(0, (cur.gold||0) - goldLost);
-      writeSave({ gold: newGold, equip: newEquip });
+      const newWeapons = { ranged: [...(cur.weapons?.ranged||[])], melee: [...(cur.weapons?.melee||[])] };
+      // 遠程武器：裝備中移除，擁有清單也刪除
+      if (pen.loseRanged) {
+        if (newEquip.ranged === pen.loseRanged) newEquip.ranged = '初始食材砲';
+        newWeapons.ranged = newWeapons.ranged.filter(w => w !== pen.loseRanged);
+      }
+      // 近戰武器
+      if (pen.loseMelee) {
+        if (newEquip.melee === pen.loseMelee) newEquip.melee = '初始鍋鏟';
+        newWeapons.melee = newWeapons.melee.filter(w => w !== pen.loseMelee);
+      }
+      // 護符：裝備中清空，擁有清單也清空
+      let newAmulets = [...(cur.amulets||[])];
+      if (pen.loseAmulets && pen.loseAmulets.length > 0) {
+        newEquip.amulets = ['','',''];
+        pen.loseAmulets.forEach(a => { newAmulets = newAmulets.filter(x => x !== a); });
+      }
+      // 金幣：營地金幣不受影響（不扣 cur.gold），只損失本場賺的
+      writeSave({ equip: newEquip, weapons: newWeapons, amulets: newAmulets });
       window.removeEventListener('message', handler);
       setFrPhase('camp');
      }
