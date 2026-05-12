@@ -39,398 +39,96 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700;900&family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
 
-        /* ═══════════════════════════════════════════════════════
-           EATJOY OS — 奢華皮革金邊 LUXURY EDITION
-           深酒紅皮革底 × 燙金雕花邊框 × 復古鑲嵌質感
-        ═══════════════════════════════════════════════════════ */
+        /* ══ SCHEDULE 完全隔離主題（強制白色底） ══ */
 
-        :root {
-            --brand-red: 185 18 27;
-
-            /* ── 皮革色系 ── */
-            --leather-deep:   #2a0508;   /* 最深底色 */
-            --leather-base:   #3d0a0e;   /* 主背景皮革 */
-            --leather-mid:    #4e0f14;   /* 卡片底色 */
-            --leather-light:  #5e1519;   /* 淺層卡片 */
-            --leather-lift:   #701a1f;   /* 懸浮元素 */
-            --leather-hover:  #821e24;   /* hover 狀態 */
-
-            /* ── 金色系 ── */
-            --gold-bright:  #f0c040;   /* 高亮金 */
-            --gold-mid:     #d4a017;   /* 主要金色 */
-            --gold-dim:     #a07c10;   /* 暗金 */
-            --gold-shadow:  #6b5208;   /* 陰影金 */
-            --gold-glow:    rgba(212,160,23,0.35);
-            --gold-subtle:  rgba(212,160,23,0.12);
-            --gold-border:  rgba(212,160,23,0.55);
-
-            /* ── 品牌紅（可由主題切換） ── */
-            --accent:     rgb(var(--brand-red));
-            --accent-10:  rgba(var(--brand-red), 0.15);
-            --accent-20:  rgba(var(--brand-red), 0.25);
-            --accent-30:  rgba(var(--brand-red), 0.40);
-
-            /* ── 文字 ── */
-            --t1: #f8e8c8;   /* 主文字：溫暖米金 */
-            --t2: #c9a870;   /* 次要：暗金文字 */
-            --t3: #8a6a3a;   /* 第三層：銅褐 */
-            --t4: #5a3e20;   /* 最暗：深棕 */
-
-            /* ── 金邊漸層 ── */
-            --gold-gradient: linear-gradient(
-                135deg,
-                #6b5208 0%, #d4a017 20%, #f0c040 38%,
-                #d4a017 50%, #a07c10 62%, #d4a017 75%,
-                #f0c040 88%, #a07c10 100%
-            );
-            --gold-gradient-h: linear-gradient(
-                90deg,
-                #6b5208 0%, #d4a017 15%, #f0c040 35%,
-                #d4a017 50%, #a07c10 65%, #d4a017 80%,
-                #f0c040 92%, #a07c10 100%
-            );
-
-            /* ── 皮革紋理背景 ── */
-            --leather-texture: 
-                radial-gradient(ellipse at 20% 30%, rgba(255,180,80,0.04) 0%, transparent 50%),
-                radial-gradient(ellipse at 80% 70%, rgba(255,100,50,0.03) 0%, transparent 50%),
-                linear-gradient(160deg, var(--leather-base) 0%, var(--leather-deep) 100%);
+        /* Step1：所有子元素先清空背景、還原顏色 */
+        #schedule-root,
+        #schedule-root *:not(table):not(thead):not(tbody):not(tfoot):not(tr):not(td):not(th) {
+            background: transparent !important;
+            background-color: transparent !important;
+            background-image: none !important;
+            color: #1e293b !important;
         }
 
-        * { box-sizing: border-box; }
-
-        body {
-            font-family: 'Noto Sans TC', serif;
-            -webkit-tap-highlight-color: transparent;
-            background: var(--leather-texture) !important;
-            background-color: var(--leather-base) !important;
-            color: var(--t1);
-            overflow-x: hidden;
-            transition: background-color 0.3s;
-            min-height: 100vh;
-        }
-
-        /* ── 皮革縫線紋路（body 偽元素） ── */
-        body::before {
-            content: '';
-            position: fixed;
-            inset: 0;
-            background-image:
-                repeating-linear-gradient(
-                    0deg,
-                    transparent,
-                    transparent 28px,
-                    rgba(0,0,0,0.08) 28px,
-                    rgba(0,0,0,0.08) 29px
-                ),
-                repeating-linear-gradient(
-                    90deg,
-                    transparent,
-                    transparent 28px,
-                    rgba(0,0,0,0.04) 28px,
-                    rgba(0,0,0,0.04) 29px
-                );
-            pointer-events: none;
-            z-index: 0;
-        }
-        body > * { position: relative; z-index: 1; }
-        #root { position: relative; z-index: 1; }
-
-        /* ── Scrollbar ── */
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: var(--leather-deep); }
-        ::-webkit-scrollbar-thumb { background: var(--gold-shadow); border-radius: 2px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--gold-mid); }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-        /* ── Animations ── */
-        .page-enter { animation: pgIn 0.35s cubic-bezier(0.22,1,0.36,1) both; }
-        @keyframes pgIn {
-            from { opacity:0; transform:translateY(14px) scale(0.98); }
-            to   { opacity:1; transform:translateY(0) scale(1); }
-        }
-        .toast-enter { animation: slideDown 0.45s cubic-bezier(0.34,1.56,0.64,1) both; }
-        @keyframes slideDown {
-            from { opacity:0; transform:translate(-50%,-120%) scale(0.90); }
-            to   { opacity:1; transform:translate(-50%,0) scale(1); }
-        }
-
-        /* ══════════════════════════════════════════
-           GLASS PANEL → 皮革卡片 + 金邊框
-        ══════════════════════════════════════════ */
-        .glass-panel {
-            background: linear-gradient(145deg, var(--leather-light) 0%, var(--leather-mid) 100%);
-            border: 1px solid var(--gold-border);
-            box-shadow:
-                0 0 0 0.5px rgba(0,0,0,0.5),
-                inset 0 1px 0 rgba(255,220,120,0.12),
-                inset 0 -1px 0 rgba(0,0,0,0.3),
-                0 4px 20px -4px rgba(0,0,0,0.6),
-                0 0 12px -4px var(--gold-glow);
-        }
-
-        /* ── 所有卡片的金邊裝飾線 ── */
-        .glass-panel::before {
-            content: '';
-            position: absolute;
-            inset: 0;
-            border-radius: inherit;
-            background: var(--gold-gradient);
-            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            mask-composite: exclude;
-            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-            -webkit-mask-composite: destination-out;
-            padding: 1px;
-            pointer-events: none;
-            opacity: 0.6;
-        }
-
-        /* ── Inputs → 皮革輸入框 ── */
-        .input-light {
-            background: linear-gradient(145deg, var(--leather-deep), var(--leather-base)) !important;
-            border: 1px solid var(--gold-border) !important;
-            color: var(--t1) !important;
-            transition: border-color 0.2s, box-shadow 0.2s;
-            box-shadow: inset 0 2px 6px rgba(0,0,0,0.4), 0 1px 0 rgba(255,200,80,0.1);
-        }
-        .input-light::placeholder { color: var(--t3) !important; }
-        .input-light:focus {
-            border-color: var(--gold-bright) !important;
-            outline: none !important;
-            box-shadow: inset 0 2px 6px rgba(0,0,0,0.4), 0 0 0 3px var(--gold-subtle), 0 0 12px var(--gold-glow) !important;
-        }
-
-        /* 全域 input/select/textarea */
-        input, textarea, select {
-            background: linear-gradient(145deg, var(--leather-deep), var(--leather-base)) !important;
-            color: var(--t1) !important;
-            border-color: var(--gold-border) !important;
-        }
-        input::placeholder, textarea::placeholder { color: var(--t3) !important; }
-        input:focus, textarea:focus, select:focus {
-            border-color: var(--gold-bright) !important;
-            box-shadow: 0 0 0 2px var(--gold-subtle), 0 0 10px var(--gold-glow) !important;
-            outline: none !important;
-        }
-        select option { background: var(--leather-mid); color: var(--t1); }
-        input[type="checkbox"] { accent-color: var(--gold-mid); }
-
-        /* ── Ticker ── */
-        .ticker-wrap {
-            overflow: hidden;
-            white-space: nowrap;
-            background: linear-gradient(90deg, var(--leather-deep), var(--leather-base), var(--leather-deep));
-            border-bottom: 1px solid var(--gold-border);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-        }
-        .ticker-move { display: inline-block; animation: ticker 30s linear infinite; }
-        @keyframes ticker { 0%{transform:translateX(100vw)} 100%{transform:translateX(-100%)} }
-
-        /* ── Signature canvas ── */
-        .signature-canvas {
-            border: 1px solid var(--gold-border);
-            background: var(--leather-deep);
-            cursor: crosshair; touch-action: none;
-            border-radius: 1rem; width: 100%; height: 200px;
-            box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
-        }
-
-        /* ── Ordering / drag ── */
-        .active-scale:active { transform: scale(0.96); }
-        .drag-ghost {
-            opacity: 0.3; transform: scale(0.97);
-            border: 1px dashed var(--gold-mid) !important;
-            background: var(--gold-subtle) !important;
-        }
-        .drag-handle { cursor: grab; }
-        .drag-handle:active { cursor: grabbing; }
-        .btn-touch { min-width:44px; min-height:44px; display:flex; align-items:center; justify-content:center; }
-
-        .editable-order-text {
-            background: var(--leather-deep) !important;
-            color: var(--t1) !important;
-            font-family: ui-monospace, monospace;
-            line-height: 1.7; width: 100%; border-radius: 1rem;
-            padding: 1.1rem 1.25rem; resize: none; outline: none;
-            border: 1px solid var(--gold-border) !important;
-            box-shadow: inset 0 2px 8px rgba(0,0,0,0.5);
-            transition: border-color 0.2s;
-        }
-        .editable-order-text:focus {
-            border-color: var(--gold-bright) !important;
-            box-shadow: inset 0 2px 8px rgba(0,0,0,0.5), 0 0 0 2px var(--gold-subtle) !important;
-        }
-
-        /* ── Schedule ── */
-        .writing-vertical-lr { writing-mode: vertical-lr; }
-        .custom-scrollbar { -webkit-overflow-scrolling: touch; }
-        .custom-scrollbar::-webkit-scrollbar { height: 5px; width: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: var(--leather-deep); }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--gold-shadow); border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--gold-mid); }
-        th.sticky, td.sticky { background-clip: padding-box; }
-
-        /* ── Number input ── */
-        input[type="number"]::-webkit-outer-spin-button,
-        input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-        input[type="number"] { -moz-appearance: textfield; }
-
-        /* ═══════════════════════════════════════════════════════
-           TAILWIND OVERRIDES — 皮革主題色彩映射
-        ═══════════════════════════════════════════════════════ */
-
-        /* Backgrounds → 皮革層次 */
-        .bg-white          { background: linear-gradient(145deg, var(--leather-light), var(--leather-mid)) !important; }
-        .bg-slate-50       { background-color: var(--leather-base) !important; }
-        .bg-slate-100      { background-color: var(--leather-mid) !important; }
-        .bg-slate-900      { background-color: var(--leather-deep) !important; }
-        .bg-white\/80      { background-color: rgba(62,10,14,0.88) !important; }
-        .bg-white\/95      { background-color: rgba(62,10,14,0.96) !important; }
-
-        /* Soft tint → 皮革面板 */
-        .bg-rose-50, .bg-rose-50\/80, .bg-rose-50\/50,
-        .bg-emerald-50, .bg-emerald-50\/50, .bg-emerald-100,
-        .bg-indigo-50, .bg-indigo-50\/50,
-        .bg-blue-50, .bg-blue-50\/50,
-        .bg-yellow-50, .bg-yellow-50\/50,
-        .bg-amber-50\/50, .bg-purple-50\/50,
-        .bg-orange-50, .bg-cyan-50, .bg-sky-50,
-        .bg-orange-100 {
-            background-color: var(--leather-lift) !important;
-            border-color: var(--gold-border) !important;
-        }
-
-        /* Text → 金色文字層次 */
-        .text-slate-800, .text-slate-900 { color: var(--t1) !important; }
-        .text-slate-700 { color: #e8d5a8 !important; }
-        .text-slate-600 { color: #c8a870 !important; }
-        .text-slate-500 { color: var(--t2) !important; }
-        .text-slate-400 { color: var(--t3) !important; }
-        .text-slate-300 { color: var(--t4) !important; }
-
-        /* Borders → 金邊 */
-        .border-slate-100, .border-slate-200 { border-color: var(--gold-border) !important; }
-        .border-slate-300, .border-slate-400 { border-color: var(--gold-mid) !important; }
-
-        /* Brand-red 映射 */
-        .text-brand-red    { color: var(--gold-bright) !important; }
-        .bg-brand-red      { background: var(--gold-gradient) !important; color: #2a0508 !important; }
-        .border-brand-red  { border-color: var(--gold-mid) !important; }
-        .border-l-brand-red{ border-left-color: var(--gold-mid) !important; }
-        .ring-brand-red\/40 { --tw-ring-color: var(--gold-glow) !important; }
-        .shadow-brand-red\/20 { box-shadow: 0 8px 24px -4px var(--gold-glow) !important; }
-        .bg-brand-red.text-white, .bg-brand-red .text-white { color: #2a0508 !important; }
-
-        /* Rose/red tints → 深皮革 + 金邊 */
-        .bg-rose-50        { background-color: var(--leather-lift) !important; }
-        
-        /* ══════════════════════════════════════════════
-           班表區域：最高優先級，完全不受主題影響
-           使用 ID 選擇器 specificity = (1,0,0,0)
-           任何 class 規則 (0,X,X,X) 都無法覆蓋
-        ══════════════════════════════════════════════ */
-        
-        /* 容器本身 */
+        /* Step2：容器本身白底 */
         #schedule-root {
-            background-color: #f8fafc;
-            color: #1e293b;
-            font-family: 'Noto Sans TC', sans-serif;
+            background: #f8fafc !important;
+            background-color: #f8fafc !important;
+            color: #1e293b !important;
+            font-family: 'Noto Sans TC', sans-serif !important;
         }
-        
-        /* 所有子元素：重置字體、顏色 */
-        #schedule-root * {
-            font-family: 'Noto Sans TC', sans-serif;
-        }
-        
-        /* 所有 td/th：強制白色底（再由 sc-* 覆蓋特定格） */
-        /* 同時用 background 和 background-color 防止 shorthand 覆蓋 */
+
+        /* Step3：所有 td/th 強制白底黑字 */
         #schedule-root table td,
         #schedule-root table th {
             background: #ffffff !important;
             background-color: #ffffff !important;
             color: #1e293b !important;
         }
-        
-        /* input/textarea：透明底（跟 td 顏色一致） */
-        #schedule-root input,
-        #schedule-root textarea,
-        #schedule-root select {
-            background: transparent;
-            background-color: transparent;
-            color: #1e293b;
-            border-color: transparent;
-        }
-        
-        /* 一般文字顏色 */
-        #schedule-root .text-slate-800,
-        #schedule-root .text-slate-900 { color: #1e293b; }
-        #schedule-root .text-slate-700  { color: #334155; }
-        #schedule-root .text-slate-600  { color: #475569; }
-        #schedule-root .text-slate-500  { color: #64748b; }
-        #schedule-root .text-slate-400  { color: #94a3b8; }
-        #schedule-root .text-white      { color: #ffffff; }
-        #schedule-root .text-brand-red  { color: #b9121b; }
-        
-        /* 背景色 */
-        #schedule-root .bg-white      { background-color: #ffffff; background: #ffffff; }
-        #schedule-root .bg-slate-50   { background-color: #f8fafc; background: #f8fafc; }
-        #schedule-root .bg-slate-100  { background-color: #f1f5f9; background: #f1f5f9; }
-        #schedule-root .bg-slate-200  { background-color: #e2e8f0; background: #e2e8f0; }
-        #schedule-root .bg-slate-800,
-        #schedule-root .bg-slate-900  { background-color: #1e293b; background: #1e293b; color: #ffffff; }
-        #schedule-root .bg-emerald-500 { background-color: #10b981; background: #10b981; color: #ffffff; }
-        #schedule-root .bg-emerald-100 { background-color: #d1fae5; background: #d1fae5; }
-        #schedule-root .bg-brand-red   { background-color: #b9121b; background: #b9121b; color: #ffffff; }
-        #schedule-root .bg-red-500     { background-color: #ef4444; background: #ef4444; }
-        #schedule-root .bg-yellow-100  { background-color: #fef9c3; background: #fef9c3; }
-        #schedule-root .bg-blue-50     { background-color: #eff6ff; background: #eff6ff; }
-        #schedule-root .bg-white\/80  { background-color: rgba(255,255,255,.8); background: rgba(255,255,255,.8); }
-        #schedule-root .bg-white\/95  { background-color: rgba(255,255,255,.95); background: rgba(255,255,255,.95); }
-        
-        /* border */
-        #schedule-root .border-slate-200 { border-color: #e2e8f0; }
-        #schedule-root .border-slate-500  { border-color: #64748b; }
-        #schedule-root .border-brand-red  { border-color: #b9121b; }
-        #schedule-root .border-brand-red\/30 { border-color: rgba(185,18,27,.3); }
-        
-        /* Backdrop / 半透明覆蓋 */
-        #schedule-root .bg-white\/80  { backdrop-filter: blur(4px); }
-        
-        /* ── 週末 / 假日格子顏色（最高優先級）── */
+
+        /* Step4：特殊格子顏色（覆蓋 Step3） */
         #schedule-root table td.sc-weekend,
-        #schedule-root table th.sc-weekend  { background: #fed7d7 !important; background-color: #fed7d7 !important; }
+        #schedule-root table th.sc-weekend  { background: #fed7d7 !important; background-color: #fed7d7 !important; color: #9f1239 !important; }
         #schedule-root table td.sc-red-hol,
-        #schedule-root table th.sc-red-hol  { background: #fca5a5 !important; background-color: #fca5a5 !important; }
+        #schedule-root table th.sc-red-hol  { background: #fca5a5 !important; background-color: #fca5a5 !important; color: #7f1d1d !important; }
         #schedule-root table td.sc-gray-hol,
-        #schedule-root table th.sc-gray-hol { background: #e2e8f0 !important; background-color: #e2e8f0 !important; }
+        #schedule-root table th.sc-gray-hol { background: #e2e8f0 !important; background-color: #e2e8f0 !important; color: #334155 !important; }
         #schedule-root table td.sc-white,
-        #schedule-root table th.sc-white    { background: #ffffff !important; background-color: #ffffff !important; }
+        #schedule-root table th.sc-white    { background: #ffffff !important; background-color: #ffffff !important; color: #1e293b !important; }
         #schedule-root table td.sc-yellow,
-        #schedule-root table th.sc-yellow   { background: #fde047 !important; background-color: #fde047 !important; }
-        
-        /* ── 表頭顏色 ── */
+        #schedule-root table th.sc-yellow   { background: #fde047 !important; background-color: #fde047 !important; color: #713f12 !important; }
+
+        /* Step5：表頭顏色 */
         #schedule-root table th.sc-hdr-wknd  { background: #fecdd3 !important; background-color: #fecdd3 !important; color: #9f1239 !important; }
         #schedule-root table th.sc-hdr-red   { background: #fca5a5 !important; background-color: #fca5a5 !important; color: #7f1d1d !important; }
         #schedule-root table th.sc-hdr-gray  { background: #e2e8f0 !important; background-color: #e2e8f0 !important; color: #334155 !important; }
         #schedule-root table th.sc-hdr-plain { background: #f1f5f9 !important; background-color: #f1f5f9 !important; color: #1e293b !important; }
-        
-        /* ── 職稱欄：讓 getTitleColorStyle() 的 inline style 正常顯示 ── */
-        #schedule-root table td.title-cell {
-            background: unset !important;
-            background-color: unset !important;
-            background-image: none !important;
+
+        /* Step6：職稱/姓名欄：CSS var 控制顏色（由 React 傳入） */
+        #schedule-root table td.title-cell,
+        #schedule-root table td.name-cell {
+            background-color: var(--cell-bg, #f8fafc) !important;
+            color: var(--cell-color, #1e293b) !important;
         }
-        
-        /* ── 其他雜項 ── */
-        #schedule-root .shadow-sm   { box-shadow: 0 1px 2px rgba(0,0,0,.05); }
-        #schedule-root .border-y-2.border-brand-red { border-color: #b9121b; }
-        #schedule-root .hover\:bg-yellow-50:hover { background-color: #fefce8; }
-        #schedule-root .focus\:bg-yellow-100:focus { background-color: #fef9c3; }
-        #schedule-root .focus\:ring-1 { box-shadow: 0 0 0 1px #3b82f6; }
-        
-        .border-rose-100, .border-rose-200 { border-color: var(--gold-border) !important; }
-        .border-brand-red\/30 { border-color: var(--gold-border) !important; }
+
+        /* Step7：input/select 透明 */
+        #schedule-root input,
+        #schedule-root textarea,
+        #schedule-root select {
+            background: transparent !important;
+            background-color: transparent !important;
+            background-image: none !important;
+            color: inherit !important;
+            border-color: transparent !important;
+        }
+
+        /* Step8：特定元件固定顏色 */
+        #schedule-root .bg-emerald-500 { background: #10b981 !important; background-color: #10b981 !important; color: #ffffff !important; }
+        #schedule-root .bg-red-500     { background: #ef4444 !important; background-color: #ef4444 !important; color: #ffffff !important; }
+        #schedule-root .bg-slate-800,
+        #schedule-root .bg-slate-900   { background: #1e293b !important; background-color: #1e293b !important; color: #ffffff !important; }
+        #schedule-root .bg-yellow-300  { background: #fde047 !important; background-color: #fde047 !important; }
+        #schedule-root .bg-white\/80  { background: rgba(255,255,255,.9) !important; }
+
+        /* Step9：文字顏色 */
+        #schedule-root .text-slate-800,
+        #schedule-root .text-slate-900 { color: #1e293b !important; }
+        #schedule-root .text-slate-700  { color: #334155 !important; }
+        #schedule-root .text-slate-600  { color: #475569 !important; }
+        #schedule-root .text-slate-500  { color: #64748b !important; }
+        #schedule-root .text-slate-400  { color: #94a3b8 !important; }
+        #schedule-root .text-white      { color: #ffffff !important; }
+        #schedule-root .text-brand-red,
+        #schedule-root .text-red-700,
+        #schedule-root .text-red-600    { color: #b9121b !important; }
+        #schedule-root .text-emerald-700 { color: #047857 !important; }
+
+        /* Step10：border */
+        #schedule-root .border-slate-200  { border-color: #e2e8f0 !important; }
+        #schedule-root .border-slate-500   { border-color: #64748b !important; }
+        #schedule-root .border-brand-red   { border-color: #b9121b !important; }
+        #schedule-root .shadow-sm { box-shadow: 0 1px 2px rgba(0,0,0,.05) !important; }
+
 
         /* Emerald → 翠玉色 */
         .text-emerald-600, .text-emerald-700 { color: #6ee7b7 !important; }
@@ -677,24 +375,19 @@
 
     <!-- 班表專屬 CSS：放在所有主題 CSS 之後，確保最後載入 = 最高優先 -->
     <style id="schedule-override">
-        /* 這個 style 放在所有主題 CSS 之後，保證覆蓋所有主題規則 */
+        /* 最後載入，最高優先級，強制班表白色 */
         
-        /* 重置 schedule-root 內所有元素背景 */
-        #schedule-root,
-        #schedule-root div,
-        #schedule-root span,
-        #schedule-root p,
-        #schedule-root h1, #schedule-root h2, #schedule-root h3,
-        #schedule-root header, #schedule-root nav, #schedule-root section {
-            background: revert !important;
-            background-color: revert !important;
-            background-image: revert !important;
-            color: revert !important;
+        /* ① 所有非 table 元素：透明底，讓 td/th 的白色顯現 */
+        #schedule-root *:not(table):not(thead):not(tbody):not(tfoot):not(tr):not(td):not(th) {
+            background: transparent !important;
+            background-color: transparent !important;
+            background-image: none !important;
+            color: #1e293b !important;
         }
         
         /* 覆蓋 body background 在 schedule-root 內無效（body 的 bg 只給自己） */
         
-        /* 容器本身 */
+        /* ② 容器本身白底 */
         #schedule-root {
             background: #f8fafc !important;
             background-color: #f8fafc !important;
@@ -724,6 +417,7 @@
         #schedule-root .text-slate-400 { color: #94a3b8 !important; }
         #schedule-root .text-white { color: #ffffff !important; }
         #schedule-root .text-brand-red, #schedule-root .text-\[var\(--accent\)\] { color: #b9121b !important; }
+        #schedule-root .text-red-700 { color: #b91c1c !important; }
         #schedule-root .text-emerald-700 { color: #047857 !important; }
         
         /* table cells: white base */
@@ -752,11 +446,11 @@
         #schedule-root table th.sc-hdr-gray { background: #e2e8f0 !important; background-color: #e2e8f0 !important; color: #334155 !important; }
         #schedule-root table th.sc-hdr-plain{ background: #f1f5f9 !important; background-color: #f1f5f9 !important; color: #1e293b !important; }
         
-        /* 職稱欄：讓 getTitleColorStyle() inline style 正常顯示 */
-        #schedule-root table td.title-cell {
-            background: unset !important;
-            background-color: unset !important;
-            background-image: none !important;
+        /* 職稱欄 & 姓名欄背景色：透過 CSS var 傳遞，支援 sticky 定位 */
+        #schedule-root table td.title-cell,
+        #schedule-root table td.name-cell {
+            background-color: var(--cell-bg, #f8fafc) !important;
+            color: var(--cell-color, #1e293b) !important;
         }
         
         /* input/select 透明底跟隨 td */
@@ -1815,7 +1509,36 @@ window._gameJsReady = false;
       { code: '/', name: '劃休', type: 'off' }
      ];
 
-     const [scheduleData, setScheduleData] = useState({
+     // 強制班表樣式：注入最高優先級 CSS 到 document.head
+     useEffect(() => {
+      const id = 'sc-force-style';
+      let el = document.getElementById(id);
+      if (!el) { el = document.createElement('style'); el.id = id; document.head.appendChild(el); }
+      el.textContent = `
+        html body #schedule-root table td { background:#fff!important; background-color:#fff!important; color:#1e293b!important; }
+        html body #schedule-root table th { background:#fff!important; background-color:#fff!important; color:#1e293b!important; }
+        html body #schedule-root table td.sc-weekend,html body #schedule-root table th.sc-weekend { background:#fed7d7!important; background-color:#fed7d7!important; color:#9f1239!important; }
+        html body #schedule-root table td.sc-red-hol,html body #schedule-root table th.sc-red-hol { background:#fca5a5!important; background-color:#fca5a5!important; color:#7f1d1d!important; }
+        html body #schedule-root table td.sc-gray-hol,html body #schedule-root table th.sc-gray-hol { background:#e2e8f0!important; background-color:#e2e8f0!important; color:#334155!important; }
+        html body #schedule-root table td.sc-white,html body #schedule-root table th.sc-white { background:#fff!important; background-color:#fff!important; color:#1e293b!important; }
+        html body #schedule-root table td.sc-yellow,html body #schedule-root table th.sc-yellow { background:#fde047!important; background-color:#fde047!important; color:#713f12!important; }
+        html body #schedule-root table th.sc-hdr-wknd { background:#fecdd3!important; background-color:#fecdd3!important; color:#9f1239!important; }
+        html body #schedule-root table th.sc-hdr-red  { background:#fca5a5!important; background-color:#fca5a5!important; color:#7f1d1d!important; }
+        html body #schedule-root table th.sc-hdr-gray { background:#e2e8f0!important; background-color:#e2e8f0!important; color:#334155!important; }
+        html body #schedule-root table th.sc-hdr-plain{ background:#f1f5f9!important; background-color:#f1f5f9!important; color:#1e293b!important; }
+        html body #schedule-root table td.title-cell,html body #schedule-root table td.name-cell { background-color:var(--cell-bg,#f8fafc)!important; color:var(--cell-color,#1e293b)!important; }
+        html body #schedule-root table td.off-days-cell { background:#f1f5f9!important; color:#475569!important; }
+        html body #schedule-root input,html body #schedule-root textarea { background:transparent!important; color:inherit!important; }
+        html body #schedule-root .text-slate-800,html body #schedule-root .text-slate-900 { color:#1e293b!important; }
+        html body #schedule-root .text-slate-700 { color:#334155!important; }
+        html body #schedule-root .text-slate-600 { color:#475569!important; }
+        html body #schedule-root .text-slate-500 { color:#64748b!important; }
+        html body #schedule-root .text-brand-red,html body #schedule-root .text-red-700 { color:#b9121b!important; }
+        html body #schedule-root .bg-emerald-500 { background:#10b981!important; color:#fff!important; }
+      `;
+      return () => { const s = document.getElementById(id); if(s) s.remove(); };
+     }, []);
+          const [scheduleData, setScheduleData] = useState({
       shiftRules: defaultShiftRules,
       roleColors: {},
       months: {} // 存放各月份獨立資料
@@ -2371,28 +2094,29 @@ window._gameJsReady = false;
 
      return (
       <div className="page-enter pb-24" id="schedule-root" onClick={() => setSelectedCell(null)}>
-        <div className="p-3 sm:p-4 border-b bg-white/80 backdrop-blur sticky top-[60px] z-40 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        
+        <div className="p-3 sm:p-4 border-b bg-[rgba(255,255,255,0.8)] backdrop-blur sticky top-[60px] z-40 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
          <div className="flex items-center gap-3 w-full md:w-auto">
-           <button onClick={onBack} className="p-2 sm:p-2.5 glass-panel rounded-xl sm:rounded-2xl border border-slate-300 active:scale-90 transition-all bg-white shadow-sm shrink-0"><Icon name="arrow-left" size={20}/></button>
-           <h2 className="text-lg sm:text-xl font-black text-slate-800 tracking-tighter truncate">{currentBranch} <span className="text-brand-red">排班系統</span></h2>
+           <button onClick={onBack} className="p-2 sm:p-2.5 glass-panel rounded-xl sm:rounded-2xl border border-[#cbd5e1] active:scale-90 transition-all bg-[#ffffff] shadow-sm shrink-0"><Icon name="arrow-left" size={20}/></button>
+           <h2 className="text-lg sm:text-xl font-black text-[#1e293b] tracking-tighter truncate">{currentBranch} <span className="text-brand-red">排班系統</span></h2>
          </div>
          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-           <button onClick={handleDownloadImage} disabled={isDownloading} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-blue-500 text-white rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap disabled:opacity-50">
+           <button onClick={handleDownloadImage} disabled={isDownloading} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-[#3b82f6] text-[#ffffff] rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap disabled:opacity-50">
             <Icon name="image" size={14} /> {isDownloading ? "處理中" : "存為圖片"}
            </button>
-           <button onClick={handlePrint} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-emerald-600 text-white rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap">
+           <button onClick={handlePrint} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-[#059669] text-[#ffffff] rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap">
             <Icon name="printer" size={14} /> 列印
            </button>
            {isManager && (
             <>
-              <button onClick={importPreviousData} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-indigo-600 text-white rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap">
+              <button onClick={importPreviousData} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-[#4f46e5] text-[#ffffff] rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap">
                <Icon name="copy" size={14} /> 載入上月
               </button>
-              <button onClick={() => setIsHighlightMode(!isHighlightMode)} className={`flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap ${isHighlightMode ? 'bg-yellow-400 text-yellow-900 border border-yellow-500 shadow-inner' : 'bg-slate-100 text-slate-700 border border-slate-300'}`}>
+              <button onClick={() => setIsHighlightMode(!isHighlightMode)} className={`flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap ${isHighlightMode ? 'bg-yellow-400 text-[#713f12] border border-[#eab308] shadow-inner' : 'bg-[#f1f5f9] text-[#334155] border border-[#cbd5e1]'}`}>
                <Icon name="edit-3" size={14} /> {isHighlightMode ? '結束標記' : '標記修改'}
               </button>
-              <button onClick={addStaff} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-slate-800 text-white rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap"><Icon name="plus" size={14} /> 新增</button>
-              <button onClick={() => setShowSettings(!showSettings)} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-slate-100 text-slate-700 rounded-xl border border-slate-300 active:scale-95 transition-all text-xs sm:text-sm font-bold whitespace-nowrap"><Icon name="settings" size={14} /> 設定</button>
+              <button onClick={addStaff} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-[#1e293b] text-[#ffffff] rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap"><Icon name="plus" size={14} /> 新增</button>
+              <button onClick={() => setShowSettings(!showSettings)} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-[#f1f5f9] text-[#334155] rounded-xl border border-[#cbd5e1] active:scale-95 transition-all text-xs sm:text-sm font-bold whitespace-nowrap"><Icon name="settings" size={14} /> 設定</button>
             </>
            )}
          </div>
@@ -2400,34 +2124,34 @@ window._gameJsReady = false;
 
         <div className="p-4">
          {isManager && showSettings && (
-           <div className="mb-4 p-5 bg-blue-50 border border-blue-200 rounded-3xl shadow-sm text-left animate-in slide-in-from-top-2">
-            <h3 className="font-black text-blue-800 mb-3 flex items-center gap-2 text-sm"><Icon name="settings" size={16} /> 班別代碼與統計歸類設定</h3>
+           <div className="mb-4 p-5 bg-[#eff6ff] border border-[#bfdbfe] rounded-3xl shadow-sm text-left animate-in slide-in-from-top-2">
+            <h3 className="font-black text-[#1e40af] mb-3 flex items-center gap-2 text-sm"><Icon name="settings" size={16} /> 班別代碼與統計歸類設定</h3>
             <div className="flex flex-wrap gap-2 mb-4">
               {shiftRules.map((rule, idx) => (
-               <div key={idx} className="flex items-center bg-white py-1.5 px-3 rounded-xl shadow-sm border border-blue-200 text-xs font-bold group">
-                 <span className="w-8 text-center text-blue-700">{rule.code}</span>
-                 <span className="mx-2 text-slate-300">|</span>
-                 <select value={rule.type} onChange={(e) => { const newRules = [...shiftRules]; newRules[idx].type = e.target.value; setShiftRules(newRules); }} className="outline-none bg-transparent text-slate-600 cursor-pointer appearance-none">
+               <div key={idx} className="flex items-center bg-[#ffffff] py-1.5 px-3 rounded-xl shadow-sm border border-[#bfdbfe] text-xs font-bold group">
+                 <span className="w-8 text-center text-[#1d4ed8]">{rule.code}</span>
+                 <span className="mx-2 text-[#cbd5e1]">|</span>
+                 <select value={rule.type} onChange={(e) => { const newRules = [...shiftRules]; newRules[idx].type = e.target.value; setShiftRules(newRules); }} className="outline-none bg-transparent text-[#475569] cursor-pointer appearance-none">
                   <option value="morning">早班</option><option value="evening">晚班</option><option value="full">全天(早+晚)</option><option value="off">休假(不計入)</option>
                  </select>
-                 <button onClick={() => removeShiftRule(rule.code)} className="ml-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><Icon name="trash-2" size={14} /></button>
+                 <button onClick={() => removeShiftRule(rule.code)} className="ml-2 text-[#cbd5e1] hover:text-[#ef4444] opacity-0 group-hover:opacity-100 transition-opacity"><Icon name="trash-2" size={14} /></button>
                </div>
               ))}
             </div>
-            <div className="pt-3 border-t border-blue-200 flex flex-wrap items-center gap-2">
-              <input type="text" value={newShiftCode} onChange={(e) => setNewShiftCode(e.target.value)} placeholder="代碼 (例: A-7)" className="px-3 py-2 text-xs rounded-xl border border-slate-300 outline-none w-28 uppercase font-bold" maxLength={4} />
-              <select value={newShiftType} onChange={(e) => setNewShiftType(e.target.value)} className="px-3 py-2 text-xs rounded-xl border border-slate-300 outline-none font-bold">
+            <div className="pt-3 border-t border-[#bfdbfe] flex flex-wrap items-center gap-2">
+              <input type="text" value={newShiftCode} onChange={(e) => setNewShiftCode(e.target.value)} placeholder="代碼 (例: A-7)" className="px-3 py-2 text-xs rounded-xl border border-[#cbd5e1] outline-none w-28 uppercase font-bold" maxLength={4} />
+              <select value={newShiftType} onChange={(e) => setNewShiftType(e.target.value)} className="px-3 py-2 text-xs rounded-xl border border-[#cbd5e1] outline-none font-bold">
                <option value="morning">歸類：早班</option><option value="evening">歸類：晚班</option><option value="full">歸類：全天</option><option value="off">歸類：休假</option>
               </select>
-              <button onClick={addShiftRule} disabled={!newShiftCode.trim()} className="px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-xl active:scale-95 disabled:opacity-50 transition-colors shadow-sm flex items-center gap-1"><Icon name="plus" size={14} /> 新增班別</button>
+              <button onClick={addShiftRule} disabled={!newShiftCode.trim()} className="px-4 py-2 bg-[#2563eb] text-[#ffffff] text-xs font-bold rounded-xl active:scale-95 disabled:opacity-50 transition-colors shadow-sm flex items-center gap-1"><Icon name="plus" size={14} /> 新增班別</button>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-blue-200">
-              <h3 className="font-black text-blue-800 mb-3 flex items-center gap-2 text-sm"><Icon name="palette" size={16} /> 職位顏色自訂</h3>
+            <div className="mt-6 pt-4 border-t border-[#bfdbfe]">
+              <h3 className="font-black text-[#1e40af] mb-3 flex items-center gap-2 text-sm"><Icon name="palette" size={16} /> 職位顏色自訂</h3>
               <div className="flex flex-wrap gap-2">
                {Array.from(new Set(staffList.map(s => s.title).filter(Boolean))).map(role => (
-                 <div key={role} className="flex items-center bg-white py-1 pl-3 pr-2 rounded-xl shadow-sm border border-blue-200 text-xs font-bold gap-2">
-                  <span className="text-slate-700 max-w-[80px] truncate" title={role}>{role}</span>
+                 <div key={role} className="flex items-center bg-[#ffffff] py-1 pl-3 pr-2 rounded-xl shadow-sm border border-[#bfdbfe] text-xs font-bold gap-2">
+                  <span className="text-[#334155] max-w-[80px] truncate" title={role}>{role}</span>
                   <input 
                     type="color" 
                     value={roleColors[role] || '#ffffff'} 
@@ -2443,58 +2167,58 @@ window._gameJsReady = false;
                      }).catch(() => {
                        updateData({ roleColors: newColors });
                      });
-                    }} className="text-slate-300 hover:text-red-500"><Icon name="x" size={14} /></button>
+                    }} className="text-[#cbd5e1] hover:text-[#ef4444]"><Icon name="x" size={14} /></button>
                   )}
                  </div>
                ))}
-               {Array.from(new Set(staffList.map(s => s.title).filter(Boolean))).length === 0 && <span className="text-xs text-slate-500">尚無職位，請先於下方班表新增人員。</span>}
+               {Array.from(new Set(staffList.map(s => s.title).filter(Boolean))).length === 0 && <span className="text-xs text-[#64748b]">尚無職位，請先於下方班表新增人員。</span>}
               </div>
-              <p className="text-[10px] text-blue-500 mt-2">提示：點擊色塊可自訂該職位的背景顏色，未設定則使用系統自動配色。列印時也會自動套用！</p>
+              <p className="text-[10px] text-[#3b82f6] mt-2">提示：點擊色塊可自訂該職位的背景顏色，未設定則使用系統自動配色。列印時也會自動套用！</p>
             </div>
            </div>
          )}
 
-         <div className="bg-white rounded-[2rem] shadow-sm border border-slate-400 overflow-hidden mb-8">
-           <div className="flex items-center justify-between p-4 bg-slate-50 border-b border-slate-400">
-            <button onClick={() => changeMonth(-1)} className="p-2 bg-white rounded-xl shadow-sm active:scale-90 transition-all text-slate-600 border border-slate-300"><Icon name="chevron-left" size={18} /></button>
-            <div className="font-black text-slate-800 flex items-center gap-2 text-xl"><Icon name="calendar" size={20} className="text-brand-red" /> {currentDate.getFullYear()} 年 {currentDate.getMonth() + 1} 月</div>
-            <button onClick={() => changeMonth(1)} className="p-2 bg-white rounded-xl shadow-sm active:scale-90 transition-all text-slate-600 border border-slate-300"><Icon name="chevron-right" size={18} /></button>
+         <div className="bg-[#ffffff] rounded-[2rem] shadow-sm border border-slate-400 overflow-hidden mb-8">
+           <div className="flex items-center justify-between p-4 bg-[#f8fafc] border-b border-slate-400">
+            <button onClick={() => changeMonth(-1)} className="p-2 bg-[#ffffff] rounded-xl shadow-sm active:scale-90 transition-all text-[#475569] border border-[#cbd5e1]"><Icon name="chevron-left" size={18} /></button>
+            <div className="font-black text-[#1e293b] flex items-center gap-2 text-xl"><Icon name="calendar" size={20} className="text-brand-red" /> {currentDate.getFullYear()} 年 {currentDate.getMonth() + 1} 月</div>
+            <button onClick={() => changeMonth(1)} className="p-2 bg-[#ffffff] rounded-xl shadow-sm active:scale-90 transition-all text-[#475569] border border-[#cbd5e1]"><Icon name="chevron-right" size={18} /></button>
            </div>
 
-           <div className="overflow-x-auto overflow-y-visible custom-scrollbar bg-white relative pb-2 w-full">
-            <div ref={tableRef} className="w-max min-w-full bg-white relative">
+           <div className="overflow-x-auto overflow-y-visible custom-scrollbar bg-[#ffffff] relative pb-2 w-full">
+            <div ref={tableRef} className="w-max min-w-full bg-[#ffffff] relative">
               <table className="w-full border-collapse min-w-max text-xs select-none schedule-table">
                <thead>
                  <tr>
-                  <th colSpan={3} className="bg-emerald-100 border border-slate-500 p-2 text-lg font-black tracking-widest sticky left-0 top-0 z-[60] shadow-sm" style={{ height: '40px' }}>{currentDate.getMonth() + 1}月</th>
+                  <th colSpan={3} className="bg-[#d1fae5] border border-[#64748b] p-2 text-lg font-black tracking-widest sticky left-0 top-0 z-[60] shadow-sm" style={{ height: '40px' }}>{currentDate.getMonth() + 1}月</th>
                   {daysInMonth.map(day => (
-                    <th key={`date-${day.dateNum}`} className={`border border-slate-500 p-1 text-center font-black text-base w-9 sticky top-0 z-[50] shadow-sm ${getHeaderBg(day.dateString, day.isWeekend)}`} style={{ height: '40px', borderLeft: isRedDay(day.dateString, day.isWeekend) ? '2px solid #f43f5e' : undefined }}>{day.dateNum}</th>
+                    <th key={`date-${day.dateNum}`} className={`border border-[#64748b] p-1 text-center font-black text-base w-9 sticky top-0 z-[50] shadow-sm ${getHeaderBg(day.dateString, day.isWeekend)}`} style={{ height: '40px', borderLeft: isRedDay(day.dateString, day.isWeekend) ? '2px solid #f43f5e' : undefined }}>{day.dateNum}</th>
                   ))}
                  </tr>
                  <tr>
-                  <th className="bg-emerald-500 border border-slate-500 p-1 w-[76px] sticky left-0 z-[60] text-white font-black shadow-sm" style={{ top: '40px', height: '40px' }}>職稱</th>
-                  <th className="bg-emerald-500 border border-slate-500 p-1 w-[80px] sticky left-[76px] z-[60] text-white font-black shadow-sm" style={{ top: '40px', height: '40px' }}>姓名</th>
-                  <th className="bg-emerald-500 border border-slate-500 p-1 w-[40px] text-xs leading-tight sticky left-[156px] z-[60] text-white font-black shadow-sm" style={{ top: '40px', height: '40px' }}>休假<br/>天數</th>
+                  <th className="bg-[#10b981] border border-[#64748b] p-1 w-[76px] sticky left-0 z-[60] text-[#ffffff] font-black shadow-sm" style={{ top: '40px', height: '40px' }}>職稱</th>
+                  <th className="bg-[#10b981] border border-[#64748b] p-1 w-[80px] sticky left-[76px] z-[60] text-[#ffffff] font-black shadow-sm" style={{ top: '40px', height: '40px' }}>姓名</th>
+                  <th className="bg-[#10b981] border border-[#64748b] p-1 w-[40px] text-xs leading-tight sticky left-[156px] z-[60] text-[#ffffff] font-black shadow-sm" style={{ top: '40px', height: '40px' }}>休假<br/>天數</th>
                   {daysInMonth.map(day => (
-                    <th key={`day-${day.dateNum}`} className={`border border-slate-500 p-1 text-center sticky z-[50] shadow-sm font-bold text-sm ${getHeaderBg(day.dateString, day.isWeekend)}`} style={{ top: '40px', height: '40px' }}>{day.dayOfWeek}</th>
+                    <th key={`day-${day.dateNum}`} className={`border border-[#64748b] p-1 text-center sticky z-[50] shadow-sm font-bold text-sm ${getHeaderBg(day.dateString, day.isWeekend)}`} style={{ top: '40px', height: '40px' }}>{day.dayOfWeek}</th>
                   ))}
                  </tr>
                  <tr>
-                  <th colSpan={3} className="bg-white border border-slate-500 p-1 text-right text-xs text-slate-400 font-bold sticky left-0 z-[60] shadow-sm" style={{ top: '80px', height: '60px' }}>{isManager && !isDownloading ? '特殊節日 (點擊設定) ➔' : '特殊節日 ➔'}</th>
+                  <th colSpan={3} className="bg-[#ffffff] border border-[#64748b] p-1 text-right text-xs text-[#94a3b8] font-bold sticky left-0 z-[60] shadow-sm" style={{ top: '80px', height: '60px' }}>{isManager && !isDownloading ? '特殊節日 (點擊設定) ➔' : '特殊節日 ➔'}</th>
                   {daysInMonth.map(day => {
                     const h = getHolidayData(day.dateString);
                     return (
-                     <th key={`holiday-${day.dateNum}`} onClick={(e) => { e.stopPropagation(); openHolidayEdit(day.dateString); }} className={`border border-slate-500 p-0 text-center align-top relative sticky z-[50] shadow-sm ${isManager && !isDownloading ? 'cursor-pointer hover:brightness-95' : ''} ${getCellBg(day.dateString, day.isWeekend)}`} style={{ top: '80px', height: '60px' }}>
+                     <th key={`holiday-${day.dateNum}`} onClick={(e) => { e.stopPropagation(); openHolidayEdit(day.dateString); }} className={`border border-[#64748b] p-0 text-center align-top relative sticky z-[50] shadow-sm ${isManager && !isDownloading ? 'cursor-pointer hover:brightness-95' : ''} ${getCellBg(day.dateString, day.isWeekend)}`} style={{ top: '80px', height: '60px' }}>
                        {isManager && !isDownloading && selectedCell?.type === 'holiday' && selectedCell?.date === day.dateString ? (
-                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[140px] z-[100] bg-white border-2 border-slate-300 shadow-2xl p-2 rounded-xl flex flex-col gap-2" onClick={e=>e.stopPropagation()}>
-                          <input autoFocus type="text" value={holidayInputText} onChange={(e) => setHolidayInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveHoliday(day.dateString)} className="w-full text-xs border border-slate-200 rounded p-1.5 outline-none font-bold text-slate-800 text-center" placeholder="節日或備註" />
-                          <label className="flex items-center justify-center gap-1.5 text-[10px] text-slate-600 cursor-pointer bg-slate-50 py-1.5 rounded border border-slate-100">
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[140px] z-[100] bg-[#ffffff] border-2 border-[#cbd5e1] shadow-2xl p-2 rounded-xl flex flex-col gap-2" onClick={e=>e.stopPropagation()}>
+                          <input autoFocus type="text" value={holidayInputText} onChange={(e) => setHolidayInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveHoliday(day.dateString)} className="w-full text-xs border border-[#e2e8f0] rounded p-1.5 outline-none font-bold text-[#1e293b] text-center" placeholder="節日或備註" />
+                          <label className="flex items-center justify-center gap-1.5 text-[10px] text-[#475569] cursor-pointer bg-[#f8fafc] py-1.5 rounded border border-slate-100">
                            <input type="checkbox" checked={holidayInputIsRed} onChange={(e) => setHolidayInputIsRed(e.target.checked)} className="accent-brand-red w-3.5 h-3.5 rounded"/>
                            標示為紅字休假
                           </label>
                           <div className="flex gap-1.5">
-                           <button onClick={() => deleteHoliday(day.dateString)} className="flex-1 py-1.5 bg-slate-100 text-slate-500 text-xs font-bold rounded hover:bg-red-50 hover:text-red-500 border border-slate-200 active:scale-95 transition-all">清空</button>
-                           <button onClick={() => saveHoliday(day.dateString)} className="flex-[1.5] py-1.5 bg-brand-red text-white text-xs font-bold rounded shadow-sm active:scale-95 transition-all">儲存</button>
+                           <button onClick={() => deleteHoliday(day.dateString)} className="flex-1 py-1.5 bg-[#f1f5f9] text-[#64748b] text-xs font-bold rounded hover:bg-[#fef2f2] hover:text-[#ef4444] border border-[#e2e8f0] active:scale-95 transition-all">清空</button>
+                           <button onClick={() => saveHoliday(day.dateString)} className="flex-[1.5] py-1.5 bg-brand-red text-[#ffffff] text-xs font-bold rounded shadow-sm active:scale-95 transition-all">儲存</button>
                           </div>
                         </div>
                        ) : (
@@ -2518,7 +2242,7 @@ window._gameJsReady = false;
                     onDragEnd={handleDragEnd}
                     className={`${isManager && !isDownloading ? 'group cursor-grab active:cursor-grabbing' : ''} ${isDragging ? 'opacity-40' : ''} ${isOver ? 'border-y-2 border-brand-red shadow-sm relative z-20' : ''}`}
                   >
-                    <td className={`border border-slate-500 p-0 sticky left-0 z-[30] transition-colors title-cell`} style={getTitleColorStyle(staff.title)}>
+                    <td className={`border border-[#64748b] p-0 sticky left-0 z-[30] transition-colors title-cell`} style={(() => { const s = getTitleColorStyle(staff.title); return { '--cell-bg': s.backgroundColor, '--cell-color': s.color }; })()}>
                      <div className="flex items-center h-full">
                        {isManager && !isDownloading && <div className="pl-1 opacity-50 shrink-0"><Icon name="grip-vertical" size={14} /></div>}
                        {isDownloading ? (
@@ -2530,17 +2254,17 @@ window._gameJsReady = false;
                        )}
                      </div>
                     </td>
-                    <td className={`border border-slate-500 p-0 sticky left-[76px] z-[30] bg-white group-hover:bg-blue-50 relative`}>
+                    <td className={`border border-[#64748b] p-0 sticky left-[76px] z-[30] relative transition-colors name-cell`} style={(() => { const s = getTitleColorStyle(staff.title); return { '--cell-bg': s.backgroundColor, '--cell-color': s.color }; })()}>
                      {isDownloading ? (
-                       <div className="w-full h-full min-h-[36px] px-0.5 flex items-center justify-center font-black text-sm text-slate-800">
+                       <div className="w-full h-full min-h-[36px] px-0.5 flex items-center justify-center font-black text-sm" style={{color:'inherit'}}>
                         {staff.name}
                        </div>
                      ) : (
-                       <SyncInput value={staff.name} onChange={(val) => updateStaffInfo(staff.id, 'name', val)} readOnly={!isManager} className={`w-full h-full px-0.5 py-2 bg-transparent text-center font-black text-sm outline-none ${isManager ? 'text-slate-800' : 'text-slate-700 cursor-default'}`} />
+                       <SyncInput value={staff.name} onChange={(val) => updateStaffInfo(staff.id, 'name', val)} readOnly={!isManager} className={`w-full h-full px-0.5 py-2 bg-transparent text-center font-black text-sm outline-none ${isManager ? '' : 'cursor-default'}`} style={{color:'inherit'}} />
                      )}
-                     {isManager && !isDownloading && <button onClick={() => removeStaff(staff.id)} className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 text-white bg-red-500 hover:bg-red-600 transition-opacity p-0.5 rounded-bl-lg shadow-sm z-10"><Icon name="x" size={10} /></button>}
+                     {isManager && !isDownloading && <button onClick={() => removeStaff(staff.id)} className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 text-[#ffffff] bg-[#ef4444] hover:bg-red-600 transition-opacity p-0.5 rounded-bl-lg shadow-sm z-10"><Icon name="x" size={10} /></button>}
                     </td>
-                    <td className="border border-slate-500 p-1 text-center font-black text-lg sticky left-[156px] z-[30]" style={{backgroundColor:'var(--leather-lift,#f1f5f9)',color:'var(--t2,#475569)'}}>{calculateOffDays(staff.shifts)}</td>
+                    <td className="border border-[#64748b] p-1 text-center font-black text-lg sticky left-[156px] z-[30] off-days-cell">{calculateOffDays(staff.shifts)}</td>
                     {daysInMonth.map(day => {
                      const cellKey = `${staff.id}_${day.dateString}`;
                      const isHighlighted = (activeMonthData?.cellColors || {})[cellKey] === 'bg-yellow-300';
@@ -2550,9 +2274,9 @@ window._gameJsReady = false;
                      return (
                        <td key={`${staff.id}-${day.dateNum}`} 
                         onClick={() => { if (isHighlightMode) toggleCellColor(staff.id, day.dateString); }}
-                        className={`border border-slate-500 p-0 relative ${isHighlighted ? 'sc-yellow' : finalBg} ${isHighlightMode ? 'cursor-pointer hover:opacity-80' : ''}`}>
+                        className={`border border-[#64748b] p-0 relative ${isHighlighted ? 'sc-yellow' : finalBg} ${isHighlightMode ? 'cursor-pointer hover:opacity-80' : ''}`}>
                         {isDownloading ? (
-                          <div className="w-full h-full min-h-[36px] flex items-center justify-center font-black uppercase text-[14px] text-slate-800">
+                          <div className="w-full h-full min-h-[36px] flex items-center justify-center font-black uppercase text-[14px] text-[#1e293b]">
                            {(staff.shifts || {})[day.dateString] || ''}
                           </div>
                         ) : (
@@ -2573,16 +2297,16 @@ window._gameJsReady = false;
                </tbody>
                <tfoot className="font-bold text-[10px] sticky bottom-0 z-[40] shadow-[0_-4px_10px_rgba(0,0,0,0.15)]">
                  <tr>
-                  <td colSpan={3} className="border border-slate-500 p-2 text-right bg-orange-50 text-orange-800 sticky left-0 z-[60] text-sm">早班總人數 (含全天)</td>
-                  {daysInMonth.map(day => <td key={`morning-${day.dateNum}`} className="border border-slate-500 p-1 text-center bg-orange-50 text-orange-800 font-black text-lg">{calculateDailyStats(day.dateString).morning || ''}</td>)}
+                  <td colSpan={3} className="border border-[#64748b] p-2 text-right bg-[#fff7ed] text-[#9a3412] sticky left-0 z-[60] text-sm">早班總人數 (含全天)</td>
+                  {daysInMonth.map(day => <td key={`morning-${day.dateNum}`} className="border border-[#64748b] p-1 text-center bg-[#fff7ed] text-[#9a3412] font-black text-lg">{calculateDailyStats(day.dateString).morning || ''}</td>)}
                  </tr>
                  <tr>
-                  <td colSpan={3} className="border border-slate-500 p-2 text-right bg-indigo-50 text-indigo-800 sticky left-0 z-[60] text-sm">晚班總人數 (含全天)</td>
-                  {daysInMonth.map(day => <td key={`evening-${day.dateNum}`} className="border border-slate-500 p-1 text-center bg-indigo-50 text-indigo-800 font-black text-lg">{calculateDailyStats(day.dateString).evening || ''}</td>)}
+                  <td colSpan={3} className="border border-[#64748b] p-2 text-right bg-[#eef2ff] text-[#3730a3] sticky left-0 z-[60] text-sm">晚班總人數 (含全天)</td>
+                  {daysInMonth.map(day => <td key={`evening-${day.dateNum}`} className="border border-[#64748b] p-1 text-center bg-[#eef2ff] text-[#3730a3] font-black text-lg">{calculateDailyStats(day.dateString).evening || ''}</td>)}
                  </tr>
                  <tr>
-                  <td colSpan={3} className="border border-slate-500 p-2 text-right bg-slate-800 text-white sticky left-0 z-[60] font-black text-sm">當日總上班人數</td>
-                  {daysInMonth.map(day => <td key={`total-${day.dateNum}`} className="border border-slate-500 p-1 text-center bg-slate-800 text-white font-black text-lg">{calculateDailyStats(day.dateString).total || ''}</td>)}
+                  <td colSpan={3} className="border border-[#64748b] p-2 text-right bg-[#1e293b] text-[#ffffff] sticky left-0 z-[60] font-black text-sm">當日總上班人數</td>
+                  {daysInMonth.map(day => <td key={`total-${day.dateNum}`} className="border border-[#64748b] p-1 text-center bg-[#1e293b] text-[#ffffff] font-black text-lg">{calculateDailyStats(day.dateString).total || ''}</td>)}
                  </tr>
                </tfoot>
               </table>
@@ -2595,14 +2319,14 @@ window._gameJsReady = false;
         {previewImage && (
          <div className="fixed inset-0 z-[100000] bg-slate-900/95 flex flex-col items-center justify-center p-4 sm:p-8 animate-in fade-in">
            <div className="w-full max-w-6xl flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
-            <p className="text-white font-black text-sm bg-brand-red px-5 py-2.5 rounded-full shadow-lg text-center leading-relaxed">
+            <p className="text-[#ffffff] font-black text-sm bg-brand-red px-5 py-2.5 rounded-full shadow-lg text-center leading-relaxed">
               💡 手機用戶請「長按圖片」選擇儲存至相簿
             </p>
-            <button onClick={() => setPreviewImage(null)} className="text-white bg-slate-700 hover:bg-slate-600 px-6 py-2.5 rounded-full font-black shadow-lg transition-all active:scale-95 text-sm">
+            <button onClick={() => setPreviewImage(null)} className="text-[#ffffff] bg-slate-700 hover:bg-slate-600 px-6 py-2.5 rounded-full font-black shadow-lg transition-all active:scale-95 text-sm">
               關閉預覽
             </button>
            </div>
-           <div className="overflow-auto w-full max-w-6xl bg-white rounded-2xl shadow-2xl custom-scrollbar border-4 border-slate-800" style={{ maxHeight: 'calc(100vh - 180px)' }}>
+           <div className="overflow-auto w-full max-w-6xl bg-[#ffffff] rounded-2xl shadow-2xl custom-scrollbar border-4 border-slate-800" style={{ maxHeight: 'calc(100vh - 180px)' }}>
             <img src={previewImage} alt="班表圖片預覽" className="w-max min-w-full" style={{ touchAction: 'pan-x pan-y' }} />
            </div>
            <div className="mt-6 flex justify-center w-full max-w-6xl">
@@ -2611,7 +2335,7 @@ window._gameJsReady = false;
               link.download = `${currentBranch}-${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月班表.jpg`;
               link.href = previewImage;
               link.click();
-            }} className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3.5 rounded-2xl font-black shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all text-sm">
+            }} className="bg-[#3b82f6] hover:bg-[#2563eb] text-[#ffffff] px-8 py-3.5 rounded-2xl font-black shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all text-sm">
               <Icon name="download" size={18} /> 電腦版點此下載圖片
             </button>
            </div>
@@ -3314,27 +3038,42 @@ window._gameJsReady = false;
      };
 
      const handleShare = async (vendorName) => {
-      saveOrderToHistory(); 
+      saveOrderToHistory();
       const text = editedOrderTexts[vendorName] || "";
-      
-      const el = document.createElement('textarea');
-      el.value = text;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand('copy');
-      document.body.removeChild(el);
-      
-      setCopyStatus({ ...copyStatus, [vendorName]: true });
-      triggerNotify(`${vendorName} 訂單已複製內容！請直接貼上分享`, "success");
-      
-      setTimeout(() => setCopyStatus(prev => ({ ...prev, [vendorName]: false })), 3000);
-      
+
+      // 1. 優先用 navigator.share（iOS 原生分享，可直接選 LINE）
       if (navigator.share) {
-        try { 
-         await navigator.share({ title: `訂貨單-${vendorName}`, text }); 
-         return; 
+        try {
+          await navigator.share({ title: `訂貨單-${vendorName}`, text });
+          setCopyStatus(prev => ({ ...prev, [vendorName]: true }));
+          triggerNotify(`${vendorName} 訂單已分享！`, 'success');
+          setTimeout(() => setCopyStatus(prev => ({ ...prev, [vendorName]: false })), 3000);
+          return;
         } catch (err) {
-         console.log("Share cancelled or failed", err);
+          // 用戶取消分享、或 share 失敗 → fallback 到複製
+          if (err.name === 'AbortError') return; // 主動取消不需提示
+        }
+      }
+
+      // 2. Fallback：複製到剪貼簿（現代 API）
+      try {
+        await navigator.clipboard.writeText(text);
+        setCopyStatus(prev => ({ ...prev, [vendorName]: true }));
+        triggerNotify(`${vendorName} 訂單已複製！請貼到 LINE 傳送`, 'success');
+        setTimeout(() => setCopyStatus(prev => ({ ...prev, [vendorName]: false })), 3000);
+      } catch (clipErr) {
+        // 最後備援：舊版 execCommand
+        try {
+          const el = document.createElement('textarea');
+          el.value = text; el.style.position = 'fixed'; el.style.opacity = '0';
+          document.body.appendChild(el); el.focus(); el.select();
+          document.execCommand('copy');
+          document.body.removeChild(el);
+          setCopyStatus(prev => ({ ...prev, [vendorName]: true }));
+          triggerNotify(`${vendorName} 訂單已複製！請貼到 LINE 傳送`, 'success');
+          setTimeout(() => setCopyStatus(prev => ({ ...prev, [vendorName]: false })), 3000);
+        } catch (e) {
+          triggerNotify('複製失敗，請手動複製訂單內容', 'error');
         }
       }
      };
