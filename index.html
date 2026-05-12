@@ -225,7 +225,17 @@
         body.theme-dark .bg-white      { background: linear-gradient(145deg, var(--leather-light), var(--leather-mid)) !important; }
         body.theme-dark .bg-slate-50   { background-color: var(--leather-base) !important; }
         body.theme-dark .bg-slate-100  { background-color: var(--leather-mid) !important; }
+
+        /* ─── 深色主題：文字顏色全面覆蓋 ─── */
+        body.theme-dark .text-slate-900,
         body.theme-dark .text-slate-800 { color: var(--t1) !important; }
+        body.theme-dark .text-slate-700,
+        body.theme-dark .text-slate-600 { color: var(--t2) !important; }
+        body.theme-dark .text-slate-500,
+        body.theme-dark .text-slate-400 { color: var(--t3) !important; }
+        body.theme-dark .text-slate-300 { color: var(--t4) !important; }
+
+        /* ─── 深色主題：公告/卡片區塊背景 ─── */
         body.theme-dark .bg-rose-50\/80, body.theme-dark .bg-rose-50\/50,
         body.theme-dark .bg-emerald-50\/50, body.theme-dark .bg-indigo-50\/50,
         body.theme-dark .bg-blue-50\/50, body.theme-dark .bg-yellow-50\/50,
@@ -234,6 +244,10 @@
             background-color: var(--leather-lift) !important;
             border-color: var(--gold-border) !important;
         }
+
+        /* ─── 深色主題：border 顏色 ─── */
+        body.theme-dark .border-slate-200,
+        body.theme-dark .border-slate-100 { border-color: var(--gold-border) !important; }
 
         /* ═══════════════════════════════════════════════════════
            COMPONENT ENHANCEMENTS — 純 CSS，不動 JSX
@@ -6278,6 +6292,11 @@ return (
             }
             document.body.className = document.body.className.replace(/theme-\S+/g,'').trim();
             document.body.classList.add('theme-' + themeObj.id);
+            // 判斷是否為深色主題（--leather-deep 的亮度低於閾值）
+            const isDark = themeObj.vars && themeObj.vars['--t1'] && themeObj.vars['--t1'] !== '#1e293b';
+            if (isDark) {
+               document.body.classList.add('theme-dark');
+            }
             localStorage.setItem('k_app_theme', activeTheme);
          }, [activeTheme]);
      const [currentUser, setCurrentUser] = useState(() => { const saved = localStorage.getItem('k_active_user'); return saved ? JSON.parse(saved) : null; });
@@ -6611,22 +6630,29 @@ return (
               
               {/* 最新公告區塊 */}
               <div className="space-y-3">
-               <h3 className="text-lg font-black text-slate-800 tracking-tight flex items-center gap-2 mb-2"><Icon name="bell" size={20} className="text-brand-red" /> {currentBranch} 最新公告</h3>
+               <h3 className="text-lg font-black tracking-tight flex items-center gap-2 mb-2" style={{color:'var(--t1,#1e293b)'}}><Icon name="bell" size={20} className="text-brand-red" /> {currentBranch} 最新公告</h3>
                {announcements.length > 0 ? announcements.slice(0, 3).map(a => {
                  const isRead = currentUser?.name ? a.readBy?.includes(currentUser.name) : false;
                  return (
-                  <div key={a.id} onClick={() => openAnnouncement(a)} className={`glass-panel p-4 rounded-2xl border cursor-pointer active:scale-[0.98] transition-all flex gap-4 ${isRead ? 'opacity-70 bg-slate-50 border-slate-200 shadow-none' : 'bg-white border-brand-red/30 shadow-sm'}`}>
+                  <div key={a.id} onClick={() => openAnnouncement(a)}
+                    className="glass-panel p-4 rounded-2xl border cursor-pointer active:scale-[0.98] transition-all flex gap-4"
+                    style={{
+                      background: isRead ? 'var(--leather-base,#f8fafc)' : 'linear-gradient(145deg,var(--leather-light,#fff),var(--leather-mid,#fff))',
+                      borderColor: isRead ? 'var(--gold-border,rgba(0,0,0,0.1))' : 'var(--gold-bright,#b9121b)',
+                      opacity: isRead ? 0.75 : 1,
+                      boxShadow: isRead ? 'none' : '0 2px 8px var(--gold-subtle,rgba(0,0,0,0.06))'
+                    }}>
                     {!isRead && <div className="w-2 h-2 rounded-full bg-brand-red mt-2 shrink-0 animate-pulse" />}
                     <div className="flex-1 min-w-0">
-                     <h4 className={`font-black truncate ${isRead ? 'text-slate-600' : 'text-slate-800'}`}>{a.title}</h4>
-                     <p className="text-xs text-slate-400 mt-1 line-clamp-1">{a.content}</p>
+                     <h4 className="font-black truncate" style={{color: isRead ? 'var(--t2,#475569)' : 'var(--t1,#1e293b)'}}>{a.title}</h4>
+                     <p className="text-xs mt-1 line-clamp-1" style={{color:'var(--t3,#94a3b8)'}}>{a.content}</p>
                     </div>
-                    <div className="text-[10px] text-slate-300 whitespace-nowrap pt-1">
+                    <div className="text-[10px] whitespace-nowrap pt-1" style={{color:'var(--t3,#94a3b8)'}}>
                      {new Date(a.timestamp).toLocaleDateString()}
                     </div>
                   </div>
                  )
-               }) : <div className="text-center py-6 text-slate-400 text-xs font-bold glass-panel rounded-2xl border border-dashed shadow-sm">目前無新公告</div>}
+               }) : <div className="text-center py-6 text-xs font-bold glass-panel rounded-2xl border border-dashed shadow-sm" style={{color:'var(--t3,#94a3b8)',borderColor:'var(--gold-border)'}}>目前無新公告</div>}
               </div>
 
               <section className="grid grid-cols-2 gap-4">
@@ -6821,11 +6847,11 @@ return (
          {/* 獨立公告彈出視窗 */}
          {activeAnnouncement && (
            <div className="fixed inset-0 z-[9999] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 page-enter">
-            <div className="bg-white rounded-[2.5rem] p-6 w-full max-w-sm shadow-2xl max-h-[85vh] overflow-y-auto font-bold text-left">
-              <h2 className="text-xl font-black text-slate-800 mb-2 leading-tight">{activeAnnouncement.title}</h2>
-              <p className="text-[10px] text-slate-400 mb-4 flex items-center gap-1"><Icon name="clock" size={12}/> {new Date(activeAnnouncement.timestamp).toLocaleString()}</p>
-              {activeAnnouncement.img && <img src={activeAnnouncement.img} className="w-full rounded-2xl mb-5 object-cover border shadow-sm" alt="公告圖片" />}
-              <p className="text-sm font-bold text-slate-600 whitespace-pre-wrap leading-relaxed">{activeAnnouncement.content}</p>
+            <div className="rounded-[2.5rem] p-6 w-full max-w-sm shadow-2xl max-h-[85vh] overflow-y-auto font-bold text-left" style={{background:'linear-gradient(160deg,var(--leather-light,#fff),var(--leather-mid,#fff))',border:'1px solid var(--gold-border)'}}>
+              <h2 className="text-xl font-black mb-2 leading-tight" style={{color:'var(--t1,#1e293b)'}}>{activeAnnouncement.title}</h2>
+              <p className="text-[10px] mb-4 flex items-center gap-1" style={{color:'var(--t3,#94a3b8)'}}><Icon name="clock" size={12}/> {new Date(activeAnnouncement.timestamp).toLocaleString()}</p>
+              {activeAnnouncement.img && <img src={activeAnnouncement.img} className="w-full rounded-2xl mb-5 object-cover border shadow-sm" alt="公告圖片" style={{borderColor:'var(--gold-border)'}} />}
+              <p className="text-sm font-bold whitespace-pre-wrap leading-relaxed" style={{color:'var(--t2,#475569)'}}>{activeAnnouncement.content}</p>
               <button onClick={() => setActiveAnnouncement(null)} className="mt-8 w-full bg-brand-red text-white font-black py-4 rounded-2xl active:scale-95 transition-all shadow-lg">關閉</button>
             </div>
            </div>
