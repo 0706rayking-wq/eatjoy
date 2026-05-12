@@ -39,6 +39,46 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;600;700;900&family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
 
+        /* ═══ CSS Variables 預設值（由 JS 主題切換覆蓋）═══ */
+        :root {
+            --brand-red: 185 18 27;
+            --app-bg: #f8fafc;
+            --accent: rgb(185,18,27);
+            --accent-10: rgba(185,18,27,0.15);
+            --accent-20: rgba(185,18,27,0.25);
+            --accent-30: rgba(185,18,27,0.40);
+            --leather-deep:   #f8fafc;
+            --leather-base:   #f8fafc;
+            --leather-mid:    #ffffff;
+            --leather-light:  #f8fafc;
+            --leather-lift:   #f1f5f9;
+            --leather-hover:  #e2e8f0;
+            --gold-bright:    #b9121b;
+            --gold-mid:       #b9121b;
+            --gold-dim:       #b9121b;
+            --gold-shadow:    #b9121b;
+            --gold-glow:      rgba(185,18,27,0.2);
+            --gold-subtle:    rgba(185,18,27,0.08);
+            --gold-border:    rgba(185,18,27,0.25);
+            --gold-gradient:  linear-gradient(135deg,#b9121b,#b9121b);
+            --gold-gradient-h:linear-gradient(90deg,#b9121b,#b9121b);
+            --t1: #1e293b;
+            --t2: #475569;
+            --t3: #94a3b8;
+            --t4: #cbd5e1;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Noto Sans TC', serif;
+            -webkit-tap-highlight-color: transparent;
+            background-color: var(--leather-base, #f8fafc);
+            color: var(--t1, #1e293b);
+            overflow-x: hidden;
+            min-height: 100vh;
+        }
+
         /* ══ SCHEDULE 完全隔離主題（強制白色底） ══ */
 
         /* Step1：所有子元素先清空背景、還原顏色 */
