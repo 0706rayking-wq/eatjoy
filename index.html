@@ -3620,7 +3620,132 @@ window._gameJsReady = false;
       </div>
      );
     };
-const GameCenter = ({ onBack, config, currentBranch, currentUser, getPublicPath, allUsers = [], isSuperAdmin = false }) => {
+    // WarlogPhase 獨立子組件（避免 hook 在 if 中問題）
+    const WarlogPhase = ({ currentUser, getPublicPath, loadSave, writeSave, campBg, cardStyle, NavBar, setFrPhase }) => {
+     const { useState: useS, useEffect: useE } = React;
+     const [warlogEntries, setWarlogEntries] = useS([]);
+     const [wlLines, setWlLines] = useS(() => {
+      const s = loadSave(); return s.warlogLines || { entry:'', defeat:'', rivalEntry:'', rivalDefeat:'' };
+     });
+     const [todayClaimed, setTodayClaimed] = useS(0);
+     const MAX_DAILY_COINS = 300;
+     const today = new Date().toDateString();
+
+     useE(() => {
+      if (!currentUser?.phone) return;
+      const unsub = db.collection(getPublicPath(`warlog_${currentUser.phone}`))
+       .orderBy('timestamp','desc').limit(30)
+       .onSnapshot(snap => {
+        const entries = snap.docs.map(d=>({id:d.id,...d.data()}));
+        setWarlogEntries(entries);
+        const claimed = entries.filter(e=>e.date===today&&e.claimed).reduce((s,e)=>s+(e.coins||0),0);
+        setTodayClaimed(claimed);
+       }, ()=>{});
+      return () => unsub();
+     }, [currentUser?.phone]);
+
+     const saveLines = (newLines) => {
+      setWlLines(newLines);
+      writeSave({ warlogLines: newLines });
+      if (currentUser?.phone) {
+       db.collection(getPublicPath('users')).doc(currentUser.phone)
+        .update({ warlogLines: newLines }).catch(()=>{});
+      }
+     };
+
+     const claimEntry = async (entry) => {
+      if (entry.claimed) return;
+      if (todayClaimed >= MAX_DAILY_COINS) { alert('今日戰況金幣已達上限 ' + MAX_DAILY_COINS + ' 💰'); return; }
+      const canClaim = Math.min(entry.coins, MAX_DAILY_COINS - todayClaimed);
+      const newGold = (loadSave().gold||0) + canClaim;
+      writeSave({ gold: newGold });
+      await db.collection(getPublicPath(`warlog_${currentUser.phone}`)).doc(entry.id).update({ claimed: true }).catch(()=>{});
+     };
+
+     const typeLabel = {
+      selected_as_partner: '🤝 被選為夥伴',
+      rival_win: '🏆 亂入戰場獲勝',
+      rival_lose: '💀 亂入戰場落敗',
+      rival_lose_entry: '👻 被玩家擊敗',
+      rival_selected: '👻 被亂入玩家選中出戰'
+     };
+
+     return (
+      <div className="fixed inset-0 z-[10000] flex flex-col" style={campBg}>
+       <NavBar title="📊 戰況" onBack={()=>setFrPhase('camp')} />
+       <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div style={{...cardStyle}}>
+         <div style={{fontSize:'11px', fontWeight:900, color:'#fbbf24', marginBottom:'10px', letterSpacing:'1px'}}>✍️ 台詞設定</div>
+         {[
+          {key:'entry', label:'🗡️ 被選中出征台詞', ph: (currentUser?.name||'你')+'：「我來幫你」'},
+          {key:'defeat', label:'💀 出征戰敗台詞', ph: (currentUser?.name||'你')+'：「下次一定贏回來」'},
+          {key:'rivalEntry', label:'👻 亂入出場台詞', ph: (currentUser?.name||'你')+'：「讓我來考驗你！」'},
+          {key:'rivalDefeat', label:'🏳️ 亂入戰敗台詞', ph: (currentUser?.name||'你')+'：「你果然很強...」'},
+         ].map(item=>(
+          <div key={item.key} style={{marginBottom:'8px'}}>
+           <div style={{fontSize:'10px', color:'#8b949e', marginBottom:'4px', fontWeight:700}}>{item.label}</div>
+           <input
+            value={wlLines[item.key]||''}
+            onChange={e=>{const nl={...wlLines,[item.key]:e.target.value};saveLines(nl);}}
+            placeholder={item.ph}
+            style={{width:'100%',background:'#0d1117',border:'1px solid #30363d',borderRadius:'8px',padding:'8px 10px',color:'#e6edf3',fontSize:'12px',fontWeight:700,outline:'none'}}
+           />
+          </div>
+         ))}
+        </div>
+        <div style={{...cardStyle, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+         <span style={{fontSize:'11px', color:'#8b949e', fontWeight:700}}>今日已領取</span>
+         <span style={{color:'#fde047', fontWeight:900, fontSize:'15px'}}>💰 {todayClaimed} / {MAX_DAILY_COINS}</span>
+        </div>
+        <div style={{fontSize:'11px', fontWeight:900, color:'#8b949e', letterSpacing:'1px', marginBottom:'6px'}}>📜 戰況紀錄</div>
+        {warlogEntries.length === 0 ? (
+         <div style={{textAlign:'center', padding:'30px 0', color:'#8b949e'}}>
+          <div style={{fontSize:'32px', marginBottom:'8px'}}>🕊️</div>
+          <div style={{fontSize:'12px', fontWeight:700}}>尚無戰況紀錄</div>
+          <div style={{fontSize:'10px', marginTop:'4px'}}>出征或被選為夥伴後會出現紀錄</div>
+         </div>
+        ) : warlogEntries.map(e=>(
+         <div key={e.id} style={{...cardStyle, display:'flex', alignItems:'center', gap:'10px',
+          borderColor: e.claimed?'#21262d': e.type==='rival_lose'?'#7f1d1d':'#1a3a1a'}}>
+          <div style={{fontSize:'20px', flexShrink:0}}>
+           {e.type==='selected_as_partner'?'🤝':e.type==='rival_win'?'🏆':e.type==='rival_lose'||e.type==='rival_lose_entry'?'💀':'👻'}
+          </div>
+          <div style={{flex:1, minWidth:0}}>
+           <div style={{fontSize:'11px', fontWeight:900, color: e.claimed?'#8b949e':'#e6edf3'}}>
+            {typeLabel[e.type]||e.type}
+           </div>
+           <div style={{fontSize:'10px', color:'#8b949e', marginTop:'2px'}}>
+            {e.type==='selected_as_partner'?`被 ${e.by} 選中出征，獲得 💰${e.coins}`:
+             e.type==='rival_win'?`亂入並擊敗了 ${e.target||'對手'}，獲得 💰${e.coins}`:
+             e.type==='rival_lose'?`亂入 ${e.target||'玩家'} 的戰場落敗`:
+             e.type==='rival_lose_entry'?`在 ${e.by||'玩家'} 的遊戲中被擊敗`:
+             `出現在 ${e.by||'玩家'} 的遊戲中`}
+           </div>
+           <div style={{fontSize:'9px', color:'#484f58', marginTop:'1px'}}>
+            {new Date(e.timestamp||Date.now()).toLocaleString()}
+           </div>
+          </div>
+          <div style={{flexShrink:0, textAlign:'right'}}>
+           {e.coins>0 && !e.claimed && todayClaimed<MAX_DAILY_COINS ? (
+            <button onClick={()=>claimEntry(e)}
+             style={{background:'linear-gradient(135deg,#b08800,#fbbf24)',color:'#000',border:'none',
+              borderRadius:'8px',padding:'6px 10px',fontWeight:900,fontSize:'11px',cursor:'pointer',whiteSpace:'nowrap'}}>
+             領取 💰{e.coins}
+            </button>
+           ) : e.claimed ? (
+            <span style={{fontSize:'10px',color:'#3fb950',fontWeight:900}}>已領取 ✓</span>
+           ) : e.coins>0 ? (
+            <span style={{fontSize:'10px',color:'#8b949e',fontWeight:700}}>今日上限</span>
+           ) : null}
+          </div>
+         </div>
+        ))}
+       </div>
+      </div>
+     );
+    };
+
+    const GameCenter = ({ onBack, config, currentBranch, currentUser, getPublicPath, allUsers = [], isSuperAdmin = false }) => {
 const [selectedActivity, setSelectedActivity] = useState(null); // 新增：用來記錄使用者點選了哪個活動
 
 const [leaderboard, setLeaderboard] = useState([]);
@@ -3629,6 +3754,9 @@ const [leaderboardTab, setLeaderboardTab] = useState('scores');
 const [frPhase, setFrPhase] = useState('camp');
 
 const [chosenPartners, setChosenPartners] = useState([]);
+// useRef 避免背景 Firestore 讀取完成後觸發 re-render 導致 iframe 重載
+const rivalDataRef = useRef('[]');
+const chosenPartnersRef = useRef([]);
 const [puzzleState, setPuzzleState] = useState({placed:{}, done:false});
 const [imageAns, setImageAns] = useState(null);
 const [imageCorrect, setImageCorrect] = useState(null);
@@ -3651,6 +3779,7 @@ useEffect(() => {
   });
  return () => unsub();
 }, [currentBranch, getPublicPath]);
+
 
 useEffect(() => {
  const handleMessage = (e) => {
@@ -3908,31 +4037,17 @@ if (selectedActivity === 'food_research') {
   );
  }
 
- if (frPhase === 'treasury') {
-  return (
-   <div className="fixed inset-0 z-[10000] flex flex-col" style={campBg}>
-    <NavBar title="🏺 寶庫" onBack={()=>setFrPhase('camp')} />
-    <div className="flex-1 overflow-y-auto p-4">
-     {treasury.length === 0 ? (
-     <div style={{textAlign:'center', padding:'40px 0', color:'#8b949e'}}>
-      <div style={{fontSize:'48px', marginBottom:'12px'}}>📦</div>
-      <div style={{fontWeight:900, fontSize:'13px'}}>尚無戰利品</div>
-      <div style={{fontSize:'11px', marginTop:'6px'}}>出征擊敗魔王後會帶回寶箱！</div>
-     </div>
-     ) : (
-     <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'10px'}}>
-      {treasury.map((item, i) => (
-      <div key={i} style={{...cardStyle, textAlign:'center'}}>
-       <div style={{fontSize:'28px'}}>{item.emoji||'📦'}</div>
-       <div style={{fontSize:'11px', fontWeight:900, color:'#e6edf3', marginTop:'4px'}}>{item.name}</div>
-       <div style={{fontSize:'10px', color:'#8b949e'}}>{item.desc||''}</div>
-      </div>
-      ))}
-     </div>
-     )}
-    </div>
-   </div>
-  );
+ if (frPhase === 'warlog') {
+  return <WarlogPhase
+   currentUser={currentUser}
+   getPublicPath={getPublicPath}
+   loadSave={loadSave}
+   writeSave={writeSave}
+   campBg={campBg}
+   cardStyle={cardStyle}
+   NavBar={NavBar}
+   setFrPhase={setFrPhase}
+  />;
  }
 
  if (frPhase === 'shop') {
@@ -4355,33 +4470,70 @@ if (selectedActivity === 'food_research') {
     return [...prev, u];
    });
   };
-  const handleDeparture = async () => {
-   // 需求2：從 Firebase 載入每位夥伴的個人存檔
-   const enrichedPartners = await Promise.all(chosenPartners.map(async (partner) => {
-    try {
-     // 給夥伴 +1 金幣同時讀取其存檔
-     const saveKey = 'fr_save_' + partner.phone;
-     const ref = db.collection(getPublicPath('users')).doc(partner.phone);
-     const snap = await ref.get().catch(() => null);
-     if (snap && snap.exists) {
-      const data = snap.data();
-      // 更新金幣
-      const cur = data.gameGold || 0;
-      ref.update({ gameGold: cur + 1 }).catch(() => {});
-      // 取得夥伴存檔（存在 Firestore 的 gameSave 欄位）
-      const pSave = data.gameSave || {};
-      return {
-       ...partner,
-       training: pSave.training || {atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0},
-       equip: pSave.equip || {ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']},
-       equippedForm: pSave.equippedForm || 'normal',
-      };
-     }
-    } catch(e) { console.warn('partner load fail', e); }
-    return { ...partner, training:{atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0}, equip:{ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']}, equippedForm:'normal' };
-   }));
-   setChosenPartners(enrichedPartners);
+  const handleDeparture = () => {
+   // 立刻切換到遊戲，所有 Firestore 讀取都在背景非同步進行
+   // 先用基本資料出發，讀取到後再更新（但遊戲已開始所以rival/partner資料只影響初始值）
    setFrPhase('game');
+
+   // 背景：給夥伴金幣、寫戰況、讀取夥伴存檔（fire and forget，不阻塞出發）
+   const enrichPartners = async () => {
+    const TIMEOUT = 2000;
+    const enriched = await Promise.all(chosenPartners.map(async (partner) => {
+     try {
+      const ref = db.collection(getPublicPath('users')).doc(partner.phone);
+      const snapP = ref.get().catch(() => null);
+      const snap = await Promise.race([snapP, new Promise(r=>setTimeout(()=>r(null),TIMEOUT))]);
+      // 背景金幣與戰況寫入（不等待）
+      if (snap && snap.exists) {
+       const cur = snap.data().gameGold || 0;
+       ref.update({ gameGold: cur + 20 }).catch(() => {});
+       db.collection(getPublicPath(`warlog_${partner.phone}`)).add({
+        type: 'selected_as_partner', by: currentUser?.name || '玩家',
+        coins: 20, timestamp: Date.now(), date: new Date().toDateString(), claimed: false
+       }).catch(()=>{});
+       const pSave = snap.data().gameSave || {};
+       return {
+        ...partner,
+        training: pSave.training || {atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0},
+        equip: pSave.equip || {ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']},
+        equippedForm: pSave.equippedForm || 'normal',
+       };
+      }
+     } catch(e) {}
+     return { ...partner, training:{atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0}, equip:{ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']}, equippedForm:'normal' };
+    }));
+    chosenPartnersRef.current = enriched;
+    // Do NOT call setChosenPartners here - would reload iframe
+   };
+   enrichPartners();
+
+   // 背景：讀取rival資料（fire and forget）
+   const fetchRivals = async () => {
+    const TIMEOUT = 2000;
+    const otherUsers = allUsers.filter(u =>
+     u.status==='approved' && u.phone!==currentUser?.phone &&
+     !(Array.isArray(u.branch)?u.branch.includes(currentBranch):u.branch===currentBranch)
+    );
+    const pool = [...otherUsers].sort(()=>Math.random()-0.5).slice(0,3);
+    window._lastRivalPool = pool;
+    const rd = await Promise.all(pool.map(async r => {
+     try {
+      const snapP = db.collection(getPublicPath('users')).doc(r.phone).get().catch(()=>null);
+      const snap = await Promise.race([snapP, new Promise(res=>setTimeout(()=>res(null),TIMEOUT))]);
+      const rSave = snap&&snap.exists ? (snap.data().gameSave||{}) : {};
+      const rLines = snap&&snap.exists ? (snap.data().warlogLines||{}) : {};
+      return { name:r.name, phone:r.phone, formId:rSave.equippedForm||'normal',
+       training:rSave.training||{}, equip:rSave.equip||{},
+       entryLine:rLines.rivalEntry||r.name+'：「讓我來考驗你！」',
+       rivalDefeatLine:rLines.rivalDefeat||r.name+'：「你果然很強...」' };
+     } catch(e) {
+      return {name:r.name,phone:r.phone,formId:'normal',training:{},equip:{},
+       entryLine:r.name+'：「讓我來考驗你！」',rivalDefeatLine:r.name+'：「你果然很強...」'};
+     }
+    }));
+    rivalDataRef.current = JSON.stringify(rd);
+   };
+   fetchRivals();
   };
   return (
    <div className="fixed inset-0 z-[10000] flex flex-col" style={campBg}>
@@ -4389,7 +4541,7 @@ if (selectedActivity === 'food_research') {
     <div className="flex-1 overflow-y-auto p-4 space-y-3">
      <div style={{...cardStyle, textAlign:'center'}}>
      <div style={{fontSize:'11px', color:'#8b949e', fontWeight:700}}>最多選擇 2 位同事一起出征</div>
-     <div style={{fontSize:'10px', color:'#3fb950', marginTop:'4px', fontWeight:700}}>被選到的夥伴獲得 +1 💰 獎勵</div>
+     <div style={{fontSize:'10px', color:'#3fb950', marginTop:'4px', fontWeight:700}}>被選到的夥伴獲得 +20 💰 獎勵（記錄至戰況）</div>
      </div>
      <div style={{display:'flex', gap:'10px', justifyContent:'center'}}>
      {[0,1].map(i=>{
@@ -4440,6 +4592,7 @@ if (selectedActivity === 'food_research') {
   training: p.training || {atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0},
   equip: p.equip || {ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']},
  })));
+ // RIVALS: 已在 handleDeparture 背景計算並存入 rivalDataRef（不觸發 re-render）
  const saveData = JSON.stringify({
   training: s2.training||{atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0},
   equip: s2.equip||{ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']},
@@ -4453,7 +4606,7 @@ if (selectedActivity === 'food_research') {
 
  // 遊戲 HTML 由 game.js 提供，這裡動態組裝
  const foodResearchHTML = GAME_HTML_STATIC +
-  "<scr" + "ipt>\nconst PARTNERS=" + partnerData + ";\nconst SAVE=" + saveData + ";\n" +
+  "<scr" + "ipt>\nconst PARTNERS=" + partnerData + ";\nconst SAVE=" + saveData + ";\nconst RIVALS=" + rivalDataRef.current + ";\n" +
   GAME_JS_BODY +
   "</scr" + "ipt>\n</body>\n</html>"
 
@@ -4478,6 +4631,40 @@ if (selectedActivity === 'food_research') {
       writeSave({ gold: msg.data.gold });
       window.removeEventListener('message', handler);
       setFrPhase('camp');
+     }
+     if (msg.data.type === 'FR_RIVAL_WIN') {
+      writeSave({ gold: msg.data.gold });
+      const today = new Date().toDateString();
+      const rivalNames = msg.data.rivalNames || [];
+      const rivalPhones = msg.data.rivalPhones || [];
+      const myName = currentUser?.name || '玩家';
+      // 對每個rival寫入「被XX擊敗」紀錄（不需領取）
+      rivalPhones.forEach((rp, i) => {
+       if(!rp) return;
+       db.collection(getPublicPath(`warlog_${rp}`)).add({
+        type:'rival_lose_entry', by: myName,
+        rivalName: rivalNames[i]||'對手',
+        coins: 0, timestamp: Date.now(), date: today, claimed: true
+       }).catch(()=>{});
+      });
+      // 自己的warlog：擊敗對手，待領50金幣
+      db.collection(getPublicPath(`warlog_${currentUser?.phone||'guest'}`)).add({
+       type:'rival_win',
+       target: rivalNames.join('、') || (window._lastRivalPool||[]).map(r=>r.name).join('、') || '對手',
+       coins: 50, timestamp: Date.now(), date: today, claimed: false
+      }).catch(()=>{});
+     }
+     if (msg.data.type === 'FR_RIVAL_ONE_DOWN') {
+      const rp = msg.data.rivalPhone;
+      const rn = msg.data.rivalName || '對手';
+      const myName = currentUser?.name || '玩家';
+      if(rp) {
+       db.collection(getPublicPath(`warlog_${rp}`)).add({
+        type:'rival_lose_entry', by: myName,
+        rivalName: rn,
+        coins: 0, timestamp: Date.now(), date: new Date().toDateString(), claimed: true
+       }).catch(()=>{});
+      }
      }
      if (msg.data.type === 'FR_GOLD_UPDATE') { writeSave({ gold: msg.data.gold }); }
      if (msg.data.type === 'FR_QUEST_KILL') {
@@ -4534,13 +4721,13 @@ if (selectedActivity === 'food_research') {
 
  const FACILITIES = [
   { id:'training',  emoji:'⚔️', label:'訓練所',   sub:'提升白白能力數值',   color:'#1f6feb' },
-  { id:'treasury',  emoji:'🏺', label:'寶庫',     sub:'戰利品與寶箱存放',   color:'#8b5cf6' },
+  { id:'warlog',    emoji:'📊', label:'戰況',     sub:'台詞設定與金幣領取',   color:'#8b5cf6' },
   { id:'shop',      emoji:'🛒', label:'食物商店', sub:'購買食物變身型態',   color:'#f59e0b' },
   { id:'quests',    emoji:'📋', label:'任務板',   sub:'每日三任務領金幣',   color:'#10b981' },
   { id:'gacha',     emoji:'🎰', label:'時空轉蛋', sub:'抽取遠程/近戰武器', color:'#ec4899' },
   { id:'shrine',    emoji:'⛩️', label:'神社',     sub:'祈求護身符',         color:'#6366f1' },
   { id:'equip',     emoji:'🔧', label:'整備所',   sub:'裝備搭配與型態切換', color:'#0ea5e9' },
-  { id:'partner_select', emoji:'🚪', label:'營地出口', sub:'出發！選擇夥伴出征', color:'#ef4444', primary:true },
+  { id:'partner_select', emoji:'🚪', label:'營地出口', sub:'出發！選夥伴(+20💰)出征', color:'#ef4444', primary:true },
  ];
 
  const todayDone = todayQuests.tasks.filter(t=>t.done).length;
