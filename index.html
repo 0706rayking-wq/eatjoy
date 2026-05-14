@@ -425,6 +425,10 @@
         .bg-brand-red * { color: var(--leather-deep) !important; }
         .bg-brand-red.text-white { color: var(--leather-deep) !important; }
 
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateX(20px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
     </style>
 
     <!-- 班表專屬 CSS：放在所有主題 CSS 之後，確保最後載入 = 最高優先 -->
@@ -3745,6 +3749,136 @@ window._gameJsReady = false;
      );
     };
 
+    // ══ CampChat 聊天室組件 ══════════════════════════════════════════════
+    const CampChat = ({ currentUser, currentBranch, getPublicPath, db, allUsers }) => {
+     const { useState: uS, useEffect: uE, useRef: uR } = React;
+     const [channel, setChannel] = uS('branch'); // 'branch' | 'all'
+     const [messages, setMessages] = uS([]);
+     const [input, setInput] = uS('');
+     const [sending, setSending] = uS(false);
+     const bottomRef = uR(null);
+
+     uE(() => {
+      if (!currentUser?.phone) return;
+      // chat_branch 按分店隔離，chat_all 為跨店公頻（不走 getPublicPath）
+      const colPath = channel === 'branch'
+       ? getPublicPath(`chat_${currentBranch}`)
+       : 'global_chat_all';
+      const unsub = db.collection(colPath)
+       .orderBy('ts', 'asc').limit(40)
+       .onSnapshot(snap => {
+        const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        setMessages(msgs);
+        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+       }, (err) => { console.warn('chat error', err); });
+      return () => unsub();
+     }, [channel, currentUser?.phone, currentBranch]);
+
+     const sendMsg = async () => {
+      const text = input.trim();
+      if (!text || !currentUser?.phone || sending) return;
+      setSending(true);
+      // chat_branch 按分店隔離，chat_all 為跨店公頻（不走 getPublicPath）
+      const colPath = channel === 'branch'
+       ? getPublicPath(`chat_${currentBranch}`)
+       : 'global_chat_all';
+      await db.collection(colPath).add({
+       text, name: currentUser.name || '玩家',
+       branch: currentBranch || '',
+       phone: currentUser.phone,
+       ts: Date.now()
+      }).catch(() => {});
+      setInput('');
+      setSending(false);
+     };
+
+     const chLabel = { branch: `🏠 ${currentBranch || '本店'}`, all: '🌐 全分店' };
+
+     return (
+      <div style={{
+       background:'#0d1117', borderTop:'1px solid #21262d',
+       display:'flex', flexDirection:'column', maxHeight:'280px', minHeight:'200px', flexShrink:0
+      }}>
+       {/* Header */}
+       <div style={{display:'flex', alignItems:'center', gap:'8px', padding:'8px 12px',
+        borderBottom:'1px solid #21262d', flexShrink:0}}>
+        <span style={{fontSize:'12px', fontWeight:900, color:'#8b949e'}}>聊天室</span>
+        <div style={{display:'flex', gap:'6px', marginLeft:'4px'}}>
+         {['branch','all'].map(ch => (
+          <button key={ch} onClick={()=>setChannel(ch)}
+           style={{
+            padding:'3px 10px', borderRadius:'20px', border:'none', cursor:'pointer',
+            fontSize:'11px', fontWeight:900,
+            background: channel===ch ? '#1f6feb' : '#21262d',
+            color: channel===ch ? '#fff' : '#8b949e',
+           }}>
+           {chLabel[ch]}
+          </button>
+         ))}
+        </div>
+       </div>
+
+       {/* Messages */}
+       <div style={{flex:1, overflowY:'auto', padding:'8px 12px', display:'flex', flexDirection:'column', gap:'6px'}}>
+        {messages.length === 0 && (
+         <div style={{color:'#484f58', fontSize:'11px', textAlign:'center', padding:'16px 0'}}>
+          {channel==='branch'?'本店還沒有訊息':'跨店頻道還沒有訊息'}，來打個招呼吧 👋
+         </div>
+        )}
+        {messages.map(m => {
+         const isMine = m.phone === currentUser?.phone;
+         return (
+          <div key={m.id} style={{
+           display:'flex', flexDirection: isMine?'row-reverse':'row',
+           gap:'6px', alignItems:'flex-end'
+          }}>
+           <div style={{
+            maxWidth:'72%', padding:'6px 10px', borderRadius: isMine?'12px 12px 2px 12px':'12px 12px 12px 2px',
+            background: isMine ? '#1f6feb' : '#21262d',
+            color: isMine ? '#fff' : '#e6edf3',
+            fontSize:'12px', fontWeight:700, wordBreak:'break-all', lineHeight:1.4
+           }}>
+            {!isMine && <div style={{fontSize:'9px',color:'#8b949e',marginBottom:'3px',fontWeight:900}}>
+             {m.branch && m.branch !== currentBranch ? `[${m.branch}] ` : ''}{m.name}
+            </div>}
+            {m.text}
+           </div>
+          </div>
+         );
+        })}
+        <div ref={bottomRef} />
+       </div>
+
+       {/* Input */}
+       <div style={{display:'flex', gap:'8px', padding:'8px 12px', borderTop:'1px solid #21262d', flexShrink:0}}>
+        <input
+         value={input}
+         onChange={e => setInput(e.target.value)}
+         onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMsg()}
+         placeholder={`傳送到 ${chLabel[channel]}...`}
+         maxLength={100}
+         style={{
+          flex:1, background:'#161b22', border:'1px solid #30363d',
+          borderRadius:'20px', padding:'8px 12px', color:'#e6edf3',
+          fontSize:'12px', fontWeight:700, outline:'none'
+         }}
+        />
+        <button onClick={sendMsg} disabled={sending || !input.trim()}
+         style={{
+          background: input.trim() ? '#1f6feb' : '#21262d',
+          border:'none', borderRadius:'50%', width:'36px', height:'36px',
+          cursor: input.trim() ? 'pointer' : 'not-allowed',
+          color:'#fff', fontSize:'16px', flexShrink:0,
+          display:'flex', alignItems:'center', justifyContent:'center',
+          transition:'background .15s'
+         }}>
+         {sending ? '…' : '➤'}
+        </button>
+       </div>
+      </div>
+     );
+    };
+
     const GameCenter = ({ onBack, config, currentBranch, currentUser, getPublicPath, allUsers = [], isSuperAdmin = false }) => {
 const [selectedActivity, setSelectedActivity] = useState(null); // 新增：用來記錄使用者點選了哪個活動
 
@@ -4606,7 +4740,7 @@ if (selectedActivity === 'food_research') {
 
  // 遊戲 HTML 由 game.js 提供，這裡動態組裝
  const foodResearchHTML = GAME_HTML_STATIC +
-  "<scr" + "ipt>\nconst PARTNERS=" + partnerData + ";\nconst SAVE=" + saveData + ";\nconst RIVALS=" + rivalDataRef.current + ";\n" +
+  "<scr" + "ipt>\nconst PARTNERS=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(partnerData))) + "'))));\nconst SAVE=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(saveData))) + "'))));\nconst RIVALS=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(rivalDataRef.current))) + "'))));\n" +
   GAME_JS_BODY +
   "</scr" + "ipt>\n</body>\n</html>"
 
@@ -4791,6 +4925,10 @@ if (selectedActivity === 'food_research') {
      ))}
     </div>
    </div>
+
+   {/* 營地聊天室 */}
+   <CampChat currentUser={currentUser} currentBranch={currentBranch} getPublicPath={getPublicPath} db={db} allUsers={allUsers} />
+
   </div>
  );
 }
@@ -6498,7 +6636,7 @@ return (
      });
      const [fbReady, setFbReady] = useState(false);
      const [user, setUser] = useState(null);
-     const [notifications] = useState([]); // 已改用純JS DOM通知
+     const [notifications, setNotifications] = useState([]); // 通知系統
      const [users, setUsers] = useState([]);
 
      const [activeAnnouncement, setActiveAnnouncement] = useState(null);
@@ -6904,6 +7042,20 @@ return (
 
      return (
       <div className="min-h-screen flex flex-col">
+       {/* 通知 Toast */}
+       <div style={{position:'fixed',top:'16px',right:'16px',zIndex:9999,display:'flex',flexDirection:'column',gap:'8px',pointerEvents:'none'}}>
+        {notifications.map(n=>(
+         <div key={n.id} style={{
+          background: n.type==='error'?'rgba(239,68,68,0.95)':n.type==='success'?'rgba(22,163,74,0.95)':n.type==='warning'?'rgba(234,179,8,0.95)':'rgba(59,130,246,0.95)',
+          color:'#fff',padding:'10px 18px',borderRadius:'14px',fontSize:'13px',fontWeight:900,
+          textShadow:'0 1px 2px rgba(0,0,0,0.4)',letterSpacing:'0.3px',
+          boxShadow:'0 4px 16px rgba(0,0,0,0.18)',maxWidth:'260px',wordBreak:'break-all',
+          animation:'fadeIn 0.2s ease',opacity:1
+         }}>
+          {n.type==='error'?'❌ ':n.type==='success'?'✅ ':n.type==='warning'?'⚠️ ':'ℹ️ '}{n.msg}
+         </div>
+        ))}
+       </div>
 
         {currentPage !== 'auth' && (
          <header className="p-5 sticky top-0 z-50 flex justify-between items-center bg-white/80 backdrop-blur-md border-b">
