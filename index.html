@@ -608,6 +608,27 @@ window._gameJsReady = false;
      '自助吧飲料', '吧檯調飲', '限時限量', '壽星招待', '合作品牌'
     ];
 
+    const ROLE_OPTIONS = ['內場正職/計時人員', '外場正職/計時人員', '內場主管', '外場主管'];
+    const ROLE_META = {
+     '內場正職/計時人員': { label: '內場正職/計時人員', badge: 'bg-amber-50 text-amber-700 border-amber-100' },
+     '外場正職/計時人員': { label: '外場正職/計時人員', badge: 'bg-sky-50 text-sky-700 border-sky-100' },
+     '內場主管': { label: '內場主管', badge: 'bg-brand-red text-white border-brand-red' },
+     '外場主管': { label: '外場主管', badge: 'bg-violet-50 text-violet-700 border-violet-100' }
+    };
+    const normalizeRole = (role) => {
+     role = String(role || '');
+     if (ROLE_OPTIONS.includes(role)) return role;
+     if (role && role.includes('外場') && role.includes('主管')) return '外場主管';
+     if (role && role.includes('內場') && role.includes('主管')) return '內場主管';
+     if (role && (role.includes('後台') || role.includes('管理'))) return '內場主管';
+     if (role && role.includes('外場') && (role.includes('正職') || role.includes('計時'))) return '外場正職/計時人員';
+     if (role && role.includes('內場') && (role.includes('正職') || role.includes('計時'))) return '內場正職/計時人員';
+     if (role === '主管') return '內場主管';
+     if ((role && (role.includes('正職') || role.includes('計時'))) || !role) return '內場正職/計時人員';
+     return '內場正職/計時人員';
+    };
+    const isSupervisorRole = (role) => normalizeRole(role).includes('主管');
+
     const INITIAL_ORDER_ZONES = [
      { name: "菜區", icon: 'Carrot', color: "bg-emerald-500" },
      { name: "海鮮", icon: 'Fish', color: "bg-blue-500" },
@@ -690,7 +711,7 @@ window._gameJsReady = false;
       "Layers": "layers", "Filter": "filter", "Building2": "building-2", "LayoutGrid": "layout-grid", "Edit": "edit-3",
       "Chart": "bar-chart-3", "History": "history", "Carrot": "carrot", "Fish": "fish", "Soup": "soup",
       "UtensilsCrossed": "utensils-crossed", "IceCream": "ice-cream", "Coffee": "coffee", "Timer": "timer",
-      "Calendar": "calendar", "Image": "image", "Download": "download"
+      "Calendar": "calendar", "Image": "image", "Download": "download", "RotateCcw": "rotate-ccw"
      };
      return <Icon name={symbols[name] || "help-circle"} className={className} />;
     };
@@ -942,14 +963,19 @@ window._gameJsReady = false;
      const [newNote, setNewNote] = useState('');
      const [newI, setNewI] = useState(null);
      const [editingId, setEditingId] = useState(null);
+     const [editingGlobalRecipeDocId, setEditingGlobalRecipeDocId] = useState(null);
+     const [editingGlobalRecipeItemId, setEditingGlobalRecipeItemId] = useState(null);
      const [syncToAll, setSyncToAll] = useState(false);
      const [showLibrary, setShowLibrary] = useState(false);
+     const [activeMenuCategory, setActiveMenuCategory] = useState('全部');
 
      const [draggedId, setDraggedId] = useState(null);
      const [overId, setOverId] = useState(null);
 
-     const startEdit = (item) => {
-      setEditingId(item.id);
+     const getItemKey = (item, index = 0) => String(item?.id || item?.title || item?.name || item?.timestamp || item?.updateTime || item?.content || `legacy_${index}`);
+
+     const fillFormFromRecipe = (item) => {
+      setEditingId(getItemKey(item));
       setNewT(item.title || '');
       
       if (item.ingredientsList && item.ingredientsList.length > 0) {
@@ -967,8 +993,23 @@ window._gameJsReady = false;
       window.scrollTo({ top: 0, behavior: 'smooth' });
      };
 
+     const startEdit = (item) => {
+      setEditingGlobalRecipeDocId(null);
+      setEditingGlobalRecipeItemId(null);
+      fillFormFromRecipe(item);
+     };
+
+     const startEditGlobalRecipe = (item) => {
+      setEditingId(null);
+      setEditingGlobalRecipeDocId(item.docId || item.title || item.id);
+      setEditingGlobalRecipeItemId(item.id || item.title || crypto.randomUUID());
+      fillFormFromRecipe({ ...item, id: null });
+      setShowLibrary(false);
+     };
+
      const cancelEdit = () => {
       setEditingId(null); setNewT(''); setNewIngList([{ name: '', qty: '' }]); setNewInst(''); setNewNote(''); setNewI(null);
+      setEditingGlobalRecipeDocId(null); setEditingGlobalRecipeItemId(null);
       if (categories) setNewCat(categories[0]);
      };
 
@@ -978,7 +1019,7 @@ window._gameJsReady = false;
       if (newI && newI.startsWith('data:')) imgToSave = await compressImage(newI);
       
       const targetBranches = (isSuperAdmin && syncToAll) ? globalBranches : [currentBranch];
-      const sharedId = editingId ? String(editingId) : crypto.randomUUID();
+      const sharedId = editingId ? String(editingId) : (editingGlobalRecipeItemId ? String(editingGlobalRecipeItemId) : crypto.randomUUID());
       const now = Date.now();
       
       const validIngList = newIngList.filter(i => i.name.trim() !== '');
@@ -995,6 +1036,20 @@ window._gameJsReady = false;
       };
 
       try {
+        const globalRecipeData = { ...itemData, timestamp: now };
+        if (categories) globalRecipeData.category = newCat;
+
+        if (editingGlobalRecipeDocId) {
+         const nextDocId = newT.trim();
+         await db.collection(getPublicPath('global_recipes')).doc(nextDocId).set(globalRecipeData, { merge: true });
+         if (editingGlobalRecipeDocId !== nextDocId) {
+           await db.collection(getPublicPath('global_recipes')).doc(editingGlobalRecipeDocId).delete();
+         }
+         triggerNotify("資料庫菜色已更新", "success");
+         cancelEdit();
+         return;
+        }
+
         await Promise.all(targetBranches.map(async (branch) => {
          const branchItemData = { ...itemData };
          if (!editingId) {
@@ -1007,8 +1062,6 @@ window._gameJsReady = false;
          return db.collection(colPath).doc(sharedId).set(branchItemData, { merge: true });
         }));
 
-        const globalRecipeData = { ...itemData, timestamp: now };
-        if (categories) globalRecipeData.category = newCat;
         await db.collection(getPublicPath('global_recipes')).doc(newT.trim()).set(globalRecipeData, { merge: true });
 
         triggerNotify(editingId ? "更新成功" : "發佈成功，已同步至資料庫", "success");
@@ -1019,20 +1072,20 @@ window._gameJsReady = false;
       }
      };
 
-     const deleteItem = async (id) => {
+     const deleteItem = async (item) => {
       const isConfirmed = window.confirm(syncToAll && isSuperAdmin ? "確定要刪除嗎？這會同時刪除所有分店的該食譜。" : "確定要刪除嗎？");
       if(!isConfirmed) return;
 
       const targetBranches = (isSuperAdmin && syncToAll) ? globalBranches : [currentBranch];
       try {
         await Promise.all(targetBranches.map(async (branch) => {
-         const idStr = String(id);
+         const idStr = getItemKey(item);
          await db.collection(getPublicPath(`${categoryPath}_${branch}/items`)).doc(idStr).delete();
          
          const oldDocRef = db.doc(getPublicPath(`${categoryPath}_${branch}`));
          const oldSnap = await oldDocRef.get();
          if(oldSnap.exists && oldSnap.data().items) {
-           const newItems = oldSnap.data().items.filter(i => String(i.id) !== idStr);
+           const newItems = oldSnap.data().items.filter((i, idx) => getItemKey(i, idx) !== idStr);
            await oldDocRef.set({ items: newItems });
          }
         }));
@@ -1040,13 +1093,62 @@ window._gameJsReady = false;
       } catch(e) { triggerNotify("刪除失敗", "error"); console.error(e); }
      };
 
+     const deleteAllSeasonItems = async () => {
+      const targetBranches = (isSuperAdmin && syncToAll) ? globalBranches : [currentBranch];
+      const scopeText = targetBranches.length > 1 ? `所有分店（${targetBranches.join('、')}）` : `${currentBranch}`;
+      const confirmText = `確定要刪除「${scopeText}」本季所有菜色嗎？\n\n此動作會清空後台菜單頁目前發佈的所有菜色，且無法復原。`;
+      if (!window.confirm(confirmText)) return;
+      if (!window.confirm("再次確認：真的要刪除本季所有菜色？")) return;
+
+      try {
+        await Promise.all(targetBranches.map(async (branch) => {
+         const colRef = db.collection(getPublicPath(`${categoryPath}_${branch}/items`));
+         const snap = await colRef.get();
+         let batch = db.batch();
+         let count = 0;
+         const commits = [];
+         snap.forEach(doc => {
+           batch.delete(doc.ref);
+           count += 1;
+           if (count >= 450) {
+            commits.push(batch.commit());
+            batch = db.batch();
+            count = 0;
+           }
+         });
+         if (count > 0) commits.push(batch.commit());
+         await Promise.all(commits);
+
+         await db.doc(getPublicPath(`${categoryPath}_${branch}`)).set({ items: [] }, { merge: true });
+        }));
+        cancelEdit();
+        triggerNotify("本季所有菜色已刪除", "info");
+      } catch(e) {
+        console.error(e);
+        triggerNotify("刪除本季菜色失敗", "error");
+      }
+     };
+
+     const deleteGlobalRecipe = async (item) => {
+      const docId = item.docId || item.title || item.id;
+      if (!docId) return triggerNotify("找不到資料庫菜色 ID", "error");
+      if (!window.confirm(`確定要刪除資料庫菜色「${item.title || docId}」嗎？`)) return;
+      try {
+        await db.collection(getPublicPath('global_recipes')).doc(docId).delete();
+        triggerNotify("資料庫菜色已刪除", "info");
+      } catch(e) {
+        console.error(e);
+        triggerNotify("刪除資料庫菜色失敗", "error");
+      }
+     };
+
      const handleDragStart = (id) => setDraggedId(id);
      const handleDragOver = (e, id) => { e.preventDefault(); if (id !== draggedId) setOverId(id); };
      const handleDragEnd = async () => {
       if (draggedId !== null && overId !== null && draggedId !== overId) {
         const newItems = [...items];
-        const fromIndex = newItems.findIndex(i => String(i.id) === String(draggedId));
-        const toIndex = newItems.findIndex(i => String(i.id) === String(overId));
+        const fromIndex = newItems.findIndex((i, idx) => getItemKey(i, idx) === String(draggedId));
+        const toIndex = newItems.findIndex((i, idx) => getItemKey(i, idx) === String(overId));
         
         if (fromIndex !== -1 && toIndex !== -1) {
          const [movedItem] = newItems.splice(fromIndex, 1);
@@ -1055,8 +1157,9 @@ window._gameJsReady = false;
          try {
            const batch = db.batch();
            newItems.forEach((item, index) => {
-            const docRef = db.collection(getPublicPath(`${categoryPath}_${currentBranch}/items`)).doc(String(item.id));
-            batch.set(docRef, { ...item, sortOrder: index }, { merge: true });
+            const itemId = getItemKey(item, index);
+            const docRef = db.collection(getPublicPath(`${categoryPath}_${currentBranch}/items`)).doc(itemId);
+            batch.set(docRef, { ...item, id: itemId, sortOrder: index }, { merge: true });
            });
            await batch.commit();
          } catch(e) {
@@ -1068,20 +1171,43 @@ window._gameJsReady = false;
       setOverId(null);
      };
 
+     const isEditingRecipe = !!editingId || !!editingGlobalRecipeDocId;
+     const uncategorizedLabel = '未分類';
+     const categoryTabs = useMemo(() => {
+      if (!categories) return ['全部'];
+      const hasUncategorized = items.some(i => !i.category || !categories.includes(i.category));
+      return ['全部', ...categories, ...(hasUncategorized ? [uncategorizedLabel] : [])];
+     }, [items, categories]);
+     const visibleItems = useMemo(() => {
+      if (!categories || activeMenuCategory === '全部') return items;
+      if (activeMenuCategory === uncategorizedLabel) return items.filter(i => !i.category || !categories.includes(i.category));
+      return items.filter(i => i.category === activeMenuCategory);
+     }, [items, categories, activeMenuCategory]);
+     const countByCategory = (cat) => {
+      if (cat === '全部') return items.length;
+      if (cat === uncategorizedLabel) return items.filter(i => !i.category || !categories?.includes(i.category)).length;
+      return items.filter(i => i.category === cat).length;
+     };
+     const libraryCategoryTabs = useMemo(() => {
+      if (!categories) return [uncategorizedLabel];
+      const hasUncategorized = globalRecipes.some(i => !i.category || !categories.includes(i.category));
+      return [...categories, ...(hasUncategorized ? [uncategorizedLabel] : [])];
+     }, [globalRecipes, categories]);
+
      return (
       <div className="space-y-4">
-        <div className={`glass-panel p-6 rounded-[2.5rem] space-y-4 bg-white shadow-sm border transition-all ${editingId ? 'border-blue-500/30 shadow-blue-500/10' : 'border-slate-100'}`}>
+        <div className={`glass-panel p-6 rounded-[2.5rem] space-y-4 bg-white shadow-sm border transition-all ${isEditingRecipe ? 'border-blue-500/30 shadow-blue-500/10' : 'border-slate-100'}`}>
          <div className="flex justify-between items-center mb-2">
            <h3 className="font-black text-slate-800 text-xs flex items-center gap-2 uppercase tracking-widest">
-            {editingId ? <><Icon name="edit" size={16} className="text-blue-500" /> 編輯食譜</> : <><Icon name="plus-circle" size={16} className="text-brand-red" /> 新增食譜</>}
+            {isEditingRecipe ? <><Icon name="edit" size={16} className="text-blue-500" /> {editingGlobalRecipeDocId ? '編輯資料庫菜色' : '編輯食譜'}</> : <><Icon name="plus-circle" size={16} className="text-brand-red" /> 新增食譜</>}
            </h3>
            <div className="flex items-center gap-3">
-            {!editingId && (
+            {!isEditingRecipe && (
               <button onClick={() => setShowLibrary(true)} className="px-3 py-1.5 bg-rose-50 text-brand-red rounded-lg text-[10px] font-black flex items-center gap-1 hover:bg-brand-red hover:text-white transition-colors">
                <Icon name="database" size={14} /> 從資料庫導入
               </button>
             )}
-            {isSuperAdmin && (
+            {isSuperAdmin && !editingGlobalRecipeDocId && (
               <label className="flex items-center gap-2 text-[10px] font-bold text-slate-600 cursor-pointer bg-slate-50 px-3 py-1.5 rounded-full border border-slate-200 hover:bg-slate-100 transition-colors">
                <input type="checkbox" checked={syncToAll} onChange={e=>setSyncToAll(e.target.checked)} className="accent-brand-red w-3.5 h-3.5 rounded" />
                套用至全部分店
@@ -1125,9 +1251,9 @@ window._gameJsReady = false;
          )}
          
          <div className="flex gap-3 pt-2">
-           {editingId && <button onClick={cancelEdit} className="flex-1 bg-slate-100 text-slate-600 font-black py-4 rounded-2xl active:scale-95 transition-all text-sm">取消</button>}
-           <button onClick={handleSave} className={`flex-[2] text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all text-sm ${editingId ? 'bg-blue-600 shadow-blue-500/20' : 'bg-brand-red shadow-brand-red/20'}`}>
-            {editingId ? "儲存修改" : "確認發佈"}
+           {isEditingRecipe && <button onClick={cancelEdit} className="flex-1 bg-slate-100 text-slate-600 font-black py-4 rounded-2xl active:scale-95 transition-all text-sm">取消</button>}
+           <button onClick={handleSave} className={`flex-[2] text-white font-black py-4 rounded-2xl shadow-lg active:scale-95 transition-all text-sm ${isEditingRecipe ? 'bg-blue-600 shadow-blue-500/20' : 'bg-brand-red shadow-brand-red/20'}`}>
+            {isEditingRecipe ? "儲存修改" : "確認發佈"}
            </button>
          </div>
         </div>
@@ -1143,30 +1269,50 @@ window._gameJsReady = false;
               <div className="py-10 text-center text-slate-400 text-xs font-bold">目前資料庫中尚未建立任何食譜</div>
             ) : (
               <div className="space-y-6">
-               {categories && categories.map(cat => {
-                 const catRecipes = globalRecipes.filter(r => r.category === cat);
+               {libraryCategoryTabs.map(cat => {
+                 const catRecipes = cat === uncategorizedLabel
+                  ? globalRecipes.filter(r => !r.category || !categories?.includes(r.category))
+                  : globalRecipes.filter(r => r.category === cat);
                  if (catRecipes.length === 0) return null;
                  return (
                   <div key={cat} className="space-y-3">
                     <h4 className="font-black text-sm text-slate-700 border-l-4 border-brand-red pl-2">{cat}</h4>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="grid grid-cols-1 gap-2">
                      {catRecipes.map(r => (
-                       <button 
+                       <div
                         key={r.id} 
-                        onClick={() => {
-                          setNewT(r.title); 
-                          setNewCat(r.category); 
-                          setNewIngList(r.ingredientsList || [{name: r.ingredients || '', qty: ''}]); 
-                          setNewInst(r.instructions || r.content || ''); 
-                          setNewNote(r.notes || ''); 
-                          setNewI(r.img || null); 
-                          setShowLibrary(false);
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
-                        }} 
-                        className="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 hover:bg-brand-red hover:text-white hover:border-brand-red active:scale-95 transition-all shadow-sm"
+                        className="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex items-center gap-3 shadow-sm"
                        >
-                        {r.title}
-                       </button>
+                        {r.img && <img src={r.img} className="w-12 h-12 rounded-xl object-cover border bg-white shrink-0" alt="菜色" />}
+                        <div className="flex-1 min-w-0">
+                         <p className="font-black text-sm text-slate-800 truncate">{r.title}</p>
+                         <p className="text-[10px] text-slate-400 line-clamp-1">{r.instructions || r.content || '無描述'}</p>
+                        </div>
+                        <div className="flex gap-1.5 shrink-0">
+                         <button
+                          onClick={() => {
+                            setNewT(r.title); 
+                            setNewCat(r.category || categories[0]); 
+                            setNewIngList(r.ingredientsList || [{name: r.ingredients || '', qty: ''}]); 
+                            setNewInst(r.instructions || r.content || ''); 
+                            setNewNote(r.notes || ''); 
+                            setNewI(r.img || null); 
+                            setShowLibrary(false);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }} 
+                          className="p-2 bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-brand-red hover:border-brand-red transition-colors"
+                          title="導入"
+                         >
+                          <Icon name="download" size={15} />
+                         </button>
+                         <button onClick={() => startEditGlobalRecipe(r)} className="p-2 bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-blue-500 hover:border-blue-200 transition-colors" title="編輯資料庫菜色">
+                          <Icon name="edit-3" size={15} />
+                         </button>
+                         <button onClick={() => deleteGlobalRecipe(r)} className="p-2 bg-white border border-slate-200 rounded-xl text-slate-500 hover:text-red-500 hover:border-red-200 transition-colors" title="刪除資料庫菜色">
+                          <Icon name="trash-2" size={15} />
+                         </button>
+                        </div>
+                       </div>
                      ))}
                     </div>
                   </div>
@@ -1179,15 +1325,44 @@ window._gameJsReady = false;
         )}
 
         <div className="space-y-3">
-         {items.length > 1 && <p className="text-center text-[10px] text-slate-400 mb-2 mt-4 font-bold flex items-center justify-center gap-1"><Icon name="arrow-up-down" size={12}/> 按住左側圖示可拖曳排序</p>}
-         {items.map((r) => (
+         {categories && (
+          <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-4 space-y-3">
+           <div className="flex items-center justify-between">
+            <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><Icon name="utensils" size={16} className="text-brand-red" /> 現有菜色</h3>
+            <span className="text-[10px] font-black text-slate-400">{visibleItems.length}/{items.length} 道</span>
+           </div>
+           <button
+            onClick={deleteAllSeasonItems}
+            disabled={items.length === 0}
+            className={`w-full py-3 rounded-2xl text-[11px] font-black flex items-center justify-center gap-2 border transition-all ${items.length === 0 ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed' : 'bg-rose-50 text-brand-red border-rose-100 hover:bg-brand-red hover:text-white active:scale-95'}`}
+           >
+            <Icon name="trash-2" size={14} /> 刪除本季所有菜色
+           </button>
+           <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+            {categoryTabs.map(cat => {
+             const count = countByCategory(cat);
+             return (
+              <button
+               key={cat}
+               onClick={() => setActiveMenuCategory(cat)}
+               className={`shrink-0 px-3.5 py-2 rounded-xl text-[10px] font-black border transition-all ${activeMenuCategory === cat ? 'bg-brand-red text-white border-brand-red shadow-sm' : 'bg-slate-50 text-slate-500 border-slate-100 hover:border-brand-red/30'}`}
+              >
+               {cat} <span className={activeMenuCategory === cat ? 'text-white/70' : 'text-slate-300'}>{count}</span>
+              </button>
+             );
+            })}
+           </div>
+          </div>
+         )}
+         {visibleItems.length > 1 && <p className="text-center text-[10px] text-slate-400 mb-2 mt-4 font-bold flex items-center justify-center gap-1"><Icon name="arrow-up-down" size={12}/> 按住左側圖示可拖曳排序</p>}
+         {visibleItems.map((r, idx) => (
            <div 
-            key={r.id} 
+            key={getItemKey(r, idx)} 
             draggable
-            onDragStart={() => handleDragStart(r.id)}
-            onDragOver={(e) => handleDragOver(e, r.id)}
+            onDragStart={() => handleDragStart(getItemKey(r, idx))}
+            onDragOver={(e) => handleDragOver(e, getItemKey(r, idx))}
             onDragEnd={handleDragEnd}
-            className={`bg-white p-4 rounded-[1.5rem] border flex gap-3 items-center shadow-sm transition-all duration-200 ${draggedId === r.id ? 'opacity-40 scale-95 border-brand-red/50' : 'border-slate-100'} ${overId === r.id ? 'border-brand-red shadow-md -translate-y-1' : ''}`}
+            className={`bg-white p-4 rounded-[1.5rem] border flex gap-3 items-center shadow-sm transition-all duration-200 ${draggedId === getItemKey(r, idx) ? 'opacity-40 scale-95 border-brand-red/50' : 'border-slate-100'} ${overId === getItemKey(r, idx) ? 'border-brand-red shadow-md -translate-y-1' : ''}`}
            >
             <div className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-brand-red shrink-0 p-1 flex items-center justify-center">
               <Icon name="grip-vertical" size={18} />
@@ -1202,11 +1377,12 @@ window._gameJsReady = false;
             </div>
             <div className="flex gap-1.5 shrink-0 border-l pl-2 border-slate-100">
               <button onClick={() => startEdit(r)} className="text-slate-400 hover:text-blue-500 p-2 transition-colors bg-slate-50 hover:bg-blue-50 rounded-xl"><Icon name="edit-3" size={16} /></button>
-              <button onClick={() => deleteItem(r.id)} className="text-slate-400 hover:text-red-500 p-2 transition-colors bg-slate-50 hover:bg-red-50 rounded-xl"><Icon name="trash-2" size={16} /></button>
+              <button onClick={() => deleteItem(r)} className="text-slate-400 hover:text-red-500 p-2 transition-colors bg-slate-50 hover:bg-red-50 rounded-xl"><Icon name="trash-2" size={16} /></button>
             </div>
            </div>
          ))}
          {items.length === 0 && <p className="text-center text-slate-400 text-xs py-10 glass-panel rounded-3xl">尚未發佈任何食譜</p>}
+         {items.length > 0 && visibleItems.length === 0 && <p className="text-center text-slate-400 text-xs py-10 glass-panel rounded-3xl">此分類目前沒有菜色</p>}
         </div>
       </div>
      );
@@ -1425,7 +1601,7 @@ window._gameJsReady = false;
     const AuthPage = ({ users, setCurrentUser, setCurrentPage, setIsManager, setIsSuperAdmin, setCurrentBranch, globalBranches, triggerNotify, getPublicPath }) => {
      const [phone, setPhone] = useState(''); 
      const [name, setName] = useState(''); 
-     const [role, setRole] = useState('正職人員'); 
+     const [role, setRole] = useState(ROLE_OPTIONS[0]); 
      const [mode, setMode] = useState('login'); 
      const [adminPass, setAdminPass] = useState('');
      const [branch, setBranch] = useState(globalBranches[0] || '南港Lalaport');
@@ -1470,17 +1646,22 @@ window._gameJsReady = false;
         triggerNotify(`申請已提交(${role})，請聯絡主管`, "info");
       } else {
         if (existing) { 
+         const normalizedExistingRole = normalizeRole(existing.role);
+         const existingForSession = { ...existing, role: normalizedExistingRole };
          const allowedBranches = Array.isArray(existing.branch) ? existing.branch : [existing.branch];
          if (!allowedBranches.includes(branch)) {
            triggerNotify(`登入失敗：您的帳號隸屬於「${allowedBranches.join(', ')}」，請選擇正確的分店。`, "error");
            return;
          }
-         setCurrentUser(existing); localStorage.setItem('k_active_user', JSON.stringify(existing));
+         if (existing.role !== normalizedExistingRole) {
+           db.collection(getPublicPath('users')).doc(phone).update({ role: normalizedExistingRole }).catch(() => {});
+         }
+         setCurrentUser(existingForSession); localStorage.setItem('k_active_user', JSON.stringify(existingForSession));
          if (existing.status === 'approved') { 
-           if(existing.role === '主管') setIsManager(true);
-           setCurrentBranch(existing.branch);
+           if(isSupervisorRole(normalizedExistingRole)) setIsManager(true);
+           setCurrentBranch(branch);
            setCurrentPage('home'); 
-           triggerNotify(`歡迎回來, ${existing.name} (${existing.role})`, "success"); 
+           triggerNotify(`歡迎回來, ${existing.name} (${normalizedExistingRole})`, "success"); 
          } else {
            triggerNotify('帳號審核中，請聯繫主管核准', 'info');
          }
@@ -1522,9 +1703,7 @@ window._gameJsReady = false;
               <input placeholder="真實姓名" className="w-full input-light p-4 rounded-xl outline-none font-bold text-sm px-5" value={name} onChange={e => setName(e.target.value)} />
               <div className="relative">
                <select value={role} onChange={e => setRole(e.target.value)} className="w-full input-light p-4 rounded-xl outline-none font-bold text-sm appearance-none text-slate-700 px-5 text-left bg-white">
-                 <option value="正職人員">正職人員</option>
-                 <option value="計時人員">計時人員</option>
-                 <option value="主管">主管 (需行政主廚審核)</option>
+                 {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
                </select>
                <Icon name="chevron-down" size={18} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-800 pointer-events-none" />
               </div>
@@ -2102,7 +2281,7 @@ window._gameJsReady = false;
            .bg-header-dark { background-color: #34d399 !important; color: white; font-size: 11px; }
            .bg-weekend { background-color: #ffe4e6 !important; color: #e11d48 !important; }
            .bg-holiday { background-color: #fecaca !important; color: #b91c1c !important; } 
-           .text-holiday { color: #b91c1c !important; font-size: 12px; writing-mode: vertical-lr; letter-spacing: 1px; font-weight: 900; margin: 0 auto; padding-top: 2px;}
+           .text-holiday { color: #b91c1c !important; font-size: 12px; writing-mode: vertical-rl; text-orientation: upright; letter-spacing: 1px; font-weight: 900; margin: 0 auto; padding-top: 2px; line-height: 1.1;}
            .bg-gray { background-color: #f8fafc !important; }
            .bg-dark { background-color: #1e293b !important; color: white !important; font-size: 11px; }
            .bg-orange { background-color: #ffedd5 !important; color: #9a3412 !important; font-size: 11px; }
@@ -2141,7 +2320,7 @@ window._gameJsReady = false;
               ${daysInMonth.map(d => {
                const h = getHolidayData(d.dateString);
                return `<th class="${(h && h.isRed) ? 'bg-holiday' : ((h && !h.isRed) ? 'bg-gray' : (d.isWeekend ? 'bg-weekend' : ''))}" style="height: 60px; vertical-align: top;">
-                 ${h ? `<div class="text-holiday" style="${!h.isRed ? 'color:#475569 !important;' : ''}">${h.text}</div>` : ''}
+                 ${h ? `<div class="text-holiday" style="${!h.isRed ? 'color:#475569 !important;' : ''}">${String(h.text || '').split('').join('<br>')}</div>` : ''}
                </th>`;
               }).join('')}
             </tr>
@@ -2319,12 +2498,13 @@ window._gameJsReady = false;
                   <th colSpan={3} className="bg-[#ffffff] border border-[#64748b] p-1 text-right text-xs text-[#94a3b8] font-bold sticky left-0 z-[60] shadow-sm" style={{ top: '80px', height: '60px' }}>{isManager && !isDownloading ? '特殊節日 (點擊設定) ➔' : '特殊節日 ➔'}</th>
                   {daysInMonth.map(day => {
                     const h = getHolidayData(day.dateString);
+                    const isEditingHolidayCell = isManager && !isDownloading && selectedCell?.type === 'holiday' && selectedCell?.date === day.dateString;
                     return (
-                     <th key={`holiday-${day.dateNum}`} onClick={(e) => { e.stopPropagation(); openHolidayEdit(day.dateString); }} className={`border border-[#64748b] p-0 text-center align-top relative sticky z-[50] shadow-sm ${isManager && !isDownloading ? 'cursor-pointer hover:brightness-95' : ''} ${getCellBg(day.dateString, day.isWeekend)}`} style={{ top: '80px', height: '60px' }}>
-                       {isManager && !isDownloading && selectedCell?.type === 'holiday' && selectedCell?.date === day.dateString ? (
-                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[140px] z-[100] bg-[#ffffff] border-2 border-[#cbd5e1] shadow-2xl p-2 rounded-xl flex flex-col gap-2" onClick={e=>e.stopPropagation()}>
-                          <input autoFocus type="text" value={holidayInputText} onChange={(e) => setHolidayInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveHoliday(day.dateString)} className="w-full text-xs border border-[#e2e8f0] rounded p-1.5 outline-none font-bold text-[#1e293b] text-center" placeholder="節日或備註" />
-                          <label className="flex items-center justify-center gap-1.5 text-[10px] text-[#475569] cursor-pointer bg-[#f8fafc] py-1.5 rounded border border-slate-100">
+                     <th key={`holiday-${day.dateNum}`} onClick={(e) => { e.stopPropagation(); openHolidayEdit(day.dateString); }} className={`border border-[#64748b] p-0 text-center align-top relative sticky shadow-sm ${isEditingHolidayCell ? 'z-[200]' : 'z-[50]'} ${isManager && !isDownloading ? 'cursor-pointer hover:brightness-95' : ''} ${getCellBg(day.dateString, day.isWeekend)}`} style={{ top: '80px', height: '60px', zIndex: isEditingHolidayCell ? 200 : 50 }}>
+                       {isEditingHolidayCell ? (
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[150px] z-[300] bg-white border-2 border-[#94a3b8] p-2 rounded-xl flex flex-col gap-2" style={{ backgroundColor: '#ffffff', opacity: 1, outline: '8px solid #ffffff', outlineOffset: '-1px', boxShadow: '0 0 0 8px #ffffff, 0 18px 34px rgba(15,23,42,0.28)' }} onClick={e=>e.stopPropagation()}>
+                          <input autoFocus type="text" value={holidayInputText} onChange={(e) => setHolidayInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveHoliday(day.dateString)} className="w-full text-xs border border-[#cbd5e1] rounded p-1.5 outline-none font-bold text-[#1e293b] text-center bg-white" style={{ backgroundColor: '#ffffff', opacity: 1 }} placeholder="節日或備註" />
+                          <label className="flex items-center justify-center gap-1.5 text-[10px] text-[#475569] cursor-pointer bg-[#f8fafc] py-1.5 rounded border border-slate-200" style={{ backgroundColor: '#f8fafc', opacity: 1 }}>
                            <input type="checkbox" checked={holidayInputIsRed} onChange={(e) => setHolidayInputIsRed(e.target.checked)} className="accent-brand-red w-3.5 h-3.5 rounded"/>
                            標示為紅字休假
                           </label>
@@ -2334,7 +2514,7 @@ window._gameJsReady = false;
                           </div>
                         </div>
                        ) : (
-                        h && <div className={`writing-vertical-lr font-black text-[13px] mx-auto pt-1 tracking-widest ${h.isRed ? 'text-[var(--accent)]' : 'text-slate-600'}`}>{h.text}</div>
+                        h && <div className={`font-black text-[13px] mx-auto pt-1 tracking-widest ${h.isRed ? 'text-[var(--accent)]' : 'text-slate-600'}`} style={{ writingMode: 'vertical-rl', textOrientation: 'upright', lineHeight: 1.1, maxHeight: '56px', overflow: 'hidden' }}>{h.text}</div>
                        )}
                      </th>
                     );
@@ -2977,7 +3157,17 @@ window._gameJsReady = false;
      const [storeDatabases, setStoreDatabases] = useState({});
      const branches = isSuperAdmin ? globalBranches : [currentBranch];
      const [selectedBranch, setSelectedBranch] = useState(currentBranch);
-     const currentDb = storeDatabases[selectedBranch] || { ingredients: [], zones: [...INITIAL_ORDER_ZONES], vendors: [], history: [] };
+     const orderingDefaultDb = { ingredients: [], zones: [...INITIAL_ORDER_ZONES], vendors: [], history: [], activeQuantities: {} };
+     const normalizeOrderingDb = (data = {}) => ({
+      ...orderingDefaultDb,
+      ...data,
+      ingredients: Array.isArray(data.ingredients) ? data.ingredients.filter(Boolean).map((item, idx) => ({ ...item, id: item.id || `${item.name || 'ingredient'}_${idx}` })) : [],
+      zones: Array.isArray(data.zones) && data.zones.filter(Boolean).length > 0 ? data.zones.filter(Boolean) : [...INITIAL_ORDER_ZONES],
+      vendors: Array.isArray(data.vendors) ? data.vendors.filter(Boolean) : [],
+      history: Array.isArray(data.history) ? data.history.filter(Boolean) : [],
+      activeQuantities: data.activeQuantities && typeof data.activeQuantities === 'object' ? data.activeQuantities : {}
+     });
+     const currentDb = useMemo(() => normalizeOrderingDb(storeDatabases[selectedBranch]), [storeDatabases, selectedBranch]);
 
      const [orderQuantities, setOrderQuantities] = useState({});
 
@@ -2986,17 +3176,12 @@ window._gameJsReady = false;
       const docPath = getPublicPath(`ordering/db_${selectedBranch}`);
       const unsubscribe = db.doc(docPath).onSnapshot(docSnap => {
         if (docSnap.exists) {
-         const data = docSnap.data();
+         const data = normalizeOrderingDb(docSnap.data());
          setStoreDatabases(prev => ({ ...prev, [selectedBranch]: data }));
-         if (data.activeQuantities) {
-           setOrderQuantities(data.activeQuantities);
-         } else {
-           setOrderQuantities({});
-         }
+         setOrderQuantities(data.activeQuantities);
         } else {
-         const defaultDb = { ingredients: [], zones: [...INITIAL_ORDER_ZONES], vendors: [], history: [], activeQuantities: {} };
-         setStoreDatabases(prev => ({ ...prev, [selectedBranch]: defaultDb }));
-         db.doc(docPath).set(defaultDb);
+         setStoreDatabases(prev => ({ ...prev, [selectedBranch]: orderingDefaultDb }));
+         db.doc(docPath).set(orderingDefaultDb);
         }
       }, err => {
         console.error("讀取叫貨資料庫失敗:", err);
@@ -3023,6 +3208,7 @@ window._gameJsReady = false;
      const [draggedId, setDraggedId] = useState(null);
      const [overId, setOverId] = useState(null);
      const [editedOrderTexts, setEditedOrderTexts] = useState({});
+     const [isResettingOrder, setIsResettingOrder] = useState(false);
 
      const [adminZoneFilter, setAdminZoneFilter] = useState('全部');
      const [adminVendorFilter, setAdminVendorFilter] = useState('全部');
@@ -3048,6 +3234,25 @@ window._gameJsReady = false;
       });
      };
 
+     const resetActiveOrderQuantities = async (manual = false) => {
+      if (manual && !window.confirm(`確定要重置「${selectedBranch}」目前所有叫貨量嗎？`)) return;
+      setIsResettingOrder(true);
+      try {
+        await db.doc(getPublicPath(`ordering/db_${selectedBranch}`)).set({ activeQuantities: {} }, { merge: true });
+        setOrderQuantities({});
+        setStoreDatabases(prev => ({
+         ...prev,
+         [selectedBranch]: { ...(prev[selectedBranch] || currentDb), activeQuantities: {} }
+        }));
+        triggerNotify(manual ? "叫貨量已手動重置" : "叫貨量已重置", "success");
+      } catch(e) {
+        console.error("重置叫貨量失敗", e);
+        triggerNotify("重置叫貨量失敗", "error");
+      } finally {
+        setIsResettingOrder(false);
+      }
+     };
+
      const saveOrderToHistory = () => {
       const orderItems = currentDb.ingredients
         .map(item => ({
@@ -3059,7 +3264,7 @@ window._gameJsReady = false;
         
       if (orderItems.length === 0) return;
 
-      const existingRecordIndex = currentDb.history.findIndex(r => r.date === orderDate);
+      const existingRecordIndex = currentDb.history.findIndex(r => r && r.date === orderDate);
       let newHistory = [...currentDb.history];
 
       if (existingRecordIndex > -1) {
@@ -3088,8 +3293,8 @@ window._gameJsReady = false;
      const monthlyStats = useMemo(() => {
       const stats = {};
       currentDb.history.forEach(record => {
-        if (record.date.startsWith(analyticsMonth)) {
-         record.items.forEach(item => {
+        if (record && (record.date || '').startsWith(analyticsMonth)) {
+         (record.items || []).filter(Boolean).forEach(item => {
            stats[item.name] = (stats[item.name] || 0) + item.qty;
          });
         }
@@ -3104,6 +3309,11 @@ window._gameJsReady = false;
         const newIngredients = [...currentDb.ingredients];
         const fromIndex = newIngredients.findIndex(i => i.id === draggedId);
         const toIndex = newIngredients.findIndex(i => i.id === overId);
+        if (fromIndex === -1 || toIndex === -1) {
+         setDraggedId(null);
+         setOverId(null);
+         return;
+        }
         const [movedItem] = newIngredients.splice(fromIndex, 1);
         newIngredients.splice(toIndex, 0, movedItem);
         updateCurrentDb({ ingredients: newIngredients });
@@ -3129,8 +3339,12 @@ window._gameJsReady = false;
            }
     
            return acc;
-         }, {});
+        }, {});
         }, [currentDb.ingredients, orderQuantities]);
+
+     const activeOrderCount = useMemo(() => {
+      return Object.values(orderQuantities || {}).filter(v => parseFloat(v || 0) > 0).length;
+     }, [orderQuantities]);
 
      useEffect(() => {
       if (view === 'result') {
@@ -3253,13 +3467,20 @@ window._gameJsReady = false;
                </button>
                
                <div className="grid grid-cols-2 gap-3 mt-4">
-                 <button onClick={() => { setView('analytics'); setSelectedItemName(''); setAnalyticsSearch(''); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
+                 <button onClick={() => { setView('analytics'); setAnalyticsZone(null); setExpandedAnalyticsItem(null); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
                   <OrderSymbolIcon name="Chart" /> 數據分析報表
                  </button>
                  <button onClick={() => { setView('admin'); setAdminTab('ingredients'); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
                   <OrderSymbolIcon name="Settings" /> 食材廠商設定
                  </button>
                </div>
+               <button
+                onClick={() => resetActiveOrderQuantities(true)}
+                disabled={isResettingOrder || activeOrderCount === 0}
+                className={`w-full mt-3 py-4 rounded-2xl font-black text-xs flex items-center justify-center gap-2 border transition-all ${isResettingOrder || activeOrderCount === 0 ? 'bg-slate-50 text-slate-300 border-slate-100 cursor-not-allowed' : 'bg-rose-50 text-brand-red border-rose-100 active-scale shadow-sm'}`}
+               >
+                <OrderSymbolIcon name="RotateCcw" /> {isResettingOrder ? '重置中...' : `手動重置叫貨量${activeOrderCount > 0 ? `（${activeOrderCount} 項）` : ''}`}
+               </button>
                <button onClick={onBack} className="w-full py-4 text-slate-400 font-bold text-xs uppercase mt-4">返回廚務OS</button>
               </div>
             </div>
@@ -3316,7 +3537,7 @@ window._gameJsReady = false;
             </div>
            </div>
            <div className="p-4 space-y-4 pb-40">
-            {currentDb.ingredients.filter(i => i.zone === selectedZone && i.name.includes(searchQuery)).map((item) => {
+            {currentDb.ingredients.filter(i => i.zone === selectedZone && (i.name || '').includes(searchQuery)).map((item) => {
               const qty = orderQuantities[item.id] || 0;
               const isDragging = draggedId === item.id;
               const isOver = overId === item.id;
@@ -3495,10 +3716,10 @@ window._gameJsReady = false;
                           <h5 className="text-[10px] font-black text-slate-500 mb-3 uppercase tracking-widest flex items-center gap-1.5"><Icon name="history" size={14}/> 本店近期紀錄</h5>
                           <div className="space-y-2">
                            {currentDb.history.slice().reverse()
-                             .filter(r => r.date.startsWith(analyticsMonth) && r.items.some(i => i.name === item.name))
+                             .filter(r => (r.date || '').startsWith(analyticsMonth) && (r.items || []).filter(Boolean).some(i => i.name === item.name))
                              .slice(0, 5) // 顯示最近 5 筆
                              .map(record => {
-                              const match = record.items.find(i => i.name === item.name);
+                              const match = (record.items || []).filter(Boolean).find(i => i.name === item.name) || {};
                               return (
                                 <div key={record.id} className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100 shadow-sm">
                                  <span className="text-xs font-bold text-slate-600">{record.date}</span>
@@ -3507,7 +3728,7 @@ window._gameJsReady = false;
                               )
                              })
                            }
-                           {(!currentDb.history.some(r => r.date.startsWith(analyticsMonth) && r.items.some(i => i.name === item.name))) && (
+                           {(!currentDb.history.some(r => (r.date || '').startsWith(analyticsMonth) && (r.items || []).filter(Boolean).some(i => i.name === item.name))) && (
                              <div className="text-center py-4 text-xs font-bold text-slate-400">本月尚無此食材的叫貨紀錄</div>
                            )}
                           </div>
@@ -4793,7 +5014,7 @@ if (selectedActivity === 'food_research') {
       <div style={{width:'38px', height:'38px', borderRadius:'50%', background:'rgba(31,111,235,.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'18px', flexShrink:0}}>🐾</div>
       <div style={{flex:1}}>
        <div style={{fontWeight:900, fontSize:'13px', color:'#e6edf3'}}>{u.name}</div>
-       <div style={{fontSize:'10px', color:'#8b949e'}}>{u.role||'員工'}</div>
+       <div style={{fontSize:'10px', color:'#8b949e'}}>{normalizeRole(u.role) || '員工'}</div>
       </div>
       {selected && <div style={{width:'22px', height:'22px', borderRadius:'50%', background:'#1f6feb', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px'}}>✓</div>}
       </div>
@@ -5884,6 +6105,7 @@ return (
      const [newZoneName, setNewZoneName] = useState('');
      const [newBranchName, setNewBranchName] = useState('');
      const [expandedSig, setExpandedSig] = useState(null);
+     const [activeRoleTab, setActiveRoleTab] = useState(ROLE_OPTIONS[0]);
      
      const [editingUser, setEditingUser] = useState(null);
      const [editFormData, setEditFormData] = useState({ role: '', branches: [] });
@@ -5892,14 +6114,15 @@ return (
       if(branchZones && branchZones.length > 0 && !selectedZone) setSelectedZone(branchZones[0].id);
      }, [branchZones]);
 
-     const visibleUsers = users.filter(u => {
+     const visibleUsers = users.map(u => ({ ...u, normalizedRole: normalizeRole(u.role) })).filter(u => {
       const uBranches = Array.isArray(u.branch) ? u.branch : [u.branch].filter(Boolean);
       if (isSuperAdmin) {
-        return uBranches.includes(currentBranch) || u.role === '主管';
+        return uBranches.includes(currentBranch) || isSupervisorRole(u.role);
       } else {
-        return uBranches.includes(currentBranch) && u.role !== '主管';
+        return uBranches.includes(currentBranch);
       }
      });
+     const roleFilteredUsers = visibleUsers.filter(u => u.normalizedRole === activeRoleTab);
 
      const handleSaveUserEdit = async () => {
       if(editFormData.branches.length === 0) {
@@ -5912,6 +6135,7 @@ return (
          branch: editFormData.branches
         });
         triggerNotify("員工資料更新成功", "success");
+        setActiveRoleTab(editFormData.role);
         setEditingUser(null);
       } catch(e) { triggerNotify("更新失敗", "error"); }
      };
@@ -5948,22 +6172,34 @@ return (
         <div className="space-y-4">
          {tab === 'members' && (
            <div>
-            <h3 className="text-xs text-slate-400 mb-2 pl-2">顯示：{isSuperAdmin ? `${currentBranch} 人員 & 全部分店主管` : `${currentBranch} 店內人員`}（{Math.min(userPageLimit, visibleUsers.length)}/{visibleUsers.length}）</h3>
-            {visibleUsers.slice(0, userPageLimit).map(u=>{
+            <h3 className="text-xs text-slate-400 mb-2 pl-2">顯示：{isSuperAdmin ? `${currentBranch} 人員 & 全部分店主管` : `${currentBranch} 店內人員`}（{Math.min(userPageLimit, roleFilteredUsers.length)}/{roleFilteredUsers.length}）</h3>
+            <div className="grid grid-cols-2 gap-2 mb-4">
+             {ROLE_OPTIONS.map(r => {
+              const count = visibleUsers.filter(u => u.normalizedRole === r).length;
+              return (
+               <button key={r} onClick={() => { setActiveRoleTab(r); setUserPageLimit(10); }} className={`px-3 py-3 rounded-2xl text-[10px] font-black border transition-all text-left ${activeRoleTab === r ? 'bg-brand-red text-white border-brand-red shadow-md' : 'bg-white text-slate-500 border-slate-100 shadow-sm'}`}>
+                <span className="block truncate">{r}</span>
+                <span className={`text-[9px] ${activeRoleTab === r ? 'text-white/70' : 'text-slate-300'}`}>{count} 人</span>
+               </button>
+              );
+             })}
+            </div>
+            {roleFilteredUsers.slice(0, userPageLimit).map(u=>{
               const displayBranches = Array.isArray(u.branch) ? u.branch.join(', ') : u.branch;
+              const roleMeta = ROLE_META[u.normalizedRole] || ROLE_META[ROLE_OPTIONS[0]];
               return (
               <div key={u.phone} className="glass-panel p-4 rounded-[2rem] border flex justify-between items-center bg-white mb-2 shadow-sm">
                <div className="flex-1 min-w-0 pr-2">
                  <p className="font-bold text-slate-800 mb-1 flex flex-wrap items-center gap-2">
                   {u.name} 
-                  <span className={`text-[9px] px-2 py-0.5 rounded-full whitespace-nowrap ${u.role==='主管' ? 'bg-brand-red text-white' : 'bg-slate-100 text-slate-500'}`}>{u.role}</span>
+                  <span className={`text-[9px] px-2 py-0.5 rounded-full border whitespace-nowrap ${roleMeta.badge}`}>{u.normalizedRole}</span>
                   <span className="text-[9px] text-blue-500 bg-blue-50 px-2 py-0.5 rounded-full whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px]" title={displayBranches}>{displayBranches}</span>
                  </p>
                  <p className="text-[10px] text-slate-400">{u.phone}</p>
                </div>
                <div className="flex gap-1.5 shrink-0">
                  {u.status==='pending' ? (
-                  <button onClick={()=>db.collection(getPublicPath('users')).doc(u.phone).update({status:'approved'})} className="bg-emerald-600 text-white px-3.5 py-2 rounded-xl text-[10px] font-black active:scale-95 shadow-sm">核准</button>
+                  <button onClick={()=>db.collection(getPublicPath('users')).doc(u.phone).update({status:'approved', role:u.normalizedRole})} className="bg-emerald-600 text-white px-3.5 py-2 rounded-xl text-[10px] font-black active:scale-95 shadow-sm">核准</button>
                  ) : (
                   <span className="text-[9px] font-black text-emerald-600 border px-2.5 py-1.5 rounded-lg bg-emerald-50 flex items-center">已授權</span>
                  )}
@@ -5971,7 +6207,7 @@ return (
                  <button onClick={() => {
                   setEditingUser(u);
                   setEditFormData({
-                    role: u.role || '正職人員',
+                    role: u.normalizedRole || ROLE_OPTIONS[0],
                     branches: Array.isArray(u.branch) ? u.branch : [u.branch].filter(Boolean)
                   });
                  }} className="p-2 text-slate-400 hover:text-blue-500 transition-all bg-slate-50 rounded-xl hover:bg-blue-50">
@@ -5990,15 +6226,16 @@ return (
               </div>
             )})}
             {visibleUsers.length === 0 && <p className="text-center text-slate-400 py-10 text-xs">尚無人員紀錄</p>}
+            {visibleUsers.length > 0 && roleFilteredUsers.length === 0 && <p className="text-center text-slate-400 py-10 text-xs">此職位分頁目前沒有人員</p>}
 
             {/* ── 載入更多 / 收起 ── */}
-            {visibleUsers.length > userPageLimit && (
+            {roleFilteredUsers.length > userPageLimit && (
               <button onClick={() => setUserPageLimit(p => p + 10)}
                className="w-full mt-2 py-3 rounded-2xl text-xs font-black text-slate-600 bg-slate-100 border border-slate-200 active:scale-95 transition-all">
-               ＋ 載入更多（還有 {visibleUsers.length - userPageLimit} 人）
+               ＋ 載入更多（還有 {roleFilteredUsers.length - userPageLimit} 人）
               </button>
             )}
-            {visibleUsers.length > 10 && visibleUsers.length <= userPageLimit && (
+            {roleFilteredUsers.length > 10 && roleFilteredUsers.length <= userPageLimit && (
               <button onClick={() => setUserPageLimit(10)}
                className="w-full mt-1 py-2 rounded-2xl text-[10px] font-bold text-slate-400 active:scale-95 transition-all">
                ▲ 收起清單
@@ -6026,9 +6263,7 @@ return (
                   onChange={e => setEditFormData({...editFormData, role: e.target.value})}
                   className="w-full bg-white border border-slate-200 p-3 rounded-xl outline-none font-bold text-sm"
                  >
-                  <option value="正職人員">正職人員</option>
-                  <option value="計時人員">計時人員</option>
-                  <option value="主管">主管 (有後台管理權限)</option>
+                  {ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
                  </select>
                </div>
                <div>
@@ -6727,7 +6962,7 @@ return (
       if (localStorage.getItem('k_super_admin') === 'true') return true;
       const saved = localStorage.getItem('k_active_user');
       if (saved) {
-        try { return JSON.parse(saved).role === '主管'; } catch(e) {}
+        try { return isSupervisorRole(JSON.parse(saved).role); } catch(e) {}
       }
       return false;
      });
@@ -6840,7 +7075,7 @@ return (
            }
 
            const targetOrderResetStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
-           if (data.lastOrderReset !== targetOrderResetStr) {
+           if (h >= 12 && data.lastOrderReset !== targetOrderResetStr) {
             await cronRef.set({ lastOrderReset: targetOrderResetStr }, {merge: true});
             await db.doc(getPublicPath(`ordering/db_${branch}`)).set({ activeQuantities: {} }, {merge: true});
            }
@@ -6878,15 +7113,22 @@ return (
       const subs = [
         db.doc(getPublicPath('system/branches')).onSnapshot(d => d.exists && d.data().list && setGlobalBranches(d.data().list), errH),
         db.collection(getPublicPath('global_recipes')).onSnapshot(s => {
-         setGlobalRecipes(s.docs.map(d => ({id: d.id, ...d.data()})));
+         setGlobalRecipes(s.docs.map(d => ({...d.data(), docId: d.id, id: d.data().id || d.id})));
         }, errH),
         db.collection(getPublicPath('users')).onSnapshot(s => { 
          const all = s.docs.map(d => d.data()); setUsers(all); 
          if (currentUser) { 
            const upd = all.find(u => u.phone === currentUser.phone); 
-           if (upd && (upd.status !== currentUser.status || upd.role !== currentUser.role)) { 
-            setCurrentUser(upd); localStorage.setItem('k_active_user', JSON.stringify(upd)); 
-            if(upd.status === 'approved' && upd.role === '主管') setIsManager(true);
+           if (upd) {
+            const normalizedUpd = { ...upd, role: normalizeRole(upd.role) };
+            if (upd.role !== normalizedUpd.role) {
+              db.collection(getPublicPath('users')).doc(upd.phone).update({ role: normalizedUpd.role }).catch(() => {});
+            }
+            if (normalizedUpd.status !== currentUser.status || normalizedUpd.role !== currentUser.role) { 
+             setCurrentUser(normalizedUpd); localStorage.setItem('k_active_user', JSON.stringify(normalizedUpd)); 
+             if(normalizedUpd.status === 'approved' && isSupervisorRole(normalizedUpd.role)) setIsManager(true);
+             else if(!isSuperAdmin) setIsManager(false);
+            }
            } 
          } 
         }, errH)
@@ -6936,7 +7178,10 @@ return (
          });
          
          db.doc(getPublicPath(docPath)).get().then(d => {
-           const oldItems = d.exists && d.data().items ? d.data().items : [];
+           const oldItems = (d.exists && d.data().items ? d.data().items : []).map((item, idx) => ({
+            ...item,
+            id: item.id || item.title || item.name || item.content || `legacy_${idx}`
+           }));
            const merged = [];
            const processedNewIds = new Set();
 
