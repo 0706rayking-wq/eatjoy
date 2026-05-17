@@ -4830,7 +4830,7 @@ if (selectedActivity === 'food_research') {
    '時令符':'金幣獲取+20%，擊敗敵人掉更多金幣',
   };
   const FORM_DESC = {
-   normal:'🔹被動：普通型（均衡屬性）｜⚡技能1：雙彈衝刺（發射2道衝刺彈）｜💥技能2：能量爆發（釋放能量衝擊波）',
+   normal:'被動：MHP+10（可共享、可疊加）｜小招：舔傷口，回復 HP 5｜大招：亢奮，整隊移動速度及攻擊速度變成 2 倍',
    burger:'🔹被動：護盾再生（每10秒回復護盾）｜⚡技能1：衝撞攻擊（衝向敵人造成傷害）｜💥技能2：超級護盾（短暫無敵護盾）',
    chili:'🔹被動：灼燒光環（附近敵人持續掉血）｜⚡技能1：辣椒爆炸（範圍爆炸傷害）｜💥技能2：火焰噴射（短距高傷火焰）',
    tofu:'🔹被動：減傷護盾（受傷-20%）｜⚡技能1：豆腐防禦（短暫無敵幀）｜💥技能2：反射力場（反彈子彈）',
@@ -4963,7 +4963,7 @@ if (selectedActivity === 'food_research') {
     '時令符':'金幣獲取+20%',
    };
    const PARTNER_FORM_DESC = {
-    normal:'普通型，均衡屬性。技能：雙彈衝刺、能量爆發。',
+    normal:'原始型態，可靠隊伍支援型。被動可與隊友共享並疊加。',
     burger:'防禦型，受傷降低。技能偏向護盾與衝撞。',
     chili:'進攻型，附加燃燒。技能偏向追蹤與火焰傷害。',
     tofu:'生存型，定期回血。技能偏向護盾與治癒。',
@@ -4972,6 +4972,13 @@ if (selectedActivity === 'food_research') {
     ramen:'續戰型，爆擊與回血兼具。技能偏向熱湯與爆炸。',
     sushi:'敏捷型，速度與爆擊提高。技能偏向精準連擊。',
     steak:'重攻型，攻擊與爆擊提高。技能偏向高傷衝擊。',
+   };
+   const PARTNER_FORM_ABILITIES = {
+    normal:[
+     {label:'被動技能',name:'MHP+10',desc:'全隊最大 HP +10，可與隊友共享並疊加。'},
+     {label:'小招',name:'舔傷口',desc:'回復目前角色 HP 5。'},
+     {label:'大招',name:'亢奮',desc:'短時間提高整個隊伍的移動速度及攻擊速度至 2 倍。'},
+    ],
    };
    const normalizePartnerSave = (raw={}) => ({
     training: raw.training || DEFAULT_PARTNER_SAVE.training,
@@ -5025,6 +5032,16 @@ if (selectedActivity === 'food_research') {
          <div className="text-[10px] font-bold" style={{color:'#8b949e'}}>目前型態</div>
          <div className="text-sm font-black mb-2" style={{color:'#e6edf3'}}>{pf.emoji} {pf.name}</div>
          <div className="text-[10px] mb-2" style={{color:'#8b949e',lineHeight:'1.5'}}>{PARTNER_FORM_DESC[ps.equippedForm]||'型態能力尚未解鎖說明'}</div>
+         {(PARTNER_FORM_ABILITIES[ps.equippedForm]||[]).length>0 && (
+         <div style={{display:'grid',gap:'4px',marginBottom:'8px'}}>
+          {PARTNER_FORM_ABILITIES[ps.equippedForm].map(a=>(
+          <div key={a.label} style={{background:'rgba(88,166,255,.08)',border:'1px solid #1f6feb',borderRadius:'8px',padding:'5px 6px'}}>
+           <div className="text-[9px] font-black" style={{color:'#58a6ff'}}>{a.label} · {a.name}</div>
+           <div className="text-[9px]" style={{color:'#8b949e',lineHeight:'1.45',marginTop:'2px'}}>{a.desc}</div>
+          </div>
+          ))}
+         </div>
+         )}
          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px'}}>
           {TRAIN_STATS.map(s=>(
           <div key={s.key} style={{background:'#161b22',border:'1px solid #21262d',borderRadius:'8px',padding:'5px 6px'}}>
@@ -5344,7 +5361,7 @@ if (selectedActivity === 'food_research') {
   '時令符':'金幣獲取+20%',
  };
  const CAMP_FORM_DESC = {
-  normal:'普通型，均衡屬性。技能：雙彈衝刺、能量爆發。',
+  normal:'原始型態，可靠隊伍支援型。被動可與隊友共享並疊加。',
   burger:'防禦型，受傷降低。技能偏向護盾與衝撞。',
   chili:'進攻型，附加燃燒。技能偏向追蹤與火焰傷害。',
   tofu:'生存型，定期回血。技能偏向護盾與治癒。',
@@ -5353,6 +5370,13 @@ if (selectedActivity === 'food_research') {
   ramen:'續戰型，爆擊與回血兼具。技能偏向熱湯與爆炸。',
   sushi:'敏捷型，速度與爆擊提高。技能偏向精準連擊。',
   steak:'重攻型，攻擊與爆擊提高。技能偏向高傷衝擊。',
+ };
+ const CAMP_FORM_ABILITIES = {
+  normal:[
+   {label:'被動技能',name:'MHP+10',desc:'全隊最大 HP +10，可與隊友共享並疊加。'},
+   {label:'小招',name:'舔傷口',desc:'回復目前角色 HP 5。'},
+   {label:'大招',name:'亢奮',desc:'短時間提高整個隊伍的移動速度及攻擊速度至 2 倍。'},
+  ],
  };
 
  const FACILITIES = [
@@ -5447,10 +5471,20 @@ if (selectedActivity === 'food_research') {
         : <div style={{fontSize:'54px'}}>{campForm.emoji}</div>}
       </div>
       <div className="flex-1">
-       <div className="text-[10px] font-bold" style={{color:'#8b949e'}}>目前型態</div>
-       <div className="text-sm font-black mb-2" style={{color:'#e6edf3'}}>{campForm.emoji} {campForm.name}</div>
-       <div className="text-[10px] mb-2" style={{color:'#8b949e',lineHeight:'1.5'}}>{CAMP_FORM_DESC[campSave.equippedForm||'normal']||'型態能力尚未解鎖說明'}</div>
-       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px'}}>
+        <div className="text-[10px] font-bold" style={{color:'#8b949e'}}>目前型態</div>
+        <div className="text-sm font-black mb-2" style={{color:'#e6edf3'}}>{campForm.emoji} {campForm.name}</div>
+        <div className="text-[10px] mb-2" style={{color:'#8b949e',lineHeight:'1.5'}}>{CAMP_FORM_DESC[campSave.equippedForm||'normal']||'型態能力尚未解鎖說明'}</div>
+        {(CAMP_FORM_ABILITIES[campSave.equippedForm||'normal']||[]).length>0 && (
+        <div style={{display:'grid',gap:'4px',marginBottom:'8px'}}>
+         {CAMP_FORM_ABILITIES[campSave.equippedForm||'normal'].map(a=>(
+         <div key={a.label} style={{background:'rgba(88,166,255,.08)',border:'1px solid #1f6feb',borderRadius:'8px',padding:'5px 6px'}}>
+          <div className="text-[9px] font-black" style={{color:'#58a6ff'}}>{a.label} · {a.name}</div>
+          <div className="text-[9px]" style={{color:'#8b949e',lineHeight:'1.45',marginTop:'2px'}}>{a.desc}</div>
+         </div>
+         ))}
+        </div>
+        )}
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px'}}>
         {TRAIN_STATS.map(s=>(
         <div key={s.key} style={{background:'#161b22',border:'1px solid #21262d',borderRadius:'8px',padding:'5px 6px'}}>
          <div className="text-[9px]" style={{color:'#8b949e'}}>{s.label}</div>
