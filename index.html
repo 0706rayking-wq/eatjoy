@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-TW" style="overflow-x:hidden;">
 <head>
     <meta charset="UTF-8">
@@ -4204,6 +4204,8 @@ const [leaderboard, setLeaderboard] = useState([]);
 const [showLeaderboard, setShowLeaderboard] = useState(false);
 const [leaderboardTab, setLeaderboardTab] = useState('scores');
 const [frPhase, setFrPhase] = useState('camp');
+const [showCharStatus, setShowCharStatus] = useState(false);
+const [partnerStatusTarget, setPartnerStatusTarget] = useState(null);
 
 const [chosenPartners, setChosenPartners] = useState([]);
 // useRef 避免背景 Firestore 讀取完成後觸發 re-render 導致 iframe 重載
@@ -4768,20 +4770,30 @@ if (selectedActivity === 'food_research') {
 
  if (frPhase === 'equip') {
   const s2 = loadSave();
-  const eq2 = s2.equip||{ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']};
-  const ws2 = s2.weapons||{ranged:['初始食材砲'],melee:['初始鍋鏟']};
-  const am2 = s2.amulets||[];
-  const of2 = s2.ownedForms||[];
+  const normalizeEquip = (equip={}) => ({
+   ranged: equip.ranged || '初始食材砲',
+   melee: equip.melee || '初始鍋鏟',
+   amulets: Array.isArray(equip.amulets) ? [...equip.amulets,'','',''].slice(0,3) : ['','',''],
+  });
+  const eq2 = normalizeEquip(s2.equip);
+  let ws2 = s2.weapons||{ranged:['初始食材砲'],melee:['初始鍋鏟']};
+  let am2 = s2.amulets||[];
+  let of2 = s2.ownedForms||[];
+  if(isSuperAdmin){
+   ws2={ranged:[...new Set(['初始食材砲',...RANGED_POOL.map(w=>w.name)])],melee:[...new Set(['初始鍋鏟',...MELEE_POOL.map(w=>w.name)])]};
+   am2=AMULET_POOL.map(a=>a.name);
+   of2=['burger','chili','tofu','noodle','rice','ramen','sushi','steak'];
+  }
   const ef2 = s2.equippedForm||'normal';
 
   const setEq = (key, val) => {
-   const s3=loadSave(); const e3={...(s3.equip||{ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']})};
+   const s3=loadSave(); const e3=normalizeEquip(s3.equip);
    e3[key]=val; writeSave({equip:e3});
    setFrPhase('camp'); setTimeout(()=>setFrPhase('equip'),10);
   };
   const setAmuletSlot = (idx, val) => {
-   const s3=loadSave(); const e3={...(s3.equip||{ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']})};
-   const am3=[...(e3.amulets||['','',''])];
+   const s3=loadSave(); const e3=normalizeEquip(s3.equip);
+   const am3=[...e3.amulets];
    if(val!==''){for(let si=0;si<3;si++){if(si!==idx&&am3[si]===val)am3[si]='';}}
    am3[idx]=val; e3.amulets=am3;
    writeSave({equip:e3}); setFrPhase('camp'); setTimeout(()=>setFrPhase('equip'),10);
@@ -4888,7 +4900,7 @@ if (selectedActivity === 'food_research') {
          background:isEquipped?'rgba(188,140,255,.2)':'transparent',
          color:isEquipped?'#d2a8ff':emptySlot<0?'#3d444d':'#8b949e',
          cursor:isEquipped||emptySlot>=0?'pointer':'not-allowed',
-         opacity:!isEquipped&&emptySlot<0?.4:1, textAlign:'left'
+         opacity:(!isEquipped&&emptySlot<0) ? .4 : 1, textAlign:'left'
         }}><div>{isEquipped?'✓ ':''}{a}</div><div style={{fontSize:'9px',color:'#6e7681',fontWeight:400,marginTop:'2px'}}>{AMULET_DESC[a]||'特殊護符效果'}</div></button>
       );
       })}
@@ -4914,8 +4926,138 @@ if (selectedActivity === 'food_research') {
   );
  }
 
- if (frPhase === 'partner_select') {
-  const togglePartner = (u) => {
+  if (frPhase === 'partner_select') {
+   const DEFAULT_PARTNER_SAVE = {
+    training:{atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0},
+    equip:{ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']},
+    equippedForm:'normal'
+   };
+   const PARTNER_FORMS = {
+    normal:{name:'原味型',emoji:'🍙'}, burger:{name:'漢堡型',emoji:'🍔'},
+    chili:{name:'辣椒型',emoji:'🌶️'}, tofu:{name:'豆腐型',emoji:'🧆'},
+    noodle:{name:'麵條型',emoji:'🍜'}, rice:{name:'炒飯型',emoji:'🍚'},
+    ramen:{name:'豚骨型',emoji:'🍲'}, sushi:{name:'壽司型',emoji:'🍣'}, steak:{name:'牛排型',emoji:'🥩'},
+   };
+   const PARTNER_RANGED_DESC = {
+    '初始食材砲':'直線射擊，傷害適中，適合入門',
+    '食材砲':'直線射擊，傷害適中，適合入門',
+    '調味料噴射器':'扇形廣域彈幕，適合對付密集敵人',
+    '冷凍光線':'冰結光束，命中後凍結敵人',
+    '辣油火焰炮':'燃燒彈幕，讓敵人持續受傷',
+    '醬汁雷射':'高傷害穿透彈，可貫穿多個敵人',
+   };
+   const PARTNER_MELEE_DESC = {
+    '初始鍋鏟':'短距揮砍，傷害穩定',
+    '鍋鏟劍':'攻速與傷害均衡的基礎近戰',
+    '擀麵棍':'重型棍棒，單次打擊高且可震退',
+    '菜刀':'高速連斬，適合近距離爆發',
+    '炒菜鍋':'圓弧揮擊，能打到較大範圍',
+    '砧板護盾':'格擋型武器，受擊減傷並縮短技能冷卻',
+   };
+   const PARTNER_AMULET_DESC = {
+    '廚神護符':'攻擊力+15%',
+    '食安符':'最大血量+30',
+    '鮮度符':'持續回血效果提升',
+    '辛香符':'爆擊率+8%',
+    '溫度符':'受到傷害-10%',
+    '時令符':'金幣獲取+20%',
+   };
+   const PARTNER_FORM_DESC = {
+    normal:'普通型，均衡屬性。技能：雙彈衝刺、能量爆發。',
+    burger:'防禦型，受傷降低。技能偏向護盾與衝撞。',
+    chili:'進攻型，附加燃燒。技能偏向追蹤與火焰傷害。',
+    tofu:'生存型，定期回血。技能偏向護盾與治癒。',
+    noodle:'速度型，移動速度提高。技能偏向連射與散射。',
+    rice:'收益型，金幣獲取提高。技能偏向金幣彈與護罩。',
+    ramen:'續戰型，爆擊與回血兼具。技能偏向熱湯與爆炸。',
+    sushi:'敏捷型，速度與爆擊提高。技能偏向精準連擊。',
+    steak:'重攻型，攻擊與爆擊提高。技能偏向高傷衝擊。',
+   };
+   const normalizePartnerSave = (raw={}) => ({
+    training: raw.training || DEFAULT_PARTNER_SAVE.training,
+    equip: raw.equip || DEFAULT_PARTNER_SAVE.equip,
+    equippedForm: raw.equippedForm || 'normal'
+   });
+   const PartnerThumb = ({save,size=48}) => {
+    const s = normalizePartnerSave(save);
+    const form = PARTNER_FORMS[s.equippedForm] || PARTNER_FORMS.normal;
+    return (
+     <div style={{width:size,height:size,borderRadius:'12px',background:'radial-gradient(circle,#fdf8f0,#dbeafe)',border:'1px solid #30363d',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',flexShrink:0}}>
+      {s.equippedForm === 'normal'
+       ? <img src="assets/food-research/hero-normal-portrait.png" style={{width:size-4,height:size-4,objectFit:'contain'}} />
+       : <div style={{fontSize:Math.floor(size*.56)}}>{form.emoji}</div>}
+     </div>
+    );
+   };
+   const openPartnerStatus = async (u, e) => {
+    e.stopPropagation();
+    setPartnerStatusTarget({user:u, save:normalizePartnerSave(u.gameSave || {}), loading:true});
+    try {
+     const snap = await db.collection(getPublicPath('users')).doc(u.phone).get();
+     const data = snap && snap.exists ? snap.data() : {};
+     setPartnerStatusTarget(prev => prev?.user?.phone === u.phone
+      ? {user:{...u,...data}, save:normalizePartnerSave(data.gameSave || u.gameSave || {}), loading:false}
+      : prev);
+    } catch(err) {
+     setPartnerStatusTarget(prev => prev?.user?.phone === u.phone ? {...prev, loading:false} : prev);
+    }
+   };
+   const renderPartnerStatusModal = () => {
+    if (!partnerStatusTarget) return null;
+    const ps = normalizePartnerSave(partnerStatusTarget.save || {});
+    const pf = PARTNER_FORMS[ps.equippedForm] || PARTNER_FORMS.normal;
+    const pt = ps.training || DEFAULT_PARTNER_SAVE.training;
+    const pe = ps.equip || DEFAULT_PARTNER_SAVE.equip;
+    const pa = Array.isArray(pe.amulets) ? [...pe.amulets,'','',''].slice(0,3) : ['','',''];
+    return (
+     <div className="fixed inset-0 z-[12000] flex items-center justify-center p-4" style={{background:'rgba(0,0,0,.62)', backdropFilter:'blur(5px)'}} onClick={()=>setPartnerStatusTarget(null)}>
+      <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:'360px',background:'#0d1117',border:'1px solid #30363d',borderRadius:'18px',padding:'16px',boxShadow:'0 18px 48px rgba(0,0,0,.45)'}}>
+       <div className="flex items-start justify-between mb-3">
+        <div>
+         <div className="text-[11px] font-black" style={{color:'#58a6ff'}}>夥伴狀態{partnerStatusTarget.loading?' · 更新中':''}</div>
+         <div className="text-xl font-black" style={{color:'#e6edf3'}}>{partnerStatusTarget.user?.name || '夥伴'}</div>
+        </div>
+        <button onClick={()=>setPartnerStatusTarget(null)} style={{background:'rgba(255,255,255,.06)',border:'1px solid #30363d',borderRadius:'10px',color:'#8b949e',fontWeight:900,padding:'5px 9px'}}>✕</button>
+       </div>
+       <div className="flex gap-3">
+        <PartnerThumb save={ps} size={118} />
+        <div className="flex-1">
+         <div className="text-[10px] font-bold" style={{color:'#8b949e'}}>目前型態</div>
+         <div className="text-sm font-black mb-2" style={{color:'#e6edf3'}}>{pf.emoji} {pf.name}</div>
+         <div className="text-[10px] mb-2" style={{color:'#8b949e',lineHeight:'1.5'}}>{PARTNER_FORM_DESC[ps.equippedForm]||'型態能力尚未解鎖說明'}</div>
+         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px'}}>
+          {TRAIN_STATS.map(s=>(
+          <div key={s.key} style={{background:'#161b22',border:'1px solid #21262d',borderRadius:'8px',padding:'5px 6px'}}>
+           <div className="text-[9px]" style={{color:'#8b949e'}}>{s.label}</div>
+           <div className="text-xs font-black" style={{color:'#58a6ff'}}>Lv {pt[s.key]||0}</div>
+          </div>
+          ))}
+         </div>
+        </div>
+       </div>
+       <div className="mt-3" style={{display:'grid',gap:'7px'}}>
+        <div style={{background:'#161b22',border:'1px solid #21262d',borderRadius:'10px',padding:'8px'}}>
+         <div className="text-[10px] font-bold" style={{color:'#8b949e'}}>遠程武器</div>
+         <div className="text-sm font-black" style={{color:'#58a6ff'}}>{pe.ranged||'初始食材砲'}</div>
+         <div className="text-[10px]" style={{color:'#6e7681',marginTop:'3px',lineHeight:'1.5'}}>{PARTNER_RANGED_DESC[pe.ranged||'初始食材砲']||'遠距離自動射擊武器'}</div>
+        </div>
+        <div style={{background:'#161b22',border:'1px solid #21262d',borderRadius:'10px',padding:'8px'}}>
+         <div className="text-[10px] font-bold" style={{color:'#8b949e'}}>近戰武器</div>
+         <div className="text-sm font-black" style={{color:'#f0883e'}}>{pe.melee||'初始鍋鏟'}</div>
+         <div className="text-[10px]" style={{color:'#6e7681',marginTop:'3px',lineHeight:'1.5'}}>{PARTNER_MELEE_DESC[pe.melee||'初始鍋鏟']||'近距離揮擊武器'}</div>
+        </div>
+        <div style={{background:'#161b22',border:'1px solid #21262d',borderRadius:'10px',padding:'8px'}}>
+         <div className="text-[10px] font-bold mb-1" style={{color:'#8b949e'}}>護符</div>
+         <div className="grid gap-1">
+          {pa.map((a,i)=><div key={i} style={{fontSize:'11px',fontWeight:900,color:a?'#d2a8ff':'#6e7681',border:'1px solid '+(a?'#8b5cf6':'#30363d'),borderRadius:'8px',padding:'5px 7px',background:a?'rgba(139,92,246,.15)':'transparent'}}>{a||`空欄 ${i+1}`}<div style={{fontSize:'9px',fontWeight:400,color:'#6e7681',marginTop:'2px'}}>{a?(PARTNER_AMULET_DESC[a]||'特殊護符效果'):'尚未裝備護符'}</div></div>)}
+         </div>
+        </div>
+       </div>
+      </div>
+     </div>
+    );
+   };
+   const togglePartner = (u) => {
    setChosenPartners(prev => {
     if (prev.some(p => p.phone === u.phone)) return prev.filter(p => p.phone !== u.phone);
     if (prev.length >= 2) return prev;
@@ -4996,32 +5138,35 @@ if (selectedActivity === 'food_research') {
      <div style={{fontSize:'10px', color:'#3fb950', marginTop:'4px', fontWeight:700}}>被選到的夥伴獲得 +20 💰 獎勵（記錄至戰況）</div>
      </div>
      <div style={{display:'flex', gap:'10px', justifyContent:'center'}}>
-     {[0,1].map(i=>{
-      const p=chosenPartners[i];
-      return (
-      <div key={i} style={{width:'100px', height:'80px', borderRadius:'14px', border:'2px solid '+(p?'#388bfd':'#30363d'), background:p?'rgba(31,111,235,.15)':'rgba(255,255,255,.03)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'4px'}}>
-       {p ? (<><div style={{fontSize:'24px'}}>🐾</div><div style={{fontSize:'10px', fontWeight:900, color:'#58a6ff', textAlign:'center'}}>{p.name}</div></>) : (<div style={{fontSize:'11px', color:'#30363d', fontWeight:700}}>空位</div>)}
+      {[0,1].map(i=>{
+       const p=chosenPartners[i];
+       return (
+       <div key={i} style={{width:'100px', height:'80px', borderRadius:'14px', border:'2px solid '+(p?'#388bfd':'#30363d'), background:p?'rgba(31,111,235,.15)':'rgba(255,255,255,.03)', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:'4px'}}>
+        {p ? (<><PartnerThumb save={p.gameSave || {equippedForm:p.equippedForm||'normal'}} size={38} /><div style={{fontSize:'10px', fontWeight:900, color:'#58a6ff', textAlign:'center'}}>{p.name}</div></>) : (<div style={{fontSize:'11px', color:'#30363d', fontWeight:700}}>空位</div>)}
+       </div>
+       );
+      })}
       </div>
-      );
-     })}
-     </div>
      {branchmates.length === 0 ? (
      <div style={{textAlign:'center', padding:'20px 0', color:'#8b949e', fontSize:'12px', fontWeight:700}}>無同事可選，單人出征！</div>
-     ) : branchmates.map(u => {
-     const selected = chosenPartners.some(p=>p.phone===u.phone);
-     return (
-      <div key={u.phone} onClick={()=>togglePartner(u)} style={{...cardStyle, display:'flex', alignItems:'center', gap:'12px', borderColor:selected?'#388bfd':'#30363d', background:selected?'rgba(31,111,235,.12)':'#161b22', cursor:'pointer'}}>
-      <div style={{width:'38px', height:'38px', borderRadius:'50%', background:'rgba(31,111,235,.2)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'18px', flexShrink:0}}>🐾</div>
-      <div style={{flex:1}}>
-       <div style={{fontWeight:900, fontSize:'13px', color:'#e6edf3'}}>{u.name}</div>
-       <div style={{fontSize:'10px', color:'#8b949e'}}>{normalizeRole(u.role) || '員工'}</div>
-      </div>
-      {selected && <div style={{width:'22px', height:'22px', borderRadius:'50%', background:'#1f6feb', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px'}}>✓</div>}
-      </div>
-     );
-     })}
-    </div>
-    <div style={{padding:'14px', borderTop:'1px solid #21262d', background:'#161b22', flexShrink:0}}>
+      ) : branchmates.map(u => {
+      const selected = chosenPartners.some(p=>p.phone===u.phone);
+      const rowSave = normalizePartnerSave(u.gameSave || {});
+      return (
+       <div key={u.phone} onClick={()=>togglePartner(u)} style={{...cardStyle, display:'flex', alignItems:'center', gap:'10px', borderColor:selected?'#388bfd':'#30363d', background:selected?'rgba(31,111,235,.12)':'#161b22', cursor:'pointer'}}>
+       <PartnerThumb save={rowSave} size={48} />
+       <div style={{flex:1, textAlign:'left', minWidth:0}}>
+        <div style={{fontWeight:900, fontSize:'13px', color:'#e6edf3', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{u.name}</div>
+        <div style={{fontSize:'10px', color:'#8b949e'}}>{normalizeRole(u.role) || '員工'}</div>
+       </div>
+       <button onClick={(e)=>openPartnerStatus(u,e)} style={{padding:'8px 11px',borderRadius:'10px',border:'1px solid #30363d',background:'rgba(88,166,255,.12)',color:'#58a6ff',fontSize:'11px',fontWeight:900,flexShrink:0}}>狀態</button>
+       {selected && <div style={{width:'22px', height:'22px', borderRadius:'50%', background:'#1f6feb', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'12px'}}>✓</div>}
+       </div>
+      );
+      })}
+     </div>
+     {renderPartnerStatusModal()}
+     <div style={{padding:'14px', borderTop:'1px solid #21262d', background:'#161b22', flexShrink:0}}>
      <button onClick={() => { if(!window._gameJsReady){ triggerNotify('遊戲載入中，請稍候...','info'); return; } handleDeparture(); }} style={{...btnPrimary, padding:'14px 0', fontSize:'14px'}}>
      ⚔️ 帶著{chosenPartners.length>0?chosenPartners.map(p=>p.name).join('、'):'單人'}出征！
      </button>
@@ -5054,6 +5199,7 @@ if (selectedActivity === 'food_research') {
   playerName: currentUser?.name || (isSuperAdmin ? '主廚' : '玩家'),
   playerPhone: playerPhone,
   savedStageKey: savedStageKey,
+  isSuperAdmin: !!isSuperAdmin,
  });
 
  // 遊戲 HTML 由 game.js 提供，這裡動態組裝
@@ -5170,6 +5316,44 @@ if (selectedActivity === 'food_research') {
  const campSave = loadSave();
  const campGold = campSave.gold || 0;
  const campForm = FOOD_FORMS_CAMP[campSave.equippedForm || 'normal'] || {name:'原味型',emoji:'🍙'};
+ const campTraining = campSave.training || {atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0};
+ const campEquip = campSave.equip || {ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']};
+ const campAmulets = Array.isArray(campEquip.amulets) ? [...campEquip.amulets,'','',''].slice(0,3) : ['','',''];
+ const CAMP_RANGED_DESC = {
+  '初始食材砲':'直線射擊，傷害適中，適合入門',
+  '食材砲':'直線射擊，傷害適中，適合入門',
+  '調味料噴射器':'扇形廣域彈幕，適合對付密集敵人',
+  '冷凍光線':'冰結光束，命中後凍結敵人',
+  '辣油火焰炮':'燃燒彈幕，讓敵人持續受傷',
+  '醬汁雷射':'高傷害穿透彈，可貫穿多個敵人',
+ };
+ const CAMP_MELEE_DESC = {
+  '初始鍋鏟':'短距揮砍，傷害穩定',
+  '鍋鏟劍':'攻速與傷害均衡的基礎近戰',
+  '擀麵棍':'重型棍棒，單次打擊高且可震退',
+  '菜刀':'高速連斬，適合近距離爆發',
+  '炒菜鍋':'圓弧揮擊，能打到較大範圍',
+  '砧板護盾':'格擋型武器，受擊減傷並縮短技能冷卻',
+ };
+ const CAMP_AMULET_DESC = {
+  '廚神護符':'攻擊力+15%',
+  '食安符':'最大血量+30',
+  '鮮度符':'持續回血效果提升',
+  '辛香符':'爆擊率+8%',
+  '溫度符':'受到傷害-10%',
+  '時令符':'金幣獲取+20%',
+ };
+ const CAMP_FORM_DESC = {
+  normal:'普通型，均衡屬性。技能：雙彈衝刺、能量爆發。',
+  burger:'防禦型，受傷降低。技能偏向護盾與衝撞。',
+  chili:'進攻型，附加燃燒。技能偏向追蹤與火焰傷害。',
+  tofu:'生存型，定期回血。技能偏向護盾與治癒。',
+  noodle:'速度型，移動速度提高。技能偏向連射與散射。',
+  rice:'收益型，金幣獲取提高。技能偏向金幣彈與護罩。',
+  ramen:'續戰型，爆擊與回血兼具。技能偏向熱湯與爆炸。',
+  sushi:'敏捷型，速度與爆擊提高。技能偏向精準連擊。',
+  steak:'重攻型，攻擊與爆擊提高。技能偏向高傷衝擊。',
+ };
 
  const FACILITIES = [
   { id:'training',  emoji:'⚔️', label:'訓練所',   sub:'提升白白能力數值',   color:'#1f6feb' },
@@ -5202,14 +5386,16 @@ if (selectedActivity === 'food_research') {
    </div>
 
    {/* White-white mascot area */}
-   <div className="flex items-center gap-3 px-3 py-2 shrink-0" style={{borderBottom:'1px solid #21262d', background:'#161b22'}}>
+   <div onClick={()=>setShowCharStatus(true)} className="flex items-center gap-3 px-3 py-2 shrink-0 active:scale-[.99]" style={{borderBottom:'1px solid #21262d', background:'#161b22', cursor:'pointer'}}>
     <div className="w-10 h-10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style={{background:'rgba(31,111,235,.15)', border:'2px solid rgba(31,111,235,.3)'}}>
-     {campForm.emoji}
+     {(campSave.equippedForm||'normal')==='normal'
+      ? <img src="assets/food-research/hero-normal-portrait.png" style={{width:'38px',height:'38px',objectFit:'contain'}} />
+      : campForm.emoji}
     </div>
     <div>
      <div className="font-black text-sm" style={{color:'#e6edf3'}}>白白</div>
      <div className="text-[10px]" style={{color:'#58a6ff'}}>型態：{campForm.name}</div>
-     <div className="text-[10px]" style={{color:'#3fb950'}}>今日任務 {todayDone}/3 完成</div>
+     <div className="text-[10px]" style={{color:'#3fb950'}}>今日任務 {todayDone}/3 完成 · 點擊查看狀態</div>
     </div>
     <div className="ml-auto text-right">
      <div className="text-[10px]" style={{color:'#8b949e'}}>訓練等級</div>
@@ -5243,6 +5429,58 @@ if (selectedActivity === 'food_research') {
      ))}
     </div>
    </div>
+
+   {showCharStatus && (
+   <div className="fixed inset-0 z-[12000] flex items-center justify-center p-4" style={{background:'rgba(0,0,0,.62)', backdropFilter:'blur(5px)'}} onClick={()=>setShowCharStatus(false)}>
+    <div onClick={e=>e.stopPropagation()} style={{width:'100%',maxWidth:'360px',background:'#0d1117',border:'1px solid #30363d',borderRadius:'18px',padding:'16px',boxShadow:'0 18px 48px rgba(0,0,0,.45)'}}>
+     <div className="flex items-start justify-between mb-3">
+      <div>
+       <div className="text-[11px] font-black" style={{color:'#58a6ff'}}>角色狀態</div>
+       <div className="text-xl font-black" style={{color:'#e6edf3'}}>白白</div>
+      </div>
+      <button onClick={()=>setShowCharStatus(false)} style={{background:'rgba(255,255,255,.06)',border:'1px solid #30363d',borderRadius:'10px',color:'#8b949e',fontWeight:900,padding:'5px 9px'}}>✕</button>
+     </div>
+     <div className="flex gap-3">
+      <div style={{width:'118px',height:'118px',borderRadius:'14px',background:'radial-gradient(circle,#fdf8f0,#dbeafe)',border:'1px solid #58a6ff',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',flexShrink:0}}>
+       {(campSave.equippedForm||'normal')==='normal'
+        ? <img src="assets/food-research/hero-normal-portrait.png" style={{width:'112px',height:'112px',objectFit:'contain'}} />
+        : <div style={{fontSize:'54px'}}>{campForm.emoji}</div>}
+      </div>
+      <div className="flex-1">
+       <div className="text-[10px] font-bold" style={{color:'#8b949e'}}>目前型態</div>
+       <div className="text-sm font-black mb-2" style={{color:'#e6edf3'}}>{campForm.emoji} {campForm.name}</div>
+       <div className="text-[10px] mb-2" style={{color:'#8b949e',lineHeight:'1.5'}}>{CAMP_FORM_DESC[campSave.equippedForm||'normal']||'型態能力尚未解鎖說明'}</div>
+       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px'}}>
+        {TRAIN_STATS.map(s=>(
+        <div key={s.key} style={{background:'#161b22',border:'1px solid #21262d',borderRadius:'8px',padding:'5px 6px'}}>
+         <div className="text-[9px]" style={{color:'#8b949e'}}>{s.label}</div>
+         <div className="text-xs font-black" style={{color:'#58a6ff'}}>Lv {campTraining[s.key]||0}</div>
+        </div>
+        ))}
+       </div>
+      </div>
+     </div>
+     <div className="mt-3" style={{display:'grid',gap:'7px'}}>
+      <div style={{background:'#161b22',border:'1px solid #21262d',borderRadius:'10px',padding:'8px'}}>
+       <div className="text-[10px] font-bold" style={{color:'#8b949e'}}>遠程武器</div>
+       <div className="text-sm font-black" style={{color:'#58a6ff'}}>{campEquip.ranged||'初始食材砲'}</div>
+       <div className="text-[10px]" style={{color:'#6e7681',marginTop:'3px',lineHeight:'1.5'}}>{CAMP_RANGED_DESC[campEquip.ranged||'初始食材砲']||'遠距離自動射擊武器'}</div>
+      </div>
+      <div style={{background:'#161b22',border:'1px solid #21262d',borderRadius:'10px',padding:'8px'}}>
+       <div className="text-[10px] font-bold" style={{color:'#8b949e'}}>近戰武器</div>
+       <div className="text-sm font-black" style={{color:'#f0883e'}}>{campEquip.melee||'初始鍋鏟'}</div>
+       <div className="text-[10px]" style={{color:'#6e7681',marginTop:'3px',lineHeight:'1.5'}}>{CAMP_MELEE_DESC[campEquip.melee||'初始鍋鏟']||'近距離揮擊武器'}</div>
+      </div>
+      <div style={{background:'#161b22',border:'1px solid #21262d',borderRadius:'10px',padding:'8px'}}>
+       <div className="text-[10px] font-bold mb-1" style={{color:'#8b949e'}}>護符</div>
+       <div className="grid gap-1">
+        {campAmulets.map((a,i)=><div key={i} style={{fontSize:'11px',fontWeight:900,color:a?'#d2a8ff':'#6e7681',border:'1px solid '+(a?'#8b5cf6':'#30363d'),borderRadius:'8px',padding:'5px 7px',background:a?'rgba(139,92,246,.15)':'transparent'}}>{a||`空欄 ${i+1}`}<div style={{fontSize:'9px',fontWeight:400,color:'#6e7681',marginTop:'2px'}}>{a?(CAMP_AMULET_DESC[a]||'特殊護符效果'):'尚未裝備護符'}</div></div>)}
+       </div>
+      </div>
+     </div>
+    </div>
+   </div>
+   )}
 
    {/* 營地聊天室 */}
    <CampChat currentUser={currentUser} currentBranch={currentBranch} getPublicPath={getPublicPath} db={db} allUsers={allUsers} />
