@@ -570,7 +570,7 @@ window._gameJsReady = false;
   document.head.appendChild(s);
 })();
 </script>
-    <script type="text/babel">
+    <script type="text/babel" data-cache="false">
     const { useState, useEffect, useCallback, useMemo, useRef } = React;
 
     const appIdGlobal = 'kitchen-v16';
@@ -958,7 +958,7 @@ window._gameJsReady = false;
     const RecipeAdminManager = ({ categoryPath, currentBranch, globalBranches, isSuperAdmin, items = [], triggerNotify, getPublicPath, categories, globalRecipes = [] }) => {
      const [newT, setNewT] = useState(''); 
      const [newCat, setNewCat] = useState(categories ? categories[0] : '');
-     const [newIngList, setNewIngList] = useState([{ name: '', qty: '' }]);
+     const [newIngList, setNewIngList] = useState([{ name: '', qty: '', vendor: '' }]);
      const [newInst, setNewInst] = useState('');
      const [newNote, setNewNote] = useState('');
      const [newI, setNewI] = useState(null);
@@ -971,20 +971,25 @@ window._gameJsReady = false;
 
      const [draggedId, setDraggedId] = useState(null);
      const [overId, setOverId] = useState(null);
+     const [draggedIngIndex, setDraggedIngIndex] = useState(null);
+     const [overIngIndex, setOverIngIndex] = useState(null);
 
      const getItemKey = (item, index = 0) => String(item?.id || item?.title || item?.name || item?.timestamp || item?.updateTime || item?.content || `legacy_${index}`);
+     const normalizeIngredientList = (list, fallback = '') => {
+      const source = Array.isArray(list) && list.length > 0
+        ? list
+        : (fallback ? [{ name: fallback, qty: '', vendor: '' }] : [{ name: '', qty: '', vendor: '' }]);
+      return source.map(ing => {
+        if (typeof ing === 'string') return { name: ing, qty: '', vendor: '' };
+        return { name: ing?.name || '', qty: ing?.qty || '', vendor: ing?.vendor || '' };
+      });
+     };
 
      const fillFormFromRecipe = (item) => {
       setEditingId(getItemKey(item));
       setNewT(item.title || '');
       
-      if (item.ingredientsList && item.ingredientsList.length > 0) {
-        setNewIngList(item.ingredientsList);
-      } else if (item.ingredients) {
-        setNewIngList([{ name: item.ingredients, qty: '' }]);
-      } else {
-        setNewIngList([{ name: '', qty: '' }]);
-      }
+      setNewIngList(normalizeIngredientList(item.ingredientsList, item.ingredients || ''));
 
       setNewInst(item.instructions || item.content || ''); 
       setNewNote(item.notes || '');
@@ -1008,7 +1013,7 @@ window._gameJsReady = false;
      };
 
      const cancelEdit = () => {
-      setEditingId(null); setNewT(''); setNewIngList([{ name: '', qty: '' }]); setNewInst(''); setNewNote(''); setNewI(null);
+      setEditingId(null); setNewT(''); setNewIngList([{ name: '', qty: '', vendor: '' }]); setNewInst(''); setNewNote(''); setNewI(null);
       setEditingGlobalRecipeDocId(null); setEditingGlobalRecipeItemId(null);
       if (categories) setNewCat(categories[0]);
      };
@@ -1022,7 +1027,9 @@ window._gameJsReady = false;
       const sharedId = editingId ? String(editingId) : (editingGlobalRecipeItemId ? String(editingGlobalRecipeItemId) : crypto.randomUUID());
       const now = Date.now();
       
-      const validIngList = newIngList.filter(i => i.name.trim() !== '');
+      const validIngList = normalizeIngredientList(newIngList)
+        .map(i => ({ name: String(i.name || '').trim(), qty: String(i.qty || '').trim(), vendor: String(i.vendor || '').trim() }))
+        .filter(i => i.name !== '');
 
       const itemData = { 
         id: sharedId, 
@@ -1171,6 +1178,22 @@ window._gameJsReady = false;
       setOverId(null);
      };
 
+     const handleIngredientDragStart = (index) => setDraggedIngIndex(index);
+     const handleIngredientDragOver = (e, index) => {
+      e.preventDefault();
+      if (index !== draggedIngIndex) setOverIngIndex(index);
+     };
+     const handleIngredientDragEnd = () => {
+      if (draggedIngIndex !== null && overIngIndex !== null && draggedIngIndex !== overIngIndex) {
+        const nextList = [...newIngList];
+        const [movedIngredient] = nextList.splice(draggedIngIndex, 1);
+        nextList.splice(overIngIndex, 0, movedIngredient);
+        setNewIngList(nextList);
+      }
+      setDraggedIngIndex(null);
+      setOverIngIndex(null);
+     };
+
      const isEditingRecipe = !!editingId || !!editingGlobalRecipeDocId;
      const uncategorizedLabel = '未分類';
      const categoryTabs = useMemo(() => {
@@ -1223,15 +1246,33 @@ window._gameJsReady = false;
          <input placeholder="輸入菜單名稱..." value={newT} onChange={e=>setNewT(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none border-brand-red/30 focus:border-brand-red" />
          
          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 shadow-inner space-y-3">
-           <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><Icon name="shopping-bag" size={14}/> 食材清單配置</h4>
+           <div className="flex items-center justify-between gap-3">
+            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><Icon name="shopping-bag" size={14}/> 食材清單配置</h4>
+            {newIngList.length > 1 && <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1"><Icon name="grip-vertical" size={12}/> 拖曳排序</span>}
+           </div>
            {newIngList.map((ing, idx) => (
-            <div key={idx} className="flex gap-2 items-center">
-              <input placeholder="食材 (例: 牛油)" value={ing.name} onChange={e => { const l = [...newIngList]; l[idx].name = e.target.value; setNewIngList(l); }} className="flex-1 input-light p-3 rounded-lg text-sm font-bold outline-none" />
-              <input placeholder="數量單位 (例: 4 kg)" value={ing.qty} onChange={e => { const l = [...newIngList]; l[idx].qty = e.target.value; setNewIngList(l); }} className="w-2/5 input-light p-3 rounded-lg text-sm font-bold outline-none" />
-              <button onClick={() => { if(newIngList.length > 1) setNewIngList(newIngList.filter((_, i) => i !== idx)) }} className={`p-2 rounded-lg transition-colors ${newIngList.length > 1 ? 'text-slate-400 hover:bg-red-50 hover:text-red-500' : 'text-slate-200 cursor-not-allowed'}`} disabled={newIngList.length === 1}><Icon name="x" size={18}/></button>
+            <div
+              key={idx}
+              onDragOver={(e) => handleIngredientDragOver(e, idx)}
+              className={`grid grid-cols-[auto_minmax(150px,1.25fr)_minmax(110px,0.8fr)_minmax(120px,0.9fr)_auto] gap-2 items-center overflow-x-auto no-scrollbar rounded-xl border p-2 transition-all duration-200 ${draggedIngIndex === idx ? 'opacity-40 scale-95 border-brand-red/50 bg-white' : 'border-transparent'} ${overIngIndex === idx ? 'border-brand-red/40 bg-white shadow-sm translate-y-0.5' : ''}`}
+            >
+              <button
+               type="button"
+               draggable={newIngList.length > 1}
+               onDragStart={() => handleIngredientDragStart(idx)}
+               onDragEnd={handleIngredientDragEnd}
+               className={`h-11 px-2 rounded-lg flex items-center justify-center transition-colors ${newIngList.length > 1 ? 'cursor-grab active:cursor-grabbing text-slate-300 hover:text-brand-red hover:bg-white' : 'text-slate-200 cursor-not-allowed'}`}
+               title="拖曳調整食材順序"
+              >
+               <Icon name="grip-vertical" size={18} />
+              </button>
+              <input placeholder="食材 (例: 牛油)" value={ing.name} onChange={e => { const l = [...newIngList]; l[idx].name = e.target.value; setNewIngList(l); }} className="w-full min-w-0 input-light p-3 rounded-lg text-sm font-bold outline-none" />
+              <input placeholder="數量單位 (例: 4 kg)" value={ing.qty} onChange={e => { const l = [...newIngList]; l[idx].qty = e.target.value; setNewIngList(l); }} className="w-full min-w-0 input-light p-3 rounded-lg text-sm font-bold outline-none" />
+              <input placeholder="廠商 (例: 王記肉品)" value={ing.vendor || ''} onChange={e => { const l = [...newIngList]; l[idx].vendor = e.target.value; setNewIngList(l); }} className="w-full min-w-0 input-light p-3 rounded-lg text-sm font-bold outline-none" />
+              <button onClick={() => { if(newIngList.length > 1) setNewIngList(newIngList.filter((_, i) => i !== idx)) }} className={`h-11 px-2 rounded-lg transition-colors flex items-center justify-center ${newIngList.length > 1 ? 'text-slate-400 hover:bg-red-50 hover:text-red-500' : 'text-slate-200 cursor-not-allowed'}`} disabled={newIngList.length === 1}><Icon name="x" size={18}/></button>
             </div>
            ))}
-           <button onClick={() => setNewIngList([...newIngList, {name: '', qty: ''}])} className="w-full py-3 rounded-lg border-2 border-dashed border-slate-200 text-slate-500 font-bold text-xs hover:border-brand-red/50 hover:text-brand-red transition-colors flex items-center justify-center gap-2">
+           <button onClick={() => setNewIngList([...newIngList, {name: '', qty: '', vendor: ''}])} className="w-full py-3 rounded-lg border-2 border-dashed border-slate-200 text-slate-500 font-bold text-xs hover:border-brand-red/50 hover:text-brand-red transition-colors flex items-center justify-center gap-2">
             <Icon name="plus" size={14} /> 新增一列食材
            </button>
          </div>
@@ -1293,7 +1334,7 @@ window._gameJsReady = false;
                           onClick={() => {
                             setNewT(r.title); 
                             setNewCat(r.category || categories[0]); 
-                            setNewIngList(r.ingredientsList || [{name: r.ingredients || '', qty: ''}]); 
+                            setNewIngList(normalizeIngredientList(r.ingredientsList, r.ingredients || '')); 
                             setNewInst(r.instructions || r.content || ''); 
                             setNewNote(r.notes || ''); 
                             setNewI(r.img || null); 
@@ -2662,17 +2703,51 @@ window._gameJsReady = false;
       }
      }, [availableCats, activeCat]);
 
+     const normalizeDisplayIngredient = (ing) => {
+      if (typeof ing === 'string') return { name: ing, qty: '', vendor: '' };
+      return { name: ing?.name || '', qty: ing?.qty || '', vendor: ing?.vendor || '' };
+     };
+
+     const renderIngredientRow = (rawIng, idx) => {
+      const ing = normalizeDisplayIngredient(rawIng);
+      return (
+       <div key={idx} className="border-b border-orange-200/50 pb-2">
+        <div className="flex justify-between items-start gap-2">
+         <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+          <span className="text-sm font-bold text-slate-700 break-words min-w-0">{ing.name}</span>
+          {ing.vendor && (
+           <details className="relative group">
+            <summary className="inline-flex items-center gap-1.5 text-[10px] font-black text-slate-500 bg-white/70 border border-orange-100 px-2 py-1 rounded-lg cursor-pointer select-none active:scale-95 transition-all">
+             <Icon name="store" size={12} /> 查看廠商
+            </summary>
+            <div className="mt-2 text-xs font-black text-slate-700 bg-white/90 border border-orange-100 rounded-xl px-3 py-2 break-words">
+             {ing.vendor}
+            </div>
+           </details>
+          )}
+         </div>
+         <span className="text-sm font-black text-orange-600 bg-orange-100/50 px-2 py-0.5 rounded-md shrink-0 whitespace-nowrap">{ing.qty}</span>
+        </div>
+       </div>
+      );
+     };
+
      const handlePrint = (item) => {
       const printWindow = window.open('', '_blank');
       
       const ingredientsHtml = item.ingredientsList && item.ingredientsList.length > 0
         ? `<table style="width:100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed;">
-         ${item.ingredientsList.map(ing => `
+         ${item.ingredientsList.map(rawIng => {
+           const ing = normalizeDisplayIngredient(rawIng);
+           return `
            <tr>
-            <td style="padding: 8px 0; border-bottom: 1px dashed #cbd5e1; font-size: 15px; color: #334155; word-break: break-word;">${ing.name}</td>
+            <td style="padding: 8px 0; border-bottom: 1px dashed #cbd5e1; font-size: 15px; color: #334155; word-break: break-word;">
+              <div>${ing.name}</div>
+            </td>
             <td style="padding: 8px 0; border-bottom: 1px dashed #cbd5e1; font-size: 15px; font-weight: 900; color: #d97706; text-align: right; width: 35%; white-space: nowrap;">${ing.qty}</td>
            </tr>
-         `).join('')}
+         `;
+         }).join('')}
          </table>`
         : `<pre>${item.ingredients || '無提供'}</pre>`;
 
@@ -2812,12 +2887,7 @@ window._gameJsReady = false;
                   
                   {selectedRecipe.ingredientsList && selectedRecipe.ingredientsList.length > 0 ? (
                     <div className="space-y-1.5 mt-3">
-                     {selectedRecipe.ingredientsList.map((ing, idx) => (
-                       <div key={idx} className="flex justify-between items-end border-b border-orange-200/50 pb-1.5 gap-2">
-                        <span className="text-sm font-bold text-slate-700 break-words flex-1 min-w-0">{ing.name}</span>
-                        <span className="text-sm font-black text-orange-600 bg-orange-100/50 px-2 py-0.5 rounded-md shrink-0 whitespace-nowrap">{ing.qty}</span>
-                       </div>
-                     ))}
+                     {selectedRecipe.ingredientsList.map(renderIngredientRow)}
                     </div>
                   ) : (
                     <p className="text-sm font-bold text-slate-700 whitespace-pre-wrap break-all leading-relaxed">{selectedRecipe.ingredients || '未提供'}</p>
@@ -6540,10 +6610,10 @@ return (
                <div className="relative mt-2">
                  <img src={act.img} className="w-full h-32 object-cover rounded-xl border shadow-inner" />
                  <button onClick={() => handleSaveActivity(act.id, 'img', null)} className="absolute top-2 right-2 bg-slate-900/60 hover:bg-red-500 text-white p-1.5 rounded-full backdrop-blur-sm transition-all"><Icon name="x" size={14}/></button>
-               </div>
-              )}
-            </div>
-           ))}
+                         </div>
+                        )}
+                       </div>
+                     ))}
          </div>
         )}
 
