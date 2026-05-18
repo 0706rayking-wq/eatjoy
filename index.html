@@ -3168,20 +3168,167 @@ window._gameJsReady = false;
       activeQuantities: data.activeQuantities && typeof data.activeQuantities === 'object' ? data.activeQuantities : {}
      });
      const currentDb = useMemo(() => normalizeOrderingDb(storeDatabases[selectedBranch]), [storeDatabases, selectedBranch]);
+     const lastOrderingBackupAtRef = useRef({});
+
+     const isMeaningfulOrderingDb = (data = {}) => {
+      const normalized = normalizeOrderingDb(data);
+      const activeValues = Object.values(normalized.activeQuantities || {});
+      return normalized.ingredients.length > 0 ||
+        normalized.vendors.length > 0 ||
+        normalized.history.length > 0 ||
+        activeValues.some(v => parseFloat(v || 0) > 0);
+     };
+
+     const getOrderingLocalBackupKey = (branch) => `eatjoy_ordering_backup_${branch}`;
+
+     const saveOrderingLocalBackup = (branch, data) => {
+      if (!branch || !isMeaningfulOrderingDb(data)) return;
+      try {
+        localStorage.setItem(getOrderingLocalBackupKey(branch), JSON.stringify({
+         savedAt: Date.now(),
+         data: normalizeOrderingDb(data)
+        }));
+      } catch(e) {
+        console.warn("叫貨本機備份失敗", e);
+      }
+     };
+
+     const loadOrderingLocalBackup = (branch) => {
+      try {
+        const raw = localStorage.getItem(getOrderingLocalBackupKey(branch));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed?.data ? normalizeOrderingDb(parsed.data) : null;
+      } catch(e) {
+        return null;
+      }
+     };
+
+     const makeOrderingBranchAliases = (branch) => {
+      const raw = String(branch || '').trim();
+      const aliases = new Set([raw, raw.replace(/\s+/g, '')]);
+      Array.from(aliases).forEach(name => {
+        if (/lalaport/i.test(name)) {
+         ['Lalaport', 'LaLaport', 'lalaport', 'LALAPORT'].forEach(v => aliases.add(name.replace(/lalaport/ig, v)));
+        }
+      });
+      return Array.from(aliases).filter(Boolean);
+     };
+
+     const readOrderingDbByBranch = async (branch) => {
+      const snap = await db.doc(getPublicPath(`ordering/db_${branch}`)).get();
+      return snap.exists ? normalizeOrderingDb(snap.data()) : null;
+     };
+
+     const fetchLatestOrderingBackup = async (branch) => {
+      try {
+        const snap = await db.collection(getPublicPath(`ordering_backups/db_${branch}/items`))
+         .orderBy('backupMeta.createdAt', 'desc')
+         .limit(1)
+         .get();
+        if (!snap.empty) return normalizeOrderingDb(snap.docs[0].data());
+      } catch(e) {
+        try {
+         const fallback = await db.collection(getPublicPath(`ordering_backups/db_${branch}/items`)).get();
+         const docs = fallback.docs.map(d => d.data()).sort((a, b) => (b.backupMeta?.createdAt || 0) - (a.backupMeta?.createdAt || 0));
+         if (docs[0]) return normalizeOrderingDb(docs[0]);
+        } catch(err) {
+         console.warn("讀取叫貨備份失敗", err);
+        }
+      }
+      return null;
+     };
+
+     const findRestorableOrderingDb = async (branch) => {
+      const aliases = makeOrderingBranchAliases(branch).filter(alias => alias !== branch);
+      for (const alias of aliases) {
+        const data = await readOrderingDbByBranch(alias).catch(() => null);
+        if (data && isMeaningfulOrderingDb(data)) return { data, source: `舊分店名稱「${alias}」` };
+      }
+
+      const localBackup = loadOrderingLocalBackup(branch);
+      if (localBackup && isMeaningfulOrderingDb(localBackup)) return { data: localBackup, source: "本機備份" };
+
+      const remoteBackup = await fetchLatestOrderingBackup(branch);
+      if (remoteBackup && isMeaningfulOrderingDb(remoteBackup)) return { data: remoteBackup, source: "雲端備份" };
+
+      return null;
+     };
+
+     const backupOrderingDb = async (branch, data, reason = 'before_update') => {
+      if (!branch || !isMeaningfulOrderingDb(data)) return;
+      saveOrderingLocalBackup(branch, data);
+      const now = Date.now();
+      const lastAt = lastOrderingBackupAtRef.current[branch] || 0;
+      if (reason === 'before_update' && now - lastAt < 30000) return;
+      lastOrderingBackupAtRef.current[branch] = now;
+      const backupDb = normalizeOrderingDb(data);
+      db.collection(getPublicPath(`ordering_backups/db_${branch}/items`)).doc(String(now)).set({
+        ...backupDb,
+        backupMeta: {
+         branch,
+         createdAt: now,
+         reason,
+         itemCount: backupDb.ingredients.length,
+         vendorCount: backupDb.vendors.length,
+         historyCount: backupDb.history.length,
+         version: 1
+        }
+      }).catch(e => console.warn("建立叫貨備份失敗", e));
+     };
 
      const [orderQuantities, setOrderQuantities] = useState({});
 
      useEffect(() => {
       if (!selectedBranch) return;
       const docPath = getPublicPath(`ordering/db_${selectedBranch}`);
-      const unsubscribe = db.doc(docPath).onSnapshot(docSnap => {
-        if (docSnap.exists) {
-         const data = normalizeOrderingDb(docSnap.data());
-         setStoreDatabases(prev => ({ ...prev, [selectedBranch]: data }));
-         setOrderQuantities(data.activeQuantities);
+      let restoreAttempted = false;
+
+      const applyOrderingDb = (data) => {
+        const normalized = normalizeOrderingDb(data);
+        setStoreDatabases(prev => ({ ...prev, [selectedBranch]: normalized }));
+        setOrderQuantities(normalized.activeQuantities);
+        saveOrderingLocalBackup(selectedBranch, normalized);
+      };
+
+      const restoreIfPossible = async () => {
+        const restored = await findRestorableOrderingDb(selectedBranch);
+        if (!restored || !isMeaningfulOrderingDb(restored.data)) return false;
+
+        const restoredData = normalizeOrderingDb(restored.data);
+        await db.doc(docPath).set({
+         ...restoredData,
+         restoredAt: Date.now(),
+         restoredFrom: restored.source
+        }, { merge: true });
+        applyOrderingDb(restoredData);
+        triggerNotify(`已從${restored.source}找回「${selectedBranch}」叫貨資料`, "success");
+        return true;
+      };
+
+      const unsubscribe = db.doc(docPath).onSnapshot(async docSnap => {
+        try {
+         if (docSnap.exists) {
+           const data = normalizeOrderingDb(docSnap.data());
+           if (isMeaningfulOrderingDb(data)) {
+            applyOrderingDb(data);
+           } else if (!restoreAttempted) {
+            restoreAttempted = true;
+            const restored = await restoreIfPossible();
+            if (!restored) applyOrderingDb(data);
+           } else {
+            applyOrderingDb(data);
+           }
+        } else if (!restoreAttempted) {
+           restoreAttempted = true;
+           const restored = await restoreIfPossible();
+           if (!restored) applyOrderingDb(orderingDefaultDb);
         } else {
-         setStoreDatabases(prev => ({ ...prev, [selectedBranch]: orderingDefaultDb }));
-         db.doc(docPath).set(orderingDefaultDb);
+           applyOrderingDb(orderingDefaultDb);
+        }
+        } catch(e) {
+         console.error("叫貨資料還原失敗:", e);
+         triggerNotify("叫貨資料還原失敗，請檢查網路連線", "error");
         }
       }, err => {
         console.error("讀取叫貨資料庫失敗:", err);
@@ -3226,11 +3373,17 @@ window._gameJsReady = false;
      const [editVendorNewName, setEditVendorNewName] = useState('');
 
      const updateCurrentDb = (newData) => {
-      const updatedDb = { ...currentDb, ...newData };
+      const updatedDb = normalizeOrderingDb({ ...currentDb, ...newData });
       setStoreDatabases(prev => ({ ...prev, [selectedBranch]: updatedDb }));
-      db.doc(getPublicPath(`ordering/db_${selectedBranch}`)).set(updatedDb, { merge: true }).catch(e => {
+      saveOrderingLocalBackup(selectedBranch, updatedDb);
+      backupOrderingDb(selectedBranch, currentDb).finally(() => {
+       db.doc(getPublicPath(`ordering/db_${selectedBranch}`)).set({
+        ...updatedDb,
+        updatedAt: Date.now()
+       }, { merge: true }).catch(e => {
         console.error("更新叫貨資料失敗", e);
         triggerNotify("儲存失敗，請檢查網路連線", "error");
+       });
       });
      };
 
@@ -3869,7 +4022,7 @@ window._gameJsReady = false;
                      </div>
                      <div className="flex gap-1">
                        <button onClick={() => { setEditingIngredientId(item.id); setEditIngredientData(item); }} className="bg-slate-50 text-slate-400 hover:text-blue-500 p-2.5 rounded-xl"><OrderSymbolIcon name="Edit" /></button>
-                       <button onClick={() => updateCurrentDb({ ingredients: currentDb.ingredients.filter(i => i.id !== item.id) })} className="bg-rose-50 text-rose-400 hover:text-rose-600 p-2.5 rounded-xl"><OrderSymbolIcon name="Trash2" /></button>
+                       <button onClick={() => { if(window.confirm(`確定刪除「${item.name}」嗎？`)) updateCurrentDb({ ingredients: currentDb.ingredients.filter(i => i.id !== item.id) }); }} className="bg-rose-50 text-rose-400 hover:text-rose-600 p-2.5 rounded-xl"><OrderSymbolIcon name="Trash2" /></button>
                      </div>
                     </div>
                   )
@@ -3919,7 +4072,7 @@ window._gameJsReady = false;
                      <span className="font-bold text-sm truncate pr-2">{v}</span>
                      <div className="flex gap-1 shrink-0">
                        <button onClick={() => { setEditingVendorName(v); setEditVendorNewName(v); }} className="text-slate-300 hover:text-blue-500 font-black p-2"><OrderSymbolIcon name="Edit" /></button>
-                       <button onClick={() => updateCurrentDb({ vendors: currentDb.vendors.filter(i => i !== v) })} className="text-slate-300 hover:text-rose-500 font-black p-2"><OrderSymbolIcon name="Trash2" /></button>
+                       <button onClick={() => { if(window.confirm(`確定刪除廠商「${v}」嗎？`)) updateCurrentDb({ vendors: currentDb.vendors.filter(i => i !== v) }); }} className="text-slate-300 hover:text-rose-500 font-black p-2"><OrderSymbolIcon name="Trash2" /></button>
                      </div>
                     </div>
                   )
@@ -3932,7 +4085,7 @@ window._gameJsReady = false;
                <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
                  <h3 className="font-black text-slate-800 flex items-center gap-2"><OrderSymbolIcon name="LayoutGrid" className="text-brand-red" /> 叫貨區站管理</h3>
                  <div className="flex gap-3"><input placeholder="新區站名稱" className="flex-1 bg-slate-50 rounded-xl p-4 font-bold outline-none min-w-0" value={newZoneName} onChange={e => setNewZoneName(e.target.value)} /><button onClick={() => { if(newZoneName) { updateCurrentDb({ zones: [...currentDb.zones, { name: newZoneName, icon: 'Package', color: 'bg-slate-500' }] }); setNewZoneName(''); triggerNotify('區站新增成功', 'success'); } }} className="bg-slate-900 text-white px-8 py-4 rounded-xl font-black shrink-0 whitespace-nowrap shadow-sm">新增</button></div>
-                 <div className="grid grid-cols-2 gap-2">{currentDb.zones.map(z => (<div key={z.name} className="bg-slate-50 px-4 py-3 rounded-xl flex justify-between items-center text-xs font-bold text-slate-700 border border-slate-100"><span>{z.name}</span><button onClick={() => updateCurrentDb({ zones: currentDb.zones.filter(i => i.name !== z.name) })} className="text-slate-300 font-black px-2 hover:text-rose-500"><OrderSymbolIcon name="X" /></button></div>))}</div>
+                 <div className="grid grid-cols-2 gap-2">{currentDb.zones.map(z => (<div key={z.name} className="bg-slate-50 px-4 py-3 rounded-xl flex justify-between items-center text-xs font-bold text-slate-700 border border-slate-100"><span>{z.name}</span><button onClick={() => { if(window.confirm(`確定刪除區站「${z.name}」嗎？`)) updateCurrentDb({ zones: currentDb.zones.filter(i => i.name !== z.name) }); }} className="text-slate-300 font-black px-2 hover:text-rose-500"><OrderSymbolIcon name="X" /></button></div>))}</div>
                </div>
               </div>
             )}
@@ -3977,11 +4130,31 @@ window._gameJsReady = false;
 
      const claimEntry = async (entry) => {
       if (entry.claimed) return;
-      if (todayClaimed >= MAX_DAILY_COINS) { alert('今日戰況金幣已達上限 ' + MAX_DAILY_COINS + ' 💰'); return; }
+      if (todayClaimed >= MAX_DAILY_COINS) { alert('\u4ECA\u65E5\u6230\u6CC1\u91D1\u5E63\u5DF2\u9054\u4E0A\u9650 ' + MAX_DAILY_COINS + ' \uD83D\uDCB0'); return; }
       const canClaim = Math.min(entry.coins, MAX_DAILY_COINS - todayClaimed);
       const newGold = (loadSave().gold||0) + canClaim;
       writeSave({ gold: newGold });
       await db.collection(getPublicPath(`warlog_${currentUser.phone}`)).doc(entry.id).update({ claimed: true }).catch(()=>{});
+     };
+
+     const claimAllEntries = async () => {
+      if (todayClaimed >= MAX_DAILY_COINS) { alert('\u4ECA\u65E5\u6230\u6CC1\u91D1\u5E63\u5DF2\u9054\u4E0A\u9650 ' + MAX_DAILY_COINS + ' \uD83D\uDCB0'); return; }
+      const pending = warlogEntries.filter(e => e.coins > 0 && !e.claimed);
+      if (pending.length === 0) { alert('\u76EE\u524D\u6C92\u6709\u53EF\u9818\u53D6\u7684\u91D1\u5E63'); return; }
+      let remain = MAX_DAILY_COINS - todayClaimed;
+      let gain = 0;
+      const batch = db.batch();
+      for (const entry of pending) {
+       if (remain <= 0) break;
+       const take = Math.min(entry.coins || 0, remain);
+       if (take <= 0) continue;
+       gain += take;
+       remain -= take;
+       batch.update(db.collection(getPublicPath(`warlog_${currentUser.phone}`)).doc(entry.id), { claimed: true });
+      }
+      if (gain <= 0) { alert('\u4ECA\u65E5\u6230\u6CC1\u91D1\u5E63\u5DF2\u9054\u4E0A\u9650 ' + MAX_DAILY_COINS + ' \uD83D\uDCB0'); return; }
+      writeSave({ gold: (loadSave().gold||0) + gain });
+      await batch.commit().catch(()=>{});
      };
 
      const typeLabel = {
@@ -4015,9 +4188,16 @@ window._gameJsReady = false;
           </div>
          ))}
         </div>
-        <div style={{...cardStyle, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-         <span style={{fontSize:'11px', color:'#8b949e', fontWeight:700}}>今日已領取</span>
-         <span style={{color:'#fde047', fontWeight:900, fontSize:'15px'}}>💰 {todayClaimed} / {MAX_DAILY_COINS}</span>
+        <div style={{...cardStyle, display:'flex', justifyContent:'space-between', alignItems:'center', gap:'10px'}}>
+         <div>
+          <div style={{fontSize:'11px', color:'#8b949e', fontWeight:700}}>{"\u4ECA\u65E5\u5DF2\u9818\u53D6"}</div>
+          <div style={{color:'#fde047', fontWeight:900, fontSize:'15px'}}>{"\uD83D\uDCB0"} {todayClaimed} / {MAX_DAILY_COINS}</div>
+         </div>
+         <button onClick={claimAllEntries}
+          disabled={!warlogEntries.some(e=>e.coins>0&&!e.claimed) || todayClaimed>=MAX_DAILY_COINS}
+          style={{background:'linear-gradient(135deg,#b08800,#fbbf24)',color:'#000',border:'none',borderRadius:'10px',padding:'8px 12px',fontWeight:900,fontSize:'11px',cursor:'pointer',opacity:(!warlogEntries.some(e=>e.coins>0&&!e.claimed)||todayClaimed>=MAX_DAILY_COINS)?.45:1,whiteSpace:'nowrap'}}>
+          {"\u4E00\u9375\u9818\u53D6"}
+         </button>
         </div>
         <div style={{fontSize:'11px', fontWeight:900, color:'#8b949e', letterSpacing:'1px', marginBottom:'6px'}}>📜 戰況紀錄</div>
         {warlogEntries.length === 0 ? (
@@ -4209,9 +4389,11 @@ const [partnerStatusTarget, setPartnerStatusTarget] = useState(null);
 const [frEquipRev, setFrEquipRev] = useState(0);
 
 const [chosenPartners, setChosenPartners] = useState([]);
+const [frStartMapIdx, setFrStartMapIdx] = useState('random');
 // useRef 避免背景 Firestore 讀取完成後觸發 re-render 導致 iframe 重載
 const rivalDataRef = useRef('[]');
 const chosenPartnersRef = useRef([]);
+const foodResearchHTMLRef = useRef('');
 const [puzzleState, setPuzzleState] = useState({placed:{}, done:false});
 const [imageAns, setImageAns] = useState(null);
 const [imageCorrect, setImageCorrect] = useState(null);
@@ -4275,7 +4457,7 @@ if (!selectedActivity) {
     {activities.map(act => (
      <div 
      key={act.id} 
-     onClick={() => { if(act.isOpen || isSuperAdmin) { if(act.id==='food_research'){setFrPhase('camp');setChosenPartners([]);} setSelectedActivity(act.id); } }} 
+     onClick={() => { if(act.isOpen || isSuperAdmin) { if(act.id==='food_research'){foodResearchHTMLRef.current='';setFrPhase('camp');setChosenPartners([]);} setSelectedActivity(act.id); } }} 
      className={`relative w-full aspect-[21/9] sm:aspect-[16/7] rounded-[2rem] overflow-hidden border-2 transition-all duration-300 shadow-sm ${(act.isOpen || isSuperAdmin) ? 'border-brand-red/40 cursor-pointer active:scale-[0.98] hover:shadow-xl hover:-translate-y-1' : 'border-slate-200 grayscale-[80%] cursor-not-allowed opacity-90'}`}
      >
      {/* 第一層：背景圖片 */}
@@ -4330,13 +4512,40 @@ if (selectedActivity === 'food_research') {
   (Array.isArray(u.branch) ? u.branch.includes(currentBranch) : u.branch === currentBranch)
  );
 
+ const liveUser = allUsers.find(u => u.phone === currentUser?.phone) || currentUser || {};
+ const foodResearchResetAt = liveUser.gameResetAt || 0;
+ const makeFreshFoodResearchSave = (resetAt=0) => ({
+  training:{atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0},
+  gold:0,
+  ownedForms:[],
+  equippedForm:'normal',
+  equip:{ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']},
+  weapons:{ranged:['初始食材砲'],melee:['初始鍋鏟']},
+  amulets:[],
+  treasury:[],
+  quests:null,
+  resetAt
+ });
  const saveKey = 'fr_save_' + (currentUser?.phone || 'guest');
  const loadSave = () => {
-  try { return JSON.parse(localStorage.getItem(saveKey)) || {}; } catch { return {}; }
+  try {
+   const local = JSON.parse(localStorage.getItem(saveKey)) || {};
+   if (foodResearchResetAt && (local.resetAt || 0) < foodResearchResetAt) {
+    const resetSave = makeFreshFoodResearchSave(foodResearchResetAt);
+    localStorage.setItem(saveKey, JSON.stringify(resetSave));
+    localStorage.removeItem('fr_stage_' + (currentUser?.phone || 'guest'));
+    localStorage.removeItem('fr_shop_' + (currentUser?.phone || 'guest'));
+    return resetSave;
+   }
+   return local;
+  } catch {
+   return foodResearchResetAt ? makeFreshFoodResearchSave(foodResearchResetAt) : {};
+  }
  };
  const writeSave = (data) => {
   try {
-   const merged = {...loadSave(), ...data};
+   const baseSave = loadSave();
+   const merged = {...baseSave, ...data, resetAt: foodResearchResetAt || baseSave.resetAt || 0};
    localStorage.setItem(saveKey, JSON.stringify(merged));
    if (currentUser?.phone) {
     db.collection(getPublicPath('users')).doc(currentUser.phone)
@@ -4940,6 +5149,19 @@ if (selectedActivity === 'food_research') {
     noodle:{name:'麵條型',emoji:'🍜'}, rice:{name:'炒飯型',emoji:'🍚'},
     ramen:{name:'豚骨型',emoji:'🍲'}, sushi:{name:'壽司型',emoji:'🍣'}, steak:{name:'牛排型',emoji:'🥩'},
    };
+   const FR_MAP_OPTIONS = [
+    {id:'random',name:'\u96A8\u6A5F\u5730\u5716',text:'\u6BCF\u6B21\u51FA\u5F81\u96A8\u6A5F'},
+    {id:0,name:'\u751C\u9EDE\u904A\u6A02\u5712',text:'\u7206\u7C73\u82B1\u8F5F\u70B8'},
+    {id:1,name:'\u8089\u54C1\u5DE5\u5EE0',text:'\u81F4\u547D\u92F8\u9F52'},
+    {id:2,name:'\u9EBB\u8FA3\u9BAE\u7D05\u53E4\u5821',text:'\u707C\u71D2\u8FA3\u6CB9'},
+    {id:3,name:'\u7530\u5712\u852C\u83DC\u68EE\u6797',text:'\u6C38\u56FA\u6BD2\u6CBC'},
+    {id:4,name:'\u548C\u98A8\u6599\u7406\u6751\u843D',text:'\u5E7D\u9748\u8FFD\u64CA'},
+    {id:5,name:'\u4E2D\u5F0F\u6599\u7406\u53E4\u90FD',text:'\u7121\u60C5\u9F8D\u6372'},
+    {id:6,name:'\u51B0\u96EA\u4E16\u754C',text:'\u51B0\u51CD\u96EA\u82B1'},
+    {id:7,name:'\u9152\u5427',text:'\u6C23\u6CE1\u6C34\u67F1'},
+    {id:8,name:'\u897F\u5F0F\u6559\u6703\u6BBF\u5802',text:'\u795E\u8056\u5149\u67F1'},
+    {id:9,name:'\u6D77\u6D0B',text:'\u72C2\u66B4\u6D3B\u8766'},
+   ];
    const PARTNER_RANGED_DESC = {
     '初始食材砲':'直線射擊，傷害適中，適合入門',
     '食材砲':'直線射擊，傷害適中，適合入門',
@@ -5079,24 +5301,23 @@ if (selectedActivity === 'food_research') {
     );
    };
    const togglePartner = (u) => {
-   setChosenPartners(prev => {
-    if (prev.some(p => p.phone === u.phone)) return prev.filter(p => p.phone !== u.phone);
-    if (prev.length >= 2) return prev;
-    return [...prev, u];
-   });
-  };
-  const handleDeparture = () => {
-   // 立刻切換到遊戲，所有 Firestore 讀取都在背景非同步進行
-   // 先用基本資料出發，讀取到後再更新（但遊戲已開始所以rival/partner資料只影響初始值）
-   setFrPhase('game');
-
-   // 背景：給夥伴金幣、寫戰況、讀取夥伴存檔（fire and forget，不阻塞出發）
-   const enrichPartners = async () => {
-    const TIMEOUT = 2000;
-    const enriched = await Promise.all(chosenPartners.map(async (partner) => {
-     try {
-      const ref = db.collection(getPublicPath('users')).doc(partner.phone);
-      const snapP = ref.get().catch(() => null);
+    chosenPartnersRef.current = [];
+    setChosenPartners(prev => {
+     if (prev.some(p => p.phone === u.phone)) return prev.filter(p => p.phone !== u.phone);
+     if (prev.length >= 2) return prev;
+     return [...prev, u];
+    });
+   };
+   const handleDeparture = async () => {
+    const selectedPartners = chosenPartners.slice(0,2);
+    chosenPartnersRef.current = [];
+    rivalDataRef.current = '[]';
+    const enrichPartners = async () => {
+     const TIMEOUT = 2000;
+     const enriched = await Promise.all(selectedPartners.map(async (partner) => {
+      try {
+       const ref = db.collection(getPublicPath('users')).doc(partner.phone);
+       const snapP = ref.get().catch(() => null);
       const snap = await Promise.race([snapP, new Promise(r=>setTimeout(()=>r(null),TIMEOUT))]);
       // 背景金幣與戰況寫入（不等待）
       if (snap && snap.exists) {
@@ -5114,16 +5335,16 @@ if (selectedActivity === 'food_research') {
         equippedForm: pSave.equippedForm || 'normal',
        };
       }
-     } catch(e) {}
-     return { ...partner, training:{atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0}, equip:{ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']}, equippedForm:'normal' };
-    }));
-    chosenPartnersRef.current = enriched;
-    // Do NOT call setChosenPartners here - would reload iframe
-   };
-   enrichPartners();
+      } catch(e) {}
+      return { ...partner, training:{atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0}, equip:{ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']}, equippedForm:'normal' };
+     }));
+     chosenPartnersRef.current = enriched;
+     setChosenPartners(enriched);
+    };
+    await enrichPartners();
 
-   // 背景：讀取rival資料（fire and forget）
-   const fetchRivals = async () => {
+    // 背景：讀取rival資料（fire and forget）
+    const fetchRivals = async () => {
     const TIMEOUT = 2000;
     const otherUsers = allUsers.filter(u =>
      u.status==='approved' && u.phone!==currentUser?.phone &&
@@ -5147,9 +5368,11 @@ if (selectedActivity === 'food_research') {
      }
     }));
     rivalDataRef.current = JSON.stringify(rd);
+    };
+    await fetchRivals();
+    foodResearchHTMLRef.current='';
+    setFrPhase('game');
    };
-   fetchRivals();
-  };
   return (
    <div className="fixed inset-0 z-[10000] flex flex-col" style={campBg}>
     <NavBar title="🚪 出發！選擇夥伴" onBack={()=>setFrPhase('camp')} />
@@ -5158,6 +5381,22 @@ if (selectedActivity === 'food_research') {
      <div style={{fontSize:'11px', color:'#8b949e', fontWeight:700}}>最多選擇 2 位同事一起出征</div>
      <div style={{fontSize:'10px', color:'#3fb950', marginTop:'4px', fontWeight:700}}>被選到的夥伴獲得 +20 💰 獎勵（記錄至戰況）</div>
      </div>
+     {isSuperAdmin && (
+     <div style={{...cardStyle}}>
+      <div style={{fontSize:'11px', color:'#58a6ff', fontWeight:900, marginBottom:'7px'}}>{'\u6700\u9AD8\u6B0A\u9650\uFF1A\u8D77\u59CB\u5730\u5716'}</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'6px'}}>
+       {FR_MAP_OPTIONS.map(m=>{
+        const active = frStartMapIdx === m.id;
+        return (
+        <button key={m.id} onClick={()=>setFrStartMapIdx(m.id)} style={{border:'1px solid '+(active?'#f59e0b':'#30363d'),background:active?'rgba(245,158,11,.18)':'rgba(255,255,255,.03)',borderRadius:'10px',padding:'7px 6px',textAlign:'left',color:active?'#fbbf24':'#e6edf3',fontWeight:900,fontSize:'10px'}}>
+         <div style={{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{m.name}</div>
+         <div style={{fontSize:'9px',color:active?'#fcd34d':'#8b949e',marginTop:'2px',fontWeight:700}}>{m.text}</div>
+        </button>
+        );
+       })}
+      </div>
+     </div>
+     )}
      <div style={{display:'flex', gap:'10px', justifyContent:'center'}}>
       {[0,1].map(i=>{
        const p=chosenPartners[i];
@@ -5203,7 +5442,8 @@ if (selectedActivity === 'food_research') {
  // 需求1：讀取該玩家的續關進度
  const savedStageKey = 'fr_stage_' + playerPhone;
  // 需求2：夥伴已在 handleDeparture 載入個人存檔
- const partnerData = JSON.stringify(chosenPartners.map(p => ({
+ const activePartners = (chosenPartnersRef.current || []).slice(0,2);
+ const partnerData = JSON.stringify(activePartners.map(p => ({
   name: p.name,
   phone: p.phone,
   formId: p.equippedForm || 'normal',
@@ -5221,19 +5461,42 @@ if (selectedActivity === 'food_research') {
   playerPhone: playerPhone,
   savedStageKey: savedStageKey,
   isSuperAdmin: !!isSuperAdmin,
+  startMapIdx: isSuperAdmin && frStartMapIdx !== 'random' ? Number(frStartMapIdx) : null,
  });
 
  // 遊戲 HTML 由 game.js 提供，這裡動態組裝
- const foodResearchHTML = GAME_HTML_STATIC +
+ // Build once per expedition so parent data refreshes do not reload the iframe.
+ let foodResearchHTML = foodResearchHTMLRef.current;
+ if (!foodResearchHTML) {
+  foodResearchHTML = GAME_HTML_STATIC +
   "<scr" + "ipt>\nconst PARTNERS=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(partnerData))) + "'))));\nconst SAVE=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(saveData))) + "'))));\nconst RIVALS=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(rivalDataRef.current))) + "'))));\n" +
   GAME_JS_BODY +
-  "</scr" + "ipt>\n</body>\n</html>"
+  "</scr" + "ipt>\n</body>\n</html>";
+  foodResearchHTMLRef.current = foodResearchHTML;
+ }
 
 
  return (
   <div className="fixed inset-0 z-[10000]" style={{background:'#f5f0e8',overflow:'hidden'}}>
+   <style>{`
+    @media (hover:hover) and (pointer:fine) and (max-width: 429px), (hover:hover) and (pointer:fine) and (max-height: 719px) {
+     .fr-desktop-size-guard{display:flex!important}
+     .fr-game-frame{visibility:hidden}
+    }
+    @media (hover:hover) and (pointer:fine) {
+     .fr-game-frame{min-width:430px;min-height:720px}
+    }
+   `}</style>
+   <div className="fr-desktop-size-guard hidden absolute inset-0 z-30 bg-slate-950 text-white items-center justify-center p-6 text-center">
+    <div className="max-w-xs rounded-3xl border border-white/15 bg-white/10 p-6 shadow-2xl">
+     <div className="text-4xl mb-3">{"\uD83D\uDDA5\uFE0F"}</div>
+     <h3 className="text-lg font-black mb-2">{"\u8ACB\u653E\u5927\u904A\u6232\u8996\u7A97"}</h3>
+     <p className="text-xs font-bold text-slate-300 leading-relaxed">{"\u96FB\u8166\u7248\u9700\u81F3\u5C11 430 x 720 \u624D\u80FD\u904A\u73A9\uFF0C\u907F\u514D\u7E2E\u5C0F\u756B\u9762\u5F71\u97FF\u96E3\u5EA6\u3002"}</p>
+    </div>
+   </div>
    <iframe
     srcDoc={foodResearchHTML}
+    className="fr-game-frame"
     style={{width:'100%',height:'100%',border:'none',display:'block'}}
     sandbox="allow-scripts allow-same-origin"
     onLoad={() => {
@@ -5247,12 +5510,13 @@ if (selectedActivity === 'food_research') {
      const handler = msg => {
      if (!msg.data) return;
      if (msg.data.type === 'FR_BACK_TO_CAMP') {
-      writeSave({ gold: msg.data.gold });
+      const curGold = loadSave().gold || 0;
+      writeSave({ gold: curGold + (msg.data.gold || 0) });
       window.removeEventListener('message', handler);
+      foodResearchHTMLRef.current='';
       setFrPhase('camp');
      }
      if (msg.data.type === 'FR_RIVAL_WIN') {
-      writeSave({ gold: msg.data.gold });
       const today = new Date().toDateString();
       const rivalNames = msg.data.rivalNames || [];
       const rivalPhones = msg.data.rivalPhones || [];
@@ -5266,11 +5530,11 @@ if (selectedActivity === 'food_research') {
         coins: 0, timestamp: Date.now(), date: today, claimed: true
        }).catch(()=>{});
       });
-      // 自己的warlog：擊敗對手，待領50金幣
+      // 自己的warlog：擊敗對手，待領30金幣
       db.collection(getPublicPath(`warlog_${currentUser?.phone||'guest'}`)).add({
        type:'rival_win',
        target: rivalNames.join('、') || (window._lastRivalPool||[]).map(r=>r.name).join('、') || '對手',
-       coins: 50, timestamp: Date.now(), date: today, claimed: false
+       coins: 30, timestamp: Date.now(), date: today, claimed: false
       }).catch(()=>{});
      }
      if (msg.data.type === 'FR_RIVAL_ONE_DOWN') {
@@ -5285,7 +5549,7 @@ if (selectedActivity === 'food_research') {
        }).catch(()=>{});
       }
      }
-     if (msg.data.type === 'FR_GOLD_UPDATE') { writeSave({ gold: msg.data.gold }); }
+     if (msg.data.type === 'FR_GOLD_UPDATE') { /* 本場金幣回營時統一結算 */ }
      if (msg.data.type === 'FR_QUEST_KILL') {
       const s2 = loadSave(); const q2 = s2.quests;
       if (q2 && !q2.tasks[0].done) { q2.tasks[0].progress = Math.min(q2.tasks[0].target, (q2.tasks[0].progress||0)+1); writeSave({ quests: q2 }); }
@@ -5315,10 +5579,12 @@ if (selectedActivity === 'food_research') {
       // 金幣：營地金幣不受影響（不扣 cur.gold），只損失本場賺的
       writeSave({ equip: newEquip, weapons: newWeapons, amulets: newAmulets });
       window.removeEventListener('message', handler);
+      foodResearchHTMLRef.current='';
       setFrPhase('camp');
      }
      if (msg.data.type === 'FOOD_RESEARCH_BACK') {
       window.removeEventListener('message', handler);
+      foodResearchHTMLRef.current='';
       setSelectedActivity(null);
      }
      };
@@ -5437,9 +5703,9 @@ if (selectedActivity === 'food_research') {
    <div className="flex-1 overflow-y-auto" style={{padding:'6px 10px'}}>
     <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px'}}>
      {FACILITIES.map(f => (
-     <div key={f.id}
-      onClick={()=>setFrPhase(f.id)}
-      style={{
+      <div key={f.id}
+       onClick={()=>{if(f.id==='partner_select'){setChosenPartners([]);chosenPartnersRef.current=[];}foodResearchHTMLRef.current='';setFrPhase(f.id);}}
+       style={{
       background: f.primary ? `linear-gradient(135deg,${f.color}cc,${f.color})` : '#161b22',
       border: `1px solid ${f.primary ? f.color : '#21262d'}`,
       borderRadius:'10px', padding:'8px 9px', cursor:'pointer',
@@ -6039,6 +6305,7 @@ return (
 
      const [globalLeaderboard, setGlobalLeaderboard] = useState([]);
      const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false);
+     const [isResettingFoodResearch, setIsResettingFoodResearch] = useState(false);
      const [globalTab, setGlobalTab] = useState('scores'); 
 
      const activitiesList = config.activities || defaultActivities;
@@ -6084,6 +6351,71 @@ return (
         triggerNotify("清空失敗，請檢查網路狀態", "error");
       }
       setIsLoadingLeaderboard(false);
+     };
+
+     const makeResetFoodResearchSave = (resetAt) => ({
+      training:{atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0},
+      gold:0,
+      ownedForms:[],
+      equippedForm:'normal',
+      equip:{ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']},
+      weapons:{ranged:['初始食材砲'],melee:['初始鍋鏟']},
+      amulets:[],
+      treasury:[],
+      quests:null,
+      resetAt
+     });
+
+     const handleResetFoodResearchProgress = async () => {
+      const pwd = window.prompt("\u26A0\uFE0F \u8B66\u544A\uFF1A\u9019\u6703\u91CD\u7F6E\u6240\u6709\u73A9\u5BB6\u7684\u98DF\u7814\u6240\u57F9\u80B2\u9032\u5EA6\u3002\n\u7D20\u8CEA\u3001\u91D1\u5E63\u3001\u6B66\u5668\u3001\u8B77\u7B26\u3001\u98DF\u7269\u578B\u614B\u90FD\u6703\u56DE\u5230\u521D\u59CB\u72C0\u614B\u3002\n\u8ACB\u8F38\u5165\u6700\u9AD8\u6B0A\u9650\u5BC6\u78BC\u300C0706\u300D\u78BA\u8A8D\u57F7\u884C\uFF1A");
+      if (pwd !== '0706') {
+       if (pwd !== null) triggerNotify("\u5BC6\u78BC\u932F\u8AA4\uFF0C\u5DF2\u53D6\u6D88\u91CD\u7F6E\u4F5C\u696D", "error");
+       return;
+      }
+      if (!window.confirm("\u6700\u5F8C\u78BA\u8A8D\uFF1A\u78BA\u5B9A\u8981\u91CD\u7F6E\u6240\u6709\u73A9\u5BB6\u7684\u98DF\u7814\u6240\u57F9\u80B2\u9032\u5EA6\u55CE\uFF1F")) return;
+      setIsResettingFoodResearch(true);
+      try {
+       const resetAt = Date.now();
+       const resetSave = makeResetFoodResearchSave(resetAt);
+       const snapshot = await db.collection(getPublicPath('users')).get();
+       let batch = db.batch();
+       let ops = 0;
+       let total = 0;
+       let clearedRewards = 0;
+       const queueSet = async (ref, data) => {
+        batch.set(ref, data, { merge: true });
+        ops++;
+        if (ops >= 450) {
+         await batch.commit();
+         batch = db.batch();
+         ops = 0;
+        }
+       };
+       for (const userDoc of snapshot.docs) {
+        const userData = userDoc.data() || {};
+        const phone = userData.phone || userDoc.id;
+        await queueSet(userDoc.ref, { gameSave: resetSave, gameGold: 0, gameResetAt: resetAt });
+        total++;
+        if (phone) {
+         const rewardSnap = await db.collection(getPublicPath(`warlog_${phone}`)).where('claimed','==',false).get().catch(()=>null);
+         if (rewardSnap) {
+          for (const rewardDoc of rewardSnap.docs) {
+           const reward = rewardDoc.data() || {};
+           if ((reward.coins || 0) > 0) {
+            await queueSet(rewardDoc.ref, { coins: 0, claimed: true, resetClearedAt: resetAt });
+            clearedRewards++;
+           }
+          }
+         }
+        }
+       }
+       if (ops > 0) await batch.commit();
+       triggerNotify(`\u5DF2\u91CD\u7F6E ${total} \u4F4D\u73A9\u5BB6\u7684\u98DF\u7814\u6240\u57F9\u80B2\u9032\u5EA6\uFF0C\u6E05\u9664 ${clearedRewards} \u7B46\u672A\u9818\u91D1\u5E63`, "success");
+      } catch (error) {
+       console.error("reset food research progress failed", error);
+       triggerNotify("\u91CD\u7F6E\u5931\u6557\uFF0C\u8ACB\u6AA2\u67E5\u7DB2\u8DEF\u72C0\u614B", "error");
+      }
+      setIsResettingFoodResearch(false);
      };
 
      useEffect(() => {
@@ -6166,6 +6498,15 @@ return (
          <div className="space-y-4">
            <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200 text-xs font-bold text-amber-700 leading-relaxed shadow-inner mb-4">
             💡 提示：在這裡控制前台「限時活動大廳」各個主題卡片的外觀與開放狀態。<br/>若該活動尚未開發完成，請保持「隱藏狀態」，前台點擊時將會顯示「建置中」。
+           </div>
+           <div className="bg-red-50 p-4 rounded-2xl border border-red-200 shadow-sm mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+             <h3 className="text-sm font-black text-red-700 flex items-center gap-2"><Icon name="rotate-ccw" size={16}/> {"\u98DF\u7814\u6240\u57F9\u80B2\u9032\u5EA6\u91CD\u7F6E"}</h3>
+             <p className="text-[11px] font-bold text-red-500 mt-1 leading-relaxed">{"\u6700\u9AD8\u6B0A\u9650\u6E2C\u8A66\u7528\uFF1A\u6240\u6709\u73A9\u5BB6\u7684\u7D20\u8CEA\u3001\u91D1\u5E63\u3001\u6B66\u5668\u3001\u8B77\u7B26\u3001\u98DF\u7269\u578B\u614B\u56DE\u5230\u521D\u59CB\u72C0\u614B\u3002"}</p>
+            </div>
+            <button onClick={handleResetFoodResearchProgress} disabled={isResettingFoodResearch} className="bg-red-600 text-white px-4 py-3 rounded-xl text-[10px] font-black active:scale-95 transition-all shadow-sm disabled:opacity-60 flex items-center justify-center gap-1">
+             <Icon name="trash-2" size={14} /> {isResettingFoodResearch ? "\u91CD\u7F6E\u4E2D..." : "\u91CD\u7F6E\u6240\u6709\u73A9\u5BB6"}
+            </button>
            </div>
            {activitiesList.map(act => (
             <div key={act.id} className={`glass-panel p-5 rounded-[2rem] bg-white border shadow-sm space-y-3 transition-all ${act.isOpen ? 'border-l-4 border-l-emerald-500' : 'opacity-80'}`}>
