@@ -4651,10 +4651,16 @@ const [selectedActivity, setSelectedActivity] = useState(null); // 新增：用�
 const [leaderboard, setLeaderboard] = useState([]);
 const [showLeaderboard, setShowLeaderboard] = useState(false);
 const [leaderboardTab, setLeaderboardTab] = useState('scores');
+const [frRankTab, setFrRankTab] = useState('kitchen');
 const [frPhase, setFrPhase] = useState('camp');
 const [showCharStatus, setShowCharStatus] = useState(false);
 const [partnerStatusTarget, setPartnerStatusTarget] = useState(null);
 const [frEquipRev, setFrEquipRev] = useState(0);
+const [facilityRebuild, setFacilityRebuild] = useState(null);
+const [selectedRebuildFacility, setSelectedRebuildFacility] = useState('training');
+const [rebuildQuiz, setRebuildQuiz] = useState(null);
+const [rebuildFeedback, setRebuildFeedback] = useState('');
+const [rebuildSaving, setRebuildSaving] = useState(false);
 
 const [chosenPartners, setChosenPartners] = useState([]);
 const [frStartMapIdx, setFrStartMapIdx] = useState('random');
@@ -4703,6 +4709,16 @@ useEffect(() => {
  window.addEventListener('message', handleMessage);
  return () => window.removeEventListener('message', handleMessage);
 }, [currentUser, currentBranch, getPublicPath]);
+
+useEffect(() => {
+ if (selectedActivity !== 'food_research' || !currentBranch) return;
+ const ref = db.doc(getPublicPath(`food_research_rebuild/${currentBranch}`));
+ const unsub = ref.onSnapshot(
+  doc => setFacilityRebuild(doc.exists ? doc.data() : { facilities: {}, dailyPlayers: {}, dailyWrongs: {} }),
+  () => setFacilityRebuild({ facilities: {}, dailyPlayers: {}, dailyWrongs: {} })
+ );
+ return () => unsub();
+}, [selectedActivity, currentBranch, getPublicPath]);
 
 const topScores = leaderboard.slice(0, 20);
 const topEmployees = Object.values(leaderboard.reduce((acc, curr) => {
@@ -4795,30 +4811,54 @@ if (selectedActivity === 'food_research') {
   resetAt
  });
  const saveKey = 'fr_save_' + (currentUser?.phone || 'guest');
+ const readLocalSave = () => {
+  try { return JSON.parse(localStorage.getItem(saveKey)) || {}; }
+  catch { return {}; }
+ };
+ const hasFoodResearchSave = (data) => !!(data && typeof data === 'object' && Object.keys(data).some(k => !['resetAt','updatedAt'].includes(k)));
+ const cacheFoodResearchSave = (data) => {
+  try { localStorage.setItem(saveKey, JSON.stringify(data || {})); } catch {}
+ };
+ const syncFoodResearchSave = (data) => {
+  if (!currentUser?.phone) return;
+  db.collection(getPublicPath('users')).doc(currentUser.phone)
+   .set({ gameSave: data }, { merge: true }).catch(()=>{});
+ };
  const loadSave = () => {
-  try {
-   const local = JSON.parse(localStorage.getItem(saveKey)) || {};
-   if (foodResearchResetAt && (local.resetAt || 0) < foodResearchResetAt) {
-    const resetSave = makeFreshFoodResearchSave(foodResearchResetAt);
-    localStorage.setItem(saveKey, JSON.stringify(resetSave));
-    localStorage.removeItem('fr_stage_' + (currentUser?.phone || 'guest'));
-    localStorage.removeItem('fr_shop_' + (currentUser?.phone || 'guest'));
-    return resetSave;
-   }
-   return local;
-  } catch {
-   return foodResearchResetAt ? makeFreshFoodResearchSave(foodResearchResetAt) : {};
+  const local = readLocalSave();
+  const remote = (liveUser && liveUser.gameSave) || (currentUser && currentUser.gameSave) || {};
+  const hasLocal = hasFoodResearchSave(local);
+  const hasRemote = hasFoodResearchSave(remote);
+  let selected = hasRemote
+   ? (!hasLocal || Number(remote.updatedAt || 0) >= Number(local.updatedAt || 0) ? remote : local)
+   : local;
+  if (foodResearchResetAt && (selected.resetAt || 0) < foodResearchResetAt) {
+   const resetSave = {...makeFreshFoodResearchSave(foodResearchResetAt), updatedAt: Date.now()};
+   cacheFoodResearchSave(resetSave);
+   localStorage.removeItem('fr_stage_' + (currentUser?.phone || 'guest'));
+   localStorage.removeItem('fr_shop_' + (currentUser?.phone || 'guest'));
+   syncFoodResearchSave(resetSave);
+   return resetSave;
   }
+  if (!hasRemote && hasLocal && currentUser?.phone) {
+   const migrated = {...local, updatedAt: local.updatedAt || Date.now(), resetAt: local.resetAt || foodResearchResetAt || 0};
+   cacheFoodResearchSave(migrated);
+   syncFoodResearchSave(migrated);
+   return migrated;
+  }
+  if (hasRemote || hasLocal) {
+   const cached = {...selected, resetAt: selected.resetAt || foodResearchResetAt || 0};
+   cacheFoodResearchSave(cached);
+   return cached;
+  }
+  return foodResearchResetAt ? {...makeFreshFoodResearchSave(foodResearchResetAt), updatedAt: Date.now()} : {};
  };
  const writeSave = (data) => {
   try {
    const baseSave = loadSave();
-   const merged = {...baseSave, ...data, resetAt: foodResearchResetAt || baseSave.resetAt || 0};
-   localStorage.setItem(saveKey, JSON.stringify(merged));
-   if (currentUser?.phone) {
-    db.collection(getPublicPath('users')).doc(currentUser.phone)
-     .update({ gameSave: merged }).catch(()=>{});
-   }
+   const merged = {...baseSave, ...data, resetAt: foodResearchResetAt || baseSave.resetAt || 0, updatedAt: Date.now()};
+   cacheFoodResearchSave(merged);
+   syncFoodResearchSave(merged);
   } catch {}
  };
 
@@ -4908,6 +4948,274 @@ if (selectedActivity === 'food_research') {
  const btnPrimary = {background:'linear-gradient(135deg,#1f6feb,#388bfd)', color:'#fff', border:'none', borderRadius:'12px', padding:'10px 0', width:'100%', fontWeight:900, fontSize:'13px', cursor:'pointer'};
  const btnGold = {background:'linear-gradient(135deg,#b08800,#fbbf24)', color:'#000', border:'none', borderRadius:'12px', padding:'10px 0', width:'100%', fontWeight:900, fontSize:'13px', cursor:'pointer'};
  const sectionTitle = {fontSize:'11px', fontWeight:900, color:'#8b949e', letterSpacing:'1px', textTransform:'uppercase', marginBottom:'12px'};
+ const CAMP_ASSETS = {
+  map:'assets/food-research/camp/camp-map-rpg.png',
+  facilities:{
+   training:{broken:'assets/food-research/camp/training-broken.png', complete:'assets/food-research/camp/training-complete.png'},
+   gacha:{broken:'assets/food-research/camp/gacha-broken.png', complete:'assets/food-research/camp/gacha-complete.png'},
+   shrine:{broken:'assets/food-research/camp/shrine-broken.png', complete:'assets/food-research/camp/shrine-complete.png'},
+   shop:{broken:'assets/food-research/camp/shop-broken.png', complete:'assets/food-research/camp/shop-complete.png'},
+  }
+ };
+ const campPixelPanel = {background:'rgba(13,17,23,.78)', border:'1px solid rgba(251,191,36,.35)', boxShadow:'0 10px 28px rgba(0,0,0,.35)', backdropFilter:'blur(2px)'};
+ const REBUILD_TARGET = 500;
+ const REBUILD_PLAYER_LIMIT = 50;
+ const REBUILD_WRONG_LIMIT = 5;
+ const REBUILD_FACILITY_IDS = ['training','gacha','shrine','shop'];
+ const REBUILD_FACILITY_META = {
+  training:{emoji:'⚔️', label:'訓練所', sub:'重建完成後可提升白白能力數值'},
+  gacha:{emoji:'🪣', label:'神秘古井', sub:'重建完成後可抽取遠程/近戰武器'},
+  shrine:{emoji:'⛩️', label:'神社', sub:'重建完成後可祈求護身符'},
+  shop:{emoji:'🛒', label:'食物商店', sub:'重建完成後可購買食物變身型態'},
+ };
+ const rebuildData = facilityRebuild || { facilities: {}, dailyPlayers: {}, dailyWrongs: {} };
+ const rebuildPlayerKey = String(currentUser?.phone || currentUser?.id || 'guest').replace(/[^a-zA-Z0-9_-]/g, '_');
+ const rebuildTodayKey = new Date().toLocaleDateString('sv-SE');
+ const usingUserRebuild = !!currentUser?.phone;
+ const getBlankRebuildSave = () => ({ facilities: {}, daily: {} });
+ const cloneRebuildSave = (data) => {
+  try { return JSON.parse(JSON.stringify(data || getBlankRebuildSave())); }
+  catch { return getBlankRebuildSave(); }
+ };
+ const branchRebuildUsers = allUsers.filter(u =>
+  u.status === 'approved' &&
+  (Array.isArray(u.branch) ? u.branch.includes(currentBranch) : u.branch === currentBranch)
+ );
+ const liveRebuildUser = branchRebuildUsers.find(u => u.phone === currentUser?.phone) || liveUser || currentUser || {};
+ const personalRebuild = liveRebuildUser.gameRebuild || getBlankRebuildSave();
+ const personalDaily = (personalRebuild.daily || {})[rebuildTodayKey] || {};
+ const rebuildDailyPlayers = (rebuildData.dailyPlayers || {})[rebuildTodayKey] || {};
+ const rebuildDailyWrongs = (rebuildData.dailyWrongs || {})[rebuildTodayKey] || {};
+ const rebuildPlayerCount = Math.max(0, Number(usingUserRebuild ? (personalDaily.correct || 0) : (rebuildDailyPlayers[rebuildPlayerKey] || 0)));
+ const rebuildWrongCount = Math.max(0, Number(usingUserRebuild ? (personalDaily.wrong || 0) : (rebuildDailyWrongs[rebuildPlayerKey] || 0)));
+ const rebuildRemaining = Math.max(0, REBUILD_PLAYER_LIMIT - rebuildPlayerCount);
+ const rebuildWrongLocked = rebuildWrongCount >= REBUILD_WRONG_LIMIT;
+ const getUserFacilityCorrect = (user, facilityId) => Math.max(0, Number(user?.gameRebuild?.facilities?.[facilityId]?.correct || 0));
+ const getFacilityProgress = (facilityId) => {
+  const shared = ((rebuildData.facilities || {})[facilityId]) || {};
+  const sharedTotal = Math.max(0, Number(shared.totalCorrect || 0));
+  const userTotal = branchRebuildUsers.reduce((sum, user) => sum + getUserFacilityCorrect(user, facilityId), 0);
+  const total = Math.max(0, Math.min(REBUILD_TARGET, sharedTotal + userTotal));
+  const percent = Math.min(100, Math.floor((total / REBUILD_TARGET) * 100));
+  return { total, percent, complete: !!shared.completed || total >= REBUILD_TARGET };
+ };
+ const rebuildFacilityProgress = getFacilityProgress(selectedRebuildFacility);
+ const rebuildTotal = rebuildFacilityProgress.total;
+ const rebuildPercent = rebuildFacilityProgress.percent;
+ const rebuildComplete = rebuildFacilityProgress.complete;
+ const rebuildFacility = REBUILD_FACILITY_META[selectedRebuildFacility] || REBUILD_FACILITY_META.training;
+ const normalizeRebuildQuestion = (item) => {
+  if (Array.isArray(item)) return { q: item[0], opts: [item[1], item[2], item[3], item[4]], ans: Number(item[5] || 0) };
+  return { q: item?.q || '食品安全重建題', opts: [item?.a, item?.b, item?.c, item?.d].filter(Boolean), ans: Number(item?.ansIdx || item?.ans || 0) };
+ };
+ const fallbackRebuildQuestions = [
+  {q:'發現吐司有一小塊發霉，正確處理方式是？',opts:['切掉發霉處繼續吃','煮熟再吃','整包直接丟棄','放冷凍殺菌'],ans:2},
+  {q:'冰箱冷藏標準溫度是？',opts:['0–4°C','6–10°C','15°C','-5°C以下'],ans:0},
+  {q:'食品存放的「危險溫度帶」是？',opts:['0–7°C','7–60°C','60–100°C','100°C以上'],ans:1},
+  {q:'梅納反應發生在什麼條件下？',opts:['冷水長時間泡發','高溫煎烤加工','低溫舒肥慢煮','醃漬加鹽靜置'],ans:1},
+  {q:'「FIFO」在廚房管理中代表？',opts:['先進先出','先進後出','高溫保存','每日報廢'],ans:0},
+ ];
+ const pickRebuildQuestion = () => {
+  const source = (config.questions && config.questions.length > 0 ? config.questions : fallbackRebuildQuestions).map(normalizeRebuildQuestion).filter(q => q.q && q.opts.length >= 4);
+  return source[Math.floor(Math.random() * source.length)] || fallbackRebuildQuestions[0];
+ };
+ const startRebuildQuiz = (facilityId) => {
+  setSelectedRebuildFacility(facilityId || 'training');
+  setRebuildFeedback('');
+  setRebuildQuiz(pickRebuildQuestion());
+  setFrPhase('rebuild');
+ };
+ const rebuildTimeout = (promise, label='施工同步') => Promise.race([
+  promise,
+  new Promise((_, reject) => setTimeout(() => reject(new Error(label + '逾時')), 8000))
+ ]);
+ const savePersonalRebuild = async (updater) => {
+  if (!currentUser?.phone) throw new Error('missing-player-phone');
+  const ref = db.collection(getPublicPath('users')).doc(currentUser.phone);
+  let baseUser = allUsers.find(u => u.phone === currentUser.phone) || currentUser || {};
+  try {
+   const snap = await rebuildTimeout(ref.get(), '讀取施工紀錄');
+   if (snap.exists) baseUser = { ...baseUser, ...snap.data() };
+  } catch (e) {
+   console.warn('讀取施工紀錄失敗，使用目前快取資料', e);
+  }
+  const next = cloneRebuildSave(baseUser.gameRebuild);
+  const result = updater(next) || {};
+  await rebuildTimeout(ref.set({ gameRebuild: next }, { merge: true }), '寫入施工紀錄');
+  return result;
+ };
+
+ const answerRebuildQuestion = async (idx) => {
+  if (!rebuildQuiz || rebuildSaving || rebuildComplete) return;
+  if (rebuildWrongLocked) {
+   setRebuildFeedback('你今天答錯已達 5 題，明天可以再參與施工。');
+   return;
+  }
+
+  if (usingUserRebuild) {
+   setRebuildSaving(true);
+   try {
+    const facilityId = selectedRebuildFacility || 'training';
+    if (idx !== rebuildQuiz.ans) {
+     const result = await savePersonalRebuild(saveData => {
+      saveData.daily = saveData.daily || {};
+      const day = { ...(saveData.daily[rebuildTodayKey] || {}) };
+      const wrongs = Math.max(0, Number(day.wrong || 0));
+      if (wrongs >= REBUILD_WRONG_LIMIT) return { status: 'wrongLocked', wrongs };
+      const nextWrongs = wrongs + 1;
+      saveData.daily[rebuildTodayKey] = { ...day, wrong: nextWrongs };
+      return { status: nextWrongs >= REBUILD_WRONG_LIMIT ? 'wrongLockedNow' : 'wrong', wrongs: nextWrongs };
+     });
+     if (result.status === 'wrongLocked' || result.status === 'wrongLockedNow') {
+      setRebuildFeedback('答錯已達 5 題，今天不能再參與施工。');
+      setRebuildQuiz(null);
+     } else {
+      setRebuildFeedback(`答錯了，今日答錯 ${result.wrongs}/${REBUILD_WRONG_LIMIT} 題，換一題再試一次。`);
+      setRebuildQuiz(pickRebuildQuestion());
+     }
+     return;
+    }
+    const facilityNow = getFacilityProgress(facilityId);
+    if (facilityNow.complete) {
+     setRebuildFeedback('重建已完成！設施已開放。');
+     return;
+    }
+    if (rebuildWrongCount >= REBUILD_WRONG_LIMIT) {
+     setRebuildFeedback('你今天答錯已達 5 題，明天可以再參與施工。');
+     return;
+    }
+    if (rebuildPlayerCount >= REBUILD_PLAYER_LIMIT) {
+     setRebuildFeedback('你今天已經貢獻滿 50 題了，明天可以再協助重建。');
+     return;
+    }
+    const result = await savePersonalRebuild(saveData => {
+     saveData.facilities = saveData.facilities || {};
+     saveData.daily = saveData.daily || {};
+     const day = { ...(saveData.daily[rebuildTodayKey] || {}) };
+     const mine = Math.max(0, Number(day.correct || 0));
+     const wrongs = Math.max(0, Number(day.wrong || 0));
+     if (wrongs >= REBUILD_WRONG_LIMIT) return { status: 'wrongLocked' };
+     if (mine >= REBUILD_PLAYER_LIMIT) return { status: 'limit' };
+     const facility = { ...(saveData.facilities[facilityId] || {}) };
+     facility.correct = Math.max(0, Number(facility.correct || 0)) + 1;
+     facility.updatedAt = Date.now();
+     saveData.facilities[facilityId] = facility;
+     const nextMine = mine + 1;
+     saveData.daily[rebuildTodayKey] = { ...day, correct: nextMine };
+     return { status: facilityNow.total + 1 >= REBUILD_TARGET ? 'completedNow' : 'ok', mine: nextMine };
+    });
+    if (result.status === 'wrongLocked') {
+     setRebuildFeedback('你今天答錯已達 5 題，明天可以再參與施工。');
+    } else if (result.status === 'limit') {
+     setRebuildFeedback('你今天已經貢獻滿 50 題了，明天可以再協助重建。');
+    } else if (result.status === 'completedNow') {
+     setRebuildFeedback(`${rebuildFacility.label}重建完成！現在可以進入使用。`);
+    } else {
+     setRebuildFeedback(`答對！你今日已貢獻 ${result.mine}/${REBUILD_PLAYER_LIMIT} 題。`);
+     setRebuildQuiz(pickRebuildQuestion());
+    }
+   } catch (e) {
+    console.error(e);
+    setRebuildFeedback('同步施工紀錄失敗，請重新整理後再試。');
+   } finally {
+    setRebuildSaving(false);
+   }
+   return;
+  }
+
+  if (idx !== rebuildQuiz.ans) {
+   setRebuildSaving(true);
+   try {
+    const ref = db.doc(getPublicPath(`food_research_rebuild/${currentBranch}`));
+    const result = await db.runTransaction(async tx => {
+     const snap = await tx.get(ref);
+     const data = snap.exists ? snap.data() : {};
+     const dailyWrongs = { ...(data.dailyWrongs || {}) };
+     const todayWrongs = { ...((dailyWrongs[rebuildTodayKey]) || {}) };
+     const wrongs = Math.max(0, Number(todayWrongs[rebuildPlayerKey] || 0));
+     if (wrongs >= REBUILD_WRONG_LIMIT) return { status: 'wrongLocked', wrongs };
+     const nextWrongs = wrongs + 1;
+     todayWrongs[rebuildPlayerKey] = nextWrongs;
+     dailyWrongs[rebuildTodayKey] = todayWrongs;
+     tx.set(ref, { dailyWrongs, updatedAt: Date.now(), branch: currentBranch }, { merge: true });
+     return { status: nextWrongs >= REBUILD_WRONG_LIMIT ? 'wrongLockedNow' : 'wrong', wrongs: nextWrongs };
+    });
+    if (result.status === 'wrongLocked' || result.status === 'wrongLockedNow') {
+     setRebuildFeedback('答錯已達 5 題，今天不能再參與施工。');
+     setRebuildQuiz(null);
+    } else {
+     setRebuildFeedback(`答錯了，今日答錯 ${result.wrongs}/${REBUILD_WRONG_LIMIT} 題，換一題再試一次。`);
+     setRebuildQuiz(pickRebuildQuestion());
+    }
+   } catch (e) {
+    console.error(e);
+    setRebuildFeedback('同步答錯次數失敗，請稍後再試。');
+   } finally {
+    setRebuildSaving(false);
+   }
+   return;
+  }
+  if (rebuildRemaining <= 0) {
+   setRebuildFeedback('你今天已經貢獻滿 50 題了，明天可以再協助重建。');
+   return;
+  }
+  setRebuildSaving(true);
+  try {
+   const facilityId = selectedRebuildFacility || 'training';
+   const ref = db.doc(getPublicPath(`food_research_rebuild/${currentBranch}`));
+   const result = await db.runTransaction(async tx => {
+    const snap = await tx.get(ref);
+    const data = snap.exists ? snap.data() : {};
+    const facilities = { ...(data.facilities || {}) };
+    const currentFacility = { ...(facilities[facilityId] || {}) };
+    const total = Math.max(0, Number(currentFacility.totalCorrect || 0));
+    const dailyPlayers = { ...(data.dailyPlayers || {}) };
+    const todayPlayers = { ...((dailyPlayers[rebuildTodayKey]) || {}) };
+    const dailyWrongs = { ...(data.dailyWrongs || {}) };
+    const todayWrongs = { ...((dailyWrongs[rebuildTodayKey]) || {}) };
+    const mine = Math.max(0, Number(todayPlayers[rebuildPlayerKey] || 0));
+    const wrongs = Math.max(0, Number(todayWrongs[rebuildPlayerKey] || 0));
+    if (total >= REBUILD_TARGET || currentFacility.completed) return { status: 'complete' };
+    if (wrongs >= REBUILD_WRONG_LIMIT) return { status: 'wrongLocked' };
+    if (mine >= REBUILD_PLAYER_LIMIT) return { status: 'limit' };
+    const nextTotal = Math.min(REBUILD_TARGET, total + 1);
+    const nextMine = mine + 1;
+    todayPlayers[rebuildPlayerKey] = nextMine;
+    dailyPlayers[rebuildTodayKey] = todayPlayers;
+    facilities[facilityId] = {
+     ...currentFacility,
+     totalCorrect: nextTotal,
+     completed: nextTotal >= REBUILD_TARGET,
+     updatedAt: Date.now()
+    };
+    tx.set(ref, {
+     facilities,
+     dailyPlayers,
+     updatedAt: Date.now(),
+     branch: currentBranch
+    }, { merge: true });
+    return { status: nextTotal >= REBUILD_TARGET ? 'completedNow' : 'ok', total: nextTotal, mine: nextMine };
+   });
+   if (result.status === 'complete') {
+    setRebuildFeedback('重建已完成！設施已開放。');
+   } else if (result.status === 'wrongLocked') {
+    setRebuildFeedback('你今天答錯已達 5 題，明天可以再參與施工。');
+   } else if (result.status === 'limit') {
+    setRebuildFeedback('你今天已經貢獻滿 50 題了，明天可以再協助重建。');
+   } else if (result.status === 'completedNow') {
+    setRebuildFeedback(`${rebuildFacility.label}重建完成！現在可以進入使用。`);
+   } else {
+    setRebuildFeedback(`答對！你今日已貢獻 ${result.mine}/${REBUILD_PLAYER_LIMIT} 題。`);
+    setRebuildQuiz(pickRebuildQuestion());
+   }
+  } catch (e) {
+   console.error(e);
+   setRebuildFeedback('同步重建進度失敗，請稍後再試。');
+  } finally {
+   setRebuildSaving(false);
+  }
+ };
+
 
  const NavBar = ({title, onBack}) => (
   <div style={{padding:'10px 14px', borderBottom:'1px solid #21262d', background:'#161b22', display:'flex', alignItems:'center', gap:'10px', flexShrink:0}}>
@@ -4915,6 +5223,108 @@ if (selectedActivity === 'food_research') {
    <span style={{fontWeight:900, fontSize:'14px', color:'#e6edf3'}}>{title}</span>
   </div>
  );
+
+
+ if (frPhase === 'rebuild') {
+  return (
+   <div className="fixed inset-0 z-[10000] flex flex-col" style={campBg}>
+    <NavBar title={`${rebuildFacility.emoji} ${rebuildFacility.label}重建`} onBack={()=>setFrPhase('camp')} />
+    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+     <div style={{...cardStyle, textAlign:'center'}}>
+      <div style={{fontSize:'42px', marginBottom:'6px'}}>{rebuildComplete ? '🏗️✨' : '🏗️'}</div>
+      <div style={{color:'#e6edf3', fontWeight:900, fontSize:'18px'}}>{rebuildComplete ? '設施重建完成' : '分店共同重建中'}</div>
+      <div style={{color:'#8b949e', fontSize:'12px', lineHeight:'1.6', marginTop:'6px'}}>
+       每個設施各自需要答對 {REBUILD_TARGET} 題才會完工。<br/>
+       每位玩家每日最多協助 {REBUILD_PLAYER_LIMIT} 題，四個設施合計；答錯 {REBUILD_WRONG_LIMIT} 題後當天暫停施工。
+      </div>
+      <div style={{marginTop:'14px', height:'12px', background:'#21262d', borderRadius:'999px', overflow:'hidden', border:'1px solid #30363d'}}>
+       <div style={{height:'100%', width:rebuildPercent+'%', background:rebuildComplete?'linear-gradient(90deg,#3fb950,#7ee787)':'linear-gradient(90deg,#1f6feb,#fbbf24)', transition:'width .25s'}} />
+      </div>
+      <div style={{display:'flex', justifyContent:'space-between', marginTop:'7px', fontSize:'11px', fontWeight:900}}>
+       <span style={{color:'#58a6ff'}}>{rebuildTotal}/{REBUILD_TARGET} 題</span>
+       <span style={{color:'#fbbf24'}}>{rebuildPercent}%</span>
+      </div>
+     </div>
+
+     <div style={cardStyle}>
+      <div style={sectionTitle}>👤 每日施工限制</div>
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:'10px'}}>
+       <div>
+        <div style={{color:'#e6edf3', fontWeight:900, fontSize:'14px'}}>{currentUser?.name || '玩家'}</div>
+        <div style={{color:'#8b949e', fontSize:'11px', marginTop:'2px'}}>每日跨四個設施合計上限，錯 5 題暫停</div>
+       </div>
+       <div style={{textAlign:'right'}}>
+        <div style={{color:rebuildRemaining>0?'#3fb950':'#f85149', fontWeight:900, fontSize:'18px'}}>{rebuildPlayerCount}/{REBUILD_PLAYER_LIMIT}</div>
+        <div style={{color:rebuildWrongLocked?'#f85149':'#fbbf24', fontWeight:900, fontSize:'11px'}}>錯題 {rebuildWrongCount}/{REBUILD_WRONG_LIMIT}</div>
+       </div>
+      </div>
+     </div>
+
+     {rebuildComplete ? (
+      <button onClick={()=>setFrPhase(selectedRebuildFacility || 'camp')} style={btnGold}>進入{rebuildFacility.label}</button>
+     ) : rebuildWrongLocked ? (
+      <div style={{...cardStyle, color:'#f85149', fontWeight:900, fontSize:'13px', lineHeight:'1.7'}}>你今天答錯已達 5 題，施工資格暫停到明天。</div>
+     ) : rebuildRemaining <= 0 ? (
+      <div style={{...cardStyle, color:'#fbbf24', fontWeight:900, fontSize:'13px', lineHeight:'1.7'}}>你今天已經貢獻滿 50 題了，明天可以再協助重建。</div>
+     ) : (
+      <div style={cardStyle}>
+       <div style={sectionTitle}>🧠 重建問答</div>
+       {!rebuildQuiz ? (
+        <button onClick={()=>setRebuildQuiz(pickRebuildQuestion())} style={btnPrimary}>開始答題</button>
+       ) : (
+        <>
+         <div style={{color:'#e6edf3', fontWeight:900, fontSize:'15px', lineHeight:'1.6', marginBottom:'12px'}}>{rebuildQuiz.q}</div>
+         <div style={{display:'grid', gridTemplateColumns:'1fr', gap:'8px'}}>
+          {rebuildQuiz.opts.slice(0,4).map((opt, i) => (
+           <button key={i} disabled={rebuildSaving} onClick={()=>answerRebuildQuestion(i)} style={{padding:'12px', borderRadius:'12px', border:'1px solid #30363d', background:'#0d1117', color:'#e6edf3', textAlign:'left', fontWeight:900, fontSize:'13px', opacity:rebuildSaving?'.55':'1'}}>
+            {String.fromCharCode(65+i)}. {opt}
+           </button>
+          ))}
+         </div>
+        </>
+       )}
+       {rebuildFeedback && <div style={{marginTop:'12px', color:rebuildFeedback.includes('答錯')||rebuildFeedback.includes('失敗')?'#f85149':'#3fb950', fontWeight:900, fontSize:'12px', lineHeight:'1.6'}}>{rebuildFeedback}</div>}
+      </div>
+     )}
+    </div>
+   </div>
+  );
+ }
+
+ if (frPhase === 'leaderboard') {
+  const rankTabs = [
+   {id:'kitchen', label:'本店內場排行', icon:'🍳', hint:'內場排行計分之後設定'},
+   {id:'service', label:'本店外場排行', icon:'🍽️', hint:'外場排行計分之後設定'},
+   {id:'all', label:'全台分店總排行', icon:'👑', hint:'全台排行計分之後設定'},
+  ];
+  const activeRank = rankTabs.find(t => t.id === frRankTab) || rankTabs[0];
+  return (
+   <div className="fixed inset-0 z-[10000] flex flex-col" style={{background:'#0d1117'}}>
+    <NavBar title="🏆 營地排行榜" onBack={()=>setFrPhase('camp')} />
+    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+     <div style={{...cardStyle, textAlign:'center'}}>
+      <div style={{fontSize:'38px', marginBottom:'6px'}}>{activeRank.icon}</div>
+      <div style={{color:'#e6edf3', fontWeight:900, fontSize:'18px'}}>{activeRank.label}</div>
+      <div style={{color:'#8b949e', fontSize:'12px', lineHeight:'1.6', marginTop:'6px'}}>排行榜區塊已放入營地，分數規則之後可再接入。</div>
+     </div>
+     <div style={{display:'grid', gridTemplateColumns:'1fr', gap:'8px'}}>
+      {rankTabs.map(tab => (
+       <button key={tab.id} onClick={()=>setFrRankTab(tab.id)} style={{display:'flex', alignItems:'center', gap:'10px', padding:'13px', borderRadius:'14px', border:'1px solid '+(frRankTab===tab.id?'#fbbf24':'#30363d'), background:frRankTab===tab.id?'rgba(251,191,36,.16)':'#161b22', color:'#e6edf3', fontWeight:900, textAlign:'left'}}>
+        <span style={{fontSize:'22px'}}>{tab.icon}</span>
+        <span style={{flex:1}}>
+         <span style={{display:'block', fontSize:'13px'}}>{tab.label}</span>
+         <span style={{display:'block', fontSize:'10px', color:'#8b949e', marginTop:'2px'}}>{tab.hint}</span>
+        </span>
+       </button>
+      ))}
+     </div>
+     <div style={{...cardStyle, borderStyle:'dashed', textAlign:'center', color:'#8b949e', fontWeight:900, fontSize:'12px', lineHeight:'1.8'}}>
+      目前先做入口與版面佔位。<br/>等計分方式決定後，這裡會接入正式名次與分數。
+     </div>
+    </div>
+   </div>
+  );
+ }
 
  if (frPhase === 'training') {
   const cur = loadSave();
@@ -5168,7 +5578,7 @@ if (selectedActivity === 'food_research') {
   const ws = loadSave().weapons||{ranged:[],melee:[]};
   return (
    <div className="fixed inset-0 z-[10000] flex flex-col" style={campBg}>
-    <NavBar title="🎰 時空轉蛋機" onBack={()=>setFrPhase('camp')} />
+    <NavBar title="🪣 神秘古井" onBack={()=>setFrPhase('camp')} />
     <div className="flex-1 overflow-y-auto p-4 space-y-4">
      <div style={{...cardStyle, textAlign:'center'}}>
      <div style={{fontSize:'11px', color:'#8b949e', fontWeight:700}}>每次抽取費用</div>
@@ -5922,18 +6332,30 @@ if (selectedActivity === 'food_research') {
   { id:'warlog',    emoji:'📊', label:'戰況',     sub:'台詞設定與金幣領取',   color:'#8b5cf6' },
   { id:'shop',      emoji:'🛒', label:'食物商店', sub:'購買食物變身型態',   color:'#f59e0b' },
   { id:'quests',    emoji:'📋', label:'任務板',   sub:'每日三任務領金幣',   color:'#10b981' },
-  { id:'gacha',     emoji:'🎰', label:'時空轉蛋', sub:'抽取遠程/近戰武器', color:'#ec4899' },
+  { id:'gacha',     emoji:'🪣', label:'神秘古井', sub:'抽取遠程/近戰武器', color:'#ec4899' },
   { id:'shrine',    emoji:'⛩️', label:'神社',     sub:'祈求護身符',         color:'#6366f1' },
   { id:'equip',     emoji:'🔧', label:'整備所',   sub:'裝備搭配與型態切換', color:'#0ea5e9' },
+  { id:'leaderboard', emoji:'🏆', label:'排行榜', sub:'內場/外場/全台排行', color:'#fbbf24' },
   { id:'partner_select', emoji:'🚪', label:'營地出口', sub:'出發！選夥伴(+20💰)出征', color:'#ef4444', primary:true },
+ ];
+ const CAMP_HOTSPOTS = [
+  { id:'training', x:24, y:17, w:42, h:26, align:'center' },
+  { id:'gacha', x:57, y:17, w:34, h:24, align:'center' },
+  { id:'shrine', x:80, y:35, w:36, h:26, align:'center' },
+  { id:'shop', x:23, y:43, w:40, h:25, align:'center' },
+  { id:'quests', x:50, y:43, w:34, h:18, align:'center', badge:true },
+  { id:'warlog', x:68, y:58, w:38, h:23, align:'center' },
+  { id:'equip', x:24, y:72, w:40, h:26, align:'center' },
+  { id:'leaderboard', x:84, y:68, w:32, h:22, align:'center' },
+  { id:'partner_select', x:50, y:90, w:46, h:18, align:'center', danger:true },
  ];
 
  const todayDone = todayQuests.tasks.filter(t=>t.done).length;
 
  return (
-  <div className="fixed inset-0 z-[10000] flex flex-col page-enter" style={{background:'#0d1117'}}>
+  <div className="fixed inset-0 z-[10000] flex flex-col page-enter" style={{background:'#0d1117', backgroundImage:`linear-gradient(rgba(13,17,23,.28),rgba(13,17,23,.78)), url(${CAMP_ASSETS.map})`, backgroundSize:'cover', backgroundPosition:'center', imageRendering:'pixelated'}}>
    {/* Camp header */}
-   <div className="px-3 py-2 border-b shrink-0" style={{background:'#161b22', borderColor:'#21262d'}}>
+   <div className="px-3 py-2 border-b shrink-0" style={{background:'rgba(22,27,34,.9)', borderColor:'rgba(251,191,36,.28)', backdropFilter:'blur(2px)'}}>
     <div className="flex justify-between items-center">
      <button onClick={() => setSelectedActivity(null)} style={{background:'rgba(255,255,255,.06)', border:'none', borderRadius:'8px', padding:'5px 9px', color:'#8b949e', cursor:'pointer', fontWeight:900}}>✕</button>
      <div className="text-center">
@@ -5948,7 +6370,7 @@ if (selectedActivity === 'food_research') {
    </div>
 
    {/* White-white mascot area */}
-   <div onClick={()=>setShowCharStatus(true)} className="flex items-center gap-3 px-3 py-2 shrink-0 active:scale-[.99]" style={{borderBottom:'1px solid #21262d', background:'#161b22', cursor:'pointer'}}>
+   <div onClick={()=>setShowCharStatus(true)} className="flex items-center gap-3 px-3 py-2 shrink-0 active:scale-[.99]" style={{borderBottom:'1px solid rgba(251,191,36,.28)', background:'rgba(22,27,34,.86)', cursor:'pointer', backdropFilter:'blur(2px)'}}>
     <div className="w-10 h-10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style={{background:'rgba(31,111,235,.15)', border:'2px solid rgba(31,111,235,.3)'}}>
      {(campSave.equippedForm||'normal')==='normal'
       ? <img src="assets/food-research/hero-normal-portrait.png" style={{width:'38px',height:'38px',objectFit:'contain'}} />
@@ -5967,28 +6389,55 @@ if (selectedActivity === 'food_research') {
     </div>
    </div>
 
-   {/* Facility grid */}
-   <div className="flex-1 overflow-y-auto" style={{padding:'6px 10px'}}>
-    <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px'}}>
-     {FACILITIES.map(f => (
-      <div key={f.id}
-       onClick={()=>{if(f.id==='partner_select'){setChosenPartners([]);chosenPartnersRef.current=[];}foodResearchHTMLRef.current='';setFrPhase(f.id);}}
-       style={{
-      background: f.primary ? `linear-gradient(135deg,${f.color}cc,${f.color})` : '#161b22',
-      border: `1px solid ${f.primary ? f.color : '#21262d'}`,
-      borderRadius:'10px', padding:'8px 9px', cursor:'pointer',
-      transition:'transform .1s', position:'relative', overflow:'hidden'
-      }}
-      className="active:scale-95">
-      {f.primary && <div style={{position:'absolute',inset:0,background:'linear-gradient(135deg,rgba(255,255,255,.08),transparent)',borderRadius:'10px'}}/>}
-      <div style={{fontSize:'18px', marginBottom:'2px'}}>{f.emoji}</div>
-      <div style={{fontWeight:900, fontSize:'11px', color: f.primary?'#fff':'#e6edf3', position:'relative'}}>{f.label}</div>
-      <div style={{fontSize:'9px', color: f.primary?'rgba(255,255,255,.75)':'#8b949e', marginTop:'1px', position:'relative'}}>{f.sub}</div>
-      {f.id==='quests' && todayDone < 3 && (
-      <div style={{position:'absolute',top:'8px',right:'8px',width:'18px',height:'18px',borderRadius:'50%',background:'#f85149',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'9px',fontWeight:900,color:'#fff'}}>{3-todayDone}</div>
-      )}
-     </div>
-     ))}
+   {/* Clickable camp map */}
+   <div className="flex-1 overflow-y-auto" style={{padding:'8px 8px 12px'}}>
+    <div style={{position:'relative', width:'100%', maxWidth:'520px', margin:'0 auto', borderRadius:'16px', overflow:'hidden', border:'1px solid rgba(251,191,36,.38)', boxShadow:'0 18px 50px rgba(0,0,0,.45)', background:'#0d1117'}}>
+     <img src={CAMP_ASSETS.map} alt="食研所營地地圖" style={{display:'block', width:'100%', height:'auto', imageRendering:'pixelated', userSelect:'none', pointerEvents:'none'}} />
+     <div style={{position:'absolute', inset:0, background:'linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.1))', pointerEvents:'none'}} />
+     {CAMP_HOTSPOTS.map(spot => {
+      const f = FACILITIES.find(item => item.id === spot.id);
+      if (!f) return null;
+      const facilityProgress = getFacilityProgress(f.id);
+      const locked = REBUILD_FACILITY_IDS.includes(f.id) && !facilityProgress.complete;
+      const handleMapClick = () => {
+       if (locked) { startRebuildQuiz(f.id); return; }
+       if (f.id === 'leaderboard') { setFrRankTab('kitchen'); setFrPhase('leaderboard'); return; }
+       if (f.id === 'partner_select') { setChosenPartners([]); chosenPartnersRef.current=[]; }
+       foodResearchHTMLRef.current='';
+       setFrPhase(f.id);
+      };
+      return (
+       <button key={spot.id} onClick={handleMapClick} className="active:scale-95" title={f.label} style={{
+        position:'absolute',
+        left:spot.x+'%',
+        top:spot.y+'%',
+        width:spot.w+'%',
+        height:spot.h+'%',
+        transform:'translate(-50%,-50%)',
+        border:'none',
+        background:'transparent',
+        padding:0,
+        cursor:'pointer',
+        color:'#fff',
+        textShadow:'0 2px 0 #000, 0 0 8px rgba(0,0,0,.95)',
+        fontWeight:900,
+        display:'flex',
+        alignItems:'center',
+        justifyContent:'center',
+        flexDirection:'column',
+        gap:'3px'
+       }}>
+        <span style={{fontSize:locked?'13px':'15px', lineHeight:1, whiteSpace:'nowrap', color:locked?'#fde68a':(spot.danger?'#fecaca':'#fff')}}>{locked ? '施工中' : f.label}</span>
+        {locked ? (
+         <span style={{fontSize:'9px', lineHeight:1, color:'#fbbf24', background:'rgba(0,0,0,.48)', border:'1px solid rgba(251,191,36,.65)', borderRadius:'999px', padding:'3px 6px', textShadow:'none'}}>{facilityProgress.total}/{REBUILD_TARGET}</span>
+        ) : spot.badge && todayDone < 3 ? (
+         <span style={{fontSize:'9px', lineHeight:1, color:'#fff', background:'#f85149', borderRadius:'999px', padding:'3px 6px', textShadow:'none'}}>{3-todayDone}</span>
+        ) : (
+         <span style={{fontSize:'18px', lineHeight:1, filter:'drop-shadow(0 2px 0 #000)'}}>{f.emoji}</span>
+        )}
+       </button>
+      );
+     })}
     </div>
    </div>
 
@@ -8021,7 +8470,8 @@ return (
             if (upd.role !== normalizedUpd.role) {
               db.collection(getPublicPath('users')).doc(upd.phone).update({ role: normalizedUpd.role }).catch(() => {});
             }
-            if (normalizedUpd.status !== currentUser.status || normalizedUpd.role !== currentUser.role) { 
+            const userChanged = JSON.stringify(normalizedUpd) !== JSON.stringify(currentUser);
+            if (userChanged) { 
              setCurrentUser(normalizedUpd); localStorage.setItem('k_active_user', JSON.stringify(normalizedUpd)); 
              if(normalizedUpd.status === 'approved' && isSupervisorRole(normalizedUpd.role)) setIsManager(true);
              else if(!isSuperAdmin) setIsManager(false);
