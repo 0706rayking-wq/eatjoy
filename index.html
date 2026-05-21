@@ -446,6 +446,95 @@
       from { opacity: 0; transform: translateX(20px); }
       to   { opacity: 1; transform: translateX(0); }
     }
+
+        /* ═══ Theme Contrast Rebalance ═══
+           深色主題提高次要文字與操作元件對比；淺色主題還原 Tailwind 常用語意色。
+        */
+        body.theme-dark {
+            background:
+              radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--leather-hover) 28%, transparent), transparent 42%),
+              linear-gradient(180deg, var(--leather-deep), var(--leather-base)) !important;
+        }
+        body.theme-dark .text-slate-500,
+        body.theme-dark .text-slate-400,
+        body.theme-dark .text-slate-300 {
+            color: var(--t3) !important;
+            -webkit-text-fill-color: currentColor !important;
+        }
+        body.theme-dark .text-slate-600,
+        body.theme-dark .text-slate-700 {
+            color: var(--t2) !important;
+            -webkit-text-fill-color: currentColor !important;
+        }
+        body.theme-dark .text-slate-800,
+        body.theme-dark .text-slate-900,
+        body.theme-dark .font-black,
+        body.theme-dark .font-bold {
+            text-shadow: 0 1px 1px rgba(0,0,0,0.22);
+        }
+        body.theme-dark .bg-slate-50,
+        body.theme-dark .bg-slate-100,
+        body.theme-dark .bg-white,
+        body.theme-dark .glass-panel {
+            color: var(--t1) !important;
+        }
+        body.theme-dark .border,
+        body.theme-dark .border-slate-100,
+        body.theme-dark .border-slate-200,
+        body.theme-dark .border-brand-red\/30 {
+            border-color: color-mix(in srgb, var(--gold-border) 82%, rgba(255,255,255,0.18)) !important;
+        }
+        body.theme-dark button.bg-slate-100,
+        body.theme-dark button.bg-white,
+        body.theme-dark .bg-white.shadow-sm.text-brand-red {
+            color: var(--t1) !important;
+        }
+        body.theme-dark .text-brand-red {
+            background: none !important;
+            animation: none !important;
+            color: var(--gold-bright) !important;
+            -webkit-text-fill-color: currentColor !important;
+        }
+        body.theme-dark .bg-brand-red,
+        body.theme-dark button.bg-brand-red,
+        body.theme-dark a.bg-brand-red,
+        body.theme-dark .bg-brand-red *,
+        body.theme-dark .bg-brand-red.text-brand-red,
+        body.theme-dark .bg-brand-red .text-brand-red {
+            color: var(--leather-deep) !important;
+            -webkit-text-fill-color: currentColor !important;
+        }
+
+        body:not(.theme-dark) .text-emerald-600,
+        body:not(.theme-dark) .text-emerald-700 { color: #047857 !important; -webkit-text-fill-color: currentColor !important; }
+        body:not(.theme-dark) .bg-emerald-50 { background-color: #ecfdf5 !important; }
+        body:not(.theme-dark) .bg-emerald-600 { background-color: #059669 !important; color: #ffffff !important; }
+        body:not(.theme-dark) .border-emerald-100 { border-color: #d1fae5 !important; }
+        body:not(.theme-dark) .border-emerald-200 { border-color: #a7f3d0 !important; }
+        body:not(.theme-dark) .text-blue-500,
+        body:not(.theme-dark) .text-blue-600,
+        body:not(.theme-dark) .text-blue-700,
+        body:not(.theme-dark) .text-blue-800 { color: #2563eb !important; -webkit-text-fill-color: currentColor !important; }
+        body:not(.theme-dark) .bg-blue-50 { background-color: #eff6ff !important; }
+        body:not(.theme-dark) .bg-blue-500,
+        body:not(.theme-dark) .bg-blue-600 { background-color: #2563eb !important; color: #ffffff !important; }
+        body:not(.theme-dark) .border-blue-200 { border-color: #bfdbfe !important; }
+        body:not(.theme-dark) .text-orange-600 { color: #ea580c !important; -webkit-text-fill-color: currentColor !important; }
+        body:not(.theme-dark) .bg-orange-50 { background-color: #fff7ed !important; }
+        body:not(.theme-dark) .border-orange-100 { border-color: #ffedd5 !important; }
+        body:not(.theme-dark) .border-orange-200 { border-color: #fed7aa !important; }
+        body:not(.theme-dark) .text-amber-600,
+        body:not(.theme-dark) .text-amber-700 { color: #d97706 !important; -webkit-text-fill-color: currentColor !important; }
+        body:not(.theme-dark) .text-red-500,
+        body:not(.theme-dark) .text-red-600 { color: #dc2626 !important; -webkit-text-fill-color: currentColor !important; }
+        body:not(.theme-dark) .bg-red-50 { background-color: #fef2f2 !important; }
+        body:not(.theme-dark) .border-red-100 { border-color: #fee2e2 !important; }
+        body:not(.theme-dark) .shadow-sm { box-shadow: 0 1px 2px rgba(15,23,42,.06) !important; }
+        body:not(.theme-dark) .shadow-md { box-shadow: 0 4px 10px rgba(15,23,42,.08) !important; }
+        body:not(.theme-dark) .shadow-lg { box-shadow: 0 10px 18px rgba(15,23,42,.10) !important; }
+        body:not(.theme-dark) .shadow-xl,
+        body:not(.theme-dark) .shadow-2xl { box-shadow: 0 18px 40px rgba(15,23,42,.14) !important; }
+
     </style>
 
     <!-- 班表專屬 CSS：放在所有主題 CSS 之後，確保最後載入 = 最高優先 -->
@@ -956,10 +1045,18 @@ window._gameJsReady = false;
     };
 
     const RecipeAdminManager = ({ categoryPath, currentBranch, globalBranches, isSuperAdmin, items = [], triggerNotify, getPublicPath, categories, globalRecipes = [] }) => {
+     const createBlankRecipeSection = (title = '主配方') => ({
+      id: crypto.randomUUID(),
+      title,
+      ingredientsList: [{ name: '', qty: '', vendor: '' }],
+      instructions: ''
+     });
+
      const [newT, setNewT] = useState(''); 
      const [newCat, setNewCat] = useState(categories ? categories[0] : '');
      const [newIngList, setNewIngList] = useState([{ name: '', qty: '', vendor: '' }]);
      const [newInst, setNewInst] = useState('');
+     const [newSections, setNewSections] = useState([createBlankRecipeSection()]);
      const [newNote, setNewNote] = useState('');
      const [newI, setNewI] = useState(null);
      const [editingId, setEditingId] = useState(null);
@@ -985,13 +1082,67 @@ window._gameJsReady = false;
       });
      };
 
+     const cleanIngredientList = (list) => normalizeIngredientList(list)
+      .map(i => ({ name: String(i.name || '').trim(), qty: String(i.qty || '').trim(), vendor: String(i.vendor || '').trim() }))
+      .filter(i => i.name !== '');
+
+     const normalizeRecipeSections = (sections, legacyList, legacyIngredients = '', legacyInstructions = '') => {
+      const source = Array.isArray(sections) && sections.length > 0
+        ? sections
+        : [{ id: 'legacy-main', title: '主配方', ingredientsList: legacyList, instructions: legacyInstructions || '' }];
+      const normalized = source.map((section, index) => ({
+        id: section?.id || crypto.randomUUID(),
+        title: section?.title || section?.name || (index === 0 ? '主配方' : `配方 ${index + 1}`),
+        ingredientsList: normalizeIngredientList(section?.ingredientsList || section?.ingredients, index === 0 ? legacyIngredients : ''),
+        instructions: section?.instructions || section?.steps || ''
+      }));
+      return normalized.length > 0 ? normalized : [createBlankRecipeSection()];
+     };
+
+     const updateRecipeSection = (sectionIndex, patch) => {
+      setNewSections(prev => prev.map((section, idx) => idx === sectionIndex ? { ...section, ...patch } : section));
+     };
+
+     const updateRecipeSectionIngredient = (sectionIndex, ingIndex, field, value) => {
+      setNewSections(prev => prev.map((section, idx) => {
+        if (idx !== sectionIndex) return section;
+        const nextIngredients = normalizeIngredientList(section.ingredientsList).map((ing, i) => i === ingIndex ? { ...ing, [field]: value } : ing);
+        return { ...section, ingredientsList: nextIngredients };
+      }));
+     };
+
+     const addRecipeSection = () => {
+      setNewSections(prev => [...prev, createBlankRecipeSection(`配方 ${prev.length + 1}`)]);
+     };
+
+     const removeRecipeSection = (sectionIndex) => {
+      setNewSections(prev => prev.length > 1 ? prev.filter((_, idx) => idx !== sectionIndex) : [createBlankRecipeSection()]);
+     };
+
+     const addRecipeSectionIngredient = (sectionIndex) => {
+      setNewSections(prev => prev.map((section, idx) => idx === sectionIndex
+        ? { ...section, ingredientsList: [...normalizeIngredientList(section.ingredientsList), { name: '', qty: '', vendor: '' }] }
+        : section
+      ));
+     };
+
+     const removeRecipeSectionIngredient = (sectionIndex, ingIndex) => {
+      setNewSections(prev => prev.map((section, idx) => {
+        if (idx !== sectionIndex) return section;
+        const currentList = normalizeIngredientList(section.ingredientsList);
+        const nextList = currentList.length > 1 ? currentList.filter((_, i) => i !== ingIndex) : [{ name: '', qty: '', vendor: '' }];
+        return { ...section, ingredientsList: nextList };
+      }));
+     };
+
      const fillFormFromRecipe = (item) => {
       setEditingId(getItemKey(item));
       setNewT(item.title || '');
       
-      setNewIngList(normalizeIngredientList(item.ingredientsList, item.ingredients || ''));
-
-      setNewInst(item.instructions || item.content || ''); 
+      const recipeSections = normalizeRecipeSections(item.recipeSections, item.ingredientsList, item.ingredients || '', item.instructions || item.content || '');
+      setNewSections(recipeSections);
+      setNewIngList(recipeSections[0]?.ingredientsList || normalizeIngredientList(item.ingredientsList, item.ingredients || ''));
+      setNewInst(recipeSections[0]?.instructions || item.instructions || item.content || ''); 
       setNewNote(item.notes || '');
       setNewI(item.img || null);
       if (categories) setNewCat(item.category || categories[0]);
@@ -1013,7 +1164,7 @@ window._gameJsReady = false;
      };
 
      const cancelEdit = () => {
-      setEditingId(null); setNewT(''); setNewIngList([{ name: '', qty: '', vendor: '' }]); setNewInst(''); setNewNote(''); setNewI(null);
+      setEditingId(null); setNewT(''); setNewIngList([{ name: '', qty: '', vendor: '' }]); setNewInst(''); setNewSections([createBlankRecipeSection()]); setNewNote(''); setNewI(null);
       setEditingGlobalRecipeDocId(null); setEditingGlobalRecipeItemId(null);
       if (categories) setNewCat(categories[0]);
      };
@@ -1027,17 +1178,23 @@ window._gameJsReady = false;
       const sharedId = editingId ? String(editingId) : (editingGlobalRecipeItemId ? String(editingGlobalRecipeItemId) : crypto.randomUUID());
       const now = Date.now();
       
-      const validIngList = normalizeIngredientList(newIngList)
-        .map(i => ({ name: String(i.name || '').trim(), qty: String(i.qty || '').trim(), vendor: String(i.vendor || '').trim() }))
-        .filter(i => i.name !== '');
+      const validRecipeSections = newSections.map((section, index) => ({
+        id: section.id || crypto.randomUUID(),
+        title: String(section.title || '').trim() || (index === 0 ? '主配方' : `配方 ${index + 1}`),
+        ingredientsList: cleanIngredientList(section.ingredientsList),
+        instructions: String(section.instructions || '').trim()
+      })).filter(section => section.ingredientsList.length > 0 || section.instructions);
+      const primarySection = validRecipeSections[0] || { ingredientsList: cleanIngredientList(newIngList), instructions: newInst.trim() };
+      const primaryInstructions = primarySection.instructions || newInst.trim();
 
       const itemData = { 
         id: sharedId, 
         title: newT.trim(), 
-        ingredientsList: validIngList, 
-        instructions: newInst.trim(),
+        recipeSections: validRecipeSections,
+        ingredientsList: primarySection.ingredientsList, 
+        instructions: primaryInstructions,
         notes: newNote.trim(),
-        content: newInst.trim(), 
+        content: primaryInstructions, 
         img: imgToSave, 
         updateTime: now 
       };
@@ -1245,39 +1402,40 @@ window._gameJsReady = false;
          )}
          <input placeholder="輸入菜單名稱..." value={newT} onChange={e=>setNewT(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none border-brand-red/30 focus:border-brand-red" />
          
-         <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 shadow-inner space-y-3">
+         <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 shadow-inner space-y-4">
            <div className="flex items-center justify-between gap-3">
-            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><Icon name="shopping-bag" size={14}/> 食材清單配置</h4>
-            {newIngList.length > 1 && <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1"><Icon name="grip-vertical" size={12}/> 拖曳排序</span>}
+            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1.5"><Icon name="layers" size={14}/> 配方區塊配置</h4>
+            <button type="button" onClick={addRecipeSection} className="px-3 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-[10px] font-black flex items-center gap-1 hover:border-brand-red/40 hover:text-brand-red transition-colors">
+              <Icon name="plus" size={13} /> 新增區塊
+            </button>
            </div>
-           {newIngList.map((ing, idx) => (
-            <div
-              key={idx}
-              onDragOver={(e) => handleIngredientDragOver(e, idx)}
-              className={`grid grid-cols-[auto_minmax(150px,1.25fr)_minmax(110px,0.8fr)_minmax(120px,0.9fr)_auto] gap-2 items-center overflow-x-auto no-scrollbar rounded-xl border p-2 transition-all duration-200 ${draggedIngIndex === idx ? 'opacity-40 scale-95 border-brand-red/50 bg-white' : 'border-transparent'} ${overIngIndex === idx ? 'border-brand-red/40 bg-white shadow-sm translate-y-0.5' : ''}`}
-            >
-              <button
-               type="button"
-               draggable={newIngList.length > 1}
-               onDragStart={() => handleIngredientDragStart(idx)}
-               onDragEnd={handleIngredientDragEnd}
-               className={`h-11 px-2 rounded-lg flex items-center justify-center transition-colors ${newIngList.length > 1 ? 'cursor-grab active:cursor-grabbing text-slate-300 hover:text-brand-red hover:bg-white' : 'text-slate-200 cursor-not-allowed'}`}
-               title="拖曳調整食材順序"
-              >
-               <Icon name="grip-vertical" size={18} />
-              </button>
-              <input placeholder="食材 (例: 牛油)" value={ing.name} onChange={e => { const l = [...newIngList]; l[idx].name = e.target.value; setNewIngList(l); }} className="w-full min-w-0 input-light p-3 rounded-lg text-sm font-bold outline-none" />
-              <input placeholder="數量單位 (例: 4 kg)" value={ing.qty} onChange={e => { const l = [...newIngList]; l[idx].qty = e.target.value; setNewIngList(l); }} className="w-full min-w-0 input-light p-3 rounded-lg text-sm font-bold outline-none" />
-              <input placeholder="廠商 (例: 王記肉品)" value={ing.vendor || ''} onChange={e => { const l = [...newIngList]; l[idx].vendor = e.target.value; setNewIngList(l); }} className="w-full min-w-0 input-light p-3 rounded-lg text-sm font-bold outline-none" />
-              <button onClick={() => { if(newIngList.length > 1) setNewIngList(newIngList.filter((_, i) => i !== idx)) }} className={`h-11 px-2 rounded-lg transition-colors flex items-center justify-center ${newIngList.length > 1 ? 'text-slate-400 hover:bg-red-50 hover:text-red-500' : 'text-slate-200 cursor-not-allowed'}`} disabled={newIngList.length === 1}><Icon name="x" size={18}/></button>
+           {newSections.map((section, sectionIdx) => (
+            <div key={section.id || sectionIdx} className="bg-white rounded-2xl border border-slate-200 p-3 space-y-3 shadow-sm">
+              <div className="flex items-center gap-2">
+               <input placeholder="區塊名稱 (例: 雞腿醃漬、松露白醬)" value={section.title} onChange={e => updateRecipeSection(sectionIdx, { title: e.target.value })} className="flex-1 min-w-0 input-light p-3 rounded-lg text-sm font-black outline-none" />
+               <button type="button" onClick={() => removeRecipeSection(sectionIdx)} className={`h-11 px-3 rounded-lg transition-colors flex items-center justify-center ${newSections.length > 1 ? 'text-slate-400 hover:bg-red-50 hover:text-red-500' : 'text-slate-200 cursor-not-allowed'}`} disabled={newSections.length === 1} title="刪除此區塊">
+                <Icon name="trash-2" size={16}/>
+               </button>
+              </div>
+              <div className="space-y-2">
+               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1"><Icon name="shopping-bag" size={12}/> 食材與比例</p>
+               {normalizeIngredientList(section.ingredientsList).map((ing, idx) => (
+                <div key={idx} className="grid grid-cols-[minmax(130px,1.25fr)_minmax(95px,0.8fr)_minmax(110px,0.9fr)_auto] gap-2 items-center overflow-x-auto no-scrollbar">
+                  <input placeholder="食材 (例: 雞腿排)" value={ing.name} onChange={e => updateRecipeSectionIngredient(sectionIdx, idx, 'name', e.target.value)} className="w-full min-w-0 input-light p-3 rounded-lg text-sm font-bold outline-none" />
+                  <input placeholder="數量單位" value={ing.qty} onChange={e => updateRecipeSectionIngredient(sectionIdx, idx, 'qty', e.target.value)} className="w-full min-w-0 input-light p-3 rounded-lg text-sm font-bold outline-none" />
+                  <input placeholder="廠商/備註" value={ing.vendor || ''} onChange={e => updateRecipeSectionIngredient(sectionIdx, idx, 'vendor', e.target.value)} className="w-full min-w-0 input-light p-3 rounded-lg text-sm font-bold outline-none" />
+                  <button type="button" onClick={() => removeRecipeSectionIngredient(sectionIdx, idx)} className="h-11 px-2 rounded-lg text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors flex items-center justify-center"><Icon name="x" size={17}/></button>
+                </div>
+               ))}
+               <button type="button" onClick={() => addRecipeSectionIngredient(sectionIdx)} className="w-full py-2.5 rounded-lg border-2 border-dashed border-slate-200 text-slate-500 font-bold text-xs hover:border-brand-red/50 hover:text-brand-red transition-colors flex items-center justify-center gap-2">
+                <Icon name="plus" size={14} /> 新增食材
+               </button>
+              </div>
+              <textarea placeholder="填寫此區塊做法步驟..." rows="3" value={section.instructions || ''} onChange={e => updateRecipeSection(sectionIdx, { instructions: e.target.value })} className="w-full input-light p-4 rounded-xl text-sm outline-none" />
             </div>
            ))}
-           <button onClick={() => setNewIngList([...newIngList, {name: '', qty: '', vendor: ''}])} className="w-full py-3 rounded-lg border-2 border-dashed border-slate-200 text-slate-500 font-bold text-xs hover:border-brand-red/50 hover:text-brand-red transition-colors flex items-center justify-center gap-2">
-            <Icon name="plus" size={14} /> 新增一列食材
-           </button>
          </div>
          
-         <textarea placeholder="填寫詳細做法步驟..." rows="4" value={newInst} onChange={e=>setNewInst(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm outline-none" />
          <textarea placeholder="填寫備註 (選填)..." rows="2" value={newNote} onChange={e=>setNewNote(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm outline-none" />
          
          <label className="block w-full bg-slate-50 border border-slate-200 py-3 rounded-xl text-[10px] font-black text-center cursor-pointer hover:bg-slate-100 transition-colors">
@@ -1327,15 +1485,17 @@ window._gameJsReady = false;
                         {r.img && <img src={r.img} className="w-12 h-12 rounded-xl object-cover border bg-white shrink-0" alt="菜色" />}
                         <div className="flex-1 min-w-0">
                          <p className="font-black text-sm text-slate-800 truncate">{r.title}</p>
-                         <p className="text-[10px] text-slate-400 line-clamp-1">{r.instructions || r.content || '無描述'}</p>
+                         <p className="text-[10px] text-slate-400 line-clamp-1">{Array.isArray(r.recipeSections) && r.recipeSections.length > 0 ? `${r.recipeSections.length} 個配方區塊` : (r.instructions || r.content || '無描述')}</p>
                         </div>
                         <div className="flex gap-1.5 shrink-0">
                          <button
                           onClick={() => {
                             setNewT(r.title); 
                             setNewCat(r.category || categories[0]); 
-                            setNewIngList(normalizeIngredientList(r.ingredientsList, r.ingredients || '')); 
-                            setNewInst(r.instructions || r.content || ''); 
+                            const importedSections = normalizeRecipeSections(r.recipeSections, r.ingredientsList, r.ingredients || '', r.instructions || r.content || '');
+                            setNewSections(importedSections);
+                            setNewIngList(importedSections[0]?.ingredientsList || normalizeIngredientList(r.ingredientsList, r.ingredients || '')); 
+                            setNewInst(importedSections[0]?.instructions || r.instructions || r.content || ''); 
                             setNewNote(r.notes || ''); 
                             setNewI(r.img || null); 
                             setShowLibrary(false);
@@ -2732,24 +2892,55 @@ window._gameJsReady = false;
       );
      };
 
-     const handlePrint = (item) => {
-      const printWindow = window.open('', '_blank');
-      
-      const ingredientsHtml = item.ingredientsList && item.ingredientsList.length > 0
+     const normalizeDisplayRecipeSections = (item) => {
+      const source = Array.isArray(item?.recipeSections) && item.recipeSections.length > 0
+        ? item.recipeSections
+        : [{ id: 'legacy-main', title: '主配方', ingredientsList: item?.ingredientsList || [], instructions: item?.instructions || item?.content || '' }];
+      return source.map((section, index) => ({
+        id: section?.id || `section-${index}`,
+        title: section?.title || section?.name || (index === 0 ? '主配方' : `配方 ${index + 1}`),
+        ingredientsList: Array.isArray(section?.ingredientsList) && section.ingredientsList.length > 0 ? section.ingredientsList : (index === 0 ? (item?.ingredientsList || []) : []),
+        instructions: section?.instructions || section?.steps || (index === 0 ? (item?.instructions || item?.content || '') : '')
+      })).filter(section => section.ingredientsList.length > 0 || section.instructions || section.title);
+     };
+
+     const buildPrintIngredientsTable = (ingredients, fallback = '') => {
+      return ingredients && ingredients.length > 0
         ? `<table style="width:100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed;">
-         ${item.ingredientsList.map(rawIng => {
+         ${ingredients.map(rawIng => {
            const ing = normalizeDisplayIngredient(rawIng);
            return `
            <tr>
             <td style="padding: 8px 0; border-bottom: 1px dashed #cbd5e1; font-size: 15px; color: #334155; word-break: break-word;">
               <div>${ing.name}</div>
+              ${ing.vendor ? `<div style="font-size:11px; color:#94a3b8; margin-top:3px;">${ing.vendor}</div>` : ''}
             </td>
             <td style="padding: 8px 0; border-bottom: 1px dashed #cbd5e1; font-size: 15px; font-weight: 900; color: #d97706; text-align: right; width: 35%; white-space: nowrap;">${ing.qty}</td>
            </tr>
          `;
          }).join('')}
          </table>`
-        : `<pre>${item.ingredients || '無提供'}</pre>`;
+        : `<pre>${fallback || '無提供'}</pre>`;
+     };
+
+     const handlePrint = (item) => {
+      const printWindow = window.open('', '_blank');
+      const printSections = normalizeDisplayRecipeSections(item);
+      const sectionsHtml = printSections.map(section => `
+        <div class="recipe-section">
+          <h2 class="section-title">${section.title}</h2>
+          <div class="section-grid">
+            <div class="col-half">
+              <h3>食材</h3>
+              ${buildPrintIngredientsTable(section.ingredientsList, item.ingredients || '')}
+            </div>
+            <div class="col-half">
+              <h3>做法：</h3>
+              <pre>${section.instructions || '無提供'}</pre>
+            </div>
+          </div>
+        </div>
+      `).join('');
 
       const htmlContent = `
         <!DOCTYPE html>
@@ -2764,11 +2955,15 @@ window._gameJsReady = false;
             .title-wrapper { display: inline-block; border-bottom: 6px solid #ef4444; padding-bottom: 12px; max-width: 100%; word-break: break-word; }
             .title { font-size: 42px; font-weight: 900; color: #ffffff; margin: 0; letter-spacing: 2px; }
             .content { padding: 40px; display: flex; gap: 40px; align-items: flex-start; max-width: 100%; }
-            .image-col { flex: 0 0 35%; max-width: 35%; }
+            .image-col { flex: 0 0 32%; max-width: 32%; }
             .image-col img { width: 100%; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); object-fit: cover; }
-            .text-col { flex: 1; display: flex; gap: 40px; min-width: 0; }
-            .col-half { flex: 1; min-width: 0; }
-            h3 { font-size: 18px; font-weight: 900; color: #1e293b; margin-top: 0; margin-bottom: 15px; }
+            .sections-col { flex: 1; min-width: 0; }
+            .recipe-section { padding-bottom: 28px; margin-bottom: 28px; border-bottom: 1px dashed #cbd5e1; }
+            .recipe-section:last-child { border-bottom: 0; margin-bottom: 0; }
+            .section-title { font-size: 20px; font-weight: 900; color: #1e293b; margin: 0 0 18px 0; }
+            .section-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; }
+            .col-half { min-width: 0; }
+            h3 { font-size: 16px; font-weight: 900; color: #1e293b; margin-top: 0; margin-bottom: 12px; }
             pre { font-family: 'Noto Sans TC', sans-serif; font-size: 15px; line-height: 1.8; margin: 0; white-space: pre-wrap; word-break: break-all; overflow-wrap: break-word; color: #475569; max-width: 100%; }
             .notes-section { padding: 0 40px 40px 40px; min-width: 0; }
             .footer-bar { border-bottom: 3px solid #ef4444; margin: 0 40px 20px 40px; }
@@ -2784,15 +2979,8 @@ window._gameJsReady = false;
             </div>
             <div class="content">
               ${item.img ? `<div class="image-col"><img src="${item.img}" alt="Recipe Image"/></div>` : ''}
-              <div class="text-col" style="${!item.img ? 'width: 100%;' : ''}">
-               <div class="col-half">
-                 <h3>食材</h3>
-                 ${ingredientsHtml}
-               </div>
-               <div class="col-half">
-                 <h3>做法：</h3>
-                 <pre>${item.instructions || item.content || '無提供'}</pre>
-               </div>
+              <div class="sections-col" style="${!item.img ? 'width: 100%;' : ''}">
+               ${sectionsHtml}
               </div>
             </div>
             ${item.notes ? `
@@ -2815,6 +3003,8 @@ window._gameJsReady = false;
         printWindow.close(); 
       }, 500);
      };
+
+     const selectedRecipeSections = selectedRecipe ? normalizeDisplayRecipeSections(selectedRecipe) : [];
 
      return (
       <div className="p-4 space-y-4 page-enter pb-24 text-left font-bold relative">
@@ -2881,26 +3071,34 @@ window._gameJsReady = false;
                   <img src={selectedRecipe.img} className="w-full rounded-2xl object-cover border shadow-sm max-h-64 md:max-h-full" alt="菜色圖片" />
                  </div>
                )}
-               <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${selectedRecipe.img ? 'md:w-2/3' : 'w-full'}`}>
-                 <div className="bg-orange-50 p-5 rounded-2xl border border-orange-100 shadow-inner min-w-0">
-                  <h4 className="text-xs font-black text-orange-600 uppercase tracking-widest mb-3 flex items-center gap-1.5 border-b border-orange-200 pb-2"><Icon name="shopping-bag" size={16} /> 食材清單</h4>
-                  
-                  {selectedRecipe.ingredientsList && selectedRecipe.ingredientsList.length > 0 ? (
-                    <div className="space-y-1.5 mt-3">
-                     {selectedRecipe.ingredientsList.map(renderIngredientRow)}
+               <div className={`space-y-4 ${selectedRecipe.img ? 'md:w-2/3' : 'w-full'}`}>
+                 {selectedRecipeSections.map((section, sectionIdx) => (
+                  <div key={section.id || sectionIdx} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 shadow-inner min-w-0">
+                    <h4 className="text-sm font-black text-slate-800 mb-3 flex items-center gap-2 border-b border-slate-200 pb-2">
+                     <Icon name="layers" size={16} className="text-brand-red" /> {section.title}
+                    </h4>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                     <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 min-w-0">
+                      <h5 className="text-[10px] font-black text-orange-600 uppercase tracking-widest mb-3 flex items-center gap-1.5"><Icon name="shopping-bag" size={14} /> 食材清單</h5>
+                      {section.ingredientsList && section.ingredientsList.length > 0 ? (
+                        <div className="space-y-1.5">
+                         {section.ingredientsList.map(renderIngredientRow)}
+                        </div>
+                      ) : (
+                        <p className="text-sm font-bold text-slate-700 whitespace-pre-wrap break-all leading-relaxed">{selectedRecipe.ingredients || '未提供'}</p>
+                      )}
+                     </div>
+                     <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 min-w-0">
+                      <h5 className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-3 flex items-center gap-1.5"><Icon name="chef-hat" size={14} /> 詳細作法</h5>
+                      <p className="text-sm font-bold text-slate-700 whitespace-pre-wrap break-all leading-relaxed w-full">{section.instructions || '未提供'}</p>
+                     </div>
                     </div>
-                  ) : (
-                    <p className="text-sm font-bold text-slate-700 whitespace-pre-wrap break-all leading-relaxed">{selectedRecipe.ingredients || '未提供'}</p>
-                  )}
-                 </div>
-                 <div className="bg-emerald-50 p-5 rounded-2xl border border-emerald-100 shadow-inner min-w-0">
-                  <h4 className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-3 flex items-center gap-1.5 border-b border-emerald-200 pb-2"><Icon name="chef-hat" size={16} /> 詳細作法</h4>
-                  <p className="text-sm font-bold text-slate-700 whitespace-pre-wrap break-all leading-relaxed w-full">{selectedRecipe.instructions || selectedRecipe.content || '未提供'}</p>
-                 </div>
+                  </div>
+                 ))}
                </div>
               </div>
               
-              {(selectedRecipe.notes || (!selectedRecipe.ingredients && !selectedRecipe.instructions && !selectedRecipe.content)) && (
+              {(selectedRecipe.notes || (!selectedRecipe.ingredients && !selectedRecipe.instructions && !selectedRecipe.content && selectedRecipeSections.length === 0)) && (
                <div className="bg-slate-50 p-5 rounded-2xl border shadow-inner min-w-0">
                  <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-1.5"><Icon name="info" size={14} /> 備註</h4>
                  <p className="text-sm font-bold text-slate-700 whitespace-pre-wrap break-all leading-relaxed">{selectedRecipe.notes || selectedRecipe.content}</p>
@@ -7171,7 +7369,7 @@ return (
  '--gold-dim':'#a07c10','--gold-shadow':'#6b5208',
  '--gold-glow':'rgba(212,160,23,0.35)','--gold-subtle':'rgba(212,160,23,0.12)',
  '--gold-border':'rgba(212,160,23,0.55)',
- '--t1':'#f8e8c8','--t2':'#c9a870','--t3':'#8a6a3a','--t4':'#5a3e20',
+ '--t1':'#fff3d6','--t2':'#f5d28f','--t3':'#d9bb7a','--t4':'#b99255',
  '--s0':'#2a0508','--s1':'#3d0a0e','--s2':'#4e0f14','--s3':'#5e1519','--s4':'#701a1f',
  '--b1':'rgba(212,160,23,0.25)','--b2':'rgba(212,160,23,0.45)','--b3':'rgba(212,160,23,0.70)',
  '--accent-10':'rgba(185,18,27,0.15)','--accent-20':'rgba(185,18,27,0.25)','--accent-30':'rgba(185,18,27,0.40)',
@@ -7190,7 +7388,7 @@ return (
  vars: {
  '--s0':'#060d1f','--s1':'#0d1a3a','--s2':'#112348','--s3':'#162d5a','--s4':'#1e3a6e',
  '--b1':'rgba(96,165,250,0.15)','--b2':'rgba(96,165,250,0.30)','--b3':'rgba(96,165,250,0.50)',
- '--t1':'#e0f0ff','--t2':'#93c5fd','--t3':'#3b72c5','--t4':'#1e3a6e',
+ '--t1':'#eff6ff','--t2':'#bfdbfe','--t3':'#8fc5ff','--t4':'#60a5fa',
  '--gold-border':'rgba(96,165,250,0.40)','--gold-glow':'rgba(96,165,250,0.25)',
  '--gold-subtle':'rgba(96,165,250,0.10)','--gold-bright':'#93c5fd','--gold-mid':'#60a5fa',
  '--gold-dim':'#3b82f6','--gold-shadow':'#1d4ed8',
@@ -7214,7 +7412,7 @@ return (
  vars: {
  '--s0':'#021510','--s1':'#042e20','--s2':'#064030','--s3':'#085540','--s4':'#0a6a50',
  '--b1':'rgba(52,211,153,0.15)','--b2':'rgba(52,211,153,0.28)','--b3':'rgba(52,211,153,0.50)',
- '--t1':'#d1fae5','--t2':'#6ee7b7','--t3':'#1d6b50','--t4':'#0d4030',
+ '--t1':'#ecfdf5','--t2':'#a7f3d0','--t3':'#6ee7b7','--t4':'#34d399',
  '--gold-border':'rgba(52,211,153,0.40)','--gold-glow':'rgba(52,211,153,0.25)',
  '--gold-subtle':'rgba(52,211,153,0.10)','--gold-bright':'#6ee7b7','--gold-mid':'#34d399',
  '--gold-dim':'#10b981','--gold-shadow':'#059669',
@@ -7238,7 +7436,7 @@ return (
  vars: {
  '--s0':'#1c0a00','--s1':'#2e1000','--s2':'#3d1500','--s3':'#4f1c00','--s4':'#652400',
  '--b1':'rgba(251,191,36,0.18)','--b2':'rgba(251,191,36,0.35)','--b3':'rgba(251,191,36,0.55)',
- '--t1':'#fef3c7','--t2':'#fcd34d','--t3':'#a16207','--t4':'#633d0a',
+ '--t1':'#fff7d6','--t2':'#fde68a','--t3':'#fcd34d','--t4':'#f59e0b',
  '--gold-border':'rgba(251,191,36,0.50)','--gold-glow':'rgba(251,191,36,0.30)',
  '--gold-subtle':'rgba(251,191,36,0.12)','--gold-bright':'#fde68a','--gold-mid':'#fbbf24',
  '--gold-dim':'#f59e0b','--gold-shadow':'#d97706',
@@ -7262,7 +7460,7 @@ return (
  vars: {
  '--s0':'#0d0518','--s1':'#160824','--s2':'#1e0d30','--s3':'#28103e','--s4':'#33154e',
  '--b1':'rgba(167,139,250,0.15)','--b2':'rgba(167,139,250,0.28)','--b3':'rgba(167,139,250,0.50)',
- '--t1':'#ede9fe','--t2':'#c4b5fd','--t3':'#6d3ec0','--t4':'#3b1f70',
+ '--t1':'#f5f3ff','--t2':'#ddd6fe','--t3':'#c4b5fd','--t4':'#a78bfa',
  '--gold-border':'rgba(167,139,250,0.40)','--gold-glow':'rgba(167,139,250,0.28)',
  '--gold-subtle':'rgba(167,139,250,0.10)','--gold-bright':'#c4b5fd','--gold-mid':'#a78bfa',
  '--gold-dim':'#7c3aed','--gold-shadow':'#5b21b6',
@@ -7286,7 +7484,7 @@ return (
  vars: {
  '--s0':'#020d14','--s1':'#041e2e','--s2':'#062840','--s3':'#083550','--s4':'#0a4260',
  '--b1':'rgba(34,211,238,0.15)','--b2':'rgba(34,211,238,0.28)','--b3':'rgba(34,211,238,0.55)',
- '--t1':'#e0f7ff','--t2':'#67e8f9','--t3':'#0e7490','--t4':'#064e63',
+ '--t1':'#ecfeff','--t2':'#a5f3fc','--t3':'#67e8f9','--t4':'#22d3ee',
  '--gold-border':'rgba(34,211,238,0.45)','--gold-glow':'rgba(34,211,238,0.30)',
  '--gold-subtle':'rgba(34,211,238,0.10)','--gold-bright':'#a5f3fc','--gold-mid':'#22d3ee',
  '--gold-dim':'#06b6d4','--gold-shadow':'#0891b2',
@@ -7310,7 +7508,7 @@ return (
  vars: {
  '--s0':'#000d04','--s1':'#011a08','--s2':'#02260d','--s3':'#033312','--s4':'#044018',
  '--b1':'rgba(74,222,128,0.15)','--b2':'rgba(74,222,128,0.28)','--b3':'rgba(74,222,128,0.55)',
- '--t1':'#dcfce7','--t2':'#86efac','--t3':'#16a34a','--t4':'#0d6030',
+ '--t1':'#f0fdf4','--t2':'#bbf7d0','--t3':'#86efac','--t4':'#4ade80',
  '--gold-border':'rgba(74,222,128,0.40)','--gold-glow':'rgba(74,222,128,0.25)',
  '--gold-subtle':'rgba(74,222,128,0.08)','--gold-bright':'#bbf7d0','--gold-mid':'#4ade80',
  '--gold-dim':'#22c55e','--gold-shadow':'#16a34a',
@@ -7334,7 +7532,7 @@ return (
  vars: {
  '--s0':'#0a0c0e','--s1':'#131619','--s2':'#1a1e24','--s3':'#222730','--s4':'#2c323c',
  '--b1':'rgba(148,163,184,0.12)','--b2':'rgba(148,163,184,0.22)','--b3':'rgba(148,163,184,0.40)',
- '--t1':'#f1f5f9','--t2':'#94a3b8','--t3':'#475569','--t4':'#2d3748',
+ '--t1':'#f8fafc','--t2':'#e2e8f0','--t3':'#cbd5e1','--t4':'#94a3b8',
  '--gold-border':'rgba(148,163,184,0.35)','--gold-glow':'rgba(148,163,184,0.18)',
  '--gold-subtle':'rgba(148,163,184,0.08)','--gold-bright':'#e2e8f0','--gold-mid':'#94a3b8',
  '--gold-dim':'#64748b','--gold-shadow':'#475569',
@@ -7358,7 +7556,7 @@ return (
  vars: {
  '--s0':'#1a0510','--s1':'#280818','--s2':'#380c22','--s3':'#461030','--s4':'#58143c',
  '--b1':'rgba(249,168,212,0.15)','--b2':'rgba(249,168,212,0.28)','--b3':'rgba(249,168,212,0.55)',
- '--t1':'#fce7f3','--t2':'#f9a8d4','--t3':'#be185d','--t4':'#831843',
+ '--t1':'#fdf2f8','--t2':'#fbcfe8','--t3':'#f9a8d4','--t4':'#f472b6',
  '--gold-border':'rgba(249,168,212,0.45)','--gold-glow':'rgba(249,168,212,0.28)',
  '--gold-subtle':'rgba(249,168,212,0.10)','--gold-bright':'#fce7f3','--gold-mid':'#f9a8d4',
  '--gold-dim':'#ec4899','--gold-shadow':'#db2777',
@@ -7382,7 +7580,7 @@ return (
  vars: {
  '--s0':'#010d10','--s1':'#021e24','--s2':'#022e38','--s3':'#033d48','--s4':'#044e5c',
  '--b1':'rgba(94,234,212,0.15)','--b2':'rgba(94,234,212,0.28)','--b3':'rgba(94,234,212,0.55)',
- '--t1':'#ccfbf1','--t2':'#5eead4','--t3':'#0d9488','--t4':'#065f58',
+ '--t1':'#f0fdfa','--t2':'#99f6e4','--t3':'#5eead4','--t4':'#2dd4bf',
  '--gold-border':'rgba(94,234,212,0.40)','--gold-glow':'rgba(94,234,212,0.28)',
  '--gold-subtle':'rgba(94,234,212,0.10)','--gold-bright':'#99f6e4','--gold-mid':'#5eead4',
  '--gold-dim':'#2dd4bf','--gold-shadow':'#0d9488',
@@ -7406,7 +7604,7 @@ return (
  vars: {
  '--s0':'#14020a','--s1':'#200410','--s2':'#2d0615','--s3':'#3a081c','--s4':'#480a24',
  '--b1':'rgba(251,113,133,0.15)','--b2':'rgba(251,113,133,0.28)','--b3':'rgba(251,113,133,0.55)',
- '--t1':'#ffe4e6','--t2':'#fda4af','--t3':'#e11d48','--t4':'#881337',
+ '--t1':'#fff1f2','--t2':'#fecdd3','--t3':'#fda4af','--t4':'#fb7185',
  '--gold-border':'rgba(251,113,133,0.40)','--gold-glow':'rgba(251,113,133,0.25)',
  '--gold-subtle':'rgba(251,113,133,0.10)','--gold-bright':'#fecdd3','--gold-mid':'#fb7185',
  '--gold-dim':'#f43f5e','--gold-shadow':'#e11d48',
@@ -7430,7 +7628,7 @@ return (
  vars: {
  '--s0':'#0f0800','--s1':'#1e1000','--s2':'#2a1500','--s3':'#351b00','--s4':'#422200',
  '--b1':'rgba(217,119,6,0.20)','--b2':'rgba(217,119,6,0.38)','--b3':'rgba(217,119,6,0.60)',
- '--t1':'#fef3c7','--t2':'#fcd34d','--t3':'#b45309','--t4':'#78350f',
+ '--t1':'#fff7d6','--t2':'#fde68a','--t3':'#fcd34d','--t4':'#f59e0b',
  '--gold-border':'rgba(217,119,6,0.55)','--gold-glow':'rgba(217,119,6,0.30)',
  '--gold-subtle':'rgba(217,119,6,0.12)','--gold-bright':'#fde68a','--gold-mid':'#d97706',
  '--gold-dim':'#b45309','--gold-shadow':'#92400e',
@@ -7454,7 +7652,7 @@ return (
  vars: {
  '--s0':'#05040f','--s1':'#0e0c24','--s2':'#141238','--s3':'#1c1848','--s4':'#241e5c',
  '--b1':'rgba(129,140,248,0.15)','--b2':'rgba(129,140,248,0.28)','--b3':'rgba(129,140,248,0.55)',
- '--t1':'#e0e7ff','--t2':'#a5b4fc','--t3':'#4f46e5','--t4':'#312e81',
+ '--t1':'#eef2ff','--t2':'#c7d2fe','--t3':'#a5b4fc','--t4':'#818cf8',
  '--gold-border':'rgba(129,140,248,0.40)','--gold-glow':'rgba(129,140,248,0.28)',
  '--gold-subtle':'rgba(129,140,248,0.10)','--gold-bright':'#c7d2fe','--gold-mid':'#818cf8',
  '--gold-dim':'#6366f1','--gold-shadow':'#4f46e5',
@@ -7478,7 +7676,7 @@ return (
  vars: {
  '--s0':'#1a0810','--s1':'#280d18','--s2':'#361222','--s3':'#44162c','--s4':'#541a38',
  '--b1':'rgba(244,143,177,0.18)','--b2':'rgba(244,143,177,0.32)','--b3':'rgba(244,143,177,0.55)',
- '--t1':'#fce4ec','--t2':'#f48fb1','--t3':'#c2185b','--t4':'#880e4f',
+ '--t1':'#fdf2f8','--t2':'#fbcfe8','--t3':'#f9a8d4','--t4':'#f472b6',
  '--gold-border':'rgba(244,143,177,0.48)','--gold-glow':'rgba(244,143,177,0.30)',
  '--gold-subtle':'rgba(244,143,177,0.12)','--gold-bright':'#fce4ec','--gold-mid':'#f48fb1',
  '--gold-dim':'#e91e63','--gold-shadow':'#c2185b',
@@ -7502,7 +7700,7 @@ return (
  vars: {
  '--s0':'#f0f9ff','--s1':'#e0f2fe','--s2':'#bae6fd','--s3':'#ffffff','--s4':'#f8fafc',
  '--b1':'rgba(2,132,199,0.15)','--b2':'rgba(2,132,199,0.25)','--b3':'rgba(2,132,199,0.45)',
- '--t1':'#0c4a6e','--t2':'#0369a1','--t3':'#38bdf8','--t4':'#7dd3fc',
+ '--t1':'#0f172a','--t2':'#334155','--t3':'#0369a1','--t4':'#0284c7',
  '--gold-border':'rgba(2,132,199,0.35)','--gold-glow':'rgba(2,132,199,0.20)',
  '--gold-subtle':'rgba(2,132,199,0.08)','--gold-bright':'#0c4a6e','--gold-mid':'#0284c7',
  '--gold-dim':'#0ea5e9','--gold-shadow':'#38bdf8',
@@ -7550,7 +7748,7 @@ return (
  vars: {
  '--s0':'#f0fdf4','--s1':'#dcfce7','--s2':'#bbf7d0','--s3':'#ffffff','--s4':'#f8fafc',
  '--b1':'rgba(21,128,61,0.15)','--b2':'rgba(21,128,61,0.25)','--b3':'rgba(21,128,61,0.45)',
- '--t1':'#14532d','--t2':'#15803d','--t3':'#4ade80','--t4':'#86efac',
+ '--t1':'#052e16','--t2':'#14532d','--t3':'#15803d','--t4':'#16a34a',
  '--gold-border':'rgba(21,128,61,0.35)','--gold-glow':'rgba(21,128,61,0.20)',
  '--gold-subtle':'rgba(21,128,61,0.08)','--gold-bright':'#14532d','--gold-mid':'#15803d',
  '--gold-dim':'#16a34a','--gold-shadow':'#22c55e',
@@ -7574,7 +7772,7 @@ return (
  vars: {
  '--s0':'#fff7ed','--s1':'#ffedd5','--s2':'#fed7aa','--s3':'#ffffff','--s4':'#fef3c7',
  '--b1':'rgba(234,88,12,0.15)','--b2':'rgba(234,88,12,0.25)','--b3':'rgba(234,88,12,0.45)',
- '--t1':'#431407','--t2':'#9a3412','--t3':'#f97316','--t4':'#fdba74',
+ '--t1':'#431407','--t2':'#7c2d12','--t3':'#c2410c','--t4':'#ea580c',
  '--gold-border':'rgba(234,88,12,0.35)','--gold-glow':'rgba(234,88,12,0.20)',
  '--gold-subtle':'rgba(234,88,12,0.08)','--gold-bright':'#431407','--gold-mid':'#ea580c',
  '--gold-dim':'#f97316','--gold-shadow':'#fb923c',
@@ -7639,7 +7837,17 @@ return (
             document.body.className = document.body.className.replace(/theme-\S+/g,'').trim();
             document.body.classList.add('theme-' + themeObj.id);
             // 判斷是否為深色主題（--leather-deep 的亮度低於閾值）
-            const isDark = themeObj.vars && themeObj.vars['--t1'] && themeObj.vars['--t1'] !== '#1e293b';
+            // 以背景亮度判斷深色主題，避免淺色主題因自訂文字色被錯套深色樣式。
+            const hexToLuma = (hex = '#ffffff') => {
+               const clean = String(hex).replace('#', '').trim();
+               const full = clean.length === 3 ? clean.split('').map(c => c + c).join('') : clean;
+               const n = parseInt(full.slice(0, 6), 16);
+               if (Number.isNaN(n)) return 255;
+               const rr = (n >> 16) & 255, gg = (n >> 8) & 255, bb = n & 255;
+               return (0.2126 * rr) + (0.7152 * gg) + (0.0722 * bb);
+            };
+            const themeSurface = themeObj.vars?.['--leather-base'] || themeObj.bgHex || '#ffffff';
+            const isDark = themeObj.vars && hexToLuma(themeSurface) < 110;
             if (isDark) {
                document.body.classList.add('theme-dark');
             }
