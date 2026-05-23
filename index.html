@@ -4435,7 +4435,7 @@ window._gameJsReady = false;
 
      return (
       <div className="fixed inset-0 z-[10000] flex flex-col" style={campBg}>
-       <NavBar title="📊 戰況" onBack={()=>setFrPhase('camp')} />
+       <NavBar title="戰況" onBack={()=>setFrPhase('camp')} />
        <div className="flex-1 overflow-y-auto p-4 space-y-3">
         <div style={{...cardStyle}}>
          <div style={{fontSize:'11px', fontWeight:900, color:'#fbbf24', marginBottom:'10px', letterSpacing:'1px'}}>✍️ 台詞設定</div>
@@ -5216,6 +5216,75 @@ if (selectedActivity === 'food_research') {
   }
  };
 
+ const setFacilityProgressForTest = async (facilityIds, mode) => {
+  if (!isSuperAdmin || rebuildSaving) return;
+  const ids = (Array.isArray(facilityIds) ? facilityIds : [facilityIds]).filter(Boolean);
+  if (!ids.length) return;
+  const actionLabel = mode === 'complete' ? '設為完成' : '歸零';
+  const targetLabel = ids.length === 1 ? (REBUILD_FACILITY_META[ids[0]]?.label || ids[0]) : '四個設施';
+  if (!window.confirm(`最高權限測試：確定要將「${targetLabel}」${actionLabel}嗎？`)) return;
+  setRebuildSaving(true);
+  try {
+   const now = Date.now();
+   const ref = db.doc(getPublicPath(`food_research_rebuild/${currentBranch}`));
+   await db.runTransaction(async tx => {
+    const snap = await tx.get(ref);
+    const data = snap.exists ? snap.data() : {};
+    const facilities = { ...(data.facilities || {}) };
+    ids.forEach(id => {
+     facilities[id] = {
+      ...(facilities[id] || {}),
+      totalCorrect: mode === 'complete' ? REBUILD_TARGET : 0,
+      completed: mode === 'complete',
+      updatedAt: now,
+      testOverride: true
+     };
+    });
+    tx.set(ref, { facilities, updatedAt: now, branch: currentBranch }, { merge: true });
+   });
+   if (mode === 'reset') {
+    const usersToReset = branchRebuildUsers.filter(u => u.phone);
+    for (let i = 0; i < usersToReset.length; i += 450) {
+     const batch = db.batch();
+     usersToReset.slice(i, i + 450).forEach(user => {
+      const update = { gameRebuild: { facilities: {} } };
+      ids.forEach(id => {
+       update.gameRebuild.facilities[id] = {
+        ...(user.gameRebuild?.facilities?.[id] || {}),
+        correct: 0,
+        updatedAt: now,
+        resetBySuperAdmin: true
+       };
+      });
+      batch.set(db.collection(getPublicPath('users')).doc(user.phone), update, { merge: true });
+     });
+     await batch.commit();
+    }
+   }
+   setFacilityRebuild(prev => {
+    const base = prev || { facilities: {}, dailyPlayers: {}, dailyWrongs: {} };
+    const facilities = { ...(base.facilities || {}) };
+    ids.forEach(id => {
+     facilities[id] = {
+      ...(facilities[id] || {}),
+      totalCorrect: mode === 'complete' ? REBUILD_TARGET : 0,
+      completed: mode === 'complete',
+      updatedAt: now,
+      testOverride: true
+     };
+    });
+    return { ...base, facilities, updatedAt: now, branch: currentBranch };
+   });
+   setRebuildQuiz(null);
+   setRebuildFeedback(`${targetLabel}已${mode === 'complete' ? '設為完成' : '歸零'}。`);
+  } catch (e) {
+   console.error(e);
+   setRebuildFeedback('最高權限測試設定失敗，請稍後再試。');
+  } finally {
+   setRebuildSaving(false);
+  }
+ };
+
 
  const NavBar = ({title, onBack}) => (
   <div style={{padding:'10px 14px', borderBottom:'1px solid #21262d', background:'#161b22', display:'flex', alignItems:'center', gap:'10px', flexShrink:0}}>
@@ -5245,6 +5314,21 @@ if (selectedActivity === 'food_research') {
        <span style={{color:'#fbbf24'}}>{rebuildPercent}%</span>
       </div>
      </div>
+
+     {isSuperAdmin && (
+      <div style={{...cardStyle, borderColor:'#fbbf24', background:'rgba(251,191,36,.08)'}}>
+       <div style={sectionTitle}>🛠️ 最高權限測試工具</div>
+       <div style={{color:'#8b949e', fontSize:'11px', lineHeight:'1.6', marginBottom:'10px'}}>
+        可直接調整目前分店的施工進度。歸零會同步清除該分店玩家在該設施的累積答對數。
+       </div>
+       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px'}}>
+        <button disabled={rebuildSaving} onClick={()=>setFacilityProgressForTest(selectedRebuildFacility, 'reset')} style={{padding:'11px', borderRadius:'12px', border:'1px solid #f85149', background:'rgba(248,81,73,.12)', color:'#ff7b72', fontWeight:900, fontSize:'12px', opacity:rebuildSaving?'.55':'1'}}>目前設施歸零</button>
+        <button disabled={rebuildSaving} onClick={()=>setFacilityProgressForTest(selectedRebuildFacility, 'complete')} style={{padding:'11px', borderRadius:'12px', border:'1px solid #3fb950', background:'rgba(63,185,80,.12)', color:'#7ee787', fontWeight:900, fontSize:'12px', opacity:rebuildSaving?'.55':'1'}}>目前設施完成</button>
+        <button disabled={rebuildSaving} onClick={()=>setFacilityProgressForTest(REBUILD_FACILITY_IDS, 'reset')} style={{padding:'11px', borderRadius:'12px', border:'1px solid #f85149', background:'rgba(248,81,73,.08)', color:'#ff7b72', fontWeight:900, fontSize:'12px', opacity:rebuildSaving?'.55':'1'}}>四設施歸零</button>
+        <button disabled={rebuildSaving} onClick={()=>setFacilityProgressForTest(REBUILD_FACILITY_IDS, 'complete')} style={{padding:'11px', borderRadius:'12px', border:'1px solid #3fb950', background:'rgba(63,185,80,.08)', color:'#7ee787', fontWeight:900, fontSize:'12px', opacity:rebuildSaving?'.55':'1'}}>四設施完成</button>
+       </div>
+      </div>
+     )}
 
      <div style={cardStyle}>
       <div style={sectionTitle}>👤 每日施工限制</div>
@@ -5732,7 +5816,7 @@ if (selectedActivity === 'food_research') {
 
   return (
    <div className="fixed inset-0 z-[10000] flex flex-col" style={campBg}>
-    <NavBar title="🔧 整備所" onBack={()=>setFrPhase('camp')} />
+    <NavBar title="整備所" onBack={()=>setFrPhase('camp')} />
     <div className="flex-1 overflow-y-auto p-4 space-y-3">
      {/* Ranged */}
      <div style={cardStyle}>
@@ -6329,15 +6413,15 @@ if (selectedActivity === 'food_research') {
  };
 
  const FACILITIES = [
-  { id:'training',  emoji:'⚔️', label:'訓練所',   sub:'提升白白能力數值',   color:'#1f6feb' },
-  { id:'warlog',    emoji:'📊', label:'戰況',     sub:'台詞設定與金幣領取',   color:'#8b5cf6' },
-  { id:'shop',      emoji:'🛒', label:'食物商店', sub:'購買食物變身型態',   color:'#f59e0b' },
-  { id:'quests',    emoji:'📋', label:'任務板',   sub:'每日三任務領金幣',   color:'#10b981' },
-  { id:'gacha',     emoji:'🪣', label:'神秘古井', sub:'抽取遠程/近戰武器', color:'#ec4899' },
-  { id:'shrine',    emoji:'⛩️', label:'神社',     sub:'祈求護身符',         color:'#6366f1' },
-  { id:'equip',     emoji:'🔧', label:'整備所',   sub:'裝備搭配與型態切換', color:'#0ea5e9' },
-  { id:'leaderboard', emoji:'🏆', label:'排行榜', sub:'內場/外場/全台排行', color:'#fbbf24' },
-  { id:'partner_select', emoji:'🚪', label:'營地出口', sub:'出發！選夥伴(+20💰)出征', color:'#ef4444', primary:true },
+  { id:'training',  emoji:'', label:'訓練所',   sub:'提升白白能力數值',   color:'#1f6feb' },
+  { id:'warlog',    emoji:'', label:'戰況',     sub:'台詞設定與金幣領取',   color:'#8b5cf6' },
+  { id:'shop',      emoji:'', label:'食物商店', sub:'購買食物變身型態',   color:'#f59e0b' },
+  { id:'quests',    emoji:'', label:'任務板',   sub:'每日三任務領金幣',   color:'#10b981' },
+  { id:'gacha',     emoji:'', label:'神秘古井', sub:'抽取遠程/近戰武器', color:'#ec4899' },
+  { id:'shrine',    emoji:'', label:'神社',     sub:'祈求護身符',         color:'#6366f1' },
+  { id:'equip',     emoji:'', label:'整備所',   sub:'裝備搭配與型態切換', color:'#0ea5e9' },
+  { id:'leaderboard', emoji:'', label:'排行榜', sub:'內場/外場/全台排行', color:'#fbbf24' },
+  { id:'partner_select', emoji:'', label:'營地出口', sub:'出發！選夥伴(+20💰)出征', color:'#ef4444', primary:true },
  ];
  const CAMP_HOTSPOTS = [
   { id:'training', x:24, y:17, w:42, h:26, align:'center' },
