@@ -4919,6 +4919,8 @@ const [leftoverProgress, setLeftoverProgress] = useState({ approvedItems: [], co
 const [leftoverPending, setLeftoverPending] = useState([]);
 const [leftoverActiveItem, setLeftoverActiveItem] = useState(null);
 const [leftoverCardFlipped, setLeftoverCardFlipped] = useState(false);
+const [leftoverGalleryItem, setLeftoverGalleryItem] = useState(null);
+const [leftoverPublicDishes, setLeftoverPublicDishes] = useState([]);
 const [leftoverSaving, setLeftoverSaving] = useState(false);
 const [leftoverMessage, setLeftoverMessage] = useState('');
 const [leftoverReviewTexts, setLeftoverReviewTexts] = useState({});
@@ -5004,6 +5006,10 @@ useEffect(() => {
 useEffect(() => {
  if (selectedActivity !== 'leftover') return;
  const unsubs = [];
+ unsubs.push(db.collection(getPublicPath('leftover_submissions')).where('status','==','approved').onSnapshot(
+  snap => setLeftoverPublicDishes(snap.docs.map(d => ({ id:d.id, ...d.data() })).sort((a,b)=>(b.reviewedAt || b.timestamp || 0)-(a.reviewedAt || a.timestamp || 0))),
+  () => setLeftoverPublicDishes([])
+ ));
  if (currentUser?.phone) {
   const progressRef = db.collection(getPublicPath('leftover_progress')).doc(currentUser.phone);
   unsubs.push(progressRef.onSnapshot(
@@ -5043,6 +5049,9 @@ const leftoverRank = LEFTOVER_LEVELS[leftoverLevel] || LEFTOVER_LEVELS[0];
 const leftoverAwardCount = leftoverLevel >= 7 ? 1 : 0;
 const getLeftoverLatest = (itemId, status = null) => leftoverSubmissions.find(s => s.itemId === itemId && (!status || s.status === status));
 const getLeftoverItem = (itemId) => LEFTOVER_ITEMS.find(item => item.id === itemId) || LEFTOVER_ITEMS[0];
+const selectedLeftoverGalleryItem = getLeftoverItem(leftoverGalleryItem);
+const selectedLeftoverGalleryDishes = leftoverGalleryItem ? leftoverPublicDishes.filter(dish => dish.itemId === leftoverGalleryItem) : [];
+const getLeftoverGalleryCount = (itemId) => leftoverPublicDishes.filter(dish => dish.itemId === itemId).length;
 const dataUrlBytes = (dataUrl) => {
  const raw = String(dataUrl || '').split(',')[1] || '';
  return Math.ceil(raw.length * 3 / 4);
@@ -5123,7 +5132,7 @@ const approveLeftoverSubmission = async (submission) => {
    comments,
    updatedAt:Date.now()
   }, { merge:true });
-  tx.update(subRef, { status:'approved', review, reviewedAt:Date.now() });
+  tx.update(subRef, { status:'approved', review, reviewedAt:Date.now(), publicVisible:true });
  });
 };
 const rejectLeftoverSubmission = async (submission) => {
@@ -5134,6 +5143,25 @@ const rejectLeftoverSubmission = async (submission) => {
   review,
   reviewedAt:Date.now()
  });
+};
+const deleteLeftoverGalleryDish = async (dish) => {
+ if (!isSuperAdmin || !dish?.id) return;
+ const dishName = dish.dishName || '這道菜色';
+ const ok = window.confirm(`確定要從公開料理圖鑑刪除「${dishName}」嗎？\n刪除後一般人將不會再看到這道菜色。`);
+ if (!ok) return;
+ try {
+  await db.collection(getPublicPath('leftover_submissions')).doc(dish.id).update({
+   status:'deleted',
+   publicVisible:false,
+   deletedAt:Date.now(),
+   deletedBy:currentUser?.phone || '',
+   deletedByName:currentUser?.name || '最高權限'
+  });
+  setLeftoverMessage(`已從公開料理圖鑑刪除「${dishName}」。`);
+ } catch (error) {
+  console.error('delete leftover gallery dish failed', error);
+  setLeftoverMessage('刪除失敗，請確認網路狀態後再試。');
+ }
 };
 if (!selectedActivity) {
  return (
@@ -5342,9 +5370,75 @@ if (selectedActivity === 'leftover') {
            <div style={{marginTop:'4px',fontSize:'9px',fontWeight:900,color:approved?'#7ee787':pending?'#fbbf24':rejected?'#ff7b72':'#58a6ff'}}>{approved?'已合格':pending?'審核中':rejected?'可重傳':'點選出牌'}</div>
           </div>
          </button>
-        );
-       })}
+       );
+      })}
       </div>
+     </div>
+
+     <div style={{...pixelPanel,borderRadius:'18px',padding:'14px',display:'grid',gap:'12px'}}>
+      <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px'}}>
+       <div>
+        <div style={{fontSize:'16px',fontWeight:900,color:'#fde68a'}}>公開料理圖鑑</div>
+        <div style={{fontSize:'11px',fontWeight:800,color:'#8b949e',lineHeight:'1.5'}}>查看各分店用七種惜食食材完成的合格料理</div>
+       </div>
+       <div style={{fontSize:'11px',fontWeight:900,color:'#fbbf24',whiteSpace:'nowrap'}}>{leftoverPublicDishes.length} 道料理</div>
+      </div>
+
+      {!leftoverGalleryItem ? (
+       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(132px,1fr))',gap:'10px'}}>
+        {LEFTOVER_ITEMS.map(item => {
+         const count = getLeftoverGalleryCount(item.id);
+         return (
+          <button key={item.id} onClick={()=>setLeftoverGalleryItem(item.id)} style={{border:'1px solid #30363d',borderRadius:'14px',background:'#0d1117',padding:'0',overflow:'hidden',textAlign:'left',cursor:'pointer',boxShadow:'0 10px 24px rgba(0,0,0,.24)'}}>
+           <div style={{height:'118px',position:'relative',background:'#05080d'}}>
+            <img src={item.img} style={{width:'100%',height:'100%',objectFit:'cover',imageRendering:'pixelated',display:'block',opacity:.92}} />
+            <div style={{position:'absolute',top:'8px',right:'8px',borderRadius:'999px',background:count?'#238636':'rgba(13,17,23,.82)',border:'1px solid rgba(255,255,255,.12)',color:count?'#fff':'#8b949e',fontSize:'10px',fontWeight:900,padding:'4px 8px'}}>{count} 道</div>
+           </div>
+           <div style={{padding:'10px'}}>
+            <div style={{fontSize:'13px',fontWeight:900,color:'#e6edf3',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>{item.label}</div>
+            <div style={{fontSize:'10px',fontWeight:800,color:'#8b949e',lineHeight:'1.45',marginTop:'4px'}}>點進去看各店作品</div>
+           </div>
+          </button>
+         );
+        })}
+       </div>
+      ) : (
+       <div style={{display:'grid',gap:'12px'}}>
+        <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
+         <button onClick={()=>setLeftoverGalleryItem(null)} style={{width:'34px',height:'34px',borderRadius:'10px',border:'1px solid #30363d',background:'#0d1117',color:'#e6edf3',fontWeight:900}}>←</button>
+         <div style={{flex:1,minWidth:0}}>
+          <div style={{fontSize:'15px',fontWeight:900,color:'#e6edf3'}}>{selectedLeftoverGalleryItem.label}</div>
+          <div style={{fontSize:'10px',fontWeight:800,color:'#8b949e'}}>{selectedLeftoverGalleryDishes.length} 道合格料理</div>
+         </div>
+        </div>
+        {selectedLeftoverGalleryDishes.length ? (
+         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:'10px'}}>
+          {selectedLeftoverGalleryDishes.map(dish => (
+           <div key={dish.id} style={{background:'#0d1117',border:'1px solid #30363d',borderRadius:'14px',overflow:'hidden',boxShadow:'0 12px 28px rgba(0,0,0,.26)'}}>
+            <img src={dish.photo} style={{width:'100%',height:'168px',objectFit:'cover',display:'block',background:'#05080d'}} />
+            <div style={{padding:'12px',display:'grid',gap:'7px'}}>
+             <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:'8px'}}>
+              <div style={{fontSize:'15px',fontWeight:900,color:'#fde68a',lineHeight:'1.3',minWidth:0,wordBreak:'break-word'}}>{dish.dishName || '未命名料理'}</div>
+              <div style={{fontSize:'9px',fontWeight:900,color:'#7ee787',border:'1px solid rgba(126,231,135,.38)',borderRadius:'999px',padding:'3px 7px',whiteSpace:'nowrap'}}>已合格</div>
+             </div>
+             <div style={{fontSize:'11px',fontWeight:800,color:'#c9d1d9',lineHeight:'1.55',wordBreak:'break-word'}}>{dish.dishDesc || '尚未填寫介紹'}</div>
+             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',fontSize:'10px',fontWeight:900,color:'#8b949e'}}>
+              <div style={{minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>分店：{dish.branch || '未填'}</div>
+              <div style={{minWidth:0,whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis'}}>姓名：{dish.userName || '未填'}</div>
+             </div>
+             <div style={{fontSize:'11px',fontWeight:900,color:'#fbbf24',lineHeight:'1.55',background:'rgba(251,191,36,.08)',border:'1px solid rgba(251,191,36,.22)',borderRadius:'10px',padding:'8px',wordBreak:'break-word'}}>評價：{dish.review || '尚未留下評價'}</div>
+             {isSuperAdmin && (
+              <button onClick={()=>deleteLeftoverGalleryDish(dish)} style={{border:'1px solid rgba(248,81,73,.55)',borderRadius:'10px',background:'rgba(248,81,73,.1)',color:'#ff7b72',fontSize:'11px',fontWeight:900,padding:'9px',cursor:'pointer'}}>刪除菜色</button>
+             )}
+            </div>
+           </div>
+          ))}
+         </div>
+        ) : (
+         <div style={{textAlign:'center',padding:'24px 12px',border:'1px dashed #30363d',borderRadius:'14px',color:'#8b949e',fontSize:'12px',fontWeight:900,lineHeight:'1.7'}}>目前還沒有合格作品<br/>等第一道料理通過審核後就會出現在這裡</div>
+        )}
+       </div>
+      )}
      </div>
     </div>
    </div>
@@ -7916,7 +8010,7 @@ return (
          comments,
          updatedAt:Date.now()
         }, { merge:true });
-        tx.update(subRef, { status:'approved', review, reviewedAt:Date.now() });
+        tx.update(subRef, { status:'approved', review, reviewedAt:Date.now(), publicVisible:true });
        });
        triggerNotify("菜色已核准，員工進度已增加", "success");
       } catch (error) {
