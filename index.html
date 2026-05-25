@@ -837,8 +837,13 @@ window._gameJsReady = false;
      </div>
     );
 
-    const SectionItem = ({ title, iconName, onClick }) => (
-     <div onClick={onClick} className="glass-panel p-6 rounded-[2rem] flex items-center justify-between active:bg-slate-50 cursor-pointer group transition-all mb-3 text-left bg-white shadow-sm">
+    const NotificationDot = ({ show }) => show ? (
+     <span className="absolute top-4 right-4 w-3 h-3 rounded-full bg-red-500 border-2 border-white shadow-lg animate-pulse" aria-label="未讀提醒"></span>
+    ) : null;
+
+    const SectionItem = ({ title, iconName, onClick, unread = false }) => (
+     <div onClick={onClick} className="relative glass-panel p-6 rounded-[2rem] flex items-center justify-between active:bg-slate-50 cursor-pointer group transition-all mb-3 text-left bg-white shadow-sm">
+      <NotificationDot show={unread} />
       <div className="flex items-center gap-4 text-slate-400 group-active:text-brand-red font-bold">
         {iconName && <Icon name={iconName} size={18} />}
         <span className="text-slate-800 text-sm font-bold leading-none">{title}</span>
@@ -847,8 +852,9 @@ window._gameJsReady = false;
      </div>
     );
 
-    const NavCard = ({ title, onClick, colorClass, iconName }) => (
-     <button onClick={onClick} className={`${colorClass} py-10 flex flex-col items-center justify-center rounded-[2.5rem] border border-slate-100 shadow-sm active:scale-95 transition-all group`}>
+    const NavCard = ({ title, onClick, colorClass, iconName, unread = false }) => (
+     <button onClick={onClick} className={`relative ${colorClass} py-10 flex flex-col items-center justify-center rounded-[2.5rem] border border-slate-100 shadow-sm active:scale-95 transition-all group`}>
+      <NotificationDot show={unread} />
       {/* 重點修改：將顏色改為 text-brand-red，並在 hover 時稍微改變亮度或不透明度 */}
       <div className="mb-3 text-brand-red/80 group-hover:text-brand-red transition-colors">
         <Icon name={iconName} size={28} />
@@ -1987,7 +1993,7 @@ window._gameJsReady = false;
      );
     };
 
-    const ScheduleSystem = ({ onBack, currentBranch, isManager, getPublicPath, triggerNotify }) => {
+    const ScheduleSystem = ({ onBack, currentBranch, isManager, getPublicPath, triggerNotify, publishContent }) => {
      const defaultShiftRules = [
       { code: 'A-5', name: '早班A5', type: 'morning' },
       { code: 'A-6', name: '早班A6', type: 'morning' },
@@ -2607,6 +2613,9 @@ window._gameJsReady = false;
               <button onClick={() => setIsHighlightMode(!isHighlightMode)} className={`flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap ${isHighlightMode ? 'bg-yellow-400 text-[#713f12] border border-[#eab308] shadow-inner' : 'bg-[#f1f5f9] text-[#334155] border border-[#cbd5e1]'}`}>
                <Icon name="edit-3" size={14} /> {isHighlightMode ? '結束標記' : '標記修改'}
               </button>
+              <button onClick={() => publishContent('schedule', `${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月班表已更新`)} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-brand-red text-[#ffffff] rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap">
+               <Icon name="send" size={14} /> 更新發布
+              </button>
               <button onClick={addStaff} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-[#1e293b] text-[#ffffff] rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap"><Icon name="plus" size={14} /> 新增</button>
               <button onClick={() => setShowSettings(!showSettings)} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-[#f1f5f9] text-[#334155] rounded-xl border border-[#cbd5e1] active:scale-95 transition-all text-xs sm:text-sm font-bold whitespace-nowrap"><Icon name="settings" size={14} /> 設定</button>
             </>
@@ -3114,6 +3123,107 @@ window._gameJsReady = false;
            </div>
          </div>
         )}
+      </div>
+     );
+    };
+
+    const MonthlyReportPage = ({ onBack, report }) => {
+     const hasReport = report?.title && report?.url;
+     return (
+      <div className="p-4 space-y-4 page-enter text-left pb-10">
+        <BackButton onClick={onBack} title="廚房月報" />
+        {hasReport ? (
+         <div className="glass-panel p-6 rounded-[2.5rem] bg-white border shadow-sm space-y-5">
+           <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-brand-red flex items-center justify-center shrink-0 shadow-inner">
+             <Icon name="presentation" size={24} />
+            </div>
+            <div className="min-w-0">
+             <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Monthly Briefing</p>
+             <h3 className="text-xl font-black text-slate-800 leading-tight break-words">{report.title}</h3>
+             {report.publishedAt && <p className="text-[10px] text-slate-400 mt-2">發布時間：{new Date(report.publishedAt).toLocaleString()}</p>}
+            </div>
+           </div>
+           <button onClick={() => window.open(report.url, '_blank')} className="w-full bg-brand-red text-white font-black py-4 rounded-2xl active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2">
+            <Icon name="external-link" size={18} /> 開啟簡報
+           </button>
+         </div>
+        ) : (
+         <div className="py-20 text-center glass-panel rounded-[3rem] border border-dashed bg-white text-slate-300 font-bold text-xs">
+          目前尚未發布廚房月報
+         </div>
+        )}
+      </div>
+     );
+    };
+
+    const IngredientManagementPage = ({ onBack, goSpecs, goWaste }) => (
+     <div className="p-4 space-y-4 page-enter text-left">
+      <BackButton onClick={onBack} title="食材管理" />
+      <SectionItem title="食材規格" iconName="clipboard-list" onClick={goSpecs} />
+      <SectionItem title="食材報廢回報" iconName="trash-2" onClick={goWaste} />
+     </div>
+    );
+
+    const IngredientSpecsPage = ({ onBack, items = [] }) => (
+     <div className="p-4 space-y-4 page-enter text-left pb-10">
+      <BackButton onClick={onBack} title="食材規格" />
+      {items.length > 0 ? items.map((item, idx) => (
+       <RuleStandardBlock key={item.id || idx} id={idx + 1} title={item.title} desc={item.content} img={item.img} />
+      )) : (
+       <div className="py-20 text-center glass-panel rounded-[3rem] border border-dashed bg-white text-slate-300 font-bold text-xs">
+        目前尚未建立食材規格
+       </div>
+      )}
+     </div>
+    );
+
+    const IngredientWasteReportPage = ({ onBack, currentBranch, currentUser, getPublicPath, triggerNotify }) => {
+     const [form, setForm] = useState({ item: '', qty: '', reason: '' });
+     const [isSending, setIsSending] = useState(false);
+
+     const submitReport = async () => {
+      if (!form.item.trim() || !form.qty.trim() || !form.reason.trim()) return triggerNotify("請完整填寫報廢品項、數量與原因", "error");
+      setIsSending(true);
+      try {
+        await db.collection(getPublicPath(`ingredient_waste_${currentBranch}`)).add({
+         item: form.item.trim(),
+         qty: form.qty.trim(),
+         reason: form.reason.trim(),
+         userName: currentUser?.name || '未登入',
+         phone: currentUser?.phone || '',
+         branch: currentBranch,
+         timestamp: Date.now()
+        });
+        setForm({ item: '', qty: '', reason: '' });
+        triggerNotify("報廢回報已送出", "success");
+      } catch (e) {
+        triggerNotify("送出失敗，請稍後再試", "error");
+      } finally {
+        setIsSending(false);
+      }
+     };
+
+     return (
+      <div className="p-4 space-y-4 page-enter text-left pb-10">
+       <BackButton onClick={onBack} title="食材報廢回報" />
+       <div className="glass-panel p-6 rounded-[2.5rem] bg-white border shadow-sm space-y-4">
+        <div>
+         <p className="text-[10px] font-black text-slate-400 mb-1 uppercase">報廢品項</p>
+         <input value={form.item} onChange={e=>setForm({...form, item: e.target.value})} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none" placeholder="例如：牛肉片" />
+        </div>
+        <div>
+         <p className="text-[10px] font-black text-slate-400 mb-1 uppercase">數量 / 規格</p>
+         <input value={form.qty} onChange={e=>setForm({...form, qty: e.target.value})} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none" placeholder="例如：2包、500g" />
+        </div>
+        <div>
+         <p className="text-[10px] font-black text-slate-400 mb-1 uppercase">報廢原因</p>
+         <textarea value={form.reason} onChange={e=>setForm({...form, reason: e.target.value})} rows="4" className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none" placeholder="請簡述原因..." />
+        </div>
+        <button onClick={submitReport} disabled={isSending} className="w-full bg-brand-red text-white font-black py-4 rounded-2xl active:scale-95 transition-all shadow-lg disabled:opacity-60">
+         {isSending ? "送出中" : "送出回報"}
+        </button>
+       </div>
       </div>
      );
     };
@@ -4661,6 +4771,14 @@ const [selectedRebuildFacility, setSelectedRebuildFacility] = useState('training
 const [rebuildQuiz, setRebuildQuiz] = useState(null);
 const [rebuildFeedback, setRebuildFeedback] = useState('');
 const [rebuildSaving, setRebuildSaving] = useState(false);
+const [leftoverSubmissions, setLeftoverSubmissions] = useState([]);
+const [leftoverProgress, setLeftoverProgress] = useState({ approvedItems: [], comments: {} });
+const [leftoverPending, setLeftoverPending] = useState([]);
+const [leftoverActiveItem, setLeftoverActiveItem] = useState(null);
+const [leftoverSaving, setLeftoverSaving] = useState(false);
+const [leftoverMessage, setLeftoverMessage] = useState('');
+const [leftoverReviewTexts, setLeftoverReviewTexts] = useState({});
+const [leftoverDishForms, setLeftoverDishForms] = useState({});
 
 const [chosenPartners, setChosenPartners] = useState([]);
 const [frStartMapIdx, setFrStartMapIdx] = useState('random');
@@ -4680,6 +4798,25 @@ const defaultActivities = [
  { id: 'gathering', title: '饗聚一堂', subtitle: '員餐與茶點', img: null, isOpen: false }
 ];
 const activities = config?.activities || defaultActivities;
+const LEFTOVER_ITEMS = [
+ { id:'cooked', label:'熟食剩食', desc:'讓可再運用的熟食剩食變成新料理', img:'data:image/png;base64,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' },
+ { id:'rice', label:'隔夜飯', desc:'把隔夜飯翻轉成炒飯、米點或烘烤料理', img:'data:image/png;base64,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' },
+ { id:'meat', label:'肉區下角', desc:'修整下來的肉角也能成為風味主角', img:'data:image/png;base64,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' },
+ { id:'cabbage', label:'高麗菜下角', desc:'葉梗與邊角用對做法一樣清甜', img:'data:image/png;base64,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' },
+ { id:'mushroom', label:'金針菇根部', desc:'根部切修後再生為湯品或煎餅素材', img:'data:image/png;base64,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' },
+ { id:'eggwhite', label:'蛋白液', desc:'剩餘蛋白液能重生為滑嫩料理', img:'data:image/png;base64,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' },
+ { id:'fruit', label:'水果下角', desc:'水果邊角能變成果醬、飲品或甜點', img:'data:image/png;base64,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' },
+];
+const LEFTOVER_LEVELS = [
+ { title:'白白', desc:'還在觀察廚房世界，等待第一份惜食料理。', img:'data:image/png;base64,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' },
+ { title:'初入灶房的拾荒者', desc:'穿著鬆垮圍裙、拿著鈍木鏟，開始面對廚餘怨氣。', img:'data:image/png;base64,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' },
+ { title:'食材結構的剖析實習生', desc:'圍裙變整齊，手上多了一把基礎菜刀，眼神開始銳利。', img:'data:image/png;base64,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' },
+ { title:'雙界元素的融合術士', desc:'小圓帽成形，雙手有食材融合的元素微光。', img:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAWgAAAFoCAYAAAB65WHVAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAABM+SURBVHhe7dwxrhzZfYVxLsSZMwNKHFupMXCkxDvQAgx4Ai/Ay5hAO5nUqRwaCpTLqZzS4EA1w/nYfFWvWd39r6rfB3yAIPJeqnnPOXhqDfThAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAeIvf/uGPv3+V/c8CAJejw3gE+xkA4NB05M5oPzMAjKTjdUX7dwIAL6HjxC/t3xkAPIwOELfbv0sA+GY6NPx2+3cMAJvpoPBx9u8eAL6gw8Hn2zcBcHE6Eny9fSMAF6KDwLn27QCckH/6x9985HHtewI4CZ9+EmvheSz9RA2cjM//q3ILz2Ppqw/gJLTMBvr49j0NNXAwWt63Bvqvf/0LB9v36nvWZgHAEFrWW7bwHQTOsu/V9/yazQaAF9KCfs0WvoPAWfa9+p5v2YwAeDIt5ZotfAeBs+x79T232MwAeDAt4VZb+A4CZ9n36nu+x2YIwANo8d5jC99B4Cz7Xn3P99osAdiJlu0eW/gOAmfZ9+p73muzBeAbaMHutYXvIHCWfa++57fYjAF4Jy3Vt9rCdxA4y75X33MPmzkAG2iR9rCF7yBwln2vvudeNnsAvkLLs6ctfAeBs+x79T33tlkE8BktzN628B0EzrLv1fd8hM0kgCeM8ydb+A4CZ9n36ns+ymYTuDQtyKNs4TsInGXfq+/5SJtR4JK0GI+0he8gcJZ9r77no21WgcvQMjzDFr6DwFn2vfqez7LZBU5NC/AsW/gOAmfZ9+p7PtNmGDglDf4zbeE7CJxl36vv+WybZeBUNPDPtoXvIHCWfa++5ytspoFT0KC/wha+g8BZ9r36nq+y2QYOTQP+Klv4DgJn2ffqe77SZhw4JA32K23hOwicZd+r7/lqm3XgUDTQz/L//vd/Pt6yhe8gcJZ9r75nbQ6eYTMPHIIG+Zm2uAb6mPa9+p61OXiWzT4wmgb42ba4XxtoHsu+Z20Onmk7AIykwX2FLa6BPod9z9ocPNt2ARhFA/sqW1wDfQ77nrU5eIXtBDCCBvWVtrgG+hz2PWtz8CrbDeClNKCvtsXlNWwOXmk7AryMhvPVtri8hs3Bq21PgKfTUE6wxeU1bA5ebbsCPJUGcootLq9hczDBdgZ4Cg3iJFtcXsPmYIrtDvBQGsBptri8hs3BJNsh4CE0eBNtcXkNm4NptkvA7jR0E21xeQ2bg2m2S8CuNHBTbXF5DZuDibZTwC40aJNtcXkNm4OptlvAN9OQTbbF5TVsDqbabgHfRAM23RaX17A5mGw7BtxFg3UEW1xew+Zguu0a8G4aqiPY4vIaNgfTbdeAd9FAHcUWl9ewOTiC7RywiQbpSLa4vIbNwVFs94BVGqIj2eLyGjYHR7HdA96kATqaLS6vYXNwJNtB4Ks0PEezxeW5/N3v/vWpNl+PsB0EbtLgHNEWmueyA/pom69H2S4CX9DQHNEWmueyA/pom69H2S4Cv6KBOaotNM9lB/TRNl+PtJ0EfqZhOaotNM9lB/TRNl+PtJ0EfqJBObItNM9lB/TRNl+Ptt0EDDQPYwf00TZfz7D9xIVpOI5uC81z2QF9tM3XM2xHcVEajDPYQvNcdkAfbfP1LNtVXJCG4gy20DyXHdBH23w9y3YVF6ShOIMtNM9lB/TRNl/Psl3FxWggzmILzXPZAX20zdczbWdxIRqGs9hC81x2QB9t8/VM21lchAbhTLbQPJcd0EfbfD3bdhcXoCE4ky00z2UH9NE2X8+23cUFaAjOZAvNc9kBfbTN17Ntd3FyGoBX+Zc//ddH8r12QB9tc/sK22GcmD7+q2zxyC12QB9tc/sK22GclD78K23xyC12QB9tc/sq22WckD76K23xyC12QB9tc/sq22WckD76K23xyC12QB9tc/sq22WckD76K23xyC12QB9tc/sq22WcjD74q23xyD3805/++132/GLzOsF2Gieij/1qWwhyDzvAa/b8YvM6wXYaJ6KP/WpbCHIPO8Br9vxi8zrBdhonoQ89wRaC3MMO8Jo9v9i8TrHdxgnoI0+whSD3sAO8Zs8vNq9TbLdxAvrIE2whyD3sAK/Z84vN6xTbbZyAPvIEW4hpfvjw4S57z1nt595q79nbDvCaPb/YvE6x3cbB6QNPsYWYZodlq73nrPZzb7X37G0HeM2eX2xeJ9mO48D0cafYQkyzw7LV3nNW+7m32nv2tgO8Zs8vNq+TbMdxYPq4U2whptlh2WrvOav93FvtPXvbAV6z5xeb10m24zgwfdwpthDT7LBstfec1X7urfaeve0Ar9nzi83rJNtxHJg+7hRbiGl2WLbae85qP/dWe8/edoDX7PnF5nWS7TgOSh92ki3ENDssW+09Z7Wfe6u9Z287wGv2/GLzOs12HQekjzrJFmKaHZat9p6z2s+91d6ztx3gNXt+sXmdZruOA9JHnWQLMc0Oy1Z7z1nt595q79nbDvCaPb/YvE6zXccB6aNOsoWYZodlq73nrPZzb7X37G0HeM2eX2xep9mu44D0USfZQkyzw7LV3nNW+7m32nv2tgO8Zs8vNq/TbNdxQPqok2whptlh2WrvOav93FvtPXvbAV6z5xeb12m26zgYfdBpthDT7LBstfec1X7urfaeve0Ar9nzi83rRNt5HIg+5jRbiGl2WLbae85qP/dWe8/edoDX7PnF5nWi7TwORB9zmi0EuYcd4DV7frF5nWg7jwPRx5xmC0HuYQd4zZ5fbF4n2s7jQPQxp9lCkHvYAV6z5xeb14m28zgQfcxpthDkHnaA1+z5xeZ1ou08DkQfc5otBLmHHeA1e36xeZ1oO48D0cecZgtB7mEHeM2eX2xeJ9rO40D0MafZQpB72AFes+cXm9eJtvM4EH3MabYQ5B52gNfs+cXmdaLtPA5EH3OaLQS5hx3gNXt+sXmdaDuPA9HHnGYLQe5hB3jNnl9sXifazuNA9DGn2UKQe9gBXrPnF5vXibbzOAh9yIm2EOQedoDX7PnF5nWi7T0ORB9zmi0EuYcd4DV7frF5nWg7jwPRx5xmC0HuYQd4zZ5fbF4n2s7jQPQxp9lCkHvYAV6z5xeb14m28zgQfcxpthDkHnaA1+z5xeZ1ou08DkQfc5otBLmHHeA1e36xeZ1oO48D0cecZgtB7mEHeM2eX2xeJ9rO40D0MafZQpB72AFes+cXm9eJtvM4EH3MabYQ5B52gNfs+cXmdaLtPA5EH3OaLcRV/Y/ffXdo+3lebQd4zZ5fbF4n2s7jQPQxp9lCXNUO3tHs53m1HeA1e36xeZ1oO48D0cecZgtxVTt4R7Of59V2gNfs+cXmdaLtPA5EH3OaLcRV7eAdzX6eV9sBXrPnF5vXibbzOBB9zGm2EFe1g3c0+3lebQd4zZ5fbF4n2s7jYPRBJ9lCXNUO3tHs53m1HeA1e36xeZ1mu44D0kedZAtxVTt4R7Of59V2gNfs+cXmdZrtOg5IH3WSLcRV7eAdzX6eV9sBXrPnF5vXabbrOCB91Em2EOQedoDX7PnF5nWa7ToOSB91ki0EuYcd4DV7frF5nWa7jgPSR51kC0HuYQd4zZ5fbF6n2a7joPRhp9hCkHvYAV6z5xeb10m24zgwfdwpthDkHnaA1+z5xeZ1ku04Dkwfd4otBLmHHeA1e36xeZ1kO44D08edYgtB7mEHeM2eX2xeJ9mO48D0cafYQpB72AFes+cXm9dJtuM4OH3gCbYQ5B52gNfs+cXmdYrtNk5AH3mCLQS5hx3gNXt+sXmdYruNE9BHnmALQe5hB3jNnl9sXqfYbuME9JEn2EKQe9gBXrPnF5vXKbbbOAl96FfbQpB72AFes+cXm9cJttM4EX3sV9tCkHvYAV6z5xeb1wm20zgRfexX+Zu//7uP5KPsAK/Z87dshl9lO42T0Qd/hQ0/uacd4DV7/pbN8Ctsl3FC+ujv8d//5R8+ntGWkce2A7xmz9+yXXiF7TJOSB/9PXbYzmLLyGPbAV6z52/ZLrzCdhknpI/+HjtsZ7Fl5LHtAK/Z87dsF15hu4yT0offaoftLP7zv/0nT2QHeM2e7zhPGOh2GCemj7/VDttZbEF5bDvAa/Z8x9lA4+k0AFvssJ3FFpTHtgO8Zs93nF890O0uLkBDsMUO21lsQXlsO8Br9nzH2UDj6TQEW+ywncUWlMe2A7xmz3ecDTReQoOwZoftLLagPLYd4DV7vuP8yoFuZ3EhGoY1O2xnsQXlse0Ar9nzHWcDjZfRQLxlh+0stqA8th3gNXu+4/yqgW5XcUEairfssJ3FFpTHtgO8Zs93nA00nkoH6uq2oDy2HeA1e77jbKDxVDpQV7cF5bHtAK/Z8x3nVwx0O4sL0YG614Zqqw3/J1sS8l47wGv2fLNpoPFUOrT32lBtteE30NzTDvCaPd9sPnug21dcjA7tvTZYW234DTT3tAO8Zs83m88c6HYVF6RDe68N11YbfgPNPe0Ar9nzzaaBxlPp0N5rw7XVht9Ac087wGv2fLP5rIFuT3FROrT32oBtteE30NzTDvCaPd9sGmg8lQ7tvTZgW234DTQn2Ww+Y6DbUVyYDu29NmRbbfgNNCfZbBpoPJUO7b02ZFtt+A00J9lsPnqg209cnA7tvTZoW234DTQn2WwaaDyVDu29NmhbbfgNNCfZbD5yoNtNwECTb9hsPmqg20vgJzq099rAbbXhN9CcZLNpoPFUOrT32sBtteE30Jxks/mIgW4ngZ/p0N5rQ7fVht9Ac5LN5t4D3T4Cv6JDe68N3lYbfgPNSTabBhpPpUN7rw3eVht+A81JNpt7DnS7CHxBh/ZeG76tNvwGmpNsNvca6PYQuEmH9l4bwK02/Aaak2w2DTSeSof2XhvArTb8BpqTbDb3GOh2EPgqHdp7bQi32vAbaE6y2fzWgW7/gDfp0N5rg7jVht9Ac5LN5rcMdLsHrNKhvddPdzWQW2z4DTQn2WzeO9DtHbCJDu29frqrodxiw2+gOclm00DjqXRo73W5r8Fcs+E30Jxks3nPQP+6ccA76NDe6+d3NqBv2fAbaE6y2XzvQH/eC+DddGjvtfc2qF+z4TfQnGSz+Z6BbieAd9Ohvdfe+4kG9pYNv4HmJJvNrQPdLgB30aG919670ODWht9Ac5LN5paBbgeAu+nQ3mvv/ZwG2EDzKDabawPd7APfRIf2XntvaZANNI9gs/nWQDfzwDfTob3X3nuLBtpAc7rN5tcGulkHdqFDe6+992s02A2/geYkm81bA92MA7vRob3X3vsWBppHsdnsQDfbwK50aO+1965hoHkEm83PB7qZBnanQ3uvvXcLBprTbTaXgW6WgYfQob3X3ruVht9Ac5LN5iebYeBhdGjvtfdupeE30Jxks2mg8VQ6tPfae7fS8BtoTrLZNNB4Kh3ae+29W2n4DTQn2WwaaDyVDu299t6tNPwGmpNsNg00nkqH9l5771YafgPNSTabBhpPpUN7r713Kw2/geYkm00DjafSob3X3ruVht9Ac5LNpoHGpWj4DTQn2WwaaFyKht9Ac5LNpoHGpWj4DTQn2WwaaFyKht9Ac5LNpoHGpWj4DTQn2WwaaFyKht9Ac5LNpoHGpWj4DTQn2WwaaFyKht9Ac5LNpoHGpWj4DTQn2WwaaFyKht9Ac5LNpoHGpWj4DTQn2WwaaFyKht9Ac5LNpoHGpWj4DTQn2WwaaFyKht9Ac5LNpoHGpWj4yek2w8BpafjJ6TbDwGlp+MnpNsPAaWn4yek2w8BpafjJ6TbDAIbz2z/88fd82/6dAcBL6Dhd0f6dAMBIOl5ntJ8ZAA5NR+4I9jMAwOXoMD7T/mcBAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD4Jr7/8eNP/PmHj999+JD/k+/vP/7tVz/++H1/7XM2/r7vfvj457/9voU3fz8AXJo3B/rTpv5tUn/8/otf+5nljo8/fvz+xh0/cWOcF/78w3e3zwDApVkZ6F+G9evj+8sVbwztp3vyZ/y861/7swHg0qwN9IfvPv7yQ/StX1++3vjzxx++u/Xrb7Bh/AHguqwO9MrXHBvOf5VloO85CwCnZ8vAvvGT7qavN27yy0/m7z8LAFdgy0B/9WuOd3698fOXzr9w+2sTAMDGgf7K71v+vVtffdzixkBvHncAuBy3hvcmX/60/Ms+v3Xu6/z83faNr04AAJsHut83L4P9beP6rSMPAOflHQP9+e/9/q1/suMdGGgA+BrvGejPfmr+8ad/sf37409/TEf4l684tt8DANfh5v9wt/Dl1xe/+u03R/32Pz731h/jH7MDgFu8tZw3Bvrz/0+N28N6e6A/8eUf5SdnAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACwC/8PBlQziTJkEyIAAAAASUVORK5CYII=' },
+ { title:'口感翻轉的料理煉金術師', desc:'換上雙排扣廚師服，獲得高級平底鍋裝備。', img:'data:image/png;base64,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' },
+ { title:'資源循環的灶火掌控者', desc:'廚師服升級為燙金滾邊，冷藏庫散發金色光芒。', img:'data:image/png;base64,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' },
+ { title:'無浪費境界的惜食宗師', desc:'披上宗師披風，手持傳奇大勺，身旁有綠色生態光環。', img:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAWgAAAFoCAYAAAB65WHVAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAABRtSURBVHhe7Zw9jmTJeUXb5CLokYYgoB06AgguoCCrHTnaBtuYRXAJswstoFzaMoUxxhbpUg6NErpnorvq5Kt6kVkReePnHOAAgqbz8eV8914Ua0b68EFERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERERE3uLTTz/8JSXfRURkOziMM8jvICIyNRy5FeV3FhEZEo7XjvLviYhIBI6TXsq/ZyIi3eAAab38eyki8m44NPp++fdYRKQaDor2k3/vRUQu4HDo/eVNRGRzOBKalzcSkY3gIOi48nYisiB/+sPHJ51X3lNEFuHLT2IsvM6lP1GLLMbz/6rMwutc+qsPkUVgmR3o+eU9HWqRyWB53xrof/zjbzqwvBfvSZkFERkElvVIFp6DoGPJe/Ger8lsiEgQFvQ1WXgOgo4l78V7viUzIiJ3hqU8k4XnIOhY8l68Z43MjIh0hiWslYXnIOhY8l685zUyQyLSARbvGll4DoKOJe/Fe14rsyQijWDZbpGF5yDoWPJevOetMlsi8g5YsFtl4TkIOpa8F+/5HpkxEbkSluq9svAcBB1L3ov3bCEzJyIVsEgtZOE5CDqWvBfv2UpmT0RegeVpKQvPQdCx5L14z9YyiyLyDBamtSw8B0HHkvfiPXvITIrIHcb5iyw8B0HHkvfiPXvJbIpsDQvSSxaeg6BjyXvxnj1lRkW2hMXoKQvPQdCx5L14z94yqyLbwDLcQxaeg6BjyXvxnveS2RVZGhbgXrLwHAQdS96L97ynzLDIkjD495SF5yDoWPJevOe9ZZZFloKBv7csPAdBx5L34j0TMtMiS8CgJ2ThOQg6lrwX75mS2RaZGgY8JQvPQdCx5L14z6TMuMiUMNhJWXgOgo4l78V7pmXWRaaCgb6X//f3/3k6koXnIOhY8l68J2UO7iEzLzIFDPI9ZXEd6DnlvXhPyhzcS2ZfZGgY4HvL4r420DqXvCdlDu4pOyAyJAxuQhbXgV5D3pMyB/eWXRAZCgY2JYvrQK8h70mZg4TshMgQMKhJWVwHeg15T8ocpGQ3RKIwoGlZXN1D5iApOyISg+FMy+LqHjIHadkTkbvDUI4gi6t7yBykZVdE7goDOYosru4hczCC7IzIXWAQR5LF1T1kDkaR3RHpCgM4miyu7iFzMJLskEgXGLwRZXF1D5mD0WSXRJrD0I0oi6t7yByMJrsk0hQGblRZXN1D5mBE2SmRJjBoI8vi6h4yB6PKbom8G4ZsZFlc3UPmYFTZLZF3wYCNLoure8gcjCw7JnITDNYMsri6h8zB6LJrIlfDUM0gi6t7yByMLrsmchUM1CyyuLqHzMEMsnMiVTBIM8ni6h4yB7PI7omcwhDNJIure8gczCK7J/ImDNBssri6h8zBTLKDIq/C8Mwmi6tr+enTf9zXg4y1lh0UOYTBmVEWWtfyYkB7e5CxHrKLIhcwNDPKQutaXgxobw8y1kN2UeQFDMysstC6lhcD2tuDjPWSnRT5BsMyqyy0ruXFgPb2IGO9ZCdFvsKgzCwLrWt5MaC9PchYT9lNEQdap/FiQHt7kLHesp+yMQzH7LLQupYXA9rbg4z1lh2VTWEwVpCF1rW8GNDeHmTsHrKrsiEMxQqy0LqWFwPa24OM3UN2VTaEoVhBFlrX8mJAe3uQsXvIrspmMBCryELrWl4MaG8PMnYv2VnZCIZhFVloXcuLAe3tQcbuJTsrm8AgrCQLrWt5MaC9PcjYPWV3ZQMYgpVkoXUtLwa0twcZu6fsrmwAQ7CSLLSu5cWA9vYgY/eU3ZXFYQBS/u2nvz6pXuvFgPb2ILv3lh2WheHxU7J4qjVeDGhvD7J7b9lhWRQePimLp1rjxYD29iC7CdllWRAePSmLp1rjxYD29iC7CdllWRAePSmLp1rjxYD29iC7CdllWRAePSmLp1rjxYD29iC7CdllWQwePC2Lp9rCn37676vk54vM6wiy07IQPHZaFkK1hRzgM/n5IvM6guy0LASPnZaFUG0hB/hMfr7IvI4gOy2LwEOPIAuh2kIO8Jn8fJF5HUV2WxaARx5BFkK1hRzgM/n5IvM6iuy2LACPPIIshGoLOcBn8vNF5nUU2W1ZAB55BFmI0fzw4cNN8jmryu9dK5/TWg7wmfx8kXkdRXZbJocHHkUWYjQ5LLXyOavK710rn9NaDvCZ/HyReR1JdlwmhscdRRZiNDkstfI5q8rvXSuf01oO8Jn8fJF5HUl2XCaGxx1FFmI0OSy18jmryu9dK5/TWg7wmfx8kXkdSXZcJobHHUUWYjQ5LLXyOavK710rn9NaDvCZ/HyReR1JdlwmhscdRRZiNDkstfI5q8rvXSuf01oO8Jn8fJF5HUl2XCaFhx1JFmI0OSy18jmryu9dK5/TWg7wmfx8kXkdTXZdJoRHHUkWYjQ5LLXyOavK710rn9NaDvCZ/HyReR1Ndl0mhEcdSRZiNDkstfI5q8rvXSuf01oO8Jn8fJF5HU12XSaERx1JFmI0OSy18jmryu9dK5/TWg7wmfx8kXkdTXZdJoRHHUkWYjQ5LLXyOavK710rn9NaDvCZ/HyReR1Ndl0mhEcdSRZiNDkstfI5q8rvXSuf01oO8Jn8fJF5HU12XSaDBx1NFmI0OSy18jmryu9dK5/TWg7wmfx8kXkdUXZeJoLHHE0WYjQ5LLXyOavK710rn9NaDvCZ/HyReR1Rdl4mgsccTRZCtYUc4DP5+SLzOqLsvEwEjzmaLIRqCznAZ/LzReZ1RNl5mQgeczRZCNUWcoDP5OeLzOuIsvMyETzmaLIQqi3kAJ/JzxeZ1xFl52UieMzRZCFUW8gBPpOfLzKvI8rOy0TwmKPJQqi2kAN8Jj9fZF5HlJ2XieAxR5OFUG0hB/hMfr7IvI4oOy8TwWOOJguh2kIO8Jn8fJF5HVF2XiaCxxxNFkK1hRzgM/n5IvM6ouy8TASPOZoshGoLOcBn8vNF5nVE2XmZCB5zNFkI1RZygM/k54vM64iy8zIJPOSIshCqLeQAn8nPF5nXEWXvZSJ4zNFkIVRbyAE+k58vMq8jys7LRPCYo8lCqLaQA3wmP19kXkeUnZeJ4DFHk4VQbSEH+Ex+vsi8jig7LxPBY44mC6HaQg7wmfx8kXkdUXZeJoLHHE0WQrWFHOAz+fki8zqi7LxMBI85miyEags5wGfy80XmdUTZeZkIHrOX//Lpj08jyILpXjIPKdmPnrLzMhE8Zi8Z0JQsrO4l85CS/egpOy8TwWP2kgFNycLO4g+fHqaW3ycl85CS/egpOy8TwWP2kgFNycLOIgdvNvl9UjIPKdmPnrLzMhE8Zi8Z0JQs7Cxy8GaT3ycl85CS/egpOy8TwWP2kgFNycLOIgdvNvl9UjIPKdmPnrLzMhE8Zi8Z0JQs7Cxy8GaT3ycl85CS/egpOy+TwYP2kAFNycLOIgdvNvl9UjIPKdmPXrLrMiE8ag8Z0JQs7Cxy8GaT3ycl85CS/egluy4TwqP2kAFNycLOIgdvNvl9UjIPKdmPXrLrMiE8ag8Z0JQsrO4l85CS/egluy4TwqP2kAFNycLqXjIPKdmPXrLrMiE8ag8Z0JQsrO4l85CS/egluy6TwsO2lgFNycLqXjIPKdmPHrLjMjE8bmsZ0JQsrO4l85CS/eghOy4Tw+O2lgFNycLqXjIPKdmPHrLjMjE8bmsZ0JQsrO4l85CS/eghOy4Tw+O2lgFN+c/H3+vGMg8p2Y8esuMyOTxwSxnQlCys7iXzkJL9aC27LQvAI7eUAU3JwupeMg8p2Y/WstuyADxySxnQlCys7iXzkJL9aC27LQvAI7eUAU3JwupeMg8p2Y/WstuyCDx0KxnQlCys7iXzkJL9aCk7LQvBY7eSAU3Jf+1K95J5SMl+tJSdloXgsVvJgKb8+Lvf6sYyDynZj5ay07IYPHgLGdCULKzuJfOQkv1oJbssC8KjX+Of//1fn45kQFPyvWpl0XVOmYeU7E0r2WVZEB79GjlsRQY0Jd+rVhZd55R5SMnetJJdlgXh0a+Rw1ZkQFPyvWpl0XVOmYeU7E0r2WVZFB6+Vg5bkQFNyfeq9X//6ze6gMxDSvamheywLAyPXyuHrciApuR71cqi65wyDynZmxayw7I4DECNHLYiA5qS71Uri65zyjykZG/eK7srG8AQ1MhhKzKgKfletbLoOqfMQ0r25r2yu7IBDEGNHLYiA5qS71Uri65zyjykZG/eK7srm8AgnMlhKzKgKfletbLoOqfMQ0r25j2ys7IRDMOZHLYiA5qS71Uri65zyjykZG/eIzsrm8FAvCWHrciApuR71cqi65wyDynZm1tlV2VDGIq35LAVGdCUfK9aWXSdU+YhJXtzq+yqbAIH6r0yoCn5XrWy6DqnzENKDu2tsreyCRyo98qApuR71cqi65wyDyk5tLfIzspGcKButYSJAU3JwupeMg8pOba3yM7KRnBob7WEiQFNycLqXjIPKTm218q+ymZwaG+1BIoBTcnC6l4yDyk5uNfIrsqGcGhvtYSKAU3JwupeMg8pObrXyK7KhnBob7WEigFNycLqXjIPKTm6tbKnsikc2lt1oHUkmYeUHN5a2VPZFA7trTrQOpLMQ0oOb43sqGwMh/ZWHWgdSeYhJce3RnZUNqYM7MePf2giA5qS78UC69oyDyk5vmeyn7I5DrSuKPOQkgN8Jvspm+NA64oyDyk5wG/Jboo40LqkzENKjvBrspciX3GgdUWZh5Qc4tdkL0W+4kDrijIPKTnER7KTIt9woHVFmYeUHGPKPoq8wIHWFWUeUnKQKfso8gIHWleUeUjJQXac5SocaF1R5iElR9lx3oQf/vPfnu4hh+5MBjQl34sF1rVlHlJymB3oTeCQ9pJDdyYDmpLvxQLr2jIPKTnMjvMmcEh7yaE7kwFNyfdigXVtmYeUjvOmcEh7yaE7kwFNyfdigXVtmYeUjvOmcEh7yaE7kwFNyfdigXVtmYeUjvOmcEh7yaE7kwFNyfdigXVtmYeUDvSmcEh7yaE7kwFNyfdigXVtmYeUjvOmcEh7yaE7kwFNyfdigXVtmYeU7K1sAoe0lxy6MxnQlHwvFljXlnlIyd7KJnBIe8mhO5MBTcn3YoF1bZmHlOytyFX4f+qtK8o8pGTfRK7CgdYVZR5Ssm8iV+FA64oyDynZN5GrcKB1RZmHlOybyFU40LqizENK9k3kKhxoXVHmISX7JnIVDrSuKPOQkn0TuQoHWleUeUjJvolcRRno91qex4CmZGF1L5mHlC/bJnIlHNpbLc9jQFOysLqXzEPKl20TuRIO7a2W5zGgKVlY3UvmIeXLtolcCYf2VsvzGNCULKzuJfOQ8mXbRK6EQ3ur5XkMaEoWVveSeUj5sm0iV8KhvdXyPAY0JQure8k8pHzZNpEr4dDeankeA5qShdW9ZB5SvmybyJVwaG+1PI8BTcnC6l4yDylftk0kDAOakoXVvWQeUrIfIlEY0JQsrO4l85CS/RCJwoCmZGF1L5mHlOyHSBQGNCULq3vJPKRkP0SiMKApWVjdS+YhJfshEoUBTcnC6l4yDynZD5EoDGhKFlb3knlIyX6IRGFAU7KwupfMQ0r2QyQKA5qShdW9ZB5Ssh8iURjQlCys7iXzkJL9EInCgKZkYXUvmYeU7IdIFAY0JQure8k8pGQ/RKIwoClZWN1L5iEl+yEShQFNycLqXjIPKdkPkSgMaMqPv/utbizzkJL9EInCgKZkYXUvmYeU7IdIFAY0JQure8k8pGQ/RKIwoClZWN1L5iEl+yEShQFNycLqXjIPKdkPkSgMaMp/Pv5eN5Z5SMl+iERhQFOysLqXzENK9kMkCgOakoXVvWQeUrIfIlEY0JQsrO4l85CS/RCJwoCmZGF1L5mHlOyHSBQGNCULq3vJPKRkP0SiMKAp+V6yF8xDSr6XSBQGNCXfS/aCeUjJ9xKJwoCm5HvJXjAPKfleIlEY0JR8L9kL5iEl30skCgOaku8le8E8pOR7iURhQFPyvWQvmIeUfC+RKAxoSr6X7AXzkJLvJRKFAU3J95K9YB5S8r1EojCgKfleshfMQ0q+l0gUBjQl30v2gnlIyfeSUfj8+PSVn398evjwAYf6/PTrX316/My/9pzaP/cLDz/+/OufLvz89OPD+edawoCm5HvJXjAPKfleMgpvDvSzMX38fPHXvlGe8fT49PngGd95eLrY5q/cf6BFRMbnZKA/PPz49Mumvj6+3x/xcPjXC992/OJZD08PDrSICDgb6Gc/9R7/+qL8euPkp+CKoRcRkeecDvTJrzkqPv+F8oyzn7JFRKRQM7Bv/PRb9+uN8lP4Lz9lv/yHhCc/eYuIbEvNQL/6a47KX288+3OPj0f/lPDs8yIiO1I10K/8ufK/O/rVxwu+/2t4L38Kf/ZvdZw+Q0RkN46G95DLn5a/7/Nbn/vCG/+e9Bu/PhER2Zvqgebvm8vo1gzry99Bv/xr1zxHRGQnrhjo53/281v/ZscBr/7DxPITdM1/vojIVlwz0M9+2n38+j8c/UT8CuU/58Vnvv/q42K4RUS259twHnH5a4cXf/xw1L//gz+O7qv/UYfPERHZnVdX8wuXA/39H+pdDvCvf+DVgf76V/n/jKPyVyQiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIiIib/D/qfgGB6/VR4wAAAAASUVORK5CYII=' },
+ { title:'萬物重生的食神傳奇', desc:'食神金光罩體，身後浮現繁星般的夢幻料理圖鑑。', img:'data:image/png;base64,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' },
+];
 
 useEffect(() => {
  if (!currentBranch) return;
@@ -4720,6 +4857,34 @@ useEffect(() => {
  return () => unsub();
 }, [selectedActivity, currentBranch, getPublicPath]);
 
+useEffect(() => {
+ if (selectedActivity !== 'leftover') return;
+ const unsubs = [];
+ if (currentUser?.phone) {
+  const progressRef = db.collection(getPublicPath('leftover_progress')).doc(currentUser.phone);
+  unsubs.push(progressRef.onSnapshot(
+   doc => setLeftoverProgress(doc.exists ? doc.data() : { approvedItems: [], comments: {} }),
+   () => setLeftoverProgress({ approvedItems: [], comments: {} })
+  ));
+  unsubs.push(db.collection(getPublicPath('leftover_submissions')).where('phone','==',currentUser.phone).onSnapshot(
+   snap => setLeftoverSubmissions(snap.docs.map(d => ({ id:d.id, ...d.data() })).sort((a,b)=>(b.timestamp||0)-(a.timestamp||0))),
+   () => setLeftoverSubmissions([])
+  ));
+ } else {
+  setLeftoverProgress({ approvedItems: [], comments: {} });
+  setLeftoverSubmissions([]);
+ }
+ if (isSuperAdmin) {
+  unsubs.push(db.collection(getPublicPath('leftover_submissions')).onSnapshot(
+   snap => setLeftoverPending(snap.docs.map(d => ({ id:d.id, ...d.data() })).filter(s => (s.status || 'pending') === 'pending').sort((a,b)=>(b.timestamp||0)-(a.timestamp||0))),
+   () => setLeftoverPending([])
+  ));
+ } else {
+  setLeftoverPending([]);
+ }
+ return () => unsubs.forEach(fn => fn && fn());
+}, [selectedActivity, currentUser?.phone, isSuperAdmin, getPublicPath]);
+
 const topScores = leaderboard.slice(0, 20);
 const topEmployees = Object.values(leaderboard.reduce((acc, curr) => {
  if (!acc[curr.name] || acc[curr.name].score < curr.score) {
@@ -4728,6 +4893,104 @@ const topEmployees = Object.values(leaderboard.reduce((acc, curr) => {
  return acc;
 }, {})).sort((a, b) => b.score - a.score).slice(0, 20);
 const currentDisplayList = leaderboardTab === 'scores' ? topScores : topEmployees;
+const leftoverApprovedItems = Array.isArray(leftoverProgress.approvedItems) ? leftoverProgress.approvedItems : [];
+const leftoverLevel = Math.min(7, leftoverApprovedItems.length);
+const leftoverRank = LEFTOVER_LEVELS[leftoverLevel] || LEFTOVER_LEVELS[0];
+const leftoverAwardCount = leftoverLevel >= 7 ? 1 : 0;
+const getLeftoverLatest = (itemId, status = null) => leftoverSubmissions.find(s => s.itemId === itemId && (!status || s.status === status));
+const getLeftoverItem = (itemId) => LEFTOVER_ITEMS.find(item => item.id === itemId) || LEFTOVER_ITEMS[0];
+const dataUrlBytes = (dataUrl) => {
+ const raw = String(dataUrl || '').split(',')[1] || '';
+ return Math.ceil(raw.length * 3 / 4);
+};
+const compressLeftoverImage = async (base64) => {
+ let maxWidth = 1100;
+ let quality = .78;
+ let output = await compressImage(base64, maxWidth, quality);
+ while (dataUrlBytes(output) > 950000 && quality > .34) {
+  quality -= .08;
+  maxWidth = Math.max(640, maxWidth - 100);
+  output = await compressImage(base64, maxWidth, quality);
+ }
+ return output;
+};
+const submitLeftoverDish = async (item) => {
+ if (leftoverSaving || !currentUser?.phone) return;
+ const form = leftoverDishForms[item.id] || {};
+ const dishName = String(form.dishName || '').trim();
+ const dishDesc = String(form.dishDesc || '').trim();
+ const file = form.photoFile;
+ if (!dishName || !dishDesc) {
+  setLeftoverMessage('請先填寫菜名與菜色介紹。');
+  return;
+ }
+ if (!file) {
+  setLeftoverMessage('請先選擇菜色照片，再送審。');
+  return;
+ }
+ setLeftoverSaving(true);
+ setLeftoverMessage('照片壓縮與上傳中...');
+ try {
+  const reader = new FileReader();
+  const base64 = await new Promise((resolve, reject) => {
+   reader.onloadend = () => resolve(reader.result);
+   reader.onerror = reject;
+   reader.readAsDataURL(file);
+  });
+  const compressed = await compressLeftoverImage(base64);
+  if (dataUrlBytes(compressed) > 1000000) throw new Error('too-large');
+  await db.collection(getPublicPath('leftover_submissions')).add({
+   itemId:item.id,
+   itemLabel:item.label,
+   dishName,
+   dishDesc,
+   phone:currentUser.phone,
+   userName:currentUser.name || currentUser.phone,
+   branch:currentBranch,
+   photo:compressed,
+   status:'pending',
+   review:'',
+   timestamp:Date.now()
+  });
+  setLeftoverDishForms(prev=>({...prev,[item.id]:{ dishName:'', dishDesc:'', photoFile:null, photoName:'' }}));
+  setLeftoverMessage(`${item.label}「${dishName}」已送出，等待最高權限審核。`);
+ } catch (e) {
+  console.error(e);
+  setLeftoverMessage('上傳失敗，請換一張照片或重新整理後再試。');
+ } finally {
+  setLeftoverSaving(false);
+ }
+};
+const approveLeftoverSubmission = async (submission) => {
+ if (!isSuperAdmin || !submission?.id) return;
+ const review = leftoverReviewTexts[submission.id] || '合格，料理重生成功。';
+ const progressRef = db.collection(getPublicPath('leftover_progress')).doc(submission.phone);
+ const subRef = db.collection(getPublicPath('leftover_submissions')).doc(submission.id);
+ await db.runTransaction(async tx => {
+  const snap = await tx.get(progressRef);
+  const data = snap.exists ? snap.data() : {};
+  const approvedItems = Array.from(new Set([...(data.approvedItems || []), submission.itemId]));
+  const comments = { ...(data.comments || {}), [submission.itemId]: review };
+  tx.set(progressRef, {
+   phone:submission.phone,
+   userName:submission.userName,
+   branch:submission.branch,
+   approvedItems,
+   comments,
+   updatedAt:Date.now()
+  }, { merge:true });
+  tx.update(subRef, { status:'approved', review, reviewedAt:Date.now() });
+ });
+};
+const rejectLeftoverSubmission = async (submission) => {
+ if (!isSuperAdmin || !submission?.id) return;
+ const review = leftoverReviewTexts[submission.id] || '請補充菜色說明或重新拍攝成品照。';
+ await db.collection(getPublicPath('leftover_submissions')).doc(submission.id).update({
+  status:'rejected',
+  review,
+  reviewedAt:Date.now()
+ });
+};
 if (!selectedActivity) {
  return (
   <div className="fixed inset-0 z-[10000] bg-slate-50 flex flex-col page-enter overflow-hidden">
@@ -4774,6 +5037,140 @@ if (!selectedActivity) {
      </div>
      </div>
     ))}
+   </div>
+  </div>
+ );
+}
+if (selectedActivity === 'leftover') {
+ const pixelPanel = {background:'#10151f', border:'1px solid rgba(251,191,36,.32)', boxShadow:'0 14px 36px rgba(0,0,0,.32)'};
+ return (
+  <div className="fixed inset-0 z-[10000] flex flex-col page-enter" style={{background:'#0d1117', color:'#e6edf3'}}>
+   <div className="px-4 py-3 shrink-0 flex items-center gap-3" style={{background:'#161b22', borderBottom:'1px solid rgba(251,191,36,.28)'}}>
+    <button onClick={()=>setSelectedActivity(null)} style={{width:'36px',height:'36px',borderRadius:'10px',border:'1px solid #30363d',background:'#0d1117',color:'#e6edf3',fontWeight:900}}>←</button>
+    <div className="flex-1">
+     <div style={{fontSize:'18px',fontWeight:900,color:'#fde68a'}}>廢材不廢</div>
+     <div style={{fontSize:'11px',fontWeight:800,color:'#8b949e'}}>珍惜食材，讓下角重生成一道料理</div>
+    </div>
+    <div style={{fontSize:'11px',fontWeight:900,color:'#fbbf24'}}>嘉獎 {leftoverAwardCount} 支</div>
+   </div>
+
+   <div className="flex-1 overflow-y-auto" style={{padding:'14px 14px 28px'}}>
+    <div style={{maxWidth:'920px',margin:'0 auto',display:'grid',gap:'14px'}}>
+     <div style={{...pixelPanel,borderRadius:'16px',padding:'14px'}}>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'6px',marginBottom:'10px'}}>
+       {LEFTOVER_ITEMS.map((item,idx)=> {
+        const done = leftoverApprovedItems.includes(item.id);
+        return <div key={item.id} title={item.label} style={{height:'18px',borderRadius:'4px',border:'1px solid '+(done?'#7ee787':'#30363d'),background:done?'linear-gradient(180deg,#3fb950,#238636)':'#0d1117',boxShadow:done?'0 0 10px rgba(63,185,80,.35)':'none'}} />;
+       })}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'120px 1fr',gap:'12px',alignItems:'center'}}>
+       <div style={{height:'120px',borderRadius:'14px',background:'radial-gradient(circle,#1f2937,#0d1117)',display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid #30363d'}}>
+        <img src={leftoverRank.img} style={{width:'108px',height:'108px',objectFit:'contain',imageRendering:'pixelated'}} />
+       </div>
+       <div>
+        <div style={{fontSize:'11px',fontWeight:900,color:'#8b949e'}}>小食怪位階 LV.{leftoverLevel}</div>
+        <div style={{fontSize:'20px',fontWeight:900,color:'#e6edf3',lineHeight:'1.25'}}>{leftoverRank.title}</div>
+        <div style={{fontSize:'12px',fontWeight:800,color:'#8b949e',lineHeight:'1.6',marginTop:'6px'}}>{leftoverRank.desc}</div>
+        <div style={{fontSize:'11px',fontWeight:900,color:'#fbbf24',marginTop:'8px'}}>七格全滿嘉獎 1 支</div>
+        <div style={{fontSize:'11px',fontWeight:800,color:'#8b949e',lineHeight:'1.6',marginTop:'4px'}}>補充規則：該店本活動菜色前 2 名，額外再獲得嘉獎 1 支。</div>
+       </div>
+      </div>
+     </div>
+
+     {leftoverMessage && <div style={{...pixelPanel,borderRadius:'12px',padding:'10px 12px',color:leftoverMessage.includes('失敗')?'#ff7b72':'#7ee787',fontWeight:900,fontSize:'12px'}}>{leftoverMessage}</div>}
+
+     {isSuperAdmin && (
+      <div style={{...pixelPanel,borderRadius:'16px',padding:'14px'}}>
+       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',marginBottom:'12px'}}>
+        <div>
+         <div style={{fontSize:'14px',fontWeight:900,color:'#e6edf3'}}>最高權限審核清單</div>
+         <div style={{fontSize:'10px',fontWeight:800,color:'#8b949e'}}>合格後增加員工進度，並從待審清單移除</div>
+        </div>
+        <div style={{fontSize:'12px',fontWeight:900,color:'#fbbf24'}}>{leftoverPending.length} 件待審</div>
+       </div>
+       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(240px,1fr))',gap:'10px'}}>
+        {leftoverPending.length ? leftoverPending.map(sub => (
+         <div key={sub.id} style={{background:'#0d1117',border:'1px solid #30363d',borderRadius:'14px',padding:'10px'}}>
+          <img src={sub.photo} style={{width:'100%',height:'150px',objectFit:'cover',borderRadius:'10px',border:'1px solid #21262d'}} />
+          <div style={{marginTop:'8px',fontWeight:900,color:'#e6edf3',fontSize:'13px'}}>{sub.dishName || '未填菜名'}</div>
+          <div style={{fontSize:'10px',fontWeight:900,color:'#fbbf24',marginTop:'2px'}}>{sub.itemLabel}</div>
+          <div style={{fontSize:'10px',fontWeight:800,color:'#8b949e'}}>{sub.branch} · {sub.userName}</div>
+          <div style={{fontSize:'11px',fontWeight:800,color:'#c9d1d9',lineHeight:'1.5',marginTop:'8px',background:'#161b22',border:'1px solid #30363d',borderRadius:'10px',padding:'8px'}}>{sub.dishDesc || '未填菜色介紹'}</div>
+          <textarea value={leftoverReviewTexts[sub.id] || ''} onChange={e=>setLeftoverReviewTexts(prev=>({...prev,[sub.id]:e.target.value}))} placeholder="寫給員工的評語..." style={{width:'100%',minHeight:'58px',marginTop:'8px',borderRadius:'10px',border:'1px solid #30363d',background:'#161b22',color:'#e6edf3',fontSize:'12px',fontWeight:800,padding:'8px',outline:'none'}} />
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginTop:'8px'}}>
+           <button onClick={()=>approveLeftoverSubmission(sub)} style={{border:'none',borderRadius:'10px',background:'#238636',color:'#fff',fontWeight:900,padding:'9px'}}>合格</button>
+           <button onClick={()=>rejectLeftoverSubmission(sub)} style={{border:'1px solid #f85149',borderRadius:'10px',background:'rgba(248,81,73,.1)',color:'#ff7b72',fontWeight:900,padding:'9px'}}>退回</button>
+          </div>
+         </div>
+        )) : <div style={{gridColumn:'1/-1',textAlign:'center',padding:'22px',color:'#8b949e',fontWeight:900,border:'1px dashed #30363d',borderRadius:'14px'}}>目前沒有待審菜色</div>}
+       </div>
+      </div>
+     )}
+
+     <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(160px,1fr))',gap:'12px'}}>
+      {LEFTOVER_ITEMS.map(item => {
+       const approved = leftoverApprovedItems.includes(item.id);
+       const pending = getLeftoverLatest(item.id,'pending');
+       const rejected = getLeftoverLatest(item.id,'rejected');
+       const comment = leftoverProgress.comments?.[item.id] || rejected?.review || '';
+       const flipped = leftoverActiveItem === item.id;
+       const dishForm = leftoverDishForms[item.id] || {};
+       return (
+        <div key={item.id} onClick={()=>setLeftoverActiveItem(flipped?null:item.id)} style={{minHeight:'292px',borderRadius:'16px',border:'1px solid '+(approved?'#3fb950':pending?'#fbbf24':'#30363d'),background:'#10151f',boxShadow:'0 12px 28px rgba(0,0,0,.28)',overflow:'hidden',cursor:'pointer'}}>
+         {!flipped ? (
+          <div style={{height:'100%',display:'flex',flexDirection:'column'}}>
+           <img src={item.img} style={{width:'100%',height:'190px',objectFit:'cover',imageRendering:'pixelated',borderBottom:'1px solid #30363d'}} />
+           <div style={{padding:'10px'}}>
+            <div style={{fontSize:'14px',fontWeight:900,color:'#e6edf3'}}>{item.label}</div>
+            <div style={{fontSize:'10px',fontWeight:800,color:'#8b949e',lineHeight:'1.5',marginTop:'4px'}}>{item.desc}</div>
+            <div style={{marginTop:'8px',fontSize:'10px',fontWeight:900,color:approved?'#7ee787':pending?'#fbbf24':rejected?'#ff7b72':'#58a6ff'}}>{approved?'已合格 +1':pending?'審核中':rejected?'已退回，點擊重傳':'點擊翻面上傳菜色'}</div>
+           </div>
+          </div>
+         ) : (
+         <div style={{padding:'12px',height:'100%',display:'flex',flexDirection:'column',gap:'8px'}}>
+           <div style={{fontSize:'15px',fontWeight:900,color:'#fde68a'}}>{item.label}</div>
+           <div style={{fontSize:'11px',fontWeight:800,color:'#8b949e',lineHeight:'1.6'}}>填寫菜名與菜色介紹，並上傳重生成料理的照片。照片會自動壓縮到 1MB 以內。</div>
+           {comment && <div style={{fontSize:'11px',fontWeight:900,color:approved?'#7ee787':'#ff7b72',background:'rgba(255,255,255,.05)',border:'1px solid #30363d',borderRadius:'10px',padding:'8px',lineHeight:'1.5'}}>評語：{comment}</div>}
+           <div style={{flex:1}} />
+           {approved ? (
+            <button style={{border:'none',borderRadius:'12px',background:'#238636',color:'#fff',fontWeight:900,padding:'11px'}}>已合格</button>
+           ) : (
+            <>
+             <input
+              value={dishForm.dishName || ''}
+              onClick={e=>e.stopPropagation()}
+              onChange={e=>setLeftoverDishForms(prev=>({...prev,[item.id]:{...(prev[item.id] || {}),dishName:e.target.value}}))}
+              placeholder="菜名"
+              style={{width:'100%',borderRadius:'10px',border:'1px solid #30363d',background:'#161b22',color:'#e6edf3',fontSize:'12px',fontWeight:900,padding:'10px',outline:'none'}}
+             />
+             <textarea
+              value={dishForm.dishDesc || ''}
+              onClick={e=>e.stopPropagation()}
+              onChange={e=>setLeftoverDishForms(prev=>({...prev,[item.id]:{...(prev[item.id] || {}),dishDesc:e.target.value}}))}
+             placeholder="菜色介紹"
+              style={{width:'100%',minHeight:'72px',borderRadius:'10px',border:'1px solid #30363d',background:'#161b22',color:'#e6edf3',fontSize:'12px',fontWeight:800,padding:'10px',outline:'none',resize:'vertical'}}
+             />
+             <label onClick={e=>e.stopPropagation()} style={{display:'block',textAlign:'center',borderRadius:'12px',background:leftoverSaving?'#30363d':'#1f6feb',color:'#fff',fontWeight:900,padding:'12px',cursor:leftoverSaving?'wait':'pointer'}}>
+              {dishForm.photoName ? '已選擇照片' : '選擇菜色照片'}
+              <input type="file" accept="image/*" className="hidden" disabled={leftoverSaving} onClick={e=>e.stopPropagation()} onChange={e=>{
+               const file = e.target.files?.[0] || null;
+               setLeftoverDishForms(prev=>({...prev,[item.id]:{...(prev[item.id] || {}),photoFile:file,photoName:file?.name || ''}}));
+               e.target.value = '';
+              }} />
+             </label>
+             {dishForm.photoName && <div style={{fontSize:'10px',fontWeight:800,color:'#8b949e',lineHeight:'1.4',textAlign:'center',wordBreak:'break-all'}}>{dishForm.photoName}</div>}
+             <button onClick={e=>{e.stopPropagation(); submitLeftoverDish(item);}} disabled={leftoverSaving} style={{border:'none',borderRadius:'12px',background:leftoverSaving?'#30363d':'#238636',color:'#fff',fontWeight:900,padding:'12px',cursor:leftoverSaving?'wait':'pointer'}}>
+              {pending?'重新送審':'送審'}
+             </button>
+            </>
+           )}
+          </div>
+         )}
+        </div>
+       );
+      })}
+     </div>
+    </div>
    </div>
   </div>
  );
@@ -4990,14 +5387,17 @@ if (selectedActivity === 'food_research') {
  const rebuildWrongCount = Math.max(0, Number(usingUserRebuild ? (personalDaily.wrong || 0) : (rebuildDailyWrongs[rebuildPlayerKey] || 0)));
  const rebuildRemaining = Math.max(0, REBUILD_PLAYER_LIMIT - rebuildPlayerCount);
  const rebuildWrongLocked = rebuildWrongCount >= REBUILD_WRONG_LIMIT;
- const getUserFacilityCorrect = (user, facilityId) => Math.max(0, Number(user?.gameRebuild?.facilities?.[facilityId]?.correct || 0));
+ const getUserFacilityState = (user, facilityId) => user?.gameRebuild?.facilities?.[facilityId] || {};
+ const getUserFacilityCorrect = (user, facilityId) => Math.max(0, Number(getUserFacilityState(user, facilityId).correct || 0));
+ const getUserFacilityCompleted = (user, facilityId) => !!getUserFacilityState(user, facilityId).completed;
  const getFacilityProgress = (facilityId) => {
   const shared = ((rebuildData.facilities || {})[facilityId]) || {};
   const sharedTotal = Math.max(0, Number(shared.totalCorrect || 0));
   const userTotal = branchRebuildUsers.reduce((sum, user) => sum + getUserFacilityCorrect(user, facilityId), 0);
+  const completedByUser = branchRebuildUsers.some(user => getUserFacilityCompleted(user, facilityId)) || getUserFacilityCompleted(liveRebuildUser, facilityId);
   const total = Math.max(0, Math.min(REBUILD_TARGET, sharedTotal + userTotal));
   const percent = Math.min(100, Math.floor((total / REBUILD_TARGET) * 100));
-  return { total, percent, complete: !!shared.completed || total >= REBUILD_TARGET };
+  return { total, percent, complete: !!shared.completed || !!shared.completedAt || sharedTotal >= REBUILD_TARGET || completedByUser || total >= REBUILD_TARGET };
  };
  const rebuildFacilityProgress = getFacilityProgress(selectedRebuildFacility);
  const rebuildTotal = rebuildFacilityProgress.total;
@@ -5043,6 +5443,36 @@ if (selectedActivity === 'food_research') {
   const result = updater(next) || {};
   await rebuildTimeout(ref.set({ gameRebuild: next }, { merge: true }), '寫入施工紀錄');
   return result;
+ };
+ const markSharedFacilityComplete = async (facilityId) => {
+  const now = Date.now();
+  const ref = db.doc(getPublicPath(`food_research_rebuild/${currentBranch}`));
+  await rebuildTimeout(db.runTransaction(async tx => {
+   const snap = await tx.get(ref);
+   const data = snap.exists ? snap.data() : {};
+   const facilities = { ...(data.facilities || {}) };
+   const currentFacility = { ...(facilities[facilityId] || {}) };
+   facilities[facilityId] = {
+    ...currentFacility,
+    totalCorrect: Math.max(REBUILD_TARGET, Number(currentFacility.totalCorrect || 0)),
+    completed: true,
+    completedAt: currentFacility.completedAt || now,
+    updatedAt: now
+   };
+   tx.set(ref, { facilities, updatedAt: now, branch: currentBranch }, { merge: true });
+  }), '同步完工狀態');
+  setFacilityRebuild(prev => {
+   const base = prev || { facilities: {}, dailyPlayers: {}, dailyWrongs: {} };
+   const facilities = { ...(base.facilities || {}) };
+   facilities[facilityId] = {
+    ...(facilities[facilityId] || {}),
+    totalCorrect: Math.max(REBUILD_TARGET, Number(facilities[facilityId]?.totalCorrect || 0)),
+    completed: true,
+    completedAt: facilities[facilityId]?.completedAt || now,
+    updatedAt: now
+   };
+   return { ...base, facilities, updatedAt: now, branch: currentBranch };
+  });
  };
 
  const answerRebuildQuestion = async (idx) => {
@@ -5098,6 +5528,7 @@ if (selectedActivity === 'food_research') {
      if (mine >= REBUILD_PLAYER_LIMIT) return { status: 'limit' };
      const facility = { ...(saveData.facilities[facilityId] || {}) };
      facility.correct = Math.max(0, Number(facility.correct || 0)) + 1;
+     facility.completed = facilityNow.total + 1 >= REBUILD_TARGET;
      facility.updatedAt = Date.now();
      saveData.facilities[facilityId] = facility;
      const nextMine = mine + 1;
@@ -5109,6 +5540,7 @@ if (selectedActivity === 'food_research') {
     } else if (result.status === 'limit') {
      setRebuildFeedback('你今天已經貢獻滿 50 題了，明天可以再協助重建。');
     } else if (result.status === 'completedNow') {
+     await markSharedFacilityComplete(facilityId);
      setRebuildFeedback(`${rebuildFacility.label}重建完成！現在可以進入使用。`);
     } else {
      setRebuildFeedback(`答對！你今日已貢獻 ${result.mine}/${REBUILD_PLAYER_LIMIT} 題。`);
@@ -6431,8 +6863,8 @@ if (selectedActivity === 'food_research') {
   { id:'quests', x:50, y:43, w:34, h:18, align:'center', badge:true },
   { id:'warlog', x:68, y:58, w:38, h:23, align:'center' },
   { id:'equip', x:24, y:72, w:40, h:26, align:'center' },
-  { id:'leaderboard', x:84, y:68, w:32, h:22, align:'center' },
-  { id:'partner_select', x:50, y:90, w:46, h:18, align:'center', danger:true },
+ { id:'leaderboard', x:84, y:68, w:32, h:22, align:'center' },
+ { id:'partner_select', x:50, y:90, w:46, h:18, align:'center', danger:true },
  ];
 
  const todayDone = todayQuests.tasks.filter(t=>t.done).length;
@@ -6483,7 +6915,8 @@ if (selectedActivity === 'food_research') {
       const f = FACILITIES.find(item => item.id === spot.id);
       if (!f) return null;
       const facilityProgress = getFacilityProgress(f.id);
-      const locked = REBUILD_FACILITY_IDS.includes(f.id) && !facilityProgress.complete;
+      const isRebuildFacility = REBUILD_FACILITY_IDS.includes(f.id);
+      const locked = isRebuildFacility && !facilityProgress.complete;
       const handleMapClick = () => {
        if (locked) { startRebuildQuiz(f.id); return; }
        if (f.id === 'leaderboard') { setFrRankTab('kitchen'); setFrPhase('leaderboard'); return; }
@@ -6506,6 +6939,7 @@ if (selectedActivity === 'food_research') {
         color:'#fff',
         textShadow:'0 2px 0 #000, 0 0 8px rgba(0,0,0,.95)',
         fontWeight:900,
+        overflow:'visible',
         display:'flex',
         alignItems:'center',
         justifyContent:'center',
@@ -7109,6 +7543,9 @@ return (
      const [isLoadingLeaderboard, setIsLoadingLeaderboard] = useState(false);
      const [isResettingFoodResearch, setIsResettingFoodResearch] = useState(false);
      const [globalTab, setGlobalTab] = useState('scores'); 
+     const [leftoverAdminPending, setLeftoverAdminPending] = useState([]);
+     const [leftoverAdminReviews, setLeftoverAdminReviews] = useState({});
+     const [isReviewingLeftover, setIsReviewingLeftover] = useState(false);
 
      const activitiesList = config.activities || defaultActivities;
 
@@ -7231,6 +7668,14 @@ return (
       return () => unsub();
      }, [getPublicPath]);
 
+     useEffect(() => {
+      const unsub = db.collection(getPublicPath('leftover_submissions')).onSnapshot(
+       snap => setLeftoverAdminPending(snap.docs.map(d => ({ id:d.id, ...d.data() })).filter(s => (s.status || 'pending') === 'pending').sort((a,b)=>(b.timestamp||0)-(a.timestamp||0))),
+       () => setLeftoverAdminPending([])
+      );
+      return () => unsub();
+     }, [getPublicPath]);
+
      const saveConfig = (updates) => {
       db.doc(getPublicPath('system/game_config')).set(updates, { merge: true });
      };
@@ -7275,6 +7720,54 @@ return (
       triggerNotify("題目已刪除", "info");
      };
 
+     const approveLeftoverAdminSubmission = async (submission) => {
+      if (!submission?.id || isReviewingLeftover) return;
+      setIsReviewingLeftover(true);
+      const review = leftoverAdminReviews[submission.id] || '合格，料理重生成功。';
+      try {
+       const progressRef = db.collection(getPublicPath('leftover_progress')).doc(submission.phone);
+       const subRef = db.collection(getPublicPath('leftover_submissions')).doc(submission.id);
+       await db.runTransaction(async tx => {
+        const snap = await tx.get(progressRef);
+        const data = snap.exists ? snap.data() : {};
+        const approvedItems = Array.from(new Set([...(data.approvedItems || []), submission.itemId]));
+        const comments = { ...(data.comments || {}), [submission.itemId]: review };
+        tx.set(progressRef, {
+         phone:submission.phone,
+         userName:submission.userName,
+         branch:submission.branch,
+         approvedItems,
+         comments,
+         updatedAt:Date.now()
+        }, { merge:true });
+        tx.update(subRef, { status:'approved', review, reviewedAt:Date.now() });
+       });
+       triggerNotify("菜色已核准，員工進度已增加", "success");
+      } catch (error) {
+       console.error("leftover approve failed", error);
+       triggerNotify("核准失敗，請稍後再試", "error");
+      }
+      setIsReviewingLeftover(false);
+     };
+
+     const rejectLeftoverAdminSubmission = async (submission) => {
+      if (!submission?.id || isReviewingLeftover) return;
+      setIsReviewingLeftover(true);
+      const review = leftoverAdminReviews[submission.id] || '請補充菜色說明或重新拍攝成品照。';
+      try {
+       await db.collection(getPublicPath('leftover_submissions')).doc(submission.id).update({
+        status:'rejected',
+        review,
+        reviewedAt:Date.now()
+       });
+       triggerNotify("菜色已退回，評語會顯示給員工", "info");
+      } catch (error) {
+       console.error("leftover reject failed", error);
+       triggerNotify("退回失敗，請稍後再試", "error");
+      }
+      setIsReviewingLeftover(false);
+     };
+
      const currentGlobalList = globalTab === 'scores' 
       ? globalLeaderboard.slice(0, 100) 
       : Object.values(globalLeaderboard.reduce((acc, curr) => {
@@ -7293,6 +7786,7 @@ return (
          <button onClick={()=>setAdminTab('lobby')} className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${adminTab==='lobby'?'bg-white text-brand-red shadow-sm':'text-slate-400'}`}>活動卡片設定</button>
          <button onClick={()=>setAdminTab('snake_settings')} className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${adminTab==='snake_settings'?'bg-white text-brand-red shadow-sm':'text-slate-400'}`}>靈蛇識食-設定</button>
          <button onClick={()=>setAdminTab('snake_leaderboard')} className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${adminTab==='snake_leaderboard'?'bg-white text-brand-red shadow-sm':'text-slate-400'}`}>靈蛇識食-榜單</button>
+         <button onClick={()=>setAdminTab('leftover_review')} className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${adminTab==='leftover_review'?'bg-white text-brand-red shadow-sm':'text-slate-400'}`}>廢材不廢-審核</button>
         </div>
 
         {/* === 分頁一：大廳卡片設定 === */}
@@ -7481,6 +7975,38 @@ return (
          </div>
         )}
 
+        {adminTab === 'leftover_review' && (
+         <div className="glass-panel p-6 rounded-[2.5rem] bg-white border shadow-sm space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-slate-100 pb-4">
+           <div>
+            <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><Icon name="clipboard-check" size={18} className="text-emerald-500" /> 廢材不廢待審菜色</h3>
+            <p className="text-[11px] font-bold text-slate-400 mt-1">員工送審後會出現在這裡；合格才會增加七格進度。該店前 2 名菜色可額外再獲得嘉獎 1 支。</p>
+           </div>
+           <div className="bg-amber-50 text-amber-700 border border-amber-100 px-3 py-2 rounded-xl text-[10px] font-black">{leftoverAdminPending.length} 件待審</div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+           {leftoverAdminPending.length ? leftoverAdminPending.map(sub => (
+            <div key={sub.id} className="bg-slate-50 border border-slate-100 rounded-2xl p-4 shadow-sm space-y-3">
+             <img src={sub.photo} className="w-full h-44 object-cover rounded-xl border bg-white" />
+             <div>
+              <div className="text-sm font-black text-slate-800">{sub.dishName || '未填菜名'}</div>
+              <div className="text-[10px] font-black text-amber-600 mt-1">{sub.itemLabel || '食材卡'}</div>
+              <div className="text-[10px] font-bold text-slate-400 mt-1">{sub.branch || '未標示分店'} · {sub.userName || sub.phone || '未標示員工'}</div>
+             </div>
+             <div className="bg-white border border-slate-100 rounded-xl p-3 text-xs font-bold text-slate-600 leading-relaxed min-h-[64px]">{sub.dishDesc || '未填菜色介紹'}</div>
+             <textarea value={leftoverAdminReviews[sub.id] || ''} onChange={e=>setLeftoverAdminReviews(prev=>({...prev,[sub.id]:e.target.value}))} placeholder="寫給員工的評語..." className="w-full input-light p-3 rounded-xl text-xs font-bold outline-none min-h-[72px]" />
+             <div className="grid grid-cols-2 gap-2">
+              <button onClick={()=>approveLeftoverAdminSubmission(sub)} disabled={isReviewingLeftover} className="bg-emerald-600 text-white py-3 rounded-xl text-[10px] font-black active:scale-95 transition-all disabled:opacity-60">合格</button>
+              <button onClick={()=>rejectLeftoverAdminSubmission(sub)} disabled={isReviewingLeftover} className="bg-red-50 text-red-500 border border-red-100 py-3 rounded-xl text-[10px] font-black active:scale-95 transition-all disabled:opacity-60">退回</button>
+             </div>
+            </div>
+           )) : (
+            <div className="col-span-full text-center py-12 text-slate-400 text-xs font-bold bg-slate-50 rounded-2xl border border-dashed">目前沒有待審菜色</div>
+           )}
+          </div>
+         </div>
+        )}
+
         {/* 新增題目彈窗 */}
         {showModal && (
          <div className="fixed inset-0 z-[10000] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 page-enter">
@@ -7517,7 +8043,77 @@ return (
       </div>
      );
     };
-    const AdminPage = ({ onBack, onLogout, announcements, standards, users, triggerNotify, menu, onboarding, benefits, rulesData, isSuperAdmin, currentBranch, setCurrentBranch, globalBranches, branchZones, getPublicPath, signatures, tickerText, setTickerText, globalRecipes, currentUser }) => {
+    const MonthlyReportAdminManager = ({ currentBranch, globalBranches, isSuperAdmin, report, triggerNotify, getPublicPath }) => {
+     const [title, setTitle] = useState(report?.title || '');
+     const [url, setUrl] = useState(report?.url || '');
+
+     useEffect(() => {
+      setTitle(report?.title || '');
+      setUrl(report?.url || '');
+     }, [report?.title, report?.url]);
+
+     const publishReport = async () => {
+      if (!isSuperAdmin) return triggerNotify("只有最高權限可發布廚房月報", "error");
+      if (!title.trim() || !url.trim()) return triggerNotify("請填寫月報標題與簡報網址", "error");
+      const now = Date.now();
+      const targetBranches = globalBranches.length > 0 ? globalBranches : [currentBranch];
+      try {
+        await Promise.all(targetBranches.map(branch => (
+         db.doc(getPublicPath(`content_status/branch_${branch}`)).set({
+          kitchenReport: {
+           title: title.trim(),
+           url: url.trim(),
+           publishedAt: now,
+           readBy: []
+          }
+         }, { merge: true })
+        )));
+        triggerNotify(`廚房月報已佈達 ${targetBranches.length} 間分店`, "success");
+      } catch (e) {
+        triggerNotify("月報發布失敗", "error");
+      }
+     };
+
+     return (
+      <div className="glass-panel p-6 rounded-[2.5rem] bg-white border shadow-sm space-y-4">
+       <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><Icon name="presentation" size={18} className="text-brand-red" /> 廚房月報佈達</h3>
+       <div>
+        <p className="text-[10px] font-black text-slate-400 mb-1 uppercase">月報標題</p>
+        <input value={title} onChange={e=>setTitle(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none" placeholder="例如：五月份廚房會議" />
+       </div>
+       <div>
+        <p className="text-[10px] font-black text-slate-400 mb-1 uppercase">簡報網址</p>
+        <input value={url} onChange={e=>setUrl(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none" placeholder="貼上 Google Slides / 簡報連結" />
+       </div>
+       <button onClick={publishReport} className="w-full bg-brand-red text-white font-black py-4 rounded-2xl active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2">
+        <Icon name="send" size={16} /> 更新發布至所有分店
+       </button>
+       {report?.publishedAt && <p className="text-[10px] text-slate-400 text-center">目前版本發布時間：{new Date(report.publishedAt).toLocaleString()}</p>}
+      </div>
+     );
+    };
+
+    const WasteReportsAdminList = ({ reports = [], currentBranch, getPublicPath, triggerNotify }) => (
+     <div className="space-y-3">
+      {reports.length > 0 ? reports.map(r => (
+       <div key={r.id} className="bg-white rounded-[2rem] border shadow-sm p-5">
+        <div className="flex justify-between gap-3">
+         <div className="min-w-0">
+          <h4 className="font-black text-slate-800 break-words">{r.item}</h4>
+          <p className="text-xs text-brand-red font-black mt-1">{r.qty}</p>
+          <p className="text-xs text-slate-600 font-bold mt-2 whitespace-pre-wrap break-words">{r.reason}</p>
+          <p className="text-[10px] text-slate-400 mt-3">{r.userName} · {new Date(r.timestamp || Date.now()).toLocaleString()}</p>
+         </div>
+         <button onClick={() => db.collection(getPublicPath(`ingredient_waste_${currentBranch}`)).doc(r.id).delete().then(()=>triggerNotify("報廢回報已刪除", "info"))} className="p-2 h-fit text-slate-300 hover:text-red-500 bg-slate-50 rounded-xl active:scale-95">
+          <Icon name="trash-2" size={16} />
+         </button>
+        </div>
+       </div>
+      )) : <p className="text-center py-10 text-slate-400 text-xs">目前沒有食材報廢回報</p>}
+     </div>
+    );
+
+    const AdminPage = ({ onBack, onLogout, announcements, standards, users, triggerNotify, menu, onboarding, benefits, rulesData, isSuperAdmin, currentBranch, setCurrentBranch, globalBranches, branchZones, getPublicPath, signatures, tickerText, setTickerText, globalRecipes, currentUser, contentStatus, publishContent, ingredientData, wasteReports }) => {
      const [tab, setTab] = useState('members');
      const [userPageLimit, setUserPageLimit] = useState(10);
      const [subCat, setSubCat] = useState('list');
@@ -7585,8 +8181,8 @@ return (
         )}
 
         <div className="flex bg-slate-100 p-1.5 rounded-2xl overflow-x-auto no-scrollbar gap-1.5 mb-6 shadow-inner">
-         {[{id:'members',n:'人員'},{id:'menu',n:'菜單'},{id:'content',n:'公告'},{id:'onboard',n:'入職'},{id:'benefit',n:'福利'},{id:'rules',n:'守則'},{id:'safety',n:'各店巡視'},{id:'sign',n:'簽署'}, ...(isSuperAdmin ? [{id:'system',n:'系統設定'}, {id:'game',n:'限時活動'}] : [])].map(t => (
-           <button key={t.id} onClick={()=>{setTab(t.id); setUserPageLimit(10); if(t.id==='rules') setSubCat('廚房規則'); else if(t.id==='sign') setSignSubCat('廚房規則'); else if(t.id==='benefit') setSubCat('eval'); else setSubCat('list');}} className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${tab===t.id?'bg-brand-red text-white shadow-md':'text-slate-400'}`}>{t.n}</button>
+         {[{id:'members',n:'人員'},{id:'menu',n:'菜單'},{id:'content',n:'公告'},{id:'onboard',n:'入職'},{id:'ingredients',n:'食材'},{id:'rules',n:'守則'},{id:'safety',n:'各店巡視'},{id:'sign',n:'簽署'}, ...(isSuperAdmin ? [{id:'report',n:'月報'}, {id:'system',n:'系統設定'}, {id:'game',n:'限時活動'}] : [])].map(t => (
+           <button key={t.id} onClick={()=>{setTab(t.id); setUserPageLimit(10); if(t.id==='rules') setSubCat('廚房規則'); else if(t.id==='sign') setSignSubCat('廚房規則'); else if(t.id==='ingredients') setSubCat('specs'); else setSubCat('list');}} className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${tab===t.id?'bg-brand-red text-white shadow-md':'text-slate-400'}`}>{t.n}</button>
          ))}
         </div>
         
@@ -7722,7 +8318,20 @@ return (
            </div>
          )}
          
-         {tab === 'menu' && <RecipeAdminManager categoryPath="menu/list" currentBranch={currentBranch} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} items={menu?.items || []} triggerNotify={triggerNotify} getPublicPath={getPublicPath} categories={MENU_CATEGORIES} globalRecipes={globalRecipes} />}
+         {tab === 'menu' && (
+          <div className="space-y-4">
+           <div className="glass-panel p-5 rounded-[2rem] bg-white border shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+             <h3 className="font-black text-slate-800 text-sm">本季菜單發布提醒</h3>
+             <p className="text-[10px] text-slate-400 mt-1">菜單內容編輯完成後，點「更新發布」才會讓首頁紅點提醒員工。</p>
+            </div>
+            <button onClick={() => publishContent('menu', '本季菜單已更新')} className="bg-brand-red text-white font-black px-5 py-3 rounded-xl text-xs active:scale-95 transition-all flex items-center justify-center gap-2">
+             <Icon name="send" size={14} /> 更新發布
+            </button>
+           </div>
+           <RecipeAdminManager categoryPath="menu/list" currentBranch={currentBranch} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} items={menu?.items || []} triggerNotify={triggerNotify} getPublicPath={getPublicPath} categories={MENU_CATEGORIES} globalRecipes={globalRecipes} />
+          </div>
+         )}
          
          {tab === 'content' && (
            <div className="space-y-6">
@@ -7738,7 +8347,7 @@ return (
          {tab === 'onboard' && (
            <div>
             <div className="flex bg-slate-100 p-1 rounded-xl mb-4">
-              {[{id:'list',n:'清單'},{id:'parking',n:'停車'},{id:'video',n:'影片'}].map(c=>(
+              {[{id:'list',n:'清單'},{id:'parking',n:'停車'},{id:'video',n:'動線'},{id:'eval',n:'考核'},{id:'wel',n:'福利'}].map(c=>(
                <button key={c.id} onClick={()=>setSubCat(c.id)} className={`flex-1 py-2 rounded-lg text-[10px] font-bold ${subCat===c.id?'bg-white text-brand-red shadow-sm':'text-slate-400'}`}>{c.n}</button>
               ))}
             </div>
@@ -7751,18 +8360,32 @@ return (
                  </div>
                ))}
               </div>
-            ) : <UniversalListManager categoryPath={subCat==='list'?'onboarding/list':'onboarding/parking'} currentBranch={currentBranch} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} items={subCat==='list'?(onboarding?.list || []):(onboarding?.parking || [])} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />}
+            ) : (
+              <UniversalListManager
+               categoryPath={subCat==='list'?'onboarding/list':subCat==='parking'?'onboarding/parking':subCat==='eval'?'benefits/eval':'benefits/welfare'}
+               currentBranch={currentBranch}
+               globalBranches={globalBranches}
+               isSuperAdmin={isSuperAdmin}
+               items={subCat==='list'?(onboarding?.list || []):subCat==='parking'?(onboarding?.parking || []):subCat==='eval'?(benefits?.evaluation || []):(benefits?.welfare || [])}
+               triggerNotify={triggerNotify}
+               getPublicPath={getPublicPath}
+              />
+            )}
            </div>
          )}
 
-         {tab === 'benefit' && (
+         {tab === 'ingredients' && (
            <div>
             <div className="flex bg-slate-100 p-1 rounded-xl mb-4">
-              {[{id:'eval',n:'考核'},{id:'wel',n:'福利'}].map(c=>(
+              {[{id:'specs',n:'食材規格'},{id:'waste',n:'報廢回報'}].map(c=>(
                <button key={c.id} onClick={()=>setSubCat(c.id)} className={`flex-1 py-2 rounded-lg text-[10px] font-bold ${subCat===c.id?'bg-white text-brand-red shadow-sm':'text-slate-400'}`}>{c.n}</button>
               ))}
             </div>
-            <UniversalListManager categoryPath={subCat==='eval'?'benefits/eval':'benefits/welfare'} currentBranch={currentBranch} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} items={subCat==='eval'?(benefits?.evaluation || []):(benefits?.welfare || [])} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />
+            {subCat === 'waste' ? (
+             <WasteReportsAdminList reports={wasteReports} currentBranch={currentBranch} getPublicPath={getPublicPath} triggerNotify={triggerNotify} />
+            ) : (
+             <UniversalListManager categoryPath="ingredients/specs" currentBranch={currentBranch} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} items={ingredientData?.specs || []} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />
+            )}
            </div>
          )}
 
@@ -7844,6 +8467,9 @@ return (
               {signatures.filter(s => s.category === `守則簽署 - ${signSubCat}` && (isSuperAdmin ? true : s.branch === currentBranch)).length === 0 && <p className="text-center py-10 text-slate-400 text-xs">目前無簽署紀錄</p>}
             </div>
            </div>
+         )}
+         {tab === 'report' && isSuperAdmin && (
+           <MonthlyReportAdminManager currentBranch={currentBranch} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} report={contentStatus?.kitchenReport || {}} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />
          )}
          {tab === 'game' && <GameAdminManager getPublicPath={getPublicPath} triggerNotify={triggerNotify} globalBranches={globalBranches} />}
          {tab === 'system' && isSuperAdmin && (
@@ -8419,6 +9045,9 @@ return (
      const [onboardingData, setOnboardingData] = useState({});
      const [benefitsData, setBenefitsData] = useState({});
      const [rulesData, setRulesData] = useState({});
+     const [contentStatus, setContentStatus] = useState({});
+     const [ingredientData, setIngredientData] = useState({});
+     const [wasteReports, setWasteReports] = useState([]);
      const [globalRecipes, setGlobalRecipes] = useState([]);
      
      const [completedZones, setCompletedZones] = useState([]);
@@ -8455,6 +9084,47 @@ return (
         });
       }
      };
+
+     const getReaderId = useCallback(() => currentUser?.phone || currentUser?.name || '', [currentUser]);
+
+     const isContentUnread = useCallback((key) => {
+      const readerId = getReaderId();
+      const item = contentStatus?.[key] || {};
+      return !!(readerId && item.publishedAt && !(item.readBy || []).includes(readerId));
+     }, [contentStatus, getReaderId]);
+
+     const markContentRead = useCallback((key) => {
+      const readerId = getReaderId();
+      if (!readerId || !currentBranch) return;
+      db.doc(getPublicPath(`content_status/branch_${currentBranch}`)).set({
+        [key]: { readBy: firebase.firestore.FieldValue.arrayUnion(readerId) }
+      }, { merge: true }).catch(() => {});
+     }, [currentBranch, getReaderId]);
+
+     const publishContent = useCallback(async (key, title, targetBranches = [currentBranch]) => {
+      const now = Date.now();
+      const branches = targetBranches && targetBranches.length > 0 ? targetBranches : [currentBranch];
+      try {
+        await Promise.all(branches.map(branch => (
+         db.doc(getPublicPath(`content_status/branch_${branch}`)).set({
+          [key]: {
+           title,
+           publishedAt: now,
+           readBy: []
+          }
+         }, { merge: true })
+        )));
+        triggerNotify("更新發布成功，員工首頁會顯示提醒紅點", "success");
+      } catch (e) {
+        triggerNotify("更新發布失敗", "error");
+      }
+     }, [currentBranch, triggerNotify]);
+
+     useEffect(() => {
+      const pageToContentKey = { menu: 'menu', schedule: 'schedule', kitchenReport: 'kitchenReport' };
+      const key = pageToContentKey[currentPage];
+      if (key && isContentUnread(key)) markContentRead(key);
+     }, [currentPage, contentStatus, isContentUnread, markContentRead]);
 
      useEffect(() => {
       if (!currentUser || !currentBranch) return;
@@ -8597,8 +9267,12 @@ return (
       const subGame = db.doc(getPublicPath('system/game_config')).onSnapshot(d => {
         if (d.exists) setGameConfig(d.data());
       }, errH);
+      const subContentStatus = db.doc(getPublicPath(`content_status/branch_${currentBranch}`)).onSnapshot(d => setContentStatus(d.exists ? d.data() : {}), errH);
       const subOnboardVid = db.doc(getPublicPath(`onboarding/settings_${currentBranch}`)).onSnapshot(d => setOnboardingData(p => ({...p, ...(d.exists ? d.data() : {})})), errH);
       const subSigs = db.collection(getPublicPath(`signatures_${currentBranch}`)).onSnapshot(s => setSignatures(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b)=>b.timestamp-a.timestamp)), errH);
+      const subWasteReports = db.collection(getPublicPath(`ingredient_waste_${currentBranch}`)).onSnapshot(s => {
+        setWasteReports(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b)=>(b.timestamp || 0) - (a.timestamp || 0)));
+      }, errH);
 
       const createMergedListener = (colPath, docPath, setter, sortDesc = true) => {
         return db.collection(getPublicPath(colPath)).onSnapshot(s => {
@@ -8671,14 +9345,15 @@ return (
       const subOnboardPark = createMergedListener(`onboarding/parking_${currentBranch}/items`, `onboarding/parking_${currentBranch}`, items => setOnboardingData(p => ({...p, parking: items})));
       const subBenEval = createMergedListener(`benefits/eval_${currentBranch}/items`, `benefits/eval_${currentBranch}`, items => setBenefitsData(p => ({...p, evaluation: items})));
       const subBenWel = createMergedListener(`benefits/welfare_${currentBranch}/items`, `benefits/welfare_${currentBranch}`, items => setBenefitsData(p => ({...p, welfare: items})));
+      const subIngredientSpecs = createMergedListener(`ingredients/specs_${currentBranch}/items`, `ingredients/specs_${currentBranch}`, items => setIngredientData(p => ({...p, specs: items})));
       
       const ruleSubs = RULE_CATEGORIES.map(cat => 
         createMergedListener(`rules/${cat}_${currentBranch}/items`, `rules/${cat}_${currentBranch}`, items => setRulesData(prev => ({ ...prev, [cat]: items })))
       );
 
       return () => { 
-        subZone(); subProg(); subStd(); subAnn(); subTicker(); subGame();subOnboardVid(); subSigs();
-        subMenu(); subOnboardList(); subOnboardPark(); subBenEval(); subBenWel();
+        subZone(); subProg(); subStd(); subAnn(); subTicker(); subGame(); subContentStatus(); subOnboardVid(); subSigs(); subWasteReports();
+        subMenu(); subOnboardList(); subOnboardPark(); subBenEval(); subBenWel(); subIngredientSpecs();
         ruleSubs.forEach(un => un());
       };
      }, [user, currentBranch]);
@@ -8696,6 +9371,7 @@ return (
       switch(currentPage) {
         case 'home': {
          const progressPercent = branchZones.length > 0 ? Math.round((completedZones.length / branchZones.length) * 100) : 0;
+         const hasUnsignedRules = !!(currentUser?.phone && RULE_CATEGORIES.some(cat => !signatures.some(s => s.category === `守則簽署 - ${cat}` && s.phone === currentUser.phone)));
          return (
            <div className="page-enter pb-10">
             <Ticker text={tickerText} />
@@ -8756,13 +9432,13 @@ return (
 
               <section className="grid grid-cols-2 gap-4">
                <NavCard title="叫貨系統" onClick={() => setCurrentPage('ordering')} colorClass="bg-rose-50/80" iconName="package-plus" />
-               <NavCard title="員工守則" onClick={() => setCurrentPage('unifiedRules')} colorClass="bg-emerald-50/50" iconName="book-open" />
-               <NavCard title="每月班表" onClick={() => setCurrentPage('schedule')} colorClass="bg-indigo-50/50" iconName="calendar" />
+               <NavCard title="員工守則" onClick={() => setCurrentPage('unifiedRules')} colorClass="bg-emerald-50/50" iconName="book-open" unread={hasUnsignedRules} />
+               <NavCard title="每月班表" onClick={() => setCurrentPage('schedule')} colorClass="bg-indigo-50/50" iconName="calendar" unread={isContentUnread('schedule')} />
                <NavCard title="入職相關" onClick={() => setCurrentPage('onboarding')} colorClass="bg-blue-50/50" iconName="user-plus" />
-               <NavCard title="薪資福利" onClick={() => setCurrentPage('benefits')} colorClass="bg-rose-50/50" iconName="wallet" />
-               <NavCard title="本季菜單" onClick={() => setCurrentPage('menu')} colorClass="bg-yellow-50/50" iconName="utensils" />
+               <NavCard title="廚房月報" onClick={() => setCurrentPage('kitchenReport')} colorClass="bg-rose-50/50" iconName="presentation" unread={isContentUnread('kitchenReport')} />
+               <NavCard title="本季菜單" onClick={() => setCurrentPage('menu')} colorClass="bg-yellow-50/50" iconName="utensils" unread={isContentUnread('menu')} />
                <NavCard title="限時活動" onClick={() => setCurrentPage('game-center')} colorClass="bg-amber-50/50" iconName="gamepad-2" />
-               <NavCard title="個人成就" onClick={() => setCurrentPage('achievements')} colorClass="bg-purple-50/50" iconName="trophy" />
+               <NavCard title="食材管理" onClick={() => setCurrentPage('ingredients')} colorClass="bg-purple-50/50" iconName="boxes" />
               </section>
             </div>
            </div>
@@ -8772,14 +9448,17 @@ return (
         case 'inspection': return <InspectionPage onBack={()=>setCurrentPage('home')} standards={standards} completedZones={completedZones} triggerNotify={triggerNotify} branchZones={branchZones} currentBranch={currentBranch} getPublicPath={getPublicPath} currentUser={currentUser} isManager={isManager} isSuperAdmin={isSuperAdmin} />;
         case 'unifiedRules': return <UnifiedRulesPage rulesData={rulesData} onBack={()=>setCurrentPage('home')} user={currentUser} currentBranch={currentBranch} triggerNotify={triggerNotify} getPublicPath={getPublicPath} signatures={signatures} />;
         case 'menu': return <MenuDisplayPage onBack={()=>setCurrentPage('home')} items={menuData?.items} />;
+        case 'kitchenReport': return <MonthlyReportPage onBack={()=>setCurrentPage('home')} report={contentStatus?.kitchenReport || {}} />;
         case 'game-center': return <GameCenter onBack={()=>setCurrentPage('home')} config={gameConfig} currentBranch={currentBranch} currentUser={currentUser} getPublicPath={getPublicPath} allUsers={users} isSuperAdmin={isSuperAdmin} />;
-        case 'schedule': return <ScheduleSystem onBack={()=>setCurrentPage('home')} currentBranch={currentBranch} isManager={isManager || isSuperAdmin} getPublicPath={getPublicPath} triggerNotify={triggerNotify} />;
+        case 'schedule': return <ScheduleSystem onBack={()=>setCurrentPage('home')} currentBranch={currentBranch} isManager={isManager || isSuperAdmin} getPublicPath={getPublicPath} triggerNotify={triggerNotify} publishContent={publishContent} />;
         case 'onboarding': return (
          <div className="p-4 space-y-4 page-enter text-left">
            <BackButton onClick={()=>setCurrentPage('home')} title="入職相關" />
            <SectionItem title="員工準備清單" iconName="list-checks" onClick={()=>setCurrentPage('onboard-list')} />
            <SectionItem title="停車資訊指引" iconName="car" onClick={()=>setCurrentPage('onboard-parking')} />
            <SectionItem title="上班動線引導" iconName="navigation" onClick={()=>setCurrentPage('workRoute')} />
+           <SectionItem title="考核加給標準" iconName="coins" onClick={()=>setCurrentPage('benefit-eval')} />
+           <SectionItem title="員工相關福利" iconName="heart" onClick={()=>setCurrentPage('benefit-wel')} />
          </div>
         );
         case 'onboard-list': return <ListDetailPage onBack={()=>setCurrentPage('onboarding')} title="準備清單" list={onboardingData?.list} />;
@@ -8800,16 +9479,12 @@ return (
            </div>
          </div>
         );
-        case 'benefits': return (
-         <div className="p-4 space-y-4 page-enter text-left">
-           <BackButton onClick={()=>setCurrentPage('home')} title="薪資福利" />
-           <SectionItem title="考核加給標準" iconName="coins" onClick={()=>setCurrentPage('benefit-eval')} />
-           <SectionItem title="員工相關福利" iconName="heart" onClick={()=>setCurrentPage('benefit-wel')} />
-         </div>
-        );
-        case 'benefit-eval': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="考核標準" list={benefitsData?.evaluation} />;
-        case 'benefit-wel': return <ListDetailPage onBack={()=>setCurrentPage('benefits')} title="福利項目" list={benefitsData?.welfare} />;
-        case 'admin': return <AdminPage onBack={()=>setCurrentPage('home')} onLogout={logout} announcements={announcements} standards={standards} users={users} triggerNotify={triggerNotify} menu={menuData} onboarding={onboardingData} benefits={benefitsData} rulesData={rulesData} isSuperAdmin={isSuperAdmin} currentBranch={currentBranch} setCurrentBranch={setCurrentBranch} globalBranches={globalBranches} branchZones={branchZones} getPublicPath={getPublicPath} signatures={signatures} tickerText={tickerText} setTickerText={setTickerText} globalRecipes={globalRecipes} currentUser={currentUser} />;
+        case 'benefit-eval': return <ListDetailPage onBack={()=>setCurrentPage('onboarding')} title="考核標準" list={benefitsData?.evaluation} />;
+        case 'benefit-wel': return <ListDetailPage onBack={()=>setCurrentPage('onboarding')} title="福利項目" list={benefitsData?.welfare} />;
+        case 'ingredients': return <IngredientManagementPage onBack={()=>setCurrentPage('home')} goSpecs={()=>setCurrentPage('ingredient-specs')} goWaste={()=>setCurrentPage('ingredient-waste')} />;
+        case 'ingredient-specs': return <IngredientSpecsPage onBack={()=>setCurrentPage('ingredients')} items={ingredientData?.specs || []} />;
+        case 'ingredient-waste': return <IngredientWasteReportPage onBack={()=>setCurrentPage('ingredients')} currentBranch={currentBranch} currentUser={currentUser} getPublicPath={getPublicPath} triggerNotify={triggerNotify} />;
+        case 'admin': return <AdminPage onBack={()=>setCurrentPage('home')} onLogout={logout} announcements={announcements} standards={standards} users={users} triggerNotify={triggerNotify} menu={menuData} onboarding={onboardingData} benefits={benefitsData} rulesData={rulesData} isSuperAdmin={isSuperAdmin} currentBranch={currentBranch} setCurrentBranch={setCurrentBranch} globalBranches={globalBranches} branchZones={branchZones} getPublicPath={getPublicPath} signatures={signatures} tickerText={tickerText} setTickerText={setTickerText} globalRecipes={globalRecipes} currentUser={currentUser} contentStatus={contentStatus} publishContent={publishContent} ingredientData={ingredientData} wasteReports={wasteReports} />;
         default: return <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><Icon name="loader-2" className="animate-spin text-brand-red" size={32}/> 系統啟動中...</div>;
       }
      };
