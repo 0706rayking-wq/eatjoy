@@ -5300,7 +5300,7 @@ if (selectedActivity === 'leftover') {
            <div style={{fontSize:'22px',fontWeight:900,color:'#fde68a',lineHeight:'1.1'}}>{item.label}</div>
            <div style={{fontSize:'12px',fontWeight:800,color:'#8b949e',lineHeight:'1.6'}}>{item.desc}</div>
            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginTop:'2px'}}>
-            <button onClick={()=>setLeftoverCardFlipped(true)} style={{border:'none',borderRadius:'12px',background:'#fbbf24',color:'#111827',fontWeight:900,padding:'11px'}}>翻牌</button>
+            <button onClick={()=>setLeftoverCardFlipped(true)} style={{border:'none',borderRadius:'12px',background:'#fbbf24',color:'#111827',fontWeight:900,padding:'11px'}}>上傳</button>
             <button onClick={()=>{setLeftoverActiveItem(null);setLeftoverCardFlipped(false);}} style={{border:'1px solid #30363d',borderRadius:'12px',background:'#161b22',color:'#e6edf3',fontWeight:900,padding:'11px'}}>收回</button>
            </div>
           </div>
@@ -5311,7 +5311,7 @@ if (selectedActivity === 'leftover') {
             <div style={{fontSize:'18px',fontWeight:900,color:'#fde68a'}}>{item.label}</div>
             <div style={{fontSize:'11px',fontWeight:800,color:'#8b949e',lineHeight:'1.5'}}>填寫菜名與菜色介紹，並上傳重生成料理的照片。</div>
            </div>
-           <button onClick={()=>setLeftoverCardFlipped(false)} style={{border:'1px solid #30363d',borderRadius:'10px',background:'#0d1117',color:'#e6edf3',fontWeight:900,padding:'8px 10px'}}>看正面</button>
+           <button onClick={()=>setLeftoverCardFlipped(false)} style={{border:'1px solid #30363d',borderRadius:'10px',background:'#0d1117',color:'#e6edf3',fontWeight:900,padding:'8px 10px'}}>正面</button>
           </div>
           {comment && <div style={{fontSize:'11px',fontWeight:900,color:approved?'#7ee787':'#ff7b72',background:'rgba(255,255,255,.05)',border:'1px solid #30363d',borderRadius:'10px',padding:'8px',lineHeight:'1.5'}}>評語：{comment}</div>}
           <div style={{flex:1}} />
@@ -5341,7 +5341,7 @@ if (selectedActivity === 'leftover') {
             </label>
             {dishForm.photoName && <div style={{fontSize:'10px',fontWeight:800,color:'#8b949e',lineHeight:'1.4',textAlign:'center',wordBreak:'break-all'}}>{dishForm.photoName}</div>}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
-             <button onClick={()=>{setLeftoverActiveItem(null);setLeftoverCardFlipped(false);}} style={{border:'1px solid #30363d',borderRadius:'12px',background:'#161b22',color:'#e6edf3',fontWeight:900,padding:'12px'}}>收回換牌</button>
+             <button onClick={()=>{setLeftoverActiveItem(null);setLeftoverCardFlipped(false);}} style={{border:'1px solid #30363d',borderRadius:'12px',background:'#161b22',color:'#e6edf3',fontWeight:900,padding:'12px'}}>取消</button>
              <button onClick={()=>submitLeftoverDish(item)} disabled={leftoverSaving} style={{border:'none',borderRadius:'12px',background:leftoverSaving?'#30363d':'#238636',color:'#fff',fontWeight:900,padding:'12px',cursor:leftoverSaving?'wait':'pointer'}}>
               {pending?'重新送審':'送審'}
              </button>
