@@ -773,6 +773,67 @@ window._gameJsReady = false;
      return Math.ceil(raw.length * 3 / 4);
     };
 
+    const formatDateKey = (date) => {
+     const y = date.getFullYear();
+     const m = String(date.getMonth() + 1).padStart(2, '0');
+     const d = String(date.getDate()).padStart(2, '0');
+     return `${y}-${m}-${d}`;
+    };
+
+    const getInspectionBusinessDate = (time = Date.now()) => {
+     const date = new Date(time);
+     if (date.getHours() < 18) date.setDate(date.getDate() - 1);
+     return formatDateKey(date);
+    };
+
+    const getInspectionCleanupCutoffDate = (retainDays = 7, time = Date.now()) => {
+     const date = new Date(time);
+     date.setDate(date.getDate() - retainDays);
+     return getInspectionBusinessDate(date.getTime());
+    };
+
+    const getInspectionDocBusinessDate = (data = {}) => {
+     return data.businessDate || getInspectionBusinessDate(data.archivedAt || data.timestamp || data.resetAt || Date.now());
+    };
+
+    const cleanupInspectionPhotoStorage = async ({ branch, retainDays = 7, mode = 'manual', actor = {} }) => {
+     const cutoffBusinessDate = getInspectionCleanupCutoffDate(retainDays);
+     const targets = [
+      { key: 'daily', col: `daily_photos_${branch}` },
+      { key: 'archive', col: `daily_photo_archive_${branch}` }
+     ];
+     const refs = [];
+     const counts = { daily: 0, archive: 0 };
+     for (const target of targets) {
+      const snap = await db.collection(getPublicPath(target.col)).get();
+      snap.forEach(doc => {
+       const businessDate = getInspectionDocBusinessDate(doc.data() || {});
+       if (businessDate < cutoffBusinessDate) {
+        refs.push(doc.ref);
+        counts[target.key]++;
+       }
+      });
+     }
+     for (let i = 0; i < refs.length; i += 450) {
+      const batch = db.batch();
+      refs.slice(i, i + 450).forEach(ref => batch.delete(ref));
+      await batch.commit();
+     }
+     await db.collection(getPublicPath(`daily_photo_cleanup_${branch}`)).add({
+      branch,
+      retainDays,
+      cutoffBusinessDate,
+      deletedDailyPhotos: counts.daily,
+      deletedArchivePhotos: counts.archive,
+      deletedTotal: refs.length,
+      mode,
+      actorPhone: actor.phone || '',
+      actorName: actor.name || (mode === 'auto' ? '系統排程' : '最高權限'),
+      timestamp: Date.now()
+     });
+     return { ...counts, total: refs.length, cutoffBusinessDate };
+    };
+
     const compressImageToLimit = async (base64Str, options = {}) => {
      let maxWidth = options.maxWidth || 900;
      let quality = options.quality || 0.68;
@@ -3381,27 +3442,35 @@ window._gameJsReady = false;
    const [loading, setLoading] = useState(false);
    const [isSubmitted, setIsSubmitted] = useState(false);
    const [isResetting, setIsResetting] = useState(false);
+   const [isCleaningPhotos, setIsCleaningPhotos] = useState(false);
    const [uploadingPhotoKeys, setUploadingPhotoKeys] = useState({});
    const [photoErrors, setPhotoErrors] = useState({});
+   const inspectionBusinessDate = getInspectionBusinessDate();
 
   useEffect(() => {
     const unsubscribe = db.collection(getPublicPath(`daily_photos_${currentBranch}`)).onSnapshot(snapshot => {
      const allPhotos = {}; 
      snapshot.forEach(doc => { 
        const data = doc.data(); 
+       const photoBusinessDate = data.businessDate || getInspectionBusinessDate(data.timestamp || Date.now());
+       if (photoBusinessDate !== inspectionBusinessDate || data.status === 'reset_archived') return;
        allPhotos[`${data.zoneId}_${data.itemIdx}`] = {
          photo: data.photo,
          uploaderName: data.uploaderName || '未知',
          uploaderPhone: data.uploaderPhone || '',
          timestamp: data.timestamp || null,
          compressedBytes: data.compressedBytes || 0,
-         fileName: data.fileName || ''
+         fileName: data.fileName || '',
+         businessDate: photoBusinessDate
        }; 
       });
       setDailyPhotos(allPhotos);
+     }, () => {
+      setDailyPhotos({});
+      triggerNotify("巡視照讀取失敗，請檢查網路後重新整理", "error");
      });
     return () => unsubscribe();
-  }, [currentBranch, getPublicPath]);
+  }, [currentBranch, getPublicPath, inspectionBusinessDate]);
 
    const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -3424,15 +3493,18 @@ window._gameJsReady = false;
      try {
       triggerNotify("照片處理中，請勿離開頁面", "info");
       const base64 = await readFileAsDataUrl(file);
-      const compressed = await compressImageToLimit(base64, { maxWidth: 900, quality: 0.68, maxBytes: 720000 });
+      const compressed = await compressImageToLimit(base64, { maxWidth: 820, quality: 0.62, maxBytes: 520000, minWidth: 480, minQuality: 0.28 });
       const compressedBytes = dataUrlBytes(compressed);
-      if (compressedBytes > 720000) throw new Error('image-too-large');
+      if (compressedBytes > 520000) throw new Error('image-too-large');
       const now = Date.now();
+      const businessDate = getInspectionBusinessDate(now);
       const photoData = { 
        photo: compressed, 
        zoneId: activeZone.id, 
        zoneName: activeZone.name || activeZone.label || activeZone.id,
        itemIdx: idx, 
+       status: 'active',
+       businessDate,
        timestamp: now,
        clientTime: new Date(now).toISOString(),
        uploaderName: currentUser?.name || '未知',
@@ -3455,6 +3527,7 @@ window._gameJsReady = false;
        fileName: photoData.fileName,
        fileSize: photoData.fileSize,
        compressedBytes,
+       businessDate,
        status: 'uploaded',
        timestamp: now
       }).catch(err => console.warn("寫入巡視照稽核紀錄失敗", err));
@@ -3478,6 +3551,7 @@ window._gameJsReady = false;
        uploaderPhone: currentUser?.phone || '',
        fileName: file.name || '',
        fileSize: file.size || 0,
+       businessDate: getInspectionBusinessDate(),
        status: 'failed',
        error: String(err?.message || err),
        timestamp: Date.now()
@@ -3509,16 +3583,22 @@ window._gameJsReady = false;
      const currentStandards = standards[activeZone.id] || [];
      const photoCol = db.collection(getPublicPath(`daily_photos_${currentBranch}`));
      const checks = await Promise.all(currentStandards.map((_, i) => photoCol.doc(`${activeZone.id}_${i}`).get()));
-     const missing = checks.map((snap, i) => (!snap.exists || !snap.data()?.photo) ? i + 1 : null).filter(Boolean);
+     const missing = checks.map((snap, i) => {
+      const data = snap.exists ? (snap.data() || {}) : {};
+      const photoBusinessDate = data.businessDate || getInspectionBusinessDate(data.timestamp || Date.now());
+      return (!snap.exists || !data.photo || data.status === 'reset_archived' || photoBusinessDate !== inspectionBusinessDate) ? i + 1 : null;
+     }).filter(Boolean);
      if (missing.length) {
       triggerNotify(`第 ${missing.join('、')} 張實拍照尚未成功寫入，請重傳後再提交`, "error");
       setIsSubmitted(false);
       return;
      }
       if (!completedZones.includes(activeZone.id)) {
-       const progressRef = db.doc(getPublicPath(`system/progress_${currentBranch}`));
+      const progressRef = db.doc(getPublicPath(`system/progress_${currentBranch}`));
       await progressRef.set({ 
-         completedZones: firebase.firestore.FieldValue.arrayUnion(activeZone.id) 
+         completedZones: firebase.firestore.FieldValue.arrayUnion(activeZone.id),
+         businessDate: inspectionBusinessDate,
+         updatedAt: Date.now()
        }, { merge: true });
          const snap = await progressRef.get();
          const latestCompleted = snap.exists ? (snap.data().completedZones || []) : [];
@@ -3534,6 +3614,7 @@ window._gameJsReady = false;
        submitterPhone: currentUser?.phone || '',
        photoKeys: currentStandards.map((_, i) => `${activeZone.id}_${i}`),
        photoCount: currentStandards.length,
+       businessDate: inspectionBusinessDate,
        timestamp: Date.now()
       }).catch(err => console.warn("寫入巡視提交紀錄失敗", err));
       setLoading(false); 
@@ -3549,20 +3630,73 @@ window._gameJsReady = false;
    };
 
   const handleResetAll = async () => {
-    if (!window.confirm("確定要手動重置今天的「所有巡視紀錄與照片」嗎？\n(此動作無法復原)")) return;
+    if (!window.confirm("確定要手動重置今天的巡視進度嗎？\n照片會從今日畫面移除，但會保留稽核紀錄以便日後查詢。")) return;
     setIsResetting(true);
     try {
+     const resetAt = Date.now();
+     const resetBatchId = `${currentBranch}_${inspectionBusinessDate}_${resetAt}`;
      const photosRef = await db.collection(getPublicPath(`daily_photos_${currentBranch}`)).get();
      const batch = db.batch();
-     photosRef.forEach(d => batch.delete(d.ref));
+     let archivedCount = 0;
+     photosRef.forEach(d => {
+      const data = d.data() || {};
+      const photoBusinessDate = data.businessDate || getInspectionBusinessDate(data.timestamp || resetAt);
+      if (photoBusinessDate !== inspectionBusinessDate || data.status === 'reset_archived') return;
+      archivedCount++;
+      batch.set(d.ref, {
+       status: 'reset_archived',
+       publicVisible: false,
+       resetBatchId,
+       resetAt,
+       resetBy: currentUser?.phone || '',
+       resetByName: currentUser?.name || '未知'
+      }, { merge: true });
+     });
      await batch.commit();
-     await db.doc(getPublicPath(`system/progress_${currentBranch}`)).set({ completedZones: [] }, {merge: true});
-     triggerNotify("已清空所有巡視紀錄", "success");
+     await db.doc(getPublicPath(`system/progress_${currentBranch}`)).set({
+      completedZones: [],
+      businessDate: inspectionBusinessDate,
+      resetAt,
+      resetMode: 'manual',
+      resetBy: currentUser?.phone || '',
+      resetByName: currentUser?.name || '未知'
+     }, {merge: true});
+     await db.collection(getPublicPath(`daily_photo_resets_${currentBranch}`)).add({
+      branch: currentBranch,
+      businessDate: inspectionBusinessDate,
+      resetBatchId,
+      mode: 'manual',
+      archivedCount,
+      resetAt,
+      resetBy: currentUser?.phone || '',
+      resetByName: currentUser?.name || '未知'
+     });
+     setDailyPhotos({});
+     triggerNotify("已重置今日巡視進度，照片已保留稽核紀錄", "success");
     } catch (e) {
      console.error(e);
      triggerNotify("重置失敗", "error");
     }
     setIsResetting(false);
+  };
+
+  const handleCleanupOldPhotos = async () => {
+    if (!isSuperAdmin || isCleaningPhotos) return;
+    if (!window.confirm("確定要清除 7 天前的善後巡視照片嗎？\n會刪除舊照片與照片歸檔以節省資料庫空間，但會保留上傳、重置、清理紀錄。")) return;
+    setIsCleaningPhotos(true);
+    try {
+     const result = await cleanupInspectionPhotoStorage({
+      branch: currentBranch,
+      retainDays: 7,
+      mode: 'manual',
+      actor: { phone: currentUser?.phone || '', name: currentUser?.name || '最高權限' }
+     });
+     triggerNotify(`已清除 ${result.total} 筆 7 天前巡視照片`, "success");
+    } catch (error) {
+     console.error("清理巡視照片失敗", error);
+     triggerNotify("清理失敗，請稍後再試", "error");
+    }
+    setIsCleaningPhotos(false);
   };
 
   if(activeZone) return (
@@ -3630,16 +3764,26 @@ window._gameJsReady = false;
     <div className="p-4 space-y-4 page-enter pb-20 text-left font-bold">
      <BackButton onClick={onBack} title="巡視崗位清單" />
      <div className="bg-brand-red p-7 rounded-[2.5rem] text-white shadow-lg flex justify-between items-center mb-2">
-      <div><p className="text-[10px] font-black uppercase opacity-60 mb-1 leading-none tracking-widest">巡視進度 (18:00刷新)</p><p className="text-3xl font-black mt-2 font-bold">{completedZones.length} / {branchZones.length || 1}</p></div>
+      <div><p className="text-[10px] font-black uppercase opacity-60 mb-1 leading-none tracking-widest">巡視進度 (18:00切換營業日)</p><p className="text-3xl font-black mt-2 font-bold">{completedZones.length} / {branchZones.length || 1}</p></div>
       <div className="w-14 h-14 rounded-full border-4 border-white/20 flex items-center justify-center font-bold text-xs">{branchZones.length > 0 ? Math.round((completedZones.length/branchZones.length)*100) : 0}%</div>
+     </div>
+     <div className="rounded-2xl px-4 py-3 text-[10px] font-black leading-relaxed flex items-start gap-2 shadow-sm" style={{background:'linear-gradient(135deg,rgba(255,247,237,.96),rgba(255,237,213,.9))',border:'1px solid rgba(251,191,36,.42)',color:'#9f1239',boxShadow:'0 8px 24px rgba(76,5,25,.12)'}}>
+      <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center" style={{background:'rgba(159,18,57,.09)',color:'#be123c'}}><Icon name="calendar-days" size={13}/></span>
+      <span>今日營業日：{inspectionBusinessDate}。18:00 只切換今日進度，不會刪除已上傳照片。</span>
      </div>
 
      {(isManager || isSuperAdmin) && (
-     <div className="flex justify-end mb-4 px-1">
-      <button onClick={handleResetAll} disabled={isResetting || (completedZones.length === 0 && Object.keys(dailyPhotos).length === 0)} className={`text-[10px] px-4 py-2.5 rounded-xl font-black flex items-center gap-1.5 transition-all shadow-sm ${isResetting || (completedZones.length === 0 && Object.keys(dailyPhotos).length === 0) ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-rose-50 text-brand-red border border-rose-100 active:scale-95'}`}>
+     <div className="flex justify-end gap-2 mb-4 px-1 flex-wrap">
+      <button onClick={handleResetAll} disabled={isResetting || (completedZones.length === 0 && Object.keys(dailyPhotos).length === 0)} className={`text-[10px] px-4 py-2.5 rounded-xl font-black flex items-center gap-1.5 transition-all shadow-sm border ${isResetting || (completedZones.length === 0 && Object.keys(dailyPhotos).length === 0) ? 'cursor-not-allowed opacity-45' : 'active:scale-95'}`} style={{background:'linear-gradient(135deg,rgba(114,15,48,.82),rgba(76,5,25,.92))',borderColor:'rgba(255,255,255,.18)',color:'#fff7ed',boxShadow:'0 10px 22px rgba(76,5,25,.22)'}}>
         <Icon name="refresh-cw" size={14} className={isResetting ? "animate-spin" : ""} />
-        {isResetting ? "重置中..." : "重置所有巡視紀錄"}
+        {isResetting ? "重置中..." : "重置今日巡視進度"}
       </button>
+      {isSuperAdmin && (
+       <button onClick={handleCleanupOldPhotos} disabled={isCleaningPhotos} className={`text-[10px] px-4 py-2.5 rounded-xl font-black flex items-center gap-1.5 transition-all shadow-sm border ${isCleaningPhotos ? 'cursor-wait opacity-50' : 'active:scale-95'}`} style={{background:'linear-gradient(135deg,rgba(45,8,22,.92),rgba(88,10,38,.9))',borderColor:'rgba(251,191,36,.24)',color:'#fde68a',boxShadow:'0 10px 22px rgba(76,5,25,.28)'}}>
+        <Icon name="trash-2" size={14} className={isCleaningPhotos ? "animate-pulse" : ""} />
+        {isCleaningPhotos ? "清理中..." : "清除7天前照片"}
+       </button>
+      )}
      </div>
      )}
 
@@ -5300,7 +5444,7 @@ if (selectedActivity === 'leftover') {
            <div style={{fontSize:'22px',fontWeight:900,color:'#fde68a',lineHeight:'1.1'}}>{item.label}</div>
            <div style={{fontSize:'12px',fontWeight:800,color:'#8b949e',lineHeight:'1.6'}}>{item.desc}</div>
            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginTop:'2px'}}>
-            <button onClick={()=>setLeftoverCardFlipped(true)} style={{border:'none',borderRadius:'12px',background:'#fbbf24',color:'#111827',fontWeight:900,padding:'11px'}}>上傳</button>
+            <button onClick={()=>setLeftoverCardFlipped(true)} style={{border:'none',borderRadius:'12px',background:'#fbbf24',color:'#111827',fontWeight:900,padding:'11px'}}>翻牌</button>
             <button onClick={()=>{setLeftoverActiveItem(null);setLeftoverCardFlipped(false);}} style={{border:'1px solid #30363d',borderRadius:'12px',background:'#161b22',color:'#e6edf3',fontWeight:900,padding:'11px'}}>收回</button>
            </div>
           </div>
@@ -5311,7 +5455,7 @@ if (selectedActivity === 'leftover') {
             <div style={{fontSize:'18px',fontWeight:900,color:'#fde68a'}}>{item.label}</div>
             <div style={{fontSize:'11px',fontWeight:800,color:'#8b949e',lineHeight:'1.5'}}>填寫菜名與菜色介紹，並上傳重生成料理的照片。</div>
            </div>
-           <button onClick={()=>setLeftoverCardFlipped(false)} style={{border:'1px solid #30363d',borderRadius:'10px',background:'#0d1117',color:'#e6edf3',fontWeight:900,padding:'8px 10px'}}>正面</button>
+           <button onClick={()=>setLeftoverCardFlipped(false)} style={{border:'1px solid #30363d',borderRadius:'10px',background:'#0d1117',color:'#e6edf3',fontWeight:900,padding:'8px 10px'}}>看正面</button>
           </div>
           {comment && <div style={{fontSize:'11px',fontWeight:900,color:approved?'#7ee787':'#ff7b72',background:'rgba(255,255,255,.05)',border:'1px solid #30363d',borderRadius:'10px',padding:'8px',lineHeight:'1.5'}}>評語：{comment}</div>}
           <div style={{flex:1}} />
@@ -5341,7 +5485,7 @@ if (selectedActivity === 'leftover') {
             </label>
             {dishForm.photoName && <div style={{fontSize:'10px',fontWeight:800,color:'#8b949e',lineHeight:'1.4',textAlign:'center',wordBreak:'break-all'}}>{dishForm.photoName}</div>}
             <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px'}}>
-             <button onClick={()=>{setLeftoverActiveItem(null);setLeftoverCardFlipped(false);}} style={{border:'1px solid #30363d',borderRadius:'12px',background:'#161b22',color:'#e6edf3',fontWeight:900,padding:'12px'}}>取消</button>
+             <button onClick={()=>{setLeftoverActiveItem(null);setLeftoverCardFlipped(false);}} style={{border:'1px solid #30363d',borderRadius:'12px',background:'#161b22',color:'#e6edf3',fontWeight:900,padding:'12px'}}>收回換牌</button>
              <button onClick={()=>submitLeftoverDish(item)} disabled={leftoverSaving} style={{border:'none',borderRadius:'12px',background:leftoverSaving?'#30363d':'#238636',color:'#fff',fontWeight:900,padding:'12px',cursor:leftoverSaving?'wait':'pointer'}}>
               {pending?'重新送審':'送審'}
              </button>
@@ -9416,20 +9560,31 @@ return (
 
            let targetResetDate = new Date(now);
            if (h < 18) targetResetDate.setDate(targetResetDate.getDate() - 1);
-           const targetResetStr = `${targetResetDate.getFullYear()}-${targetResetDate.getMonth()+1}-${targetResetDate.getDate()}`;
+           const targetResetStr = formatDateKey(targetResetDate);
 
            if (data.lastReset !== targetResetStr) {
-            await cronRef.set({ lastReset: targetResetStr }, {merge: true});
-            const photos = await db.collection(getPublicPath(`daily_photos_${branch}`)).get();
-            const batch = db.batch();
-            photos.forEach(d => batch.delete(d.ref));
-            await batch.commit();
-            await db.doc(getPublicPath(`system/progress_${branch}`)).set({ completedZones: [] }, {merge: true});
+            const resetAt = Date.now();
+            await cronRef.set({ lastReset: targetResetStr, lastResetAt: resetAt }, {merge: true});
+            await db.doc(getPublicPath(`system/progress_${branch}`)).set({
+             completedZones: [],
+             businessDate: targetResetStr,
+             resetAt,
+             resetMode: 'auto'
+            }, {merge: true});
+            db.collection(getPublicPath(`daily_photo_resets_${branch}`)).add({
+             branch,
+             businessDate: targetResetStr,
+             mode: 'auto',
+             resetAt,
+             resetBy: currentUser?.phone || '',
+             resetByName: currentUser?.name || '系統排程',
+             note: '18:00 自動切換營業日，只重置進度，不刪除巡視照'
+            }).catch(err => console.warn("寫入巡視重置紀錄失敗", err));
            }
 
            let targetAlertDate = new Date(now);
            if (h < 23) targetAlertDate.setDate(targetAlertDate.getDate() - 1);
-           const targetAlertStr = `${targetAlertDate.getFullYear()}-${targetAlertDate.getMonth()+1}-${targetAlertDate.getDate()}`;
+           const targetAlertStr = formatDateKey(targetAlertDate);
 
            if (h >= 23 && data.lastMissingAlert !== targetAlertStr) {
             await cronRef.set({ lastMissingAlert: targetAlertStr }, {merge: true});
@@ -9445,10 +9600,25 @@ return (
             }
            }
 
-           const targetOrderResetStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`;
+           const targetOrderResetStr = formatDateKey(now);
            if (h >= 12 && data.lastOrderReset !== targetOrderResetStr) {
             await cronRef.set({ lastOrderReset: targetOrderResetStr }, {merge: true});
             await db.doc(getPublicPath(`ordering/db_${branch}`)).set({ activeQuantities: {} }, {merge: true});
+           }
+
+           const weeklyCleanupDate = new Date(now);
+           const day = weeklyCleanupDate.getDay();
+           const diffToMonday = (day + 6) % 7;
+           weeklyCleanupDate.setDate(weeklyCleanupDate.getDate() - diffToMonday);
+           const weeklyCleanupKey = formatDateKey(weeklyCleanupDate);
+           if (h >= 18 && data.lastInspectionPhotoCleanup !== weeklyCleanupKey) {
+            await cronRef.set({ lastInspectionPhotoCleanup: weeklyCleanupKey, lastInspectionPhotoCleanupAt: Date.now() }, {merge: true});
+            cleanupInspectionPhotoStorage({
+             branch,
+             retainDays: 7,
+             mode: 'auto',
+             actor: { phone: currentUser?.phone || '', name: currentUser?.name || '系統排程' }
+            }).catch(err => console.warn("每週清理巡視照片失敗", err));
            }
          }
         } catch(e) { console.error("定時排程錯誤:", e); }
@@ -9531,7 +9701,11 @@ return (
       const errH = () => {};
       
       const subZone = db.doc(getPublicPath(`config/zones_${currentBranch}`)).onSnapshot(d => { setBranchZones(d.exists && d.data().zones ? d.data().zones : DEFAULT_ZONES); }, errH);
-      const subProg = db.doc(getPublicPath(`system/progress_${currentBranch}`)).onSnapshot(d => setCompletedZones(d.exists ? (d.data().completedZones || []) : []), errH);
+      const subProg = db.doc(getPublicPath(`system/progress_${currentBranch}`)).onSnapshot(d => {
+        const progressData = d.exists ? (d.data() || {}) : {};
+        const progressDate = progressData.businessDate || getInspectionBusinessDate(progressData.updatedAt || progressData.resetAt || Date.now());
+        setCompletedZones(progressDate === getInspectionBusinessDate() ? (progressData.completedZones || []) : []);
+      }, errH);
       const subStd = db.collection(getPublicPath(`standards_${currentBranch}`)).onSnapshot(s => { const m = {}; s.forEach(doc => { const d = doc.data(); if (!m[d.zoneId]) m[d.zoneId] = []; m[d.zoneId].push({...d, id: doc.id}); }); setStandards(m); }, errH);
       const subTicker = db.doc(getPublicPath(`ticker/branch_${currentBranch}`)).onSnapshot(d => { setTickerText(d.exists ? d.data().text || '' : ''); }, errH);
       const subGame = db.doc(getPublicPath('system/game_config')).onSnapshot(d => {
@@ -9669,7 +9843,7 @@ return (
               )}
 
               <div onClick={() => setCurrentPage('inspection')} className="glass-panel p-6 rounded-[2.5rem] border-l-4 border-l-brand-red bg-white shadow-sm active-scale cursor-pointer">
-               <div className="flex justify-between items-end mb-4 px-1"><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">巡視進度 (18:00刷新)</p><h3 className="text-lg font-black text-slate-800 leading-tight">{completedZones.length >= branchZones.length && branchZones.length > 0 ? "✅ 全數巡視完成" : `進度：${completedZones.length} / ${branchZones.length || 1}`}</h3></div><span className="text-sm font-black text-brand-red">{progressPercent}%</span></div>
+               <div className="flex justify-between items-end mb-4 px-1"><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">巡視進度 (18:00切換營業日)</p><h3 className="text-lg font-black text-slate-800 leading-tight">{completedZones.length >= branchZones.length && branchZones.length > 0 ? "✅ 全數巡視完成" : `進度：${completedZones.length} / ${branchZones.length || 1}`}</h3></div><span className="text-sm font-black text-brand-red">{progressPercent}%</span></div>
                <div className="bg-slate-100 h-3.5 rounded-full overflow-hidden border shadow-inner"><div className="h-full bg-brand-red opacity-80 transition-all duration-700" style={{ width: `${progressPercent}%` }}></div></div>
               </div>
               
