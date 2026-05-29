@@ -780,9 +780,12 @@ window._gameJsReady = false;
      return `${y}-${m}-${d}`;
     };
 
+    const INSPECTION_RESET_HOUR = 17;
+    const INSPECTION_RESET_LABEL = '17:00';
+
     const getInspectionBusinessDate = (time = Date.now()) => {
      const date = new Date(time);
-     if (date.getHours() < 18) date.setDate(date.getDate() - 1);
+     if (date.getHours() < INSPECTION_RESET_HOUR) date.setDate(date.getDate() - 1);
      return formatDateKey(date);
     };
 
@@ -3464,9 +3467,8 @@ window._gameJsReady = false;
          businessDate: photoBusinessDate
        }; 
       });
-      setDailyPhotos(allPhotos);
+     setDailyPhotos(allPhotos);
      }, () => {
-      setDailyPhotos({});
       triggerNotify("巡視照讀取失敗，請檢查網路後重新整理", "error");
      });
     return () => unsubscribe();
@@ -3517,6 +3519,18 @@ window._gameJsReady = false;
       await ref.set(photoData);
       const verifySnap = await ref.get();
       if (!verifySnap.exists || !verifySnap.data()?.photo) throw new Error('upload-verify-failed');
+      setDailyPhotos(prev => ({
+       ...prev,
+       [docKey]: {
+        photo: compressed,
+        uploaderName: photoData.uploaderName,
+        uploaderPhone: photoData.uploaderPhone,
+        timestamp: now,
+        compressedBytes,
+        fileName: photoData.fileName,
+        businessDate
+       }
+      }));
       db.collection(getPublicPath(`daily_photo_audit_${currentBranch}`)).add({
        zoneId: photoData.zoneId,
        zoneName: photoData.zoneName,
@@ -3764,12 +3778,12 @@ window._gameJsReady = false;
     <div className="p-4 space-y-4 page-enter pb-20 text-left font-bold">
      <BackButton onClick={onBack} title="巡視崗位清單" />
      <div className="bg-brand-red p-7 rounded-[2.5rem] text-white shadow-lg flex justify-between items-center mb-2">
-      <div><p className="text-[10px] font-black uppercase opacity-60 mb-1 leading-none tracking-widest">巡視進度 (18:00切換營業日)</p><p className="text-3xl font-black mt-2 font-bold">{completedZones.length} / {branchZones.length || 1}</p></div>
+      <div><p className="text-[10px] font-black uppercase opacity-60 mb-1 leading-none tracking-widest">巡視進度 ({INSPECTION_RESET_LABEL}切換營業日)</p><p className="text-3xl font-black mt-2 font-bold">{completedZones.length} / {branchZones.length || 1}</p></div>
       <div className="w-14 h-14 rounded-full border-4 border-white/20 flex items-center justify-center font-bold text-xs">{branchZones.length > 0 ? Math.round((completedZones.length/branchZones.length)*100) : 0}%</div>
      </div>
      <div className="rounded-2xl px-4 py-3 text-[10px] font-black leading-relaxed flex items-start gap-2 shadow-sm" style={{background:'linear-gradient(135deg,rgba(255,247,237,.96),rgba(255,237,213,.9))',border:'1px solid rgba(251,191,36,.42)',color:'#9f1239',boxShadow:'0 8px 24px rgba(76,5,25,.12)'}}>
       <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center" style={{background:'rgba(159,18,57,.09)',color:'#be123c'}}><Icon name="calendar-days" size={13}/></span>
-      <span>今日營業日：{inspectionBusinessDate}。18:00 只切換今日進度，不會刪除已上傳照片。</span>
+      <span>今日營業日：{inspectionBusinessDate}。{INSPECTION_RESET_LABEL} 開始新的巡視日；今日畫面會清空供重新上傳，舊照片保留 7 天供查詢。</span>
      </div>
 
      {(isManager || isSuperAdmin) && (
@@ -9559,7 +9573,7 @@ return (
            const data = docSnap.exists ? docSnap.data() : {};
 
            let targetResetDate = new Date(now);
-           if (h < 18) targetResetDate.setDate(targetResetDate.getDate() - 1);
+           if (h < INSPECTION_RESET_HOUR) targetResetDate.setDate(targetResetDate.getDate() - 1);
            const targetResetStr = formatDateKey(targetResetDate);
 
            if (data.lastReset !== targetResetStr) {
@@ -9578,7 +9592,7 @@ return (
              resetAt,
              resetBy: currentUser?.phone || '',
              resetByName: currentUser?.name || '系統排程',
-             note: '18:00 自動切換營業日，只重置進度，不刪除巡視照'
+             note: `${INSPECTION_RESET_LABEL} 自動切換營業日，只重置進度，不刪除巡視照`
             }).catch(err => console.warn("寫入巡視重置紀錄失敗", err));
            }
 
@@ -9611,7 +9625,7 @@ return (
            const diffToMonday = (day + 6) % 7;
            weeklyCleanupDate.setDate(weeklyCleanupDate.getDate() - diffToMonday);
            const weeklyCleanupKey = formatDateKey(weeklyCleanupDate);
-           if (h >= 18 && data.lastInspectionPhotoCleanup !== weeklyCleanupKey) {
+           if (h >= INSPECTION_RESET_HOUR && data.lastInspectionPhotoCleanup !== weeklyCleanupKey) {
             await cronRef.set({ lastInspectionPhotoCleanup: weeklyCleanupKey, lastInspectionPhotoCleanupAt: Date.now() }, {merge: true});
             cleanupInspectionPhotoStorage({
              branch,
@@ -9843,7 +9857,7 @@ return (
               )}
 
               <div onClick={() => setCurrentPage('inspection')} className="glass-panel p-6 rounded-[2.5rem] border-l-4 border-l-brand-red bg-white shadow-sm active-scale cursor-pointer">
-               <div className="flex justify-between items-end mb-4 px-1"><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">巡視進度 (18:00切換營業日)</p><h3 className="text-lg font-black text-slate-800 leading-tight">{completedZones.length >= branchZones.length && branchZones.length > 0 ? "✅ 全數巡視完成" : `進度：${completedZones.length} / ${branchZones.length || 1}`}</h3></div><span className="text-sm font-black text-brand-red">{progressPercent}%</span></div>
+               <div className="flex justify-between items-end mb-4 px-1"><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">巡視進度 ({INSPECTION_RESET_LABEL}切換營業日)</p><h3 className="text-lg font-black text-slate-800 leading-tight">{completedZones.length >= branchZones.length && branchZones.length > 0 ? "✅ 全數巡視完成" : `進度：${completedZones.length} / ${branchZones.length || 1}`}</h3></div><span className="text-sm font-black text-brand-red">{progressPercent}%</span></div>
                <div className="bg-slate-100 h-3.5 rounded-full overflow-hidden border shadow-inner"><div className="h-full bg-brand-red opacity-80 transition-all duration-700" style={{ width: `${progressPercent}%` }}></div></div>
               </div>
               
