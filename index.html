@@ -635,6 +635,39 @@
         #schedule-root .border-brand-red { border-color: #b9121b !important; }
         #schedule-root .shadow-sm { box-shadow: 0 1px 2px rgba(0,0,0,.05) !important; }
         #schedule-root .bg-brand-red { background: #b9121b !important; background-color: #b9121b !important; color: #fff !important; }
+
+        /* 圖片預覽 Modal 不套用班表表格透明背景規則 */
+        #schedule-root .schedule-preview-modal {
+            background: rgba(15,23,42,.96) !important;
+            background-color: rgba(15,23,42,.96) !important;
+            color: #ffffff !important;
+        }
+        #schedule-root .schedule-preview-modal *,
+        #schedule-root .schedule-preview-modal button,
+        #schedule-root .schedule-preview-modal p,
+        #schedule-root .schedule-preview-modal div {
+            background-image: initial !important;
+        }
+        #schedule-root .schedule-preview-tip {
+            background: #b9121b !important;
+            background-color: #b9121b !important;
+            color: #ffffff !important;
+        }
+        #schedule-root .schedule-preview-close {
+            background: #334155 !important;
+            background-color: #334155 !important;
+            color: #ffffff !important;
+        }
+        #schedule-root .schedule-preview-frame {
+            background: #ffffff !important;
+            background-color: #ffffff !important;
+        }
+        #schedule-root .schedule-preview-download {
+            background: #2563eb !important;
+            background-color: #2563eb !important;
+            color: #ffffff !important;
+        }
+
         /* === 強制班表表格外框線為黑色 === */
         #schedule-root table,
         #schedule-root table th,
@@ -2846,12 +2879,12 @@ window._gameJsReady = false;
                   ))}
                  </tr>
                  <tr>
-                  <th colSpan={3} className="bg-[#ffffff] border border-[#64748b] p-1 text-right text-xs text-[#94a3b8] font-bold sticky left-0 z-[60] shadow-sm" style={{ top: '80px', height: '60px' }}>{isManager && !isDownloading ? '特殊節日 (點擊設定) ➔' : '特殊節日 ➔'}</th>
+                  <th colSpan={3} className="bg-[#ffffff] border border-[#64748b] p-1 text-right text-xs text-[#94a3b8] font-bold sticky left-0 z-[60] shadow-sm" style={{ top: '80px', height: isDownloading ? '92px' : '60px' }}>{isManager && !isDownloading ? '特殊節日 (點擊設定) ➔' : '特殊節日 ➔'}</th>
                   {daysInMonth.map(day => {
                     const h = getHolidayData(day.dateString);
                     const isEditingHolidayCell = isManager && !isDownloading && selectedCell?.type === 'holiday' && selectedCell?.date === day.dateString;
                     return (
-                     <th key={`holiday-${day.dateNum}`} onClick={(e) => { e.stopPropagation(); openHolidayEdit(day.dateString); }} className={`border border-[#64748b] p-0 text-center align-top relative sticky shadow-sm ${isEditingHolidayCell ? 'z-[200]' : 'z-[50]'} ${isManager && !isDownloading ? 'cursor-pointer hover:brightness-95' : ''} ${getCellBg(day.dateString, day.isWeekend)}`} style={{ top: '80px', height: '60px', zIndex: isEditingHolidayCell ? 200 : 50 }}>
+                     <th key={`holiday-${day.dateNum}`} onClick={(e) => { e.stopPropagation(); openHolidayEdit(day.dateString); }} className={`border border-[#64748b] p-0 text-center align-top relative sticky shadow-sm ${isEditingHolidayCell ? 'z-[200]' : 'z-[50]'} ${isManager && !isDownloading ? 'cursor-pointer hover:brightness-95' : ''} ${getCellBg(day.dateString, day.isWeekend)}`} style={{ top: '80px', height: isDownloading ? '92px' : '60px', minHeight: isDownloading ? '92px' : '60px', zIndex: isEditingHolidayCell ? 200 : 50 }}>
                        {isEditingHolidayCell ? (
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[150px] z-[300] bg-white border-2 border-[#94a3b8] p-2 rounded-xl flex flex-col gap-2" style={{ backgroundColor: '#ffffff', opacity: 1, outline: '8px solid #ffffff', outlineOffset: '-1px', boxShadow: '0 0 0 8px #ffffff, 0 18px 34px rgba(15,23,42,0.28)' }} onClick={e=>e.stopPropagation()}>
                           <input autoFocus type="text" value={holidayInputText} onChange={(e) => setHolidayInputText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && saveHoliday(day.dateString)} className="w-full text-xs border border-[#cbd5e1] rounded p-1.5 outline-none font-bold text-[#1e293b] text-center bg-white" style={{ backgroundColor: '#ffffff', opacity: 1 }} placeholder="節日或備註" />
@@ -2865,7 +2898,7 @@ window._gameJsReady = false;
                           </div>
                         </div>
                        ) : (
-                        h && <div className={`font-black text-[13px] mx-auto pt-1 tracking-widest ${h.isRed ? 'text-[var(--accent)]' : 'text-slate-600'}`} style={{ writingMode: 'vertical-rl', textOrientation: 'upright', lineHeight: 1.1, maxHeight: '56px', overflow: 'hidden' }}>{h.text}</div>
+                        h && <div className={`font-black ${isDownloading ? 'text-[11px]' : 'text-[13px]'} mx-auto pt-1 tracking-widest ${h.isRed ? 'text-[var(--accent)]' : 'text-slate-600'}`} style={{ writingMode: 'vertical-rl', textOrientation: 'upright', lineHeight: 1.05, maxHeight: isDownloading ? 'none' : '56px', overflow: isDownloading ? 'visible' : 'hidden' }}>{h.text}</div>
                        )}
                      </th>
                     );
@@ -2960,16 +2993,16 @@ window._gameJsReady = false;
         
         {/* 新增：高畫質圖片預覽 Modal，用於修復 iOS 無法直接下載的問題 */}
         {previewImage && (
-         <div className="fixed inset-0 z-[100000] bg-slate-900/95 flex flex-col items-center justify-center p-4 sm:p-8 animate-in fade-in">
+         <div className="schedule-preview-modal fixed inset-0 z-[100000] flex flex-col items-center justify-center p-4 sm:p-8 animate-in fade-in">
            <div className="w-full max-w-6xl flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
-            <p className="text-[#ffffff] font-black text-sm bg-brand-red px-5 py-2.5 rounded-full shadow-lg text-center leading-relaxed">
+            <p className="schedule-preview-tip font-black text-sm px-5 py-2.5 rounded-full shadow-lg text-center leading-relaxed">
               💡 手機用戶請「長按圖片」選擇儲存至相簿
             </p>
-            <button onClick={() => setPreviewImage(null)} className="text-[#ffffff] bg-slate-700 hover:bg-slate-600 px-6 py-2.5 rounded-full font-black shadow-lg transition-all active:scale-95 text-sm">
+            <button onClick={() => setPreviewImage(null)} className="schedule-preview-close px-6 py-2.5 rounded-full font-black shadow-lg transition-all active:scale-95 text-sm">
               關閉預覽
             </button>
            </div>
-           <div className="overflow-auto w-full max-w-6xl bg-[#ffffff] rounded-2xl shadow-2xl custom-scrollbar border-4 border-slate-800" style={{ maxHeight: 'calc(100vh - 180px)' }}>
+           <div className="schedule-preview-frame overflow-auto w-full max-w-6xl rounded-2xl shadow-2xl custom-scrollbar border-4 border-slate-800" style={{ maxHeight: 'calc(100vh - 180px)' }}>
             <img src={previewImage} alt="班表圖片預覽" className="w-max min-w-full" style={{ touchAction: 'pan-x pan-y' }} />
            </div>
            <div className="mt-6 flex justify-center w-full max-w-6xl">
@@ -2978,7 +3011,7 @@ window._gameJsReady = false;
               link.download = `${currentBranch}-${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月班表.jpg`;
               link.href = previewImage;
               link.click();
-            }} className="bg-[#3b82f6] hover:bg-[#2563eb] text-[#ffffff] px-8 py-3.5 rounded-2xl font-black shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all text-sm">
+            }} className="schedule-preview-download px-8 py-3.5 rounded-2xl font-black shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all text-sm">
               <Icon name="download" size={18} /> 電腦版點此下載圖片
             </button>
            </div>
