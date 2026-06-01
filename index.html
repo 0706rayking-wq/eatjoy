@@ -3301,26 +3301,34 @@ window._gameJsReady = false;
      );
     };
 
-    const MonthlyReportPage = ({ onBack, report }) => {
-     const hasReport = report?.title && report?.url;
+    const MonthlyReportPage = ({ onBack, report, assemblyReport }) => {
+     const reports = [
+      { key: 'kitchen', label: '廚房會議', eyebrow: 'Kitchen Briefing', icon: 'presentation', color: 'rose', data: report },
+      { key: 'assembly', label: '月大會', eyebrow: 'Monthly Assembly', icon: 'users', color: 'amber', data: assemblyReport }
+     ];
+     const visibleReports = reports.filter(item => item.data?.title && item.data?.url);
      return (
       <div className="p-4 space-y-4 page-enter text-left pb-10">
         <BackButton onClick={onBack} title="廚房月報" />
-        {hasReport ? (
-         <div className="glass-panel p-6 rounded-[2.5rem] bg-white border shadow-sm space-y-5">
+        {visibleReports.length ? (
+         <div className="space-y-4">
+          {visibleReports.map(item => (
+         <div key={item.key} className="glass-panel p-6 rounded-[2.5rem] bg-white border shadow-sm space-y-5">
            <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-brand-red flex items-center justify-center shrink-0 shadow-inner">
-             <Icon name="presentation" size={24} />
+            <div className={`w-12 h-12 rounded-2xl ${item.color === 'amber' ? 'bg-amber-50 text-amber-600' : 'bg-rose-50 text-brand-red'} flex items-center justify-center shrink-0 shadow-inner`}>
+             <Icon name={item.icon} size={24} />
             </div>
             <div className="min-w-0">
-             <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Monthly Briefing</p>
-             <h3 className="text-xl font-black text-slate-800 leading-tight break-words">{report.title}</h3>
-             {report.publishedAt && <p className="text-[10px] text-slate-400 mt-2">發布時間：{new Date(report.publishedAt).toLocaleString()}</p>}
+             <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">{item.eyebrow}</p>
+             <h3 className="text-xl font-black text-slate-800 leading-tight break-words">{item.data.title}</h3>
+             {item.data.publishedAt && <p className="text-[10px] text-slate-400 mt-2">發布時間：{new Date(item.data.publishedAt).toLocaleString()}</p>}
             </div>
            </div>
-           <button onClick={() => window.open(report.url, '_blank')} className="w-full bg-brand-red text-white font-black py-4 rounded-2xl active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2">
-            <Icon name="external-link" size={18} /> 開啟簡報
+           <button onClick={() => window.open(item.data.url, '_blank')} className={`w-full ${item.color === 'amber' ? 'bg-amber-500 text-slate-900' : 'bg-brand-red text-white'} font-black py-4 rounded-2xl active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2`}>
+            <Icon name="external-link" size={18} /> 開啟{item.label}
            </button>
+         </div>
+          ))}
          </div>
         ) : (
          <div className="py-20 text-center glass-panel rounded-[3rem] border border-dashed bg-white text-slate-300 font-bold text-xs">
@@ -8560,52 +8568,78 @@ return (
       </div>
      );
     };
-    const MonthlyReportAdminManager = ({ currentBranch, globalBranches, isSuperAdmin, report, triggerNotify, getPublicPath }) => {
+    const MonthlyReportAdminManager = ({ currentBranch, globalBranches, isSuperAdmin, report, assemblyReport, triggerNotify, getPublicPath }) => {
      const [title, setTitle] = useState(report?.title || '');
      const [url, setUrl] = useState(report?.url || '');
+     const [assemblyTitle, setAssemblyTitle] = useState(assemblyReport?.title || '');
+     const [assemblyUrl, setAssemblyUrl] = useState(assemblyReport?.url || '');
 
      useEffect(() => {
       setTitle(report?.title || '');
       setUrl(report?.url || '');
      }, [report?.title, report?.url]);
 
-     const publishReport = async () => {
-      if (!isSuperAdmin) return triggerNotify("只有最高權限可發布廚房月報", "error");
-      if (!title.trim() || !url.trim()) return triggerNotify("請填寫月報標題與簡報網址", "error");
+     useEffect(() => {
+      setAssemblyTitle(assemblyReport?.title || '');
+      setAssemblyUrl(assemblyReport?.url || '');
+     }, [assemblyReport?.title, assemblyReport?.url]);
+
+     const publishReport = async (key, reportTitle, reportUrl, label, targetBranches = null) => {
+      if (!isSuperAdmin) return triggerNotify(`只有最高權限可發布${label}`, "error");
+      if (!reportTitle.trim() || !reportUrl.trim()) return triggerNotify(`請填寫${label}標題與簡報網址`, "error");
       const now = Date.now();
-      const targetBranches = globalBranches.length > 0 ? globalBranches : [currentBranch];
+      const branches = targetBranches && targetBranches.length > 0 ? targetBranches : (globalBranches.length > 0 ? globalBranches : [currentBranch]);
       try {
-        await Promise.all(targetBranches.map(branch => (
+        await Promise.all(branches.map(branch => (
          db.doc(getPublicPath(`content_status/branch_${branch}`)).set({
-          kitchenReport: {
-           title: title.trim(),
-           url: url.trim(),
+          [key]: {
+           title: reportTitle.trim(),
+           url: reportUrl.trim(),
            publishedAt: now,
            readBy: []
           }
          }, { merge: true })
         )));
-        triggerNotify(`廚房月報已佈達 ${targetBranches.length} 間分店`, "success");
+        triggerNotify(`${label}已佈達 ${branches.length} 間分店，員工首頁會顯示提醒紅點`, "success");
       } catch (e) {
-        triggerNotify("月報發布失敗", "error");
+        triggerNotify(`${label}發布失敗`, "error");
       }
      };
 
      return (
       <div className="glass-panel p-6 rounded-[2.5rem] bg-white border shadow-sm space-y-4">
        <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><Icon name="presentation" size={18} className="text-brand-red" /> 廚房月報佈達</h3>
-       <div>
-        <p className="text-[10px] font-black text-slate-400 mb-1 uppercase">月報標題</p>
+       <div className="bg-slate-50 border border-slate-100 rounded-[1.5rem] p-4 space-y-3">
+        <h4 className="font-black text-slate-800 text-xs flex items-center gap-2"><Icon name="presentation" size={16} className="text-brand-red" /> 廚房會議</h4>
+        <div>
+        <p className="text-[10px] font-black text-slate-400 mb-1 uppercase">廚房會議標題</p>
         <input value={title} onChange={e=>setTitle(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none" placeholder="例如：五月份廚房會議" />
-       </div>
-       <div>
+        </div>
+        <div>
         <p className="text-[10px] font-black text-slate-400 mb-1 uppercase">簡報網址</p>
         <input value={url} onChange={e=>setUrl(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none" placeholder="貼上 Google Slides / 簡報連結" />
+        </div>
+        <button onClick={() => publishReport('kitchenReport', title, url, '廚房會議', globalBranches.length > 0 ? globalBranches : [currentBranch])} className="w-full bg-brand-red text-white font-black py-4 rounded-2xl active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2">
+         <Icon name="send" size={16} /> 更新廚房會議至所有分店
+        </button>
+        {report?.publishedAt && <p className="text-[10px] text-slate-400 text-center">目前版本發布時間：{new Date(report.publishedAt).toLocaleString()}</p>}
        </div>
-       <button onClick={publishReport} className="w-full bg-brand-red text-white font-black py-4 rounded-2xl active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2">
-        <Icon name="send" size={16} /> 更新發布至所有分店
-       </button>
-       {report?.publishedAt && <p className="text-[10px] text-slate-400 text-center">目前版本發布時間：{new Date(report.publishedAt).toLocaleString()}</p>}
+       <div className="bg-amber-50 border border-amber-100 rounded-[1.5rem] p-4 space-y-3">
+        <h4 className="font-black text-slate-800 text-xs flex items-center gap-2"><Icon name="users" size={16} className="text-amber-500" /> 月大會</h4>
+        <p className="text-[10px] font-black text-amber-700 leading-relaxed bg-white/70 border border-amber-100 rounded-xl px-3 py-2">月大會網址依分店設定，目前會發布到：{currentBranch}</p>
+        <div>
+         <p className="text-[10px] font-black text-slate-400 mb-1 uppercase">月大會標題</p>
+         <input value={assemblyTitle} onChange={e=>setAssemblyTitle(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none" placeholder="例如：六月月份月大會" />
+        </div>
+        <div>
+         <p className="text-[10px] font-black text-slate-400 mb-1 uppercase">簡報網址</p>
+         <input value={assemblyUrl} onChange={e=>setAssemblyUrl(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none" placeholder="貼上 Google Slides / 簡報連結" />
+        </div>
+        <button onClick={() => publishReport('monthlyAssembly', assemblyTitle, assemblyUrl, '月大會', [currentBranch])} className="w-full bg-amber-500 text-slate-900 font-black py-4 rounded-2xl active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2">
+         <Icon name="send" size={16} /> 更新月大會至目前分店
+        </button>
+        {assemblyReport?.publishedAt && <p className="text-[10px] text-slate-400 text-center">目前版本發布時間：{new Date(assemblyReport.publishedAt).toLocaleString()}</p>}
+       </div>
       </div>
      );
     };
@@ -8986,7 +9020,7 @@ return (
            </div>
          )}
          {tab === 'report' && isSuperAdmin && (
-           <MonthlyReportAdminManager currentBranch={currentBranch} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} report={contentStatus?.kitchenReport || {}} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />
+           <MonthlyReportAdminManager currentBranch={currentBranch} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} report={contentStatus?.kitchenReport || {}} assemblyReport={contentStatus?.monthlyAssembly || {}} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />
          )}
          {tab === 'game' && <GameAdminManager getPublicPath={getPublicPath} triggerNotify={triggerNotify} globalBranches={globalBranches} />}
          {tab === 'system' && isSuperAdmin && (
@@ -9638,9 +9672,10 @@ return (
      }, [currentBranch, triggerNotify]);
 
      useEffect(() => {
-      const pageToContentKey = { menu: 'menu', schedule: 'schedule', kitchenReport: 'kitchenReport' };
-      const key = pageToContentKey[currentPage];
-      if (key && isContentUnread(key)) markContentRead(key);
+     const pageToContentKey = { menu: 'menu', schedule: 'schedule', kitchenReport: 'kitchenReport' };
+     const key = pageToContentKey[currentPage];
+     if (key && isContentUnread(key)) markContentRead(key);
+     if (currentPage === 'kitchenReport' && isContentUnread('monthlyAssembly')) markContentRead('monthlyAssembly');
      }, [currentPage, contentStatus, isContentUnread, markContentRead]);
 
      useEffect(() => {
@@ -9982,7 +10017,7 @@ return (
                <NavCard title="員工守則" onClick={() => setCurrentPage('unifiedRules')} colorClass="bg-emerald-50/50" iconName="book-open" unread={hasUnsignedRules} />
                <NavCard title="每月班表" onClick={() => setCurrentPage('schedule')} colorClass="bg-indigo-50/50" iconName="calendar" unread={isContentUnread('schedule')} />
                <NavCard title="入職相關" onClick={() => setCurrentPage('onboarding')} colorClass="bg-blue-50/50" iconName="user-plus" />
-               <NavCard title="廚房月報" onClick={() => setCurrentPage('kitchenReport')} colorClass="bg-rose-50/50" iconName="presentation" unread={isContentUnread('kitchenReport')} />
+               <NavCard title="廚房月報" onClick={() => setCurrentPage('kitchenReport')} colorClass="bg-rose-50/50" iconName="presentation" unread={isContentUnread('kitchenReport') || isContentUnread('monthlyAssembly')} />
                <NavCard title="本季菜單" onClick={() => setCurrentPage('menu')} colorClass="bg-yellow-50/50" iconName="utensils" unread={isContentUnread('menu')} />
                <NavCard title="限時活動" onClick={() => setCurrentPage('game-center')} colorClass="bg-amber-50/50" iconName="gamepad-2" />
                <NavCard title="食材管理" onClick={() => setCurrentPage('ingredients')} colorClass="bg-purple-50/50" iconName="boxes" />
@@ -9995,7 +10030,7 @@ return (
         case 'inspection': return <InspectionPage onBack={()=>setCurrentPage('home')} standards={standards} completedZones={completedZones} triggerNotify={triggerNotify} branchZones={branchZones} currentBranch={currentBranch} getPublicPath={getPublicPath} currentUser={currentUser} isManager={isManager} isSuperAdmin={isSuperAdmin} />;
         case 'unifiedRules': return <UnifiedRulesPage rulesData={rulesData} onBack={()=>setCurrentPage('home')} user={currentUser} currentBranch={currentBranch} triggerNotify={triggerNotify} getPublicPath={getPublicPath} signatures={signatures} />;
         case 'menu': return <MenuDisplayPage onBack={()=>setCurrentPage('home')} items={menuData?.items} />;
-        case 'kitchenReport': return <MonthlyReportPage onBack={()=>setCurrentPage('home')} report={contentStatus?.kitchenReport || {}} />;
+        case 'kitchenReport': return <MonthlyReportPage onBack={()=>setCurrentPage('home')} report={contentStatus?.kitchenReport || {}} assemblyReport={contentStatus?.monthlyAssembly || {}} />;
         case 'game-center': return <GameCenter onBack={()=>setCurrentPage('home')} config={gameConfig} currentBranch={currentBranch} currentUser={currentUser} getPublicPath={getPublicPath} allUsers={users} isSuperAdmin={isSuperAdmin} />;
         case 'schedule': return <ScheduleSystem onBack={()=>setCurrentPage('home')} currentBranch={currentBranch} isManager={isManager || isSuperAdmin} getPublicPath={getPublicPath} triggerNotify={triggerNotify} publishContent={publishContent} />;
         case 'onboarding': return (
