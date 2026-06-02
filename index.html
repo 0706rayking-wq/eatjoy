@@ -752,11 +752,11 @@ window._gameJsReady = false;
     const isSupervisorRole = (role) => normalizeRole(role).includes('主管');
     const HYGIENE_REQUIRED_ROLES = ['內場正職/計時人員', '內場主管'];
     const HYGIENE_COURSES = [
-     { title: '餐飲衛生相關規範及預防食品中毒-中文字幕版-臺北市政府衛生局提供', url: 'https://elearning.taipei/elearn/courseinfo/index.php?courseid=5015' },
-     { title: '食品安全衛生管理法暨臺北市食品自治條例-臺北市政府衛生局提供', url: 'https://elearning.taipei/elearn/courseinfo/index.php?courseid=5014' },
-     { title: '食品製造業者自主衛生管理應注意事項-臺北市政府衛生局提供', url: 'https://elearning.taipei/elearn/courseinfo/index.php?courseid=4046' },
-     { title: '食品業者登錄及保存來源文件-臺北市政府衛生局提供', url: 'https://elearning.taipei/elearn/courseinfo/index.php?courseid=2903' },
-     { title: '餐飲業衛生安全-新北市政府衛生局提供', url: 'https://elearning.taipei/elearn/courseinfo/index.php?courseid=2852' }
+     { title: '餐飲衛生相關規範及預防食品中毒-中文字幕版-臺北市政府衛生局提供', url: 'https://ap1.elearning.taipei/elearn/courseinfo/so.php?v=5015' },
+     { title: '食品安全衛生管理法暨臺北市食品自治條例-臺北市政府衛生局提供', url: 'https://ap1.elearning.taipei/elearn/courseinfo/so.php?v=5014' },
+     { title: '食品製造業者自主衛生管理應注意事項-臺北市政府衛生局提供', url: 'https://ap1.elearning.taipei/elearn/courseinfo/so.php?v=4046' },
+     { title: '食品業者登錄及保存來源文件-臺北市政府衛生局提供', url: 'https://ap1.elearning.taipei/elearn/courseinfo/so.php?v=2903' },
+     { title: '餐飲業衛生安全-新北市政府衛生局提供', url: 'https://ap1.elearning.taipei/elearn/courseinfo/so.php?v=2852' }
     ];
     const getHygieneYear = () => new Date().getFullYear();
     const getOnboardingItemId = (item, idx) => String(item?.id || item?.title || item?.name || item?.content || `item_${idx}`);
