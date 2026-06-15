@@ -758,6 +758,43 @@ window._gameJsReady = false;
      { title: '食品業者登錄及保存來源文件-臺北市政府衛生局提供', url: 'https://ap1.elearning.taipei/elearn/courseinfo/so.php?v=2903' },
      { title: '餐飲業衛生安全-新北市政府衛生局提供', url: 'https://ap1.elearning.taipei/elearn/courseinfo/so.php?v=2852' }
     ];
+    const OCCUPATIONAL_SAFETY_COURSES = [
+     { title: '【一般職業安全衛生教育訓練課程】上', url: 'https://isafeel.osha.gov.tw/info/10000045' },
+     { title: '【一般職業安全衛生教育訓練課程】下', url: 'https://isafeel.osha.gov.tw/info/10000056' },
+     { title: '【安全衛生工作守則及相關安全衛生】', url: 'https://isafeel.osha.gov.tw/info/10000087' }
+    ];
+    const TRAINING_CONFIGS = {
+     hygiene: {
+      key: 'hygiene',
+      title: '每年度衛生講習',
+      shortTitle: '衛生講習',
+      headline: '餐飲衛生講習',
+      collectionPrefix: 'hygiene_training',
+      icon: 'shield-check',
+      portalLabel: '前往臺北 e-Campus 註冊/登入',
+      portalUrl: 'https://elearning.taipei/mpage/',
+      courseHeading: '指定五堂課程',
+      courseIntro: '註冊帳號後，以下五堂課程每堂上課至少 30 分鐘以上，完成後列印學習證明並上傳圖片。',
+      intro: '餐飲衛生講習是符合台灣食品安全法規的重要訓練。新進從業人員需接受至少 3 小時教育訓練，在職人員每年至少 3 小時。每年 1/1 會重新提醒上傳新年度完課證明。',
+      uploadHint: '教學：課程完成後，在 我的課程點選「列印證明全選」後按「列印證明」，列印格式PNG圖檔及檔案下載後送出就能取得照片，再上傳至此。',
+      courses: HYGIENE_COURSES
+     },
+     occupationalSafety: {
+      key: 'occupationalSafety',
+      title: '每年度職安講習',
+      shortTitle: '職安講習',
+      headline: '職業安全衛生教育訓練',
+      collectionPrefix: 'occupational_safety_training',
+      icon: 'hard-hat',
+      portalLabel: '前往職安數位學習平台',
+      portalUrl: 'https://isafeel.osha.gov.tw/',
+      courseHeading: '指定三堂課程',
+      courseIntro: '請完成以下職業安全衛生教育訓練課程，完成後取得完課證明並上傳圖片。',
+      intro: '職安講習為內場正職/計時人員與內場主管每年度需完成項目。每年 1/1 會重新提醒上傳新年度完課證明。',
+      uploadHint: '教學：完成職安數位學習平台指定課程後，請截圖或下載完課證明，再將證明圖片上傳至此。',
+      courses: OCCUPATIONAL_SAFETY_COURSES
+     }
+    };
     const getHygieneYear = () => new Date().getFullYear();
     const getOnboardingItemId = (item, idx) => String(item?.id || item?.title || item?.name || item?.content || `item_${idx}`);
 
@@ -2220,7 +2257,7 @@ window._gameJsReady = false;
      );
     };
 
-    const HygieneTrainingPage = ({ onBack, currentUser, currentBranch, getPublicPath, triggerNotify }) => {
+    const HygieneTrainingPage = ({ onBack, currentUser, currentBranch, getPublicPath, triggerNotify, config = TRAINING_CONFIGS.hygiene }) => {
      const year = getHygieneYear();
      const [record, setRecord] = useState(null);
      const [uploading, setUploading] = useState(false);
@@ -2228,13 +2265,13 @@ window._gameJsReady = false;
      const isRequired = HYGIENE_REQUIRED_ROLES.includes(normalizedRole);
 
      useEffect(() => {
-      if (!currentUser?.phone || !currentBranch) return;
-      const docId = `${currentUser.phone}_${year}`;
-      const unsub = db.collection(getPublicPath(`hygiene_training_${currentBranch}`)).doc(docId).onSnapshot(doc => {
+     if (!currentUser?.phone || !currentBranch) return;
+     const docId = `${currentUser.phone}_${year}`;
+      const unsub = db.collection(getPublicPath(`${config.collectionPrefix}_${currentBranch}`)).doc(docId).onSnapshot(doc => {
         setRecord(doc.exists ? doc.data() : null);
       }, () => {});
       return () => unsub();
-     }, [currentUser?.phone, currentBranch, year]);
+     }, [currentUser?.phone, currentBranch, year, config.collectionPrefix]);
 
      const handleUpload = (file) => {
       if (!file || !currentUser?.phone || uploading) return;
@@ -2244,7 +2281,7 @@ window._gameJsReady = false;
         try {
          const proof = await compressImageToLimit(reader.result, { maxWidth: 1000, quality: 0.7, maxBytes: 780000, minWidth: 600, minQuality: 0.34 });
          const now = Date.now();
-         await db.collection(getPublicPath(`hygiene_training_${currentBranch}`)).doc(`${currentUser.phone}_${year}`).set({
+         await db.collection(getPublicPath(`${config.collectionPrefix}_${currentBranch}`)).doc(`${currentUser.phone}_${year}`).set({
           phone: currentUser.phone,
           userName: currentUser.name || '',
           role: normalizedRole,
@@ -2253,10 +2290,12 @@ window._gameJsReady = false;
           status: 'completed',
           proof,
           proofName: file.name || '',
+          trainingKey: config.key,
+          trainingTitle: config.title,
           completedAt: now,
           updatedAt: now
          }, { merge: true });
-         triggerNotify("衛生講習證明已上傳", "success");
+         triggerNotify(`${config.shortTitle}證明已上傳`, "success");
         } catch (e) {
          triggerNotify("證明上傳失敗，請換一張較小的圖片再試", "error");
         } finally {
@@ -2268,29 +2307,29 @@ window._gameJsReady = false;
 
      return (
       <div className="p-4 space-y-5 page-enter pb-24 text-left font-bold">
-       <BackButton onClick={onBack} title="每年度衛生講習" />
+       <BackButton onClick={onBack} title={config.title} />
        <div className="glass-panel p-6 rounded-[2rem] bg-white border shadow-sm space-y-4">
         <div className="flex items-start justify-between gap-4">
          <div>
           <p className="text-[10px] font-black text-brand-red uppercase tracking-widest">{year} 年度</p>
-          <h3 className="text-xl font-black text-slate-800 mt-1">餐飲衛生講習</h3>
+          <h3 className="text-xl font-black text-slate-800 mt-1">{config.headline}</h3>
          </div>
          <span className={`px-3 py-1 rounded-full text-[10px] font-black ${record?.status === 'completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>{record?.status === 'completed' ? '已完成' : '未完成'}</span>
         </div>
         <p className="text-xs text-slate-600 leading-relaxed">
-         餐飲衛生講習是符合台灣食品安全法規的重要訓練。新進從業人員需接受至少 3 小時教育訓練，在職人員每年至少 3 小時。每年 1/1 會重新提醒上傳新年度完課證明。
+         {config.intro}
         </p>
         {!isRequired && <p className="text-[11px] bg-slate-50 border border-slate-100 text-slate-500 p-3 rounded-2xl">目前職務為「{normalizedRole}」，此項主要追蹤內場正職/計時人員與內場主管。</p>}
-        <button onClick={() => window.open('https://elearning.taipei/mpage/', '_blank')} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all">
-         <Icon name="external-link" size={16} /> 前往臺北 e-Campus 註冊/登入
+        <button onClick={() => window.open(config.portalUrl, '_blank')} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 active:scale-95 transition-all">
+         <Icon name="external-link" size={16} /> {config.portalLabel}
         </button>
        </div>
 
        <div className="glass-panel p-6 rounded-[2rem] bg-white border shadow-sm space-y-3">
-        <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><Icon name="book-open-check" size={18} className="text-brand-red" /> 指定五堂課程</h3>
-        <p className="text-[11px] text-slate-500 leading-relaxed">註冊帳號後，以下五堂課程每堂上課至少 30 分鐘以上，完成後列印學習證明並上傳圖片。</p>
+        <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><Icon name="book-open-check" size={18} className="text-brand-red" /> {config.courseHeading}</h3>
+        <p className="text-[11px] text-slate-500 leading-relaxed">{config.courseIntro}</p>
         <div className="space-y-2">
-         {HYGIENE_COURSES.map((course, idx) => (
+         {config.courses.map((course, idx) => (
           <button key={course.url} onClick={() => window.open(course.url, '_blank')} className="w-full bg-slate-50 border border-slate-100 rounded-2xl p-4 flex gap-3 items-start text-left active:bg-slate-100">
            <span className="w-7 h-7 rounded-full bg-white text-brand-red flex items-center justify-center text-[10px] font-black shrink-0 border">{idx + 1}</span>
            <span className="text-xs font-black text-slate-700 leading-relaxed flex-1">{course.title}</span>
@@ -2303,7 +2342,7 @@ window._gameJsReady = false;
        <div className="glass-panel p-6 rounded-[2rem] bg-white border shadow-sm space-y-4">
         <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><Icon name="image-up" size={18} className="text-brand-red" /> 上傳完課證明</h3>
         <div className="bg-amber-50 border border-amber-100 text-amber-800 p-4 rounded-2xl text-[11px] leading-relaxed">
-         教學：課程完成後，在 我的課程點選「列印證明全選」後按「列印證明」，列印格式PNG圖檔及檔案下載後送出就能取得照片，再上傳至此。
+         {config.uploadHint}
         </div>
         {record?.proof && (
          <div className="space-y-2">
@@ -3744,7 +3783,68 @@ window._gameJsReady = false;
    const [isCleaningPhotos, setIsCleaningPhotos] = useState(false);
    const [uploadingPhotoKeys, setUploadingPhotoKeys] = useState({});
    const [photoErrors, setPhotoErrors] = useState({});
+   const [pointHistoryIndexes, setPointHistoryIndexes] = useState({});
+   const [pointHistoryCache, setPointHistoryCache] = useState({});
+   const [pointHistoryLoading, setPointHistoryLoading] = useState({});
+   const [pointHistoryErrors, setPointHistoryErrors] = useState({});
+   const [historyPreview, setHistoryPreview] = useState(null);
+   const autoSubmitKeyRef = useRef('');
    const inspectionBusinessDate = getInspectionBusinessDate();
+
+   const historyDates = useMemo(() => {
+    const base = new Date(`${inspectionBusinessDate}T12:00:00`);
+    return Array.from({ length: 7 }, (_, index) => {
+     const date = new Date(base);
+     date.setDate(date.getDate() - index);
+     return formatDateKey(date);
+    });
+   }, [inspectionBusinessDate]);
+
+   const loadPointHistory = async (photoKey, itemIdx, targetIndex) => {
+    if (!(isManager || isSuperAdmin) || !activeZone || targetIndex <= 0 || targetIndex > 6) return;
+    const targetDate = historyDates[targetIndex];
+    const cacheKey = `${photoKey}_${targetDate}`;
+    setPointHistoryIndexes(prev => ({ ...prev, [photoKey]: targetIndex }));
+    if (Object.prototype.hasOwnProperty.call(pointHistoryCache, cacheKey) || pointHistoryLoading[cacheKey]) return;
+    setPointHistoryLoading(prev => ({ ...prev, [cacheKey]: true }));
+    setPointHistoryErrors(prev => ({ ...prev, [cacheKey]: '' }));
+    try {
+     const archiveRef = db.collection(getPublicPath(`daily_photo_archive_${currentBranch}`));
+     let snapshot;
+     try {
+      snapshot = await archiveRef
+       .where('docKey', '==', photoKey)
+       .where('businessDate', '==', targetDate)
+       .limit(10)
+       .get();
+     } catch (indexedQueryError) {
+      snapshot = await archiveRef.where('docKey', '==', photoKey).get();
+     }
+     const matches = (snapshot.docs || []).map(doc => ({ ...doc.data(), id: doc.id }))
+      .filter(data => {
+       const date = data.businessDate || getInspectionBusinessDate(data.archivedAt || data.timestamp || Date.now());
+       return data.photo && date === targetDate && data.zoneId === activeZone.id && Number(data.itemIdx) === Number(itemIdx);
+      })
+      .sort((a, b) => (b.timestamp || b.archivedAt || 0) - (a.timestamp || a.archivedAt || 0));
+     setPointHistoryCache(prev => ({ ...prev, [cacheKey]: matches[0] ? { ...matches[0], businessDate: targetDate } : null }));
+    } catch (error) {
+     console.error("讀取點位巡視歷史失敗", error);
+     setPointHistoryErrors(prev => ({ ...prev, [cacheKey]: '讀取失敗' }));
+    } finally {
+     setPointHistoryLoading(prev => ({ ...prev, [cacheKey]: false }));
+    }
+   };
+
+   const changePointHistoryDate = (photoKey, itemIdx, delta) => {
+    const currentIndex = pointHistoryIndexes[photoKey] || 0;
+    const nextIndex = Math.max(0, Math.min(6, currentIndex + delta));
+    if (nextIndex === currentIndex) return;
+    if (nextIndex === 0) {
+     setPointHistoryIndexes(prev => ({ ...prev, [photoKey]: 0 }));
+     return;
+    }
+    loadPointHistory(photoKey, itemIdx, nextIndex);
+   };
 
   useEffect(() => {
     const unsubscribe = db.collection(getPublicPath(`daily_photos_${currentBranch}`)).onSnapshot(snapshot => {
@@ -3769,6 +3869,15 @@ window._gameJsReady = false;
      });
     return () => unsubscribe();
   }, [currentBranch, getPublicPath, inspectionBusinessDate]);
+
+  useEffect(() => {
+   setPointHistoryIndexes({});
+   setPointHistoryCache({});
+   setPointHistoryLoading({});
+   setPointHistoryErrors({});
+   setHistoryPreview(null);
+   autoSubmitKeyRef.current = '';
+  }, [currentBranch, activeZone?.id]);
 
    const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -3880,6 +3989,12 @@ window._gameJsReady = false;
     return !hasUploading && currentStandards.every((_, i) => !!dailyPhotos[`${activeZone.id}_${i}`]?.photo);
   }, [activeZone, standards, dailyPhotos, uploadingPhotoKeys]);
 
+  const activeZonePhotoSignature = useMemo(() => {
+    if (!activeZone) return '';
+    const currentStandards = standards[activeZone.id] || [];
+    return currentStandards.map((_, i) => dailyPhotos[`${activeZone.id}_${i}`]?.timestamp || '').join('|');
+  }, [activeZone, standards, dailyPhotos]);
+
   const hasUploadingPhotos = Object.values(uploadingPhotoKeys).some(Boolean);
 
   const handleSubmit = async () => {
@@ -3929,15 +4044,29 @@ window._gameJsReady = false;
       }).catch(err => console.warn("寫入巡視提交紀錄失敗", err));
       setLoading(false); 
       setIsSubmitted(true); 
-      triggerNotify("善後巡視已上傳", "success");
+      triggerNotify("善後巡視已自動完成", "success");
     } catch (e) {
      console.error("更新巡視進度失敗", e);
-     triggerNotify("提交失敗，請檢查網路後再試", "error");
+     triggerNotify("自動完成失敗，請檢查網路後重傳任一張照片再試", "error");
      setIsSubmitted(false);
     } finally {
      setLoading(false);
     }
    };
+
+  useEffect(() => {
+    if (!activeZone) return;
+    if (completedZones.includes(activeZone.id)) {
+     setIsSubmitted(true);
+     return;
+    }
+    if (!isAllUploaded || hasUploadingPhotos || loading || isSubmitted) return;
+    const currentStandards = standards[activeZone.id] || [];
+    const submitKey = `${inspectionBusinessDate}_${currentBranch}_${activeZone.id}_${currentStandards.length}_${activeZonePhotoSignature}`;
+    if (autoSubmitKeyRef.current === submitKey) return;
+    autoSubmitKeyRef.current = submitKey;
+    handleSubmit();
+  }, [activeZone?.id, completedZones, isAllUploaded, hasUploadingPhotos, loading, isSubmitted, inspectionBusinessDate, currentBranch, activeZonePhotoSignature]);
 
   const handleResetAll = async () => {
     if (!window.confirm("確定要手動重置今天的巡視進度嗎？\n照片會從今日畫面移除，但會保留稽核紀錄以便日後查詢。")) return;
@@ -4016,6 +4145,13 @@ window._gameJsReady = false;
        {(standards[activeZone.id] || []).map((item, i) => {
         const photoKey = `${activeZone.id}_${i}`;
         const photoInfo = dailyPhotos[photoKey] || {};
+        const historyIndex = pointHistoryIndexes[photoKey] || 0;
+        const displayDate = historyDates[historyIndex] || inspectionBusinessDate;
+        const historyCacheKey = `${photoKey}_${displayDate}`;
+        const isTodayPhoto = historyIndex === 0;
+        const displayedPhoto = isTodayPhoto ? photoInfo : (pointHistoryCache[historyCacheKey] || {});
+        const isHistoryLoading = !isTodayPhoto && !!pointHistoryLoading[historyCacheKey];
+        const historyError = !isTodayPhoto ? pointHistoryErrors[historyCacheKey] : '';
         const isUploadingPhoto = !!uploadingPhotoKeys[photoKey];
         const photoError = photoErrors[photoKey] || '';
         return (
@@ -4025,34 +4161,62 @@ window._gameJsReady = false;
             <div className="text-center"><span className="text-[9px] font-black text-emerald-600">標準照</span><img src={item.url} className="w-full aspect-square object-cover rounded-2xl border mt-2 shadow-inner" /></div>
             
             <div className="text-center">
-             <span className="text-[9px] font-black text-brand-red">實拍照</span>
-             {photoInfo.photo ? (
-               <div className="relative mt-2">
-                <img src={photoInfo.photo} className="w-full aspect-square object-cover rounded-2xl border" />
+             <div className="flex items-center justify-center gap-1.5">
+              <span className="text-[9px] font-black text-brand-red">實拍照</span>
+              {(isManager || isSuperAdmin) && <span className="text-[8px] font-black text-slate-400">{displayDate}</span>}
+             </div>
+             <div className="relative mt-2">
+              {displayedPhoto.photo ? (
+               <button type="button" onClick={() => (isManager || isSuperAdmin) && setHistoryPreview({...displayedPhoto, businessDate: displayDate, zoneName: activeZone.name})} className="relative block w-full text-left">
+                <img src={displayedPhoto.photo} className="w-full aspect-square object-cover rounded-2xl border" />
                 
                 <div className="absolute top-1.5 left-1.5 bg-slate-900/70 backdrop-blur-sm text-white text-[9px] px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm font-bold z-10">
                   <Icon name="user" size={10} />
-                  {photoInfo.uploaderName}
+                  {displayedPhoto.uploaderName || '未知'}
                 </div>
-                {photoInfo.timestamp && (
+                {(displayedPhoto.timestamp || displayedPhoto.archivedAt) && (
                  <div className="absolute bottom-1.5 left-1.5 bg-slate-900/70 backdrop-blur-sm text-white text-[9px] px-2 py-0.5 rounded-full shadow-sm font-bold z-10">
-                  {new Date(photoInfo.timestamp).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                  {new Date(displayedPhoto.timestamp || displayedPhoto.archivedAt).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
                  </div>
                 )}
-
-                <label className="absolute bottom-1 right-1 bg-white/90 p-1.5 rounded-lg cursor-pointer border shadow-sm text-slate-600 hover:text-brand-red transition-colors z-10">
-                  <Icon name="refresh-cw" size={14}/>
-                  <input type="file" accept="image/*" capture="environment" className="hidden" disabled={isUploadingPhoto} onChange={(e)=>handleFile(e, i)} />
-                </label>
-                {isUploadingPhoto && <div className="absolute inset-0 bg-slate-900/60 rounded-2xl flex items-center justify-center text-white text-[10px] font-black z-20">寫入確認中...</div>}
+               </button>
+              ) : isHistoryLoading ? (
+               <div className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center">
+                <Icon name="loader-2" size={20} className="text-slate-300 animate-spin"/>
+                <span className="text-[10px] font-black text-slate-400 mt-2">讀取 {displayDate}</span>
                </div>
-             ) : (
-               <label className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center mt-2 cursor-pointer active:bg-slate-100">
+              ) : !isTodayPhoto ? (
+               <div className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center">
+                <Icon name="image-off" size={20} className="text-slate-300"/>
+                <span className="text-[10px] font-black text-slate-400 mt-2">{historyError || '此日無紀錄'}</span>
+               </div>
+              ) : (
+               <label className="w-full aspect-square bg-slate-50 border-2 border-dashed rounded-2xl flex flex-col items-center justify-center cursor-pointer active:bg-slate-100">
                 <Icon name={isUploadingPhoto ? "loader-2" : "plus"} size={20} className={`text-slate-300 ${isUploadingPhoto ? 'animate-spin' : ''}`}/>
                 <span className="text-[10px] font-black text-slate-400 mt-2">{isUploadingPhoto ? '寫入確認中...' : '選擇照片'}</span>
                 <input type="file" accept="image/*" capture="environment" className="hidden" disabled={isUploadingPhoto} onChange={(e)=>handleFile(e, i)} />
                </label>
-             )}
+              )}
+
+              {(isManager || isSuperAdmin) && (
+               <>
+                <button type="button" onClick={() => changePointHistoryDate(photoKey, i, 1)} disabled={historyIndex >= 6 || isHistoryLoading} title="查看較早紀錄" className="absolute left-1 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-slate-900/75 text-white border border-white/40 shadow-lg flex items-center justify-center disabled:opacity-25 active:scale-90">
+                 <Icon name="chevron-left" size={17} />
+                </button>
+                <button type="button" onClick={() => changePointHistoryDate(photoKey, i, -1)} disabled={historyIndex <= 0 || isHistoryLoading} title="查看較新紀錄" className="absolute right-1 top-1/2 -translate-y-1/2 z-20 w-8 h-8 rounded-full bg-slate-900/75 text-white border border-white/40 shadow-lg flex items-center justify-center disabled:opacity-25 active:scale-90">
+                 <Icon name="chevron-right" size={17} />
+                </button>
+               </>
+              )}
+
+              {isTodayPhoto && displayedPhoto.photo && (
+               <label className="absolute bottom-1 right-1 bg-white/90 p-1.5 rounded-lg cursor-pointer border shadow-sm text-slate-600 hover:text-brand-red transition-colors z-30">
+                  <Icon name="refresh-cw" size={14}/>
+                  <input type="file" accept="image/*" capture="environment" className="hidden" disabled={isUploadingPhoto} onChange={(e)=>handleFile(e, i)} />
+                </label>
+              )}
+              {isUploadingPhoto && <div className="absolute inset-0 bg-slate-900/60 rounded-2xl flex items-center justify-center text-white text-[10px] font-black z-40">寫入確認中...</div>}
+             </div>
              {photoError && <div className="mt-2 text-[10px] font-black text-red-500 leading-relaxed">{photoError}</div>}
             </div>
           </div>
@@ -4062,11 +4226,27 @@ window._gameJsReady = false;
       </div>
       {!isSubmitted ? (
        <div className="space-y-3">
-         {!isAllUploaded && <p className="text-[10px] text-red-500 font-bold text-center animate-pulse"><Icon name="alert-circle" size={12} /> 請完成所有善後巡視照上傳</p>}
-         {hasUploadingPhotos && <p className="text-[10px] text-amber-600 font-bold text-center animate-pulse"><Icon name="loader-2" size={12} className="animate-spin" /> 照片仍在寫入確認，請不要離開頁面</p>}
-         <button onClick={handleSubmit} disabled={!isAllUploaded || loading || hasUploadingPhotos} className={`w-full py-5 rounded-[2rem] font-black text-white shadow-xl flex items-center justify-center gap-2 ${isAllUploaded && !hasUploadingPhotos ? 'bg-brand-red active:scale-95' : 'bg-slate-300 cursor-not-allowed'}`}>{loading ? "提交中..." : "確認提交結果"}</button>
+         {!isAllUploaded && !hasUploadingPhotos && <div className="p-4 rounded-2xl bg-red-50 text-red-500 font-black text-center text-[10px] animate-pulse"><Icon name="alert-circle" size={12} /> 請完成所有善後巡視照上傳，照片齊全後會自動完成此崗位</div>}
+         {hasUploadingPhotos && <div className="p-4 rounded-2xl bg-amber-50 text-amber-600 font-black text-center text-[10px] animate-pulse"><Icon name="loader-2" size={12} className="animate-spin" /> 照片仍在寫入確認，請不要離開頁面</div>}
+         {isAllUploaded && !hasUploadingPhotos && <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-700 font-black text-center text-[10px]"><Icon name={loading ? "loader-2" : "check-circle-2"} size={14} className={loading ? "animate-spin" : ""} /> {loading ? "照片已齊全，正在自動完成此崗位..." : "照片已齊全，系統會自動完成此崗位"}</div>}
        </div>
      ) : <div className="p-8 rounded-[3rem] bg-emerald-50 text-emerald-700 text-center font-black">提交完成 ✅</div>}
+     {historyPreview && (
+      <div className="fixed inset-0 z-[9999] bg-slate-950/85 backdrop-blur-sm p-4 flex items-center justify-center" onClick={() => setHistoryPreview(null)}>
+       <div className="bg-white rounded-[2rem] shadow-2xl border max-w-3xl w-full max-h-[92vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+        <div className="p-4 flex items-center justify-between gap-3 border-b">
+         <div className="min-w-0">
+          <h3 className="font-black text-slate-800 text-sm truncate">{historyPreview.zoneName || activeZone.name || '巡視照片'}</h3>
+          <p className="text-[10px] text-slate-400 mt-1">{historyPreview.businessDate} · {historyPreview.uploaderName || '未知上傳者'} · {new Date(historyPreview.timestamp || historyPreview.archivedAt || Date.now()).toLocaleString()}</p>
+         </div>
+         <button onClick={() => setHistoryPreview(null)} className="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center shrink-0 active:scale-95"><Icon name="x" size={18} /></button>
+        </div>
+        <div className="p-3 bg-slate-50 max-h-[80vh] overflow-auto">
+         <img src={historyPreview.photo} className="w-full h-auto object-contain rounded-2xl bg-white border" />
+        </div>
+       </div>
+      </div>
+     )}
     </div>
   );
 
@@ -8863,7 +9043,7 @@ return (
      </div>
     );
 
-    const HygieneTrainingAdminPanel = ({ users = [], currentBranch, globalBranches = [], isSuperAdmin, currentUser, getPublicPath }) => {
+    const HygieneTrainingAdminPanel = ({ users = [], currentBranch, globalBranches = [], isSuperAdmin, currentUser, getPublicPath, config = TRAINING_CONFIGS.hygiene }) => {
      const [year, setYear] = useState(getHygieneYear());
      const [records, setRecords] = useState({});
      const [expandedBranches, setExpandedBranches] = useState({});
@@ -8873,7 +9053,7 @@ return (
 
      useEffect(() => {
       if (!canView || !branches.length) return;
-      const unsubs = branches.map(branch => db.collection(getPublicPath(`hygiene_training_${branch}`)).onSnapshot(snap => {
+      const unsubs = branches.map(branch => db.collection(getPublicPath(`${config.collectionPrefix}_${branch}`)).onSnapshot(snap => {
         setRecords(prev => {
          const next = { ...prev };
          Object.keys(next).forEach(key => {
@@ -8887,7 +9067,7 @@ return (
         });
       }, () => {}));
       return () => unsubs.forEach(un => un());
-     }, [canView, currentBranch, globalBranches.join('|'), year]);
+     }, [canView, currentBranch, globalBranches.join('|'), year, config.collectionPrefix]);
 
      const requiredUsersByBranch = useMemo(() => {
       const map = {};
@@ -8909,8 +9089,8 @@ return (
       <div className="glass-panel p-5 rounded-[2rem] bg-white border shadow-sm space-y-4 mt-5">
        <div className="flex items-center justify-between gap-3">
         <div>
-         <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><Icon name="shield-check" size={18} className="text-brand-red" /> 年度衛生講習追蹤</h3>
-         <p className="text-[10px] text-slate-400 mt-1">追蹤內場正職/計時人員、內場主管是否已上傳完課證明。</p>
+         <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><Icon name={config.icon || "shield-check"} size={18} className="text-brand-red" /> 年度{config.shortTitle}追蹤</h3>
+         <p className="text-[10px] text-slate-400 mt-1">追蹤內場正職/計時人員、內場主管是否已上傳{config.shortTitle}完課證明。</p>
         </div>
         <input type="number" value={year} onChange={e => setYear(parseInt(e.target.value, 10) || getHygieneYear())} className="w-24 input-light p-3 rounded-xl text-xs font-black text-center" />
        </div>
@@ -8972,7 +9152,7 @@ return (
          <div className="bg-white rounded-[2rem] shadow-2xl border max-w-3xl w-full max-h-[90vh] overflow-hidden" onClick={e => e.stopPropagation()}>
           <div className="p-4 flex items-center justify-between border-b">
            <div className="min-w-0">
-            <h3 className="font-black text-slate-800 text-sm truncate">{previewProof.userName} 的衛生講習證明</h3>
+            <h3 className="font-black text-slate-800 text-sm truncate">{previewProof.userName} 的{config.shortTitle}證明</h3>
             <p className="text-[10px] text-slate-400 font-black mt-1">{previewProof.branch} · {year}</p>
            </div>
            <button onClick={() => setPreviewProof(null)} className="w-10 h-10 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center active:scale-95">
@@ -9247,7 +9427,8 @@ return (
                getPublicPath={getPublicPath}
               />
             )}
-            <HygieneTrainingAdminPanel users={users} currentBranch={currentBranch} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} currentUser={currentUser} getPublicPath={getPublicPath} />
+            <HygieneTrainingAdminPanel users={users} currentBranch={currentBranch} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} currentUser={currentUser} getPublicPath={getPublicPath} config={TRAINING_CONFIGS.hygiene} />
+            <HygieneTrainingAdminPanel users={users} currentBranch={currentBranch} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} currentUser={currentUser} getPublicPath={getPublicPath} config={TRAINING_CONFIGS.occupationalSafety} />
            </div>
          )}
 
@@ -9932,6 +10113,7 @@ return (
      const [signatures, setSignatures] = useState([]);
      const [onboardingChecklistProgress, setOnboardingChecklistProgress] = useState({});
      const [myHygieneTraining, setMyHygieneTraining] = useState({});
+     const [myOccupationalSafetyTraining, setMyOccupationalSafetyTraining] = useState({});
 
      const logout = () => { 
       setCurrentUser(null); setIsManager(false); setIsSuperAdmin(false); setCurrentPage('auth'); 
@@ -10272,6 +10454,7 @@ return (
       if (!user || !currentUser?.phone || !currentBranch) {
         setOnboardingChecklistProgress({});
         setMyHygieneTraining({});
+        setMyOccupationalSafetyTraining({});
         return;
       }
       const year = getHygieneYear();
@@ -10281,9 +10464,13 @@ return (
       const unsubHygiene = db.collection(getPublicPath(`hygiene_training_${currentBranch}`)).doc(`${currentUser.phone}_${year}`).onSnapshot(d => {
         setMyHygieneTraining(d.exists ? d.data() : {});
       }, () => setMyHygieneTraining({}));
+      const unsubOccupationalSafety = db.collection(getPublicPath(`occupational_safety_training_${currentBranch}`)).doc(`${currentUser.phone}_${year}`).onSnapshot(d => {
+        setMyOccupationalSafetyTraining(d.exists ? d.data() : {});
+      }, () => setMyOccupationalSafetyTraining({}));
       return () => {
         unsubChecklist();
         unsubHygiene();
+        unsubOccupationalSafety();
       };
      }, [user, currentUser?.phone, currentBranch]);
 
@@ -10303,6 +10490,7 @@ return (
       const onboardingPrepIncomplete = onboardingListIds.length > 0 && onboardingDoneCount < onboardingListIds.length;
       const hygieneRequired = HYGIENE_REQUIRED_ROLES.includes(normalizeRole(currentUser?.role));
       const hygieneIncomplete = hygieneRequired && !(myHygieneTraining?.status === 'completed' && myHygieneTraining?.year === getHygieneYear());
+      const occupationalSafetyIncomplete = hygieneRequired && !(myOccupationalSafetyTraining?.status === 'completed' && myOccupationalSafetyTraining?.year === getHygieneYear());
       switch(currentPage) {
         case 'home': {
          const progressPercent = branchZones.length > 0 ? Math.round((completedZones.length / branchZones.length) * 100) : 0;
@@ -10369,7 +10557,7 @@ return (
                <NavCard title="叫貨系統" onClick={() => setCurrentPage('ordering')} colorClass="bg-rose-50/80" iconName="package-plus" />
                <NavCard title="員工守則" onClick={() => setCurrentPage('unifiedRules')} colorClass="bg-emerald-50/50" iconName="book-open" unread={hasUnsignedRules} />
                <NavCard title="每月班表" onClick={() => setCurrentPage('schedule')} colorClass="bg-indigo-50/50" iconName="calendar" unread={isContentUnread('schedule')} />
-               <NavCard title="入職相關" onClick={() => setCurrentPage('onboarding')} colorClass="bg-blue-50/50" iconName="user-plus" unread={onboardingPrepIncomplete || hygieneIncomplete} />
+               <NavCard title="入職相關" onClick={() => setCurrentPage('onboarding')} colorClass="bg-blue-50/50" iconName="user-plus" unread={onboardingPrepIncomplete || hygieneIncomplete || occupationalSafetyIncomplete} />
                <NavCard title="廚房月報" onClick={() => setCurrentPage('kitchenReport')} colorClass="bg-rose-50/50" iconName="presentation" unread={isContentUnread('kitchenReport') || isContentUnread('monthlyAssembly')} />
                <NavCard title="本季菜單" onClick={() => setCurrentPage('menu')} colorClass="bg-yellow-50/50" iconName="utensils" unread={isContentUnread('menu')} />
                <NavCard title="限時活動" onClick={() => setCurrentPage('game-center')} colorClass="bg-amber-50/50" iconName="gamepad-2" />
@@ -10391,6 +10579,7 @@ return (
            <BackButton onClick={()=>setCurrentPage('home')} title="入職相關" />
            <SectionItem title="員工準備清單" iconName="list-checks" onClick={()=>setCurrentPage('onboard-list')} unread={onboardingPrepIncomplete} />
            <SectionItem title="每年度衛生講習" iconName="shield-check" onClick={()=>setCurrentPage('hygiene-training')} unread={hygieneIncomplete} />
+           <SectionItem title="每年度職安講習" iconName="hard-hat" onClick={()=>setCurrentPage('occupational-safety-training')} unread={occupationalSafetyIncomplete} />
            <SectionItem title="停車資訊指引" iconName="car" onClick={()=>setCurrentPage('onboard-parking')} />
            <SectionItem title="上班動線引導" iconName="navigation" onClick={()=>setCurrentPage('workRoute')} />
            <SectionItem title="考核加給標準" iconName="coins" onClick={()=>setCurrentPage('benefit-eval')} />
@@ -10398,7 +10587,8 @@ return (
          </div>
         );
         case 'onboard-list': return <OnboardingChecklistPage onBack={()=>setCurrentPage('onboarding')} list={onboardingData?.list} currentUser={currentUser} currentBranch={currentBranch} getPublicPath={getPublicPath} triggerNotify={triggerNotify} />;
-        case 'hygiene-training': return <HygieneTrainingPage onBack={()=>setCurrentPage('onboarding')} currentUser={currentUser} currentBranch={currentBranch} getPublicPath={getPublicPath} triggerNotify={triggerNotify} />;
+        case 'hygiene-training': return <HygieneTrainingPage onBack={()=>setCurrentPage('onboarding')} currentUser={currentUser} currentBranch={currentBranch} getPublicPath={getPublicPath} triggerNotify={triggerNotify} config={TRAINING_CONFIGS.hygiene} />;
+        case 'occupational-safety-training': return <HygieneTrainingPage onBack={()=>setCurrentPage('onboarding')} currentUser={currentUser} currentBranch={currentBranch} getPublicPath={getPublicPath} triggerNotify={triggerNotify} config={TRAINING_CONFIGS.occupationalSafety} />;
         case 'onboard-parking': return <ListDetailPage onBack={()=>setCurrentPage('onboarding')} title="停車資訊" list={onboardingData?.parking} />;
         case 'workRoute': return (
          <div className="p-4 space-y-8 page-enter text-left pb-10 font-bold">
