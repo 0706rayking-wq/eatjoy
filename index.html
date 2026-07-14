@@ -62,6 +62,17 @@
             --gold-border:    rgba(185,18,27,0.25);
             --gold-gradient:  linear-gradient(135deg,#b9121b,#b9121b);
             --gold-gradient-h:linear-gradient(90deg,#b9121b,#b9121b);
+            --ops-deep: #14070b;
+            --ops-base: #220b12;
+            --ops-card: #2d111a;
+            --ops-card-lift: #3a1621;
+            --ops-accent: #b9121b;
+            --ops-accent-soft: rgba(185,18,27,0.18);
+            --ops-gold: #d4a017;
+            --ops-gold-bright: #f0c040;
+            --ops-border: rgba(212,160,23,0.34);
+            --ops-cream: #fff7ed;
+            --ops-muted: #e9d6a6;
             --t1: #1e293b;
             --t2: #475569;
             --t3: #94a3b8;
@@ -535,6 +546,418 @@
         body:not(.theme-dark) .shadow-xl,
         body:not(.theme-dark) .shadow-2xl { box-shadow: 0 18px 40px rgba(15,23,42,.14) !important; }
 
+        /* ═══ Visual Polish Pass：共用介面質感 ═══ */
+        body:not(.theme-dark) {
+            background:
+              radial-gradient(circle at 12% 0%, rgba(185,18,27,0.08), transparent 34%),
+              radial-gradient(circle at 88% 8%, rgba(245,158,11,0.08), transparent 30%),
+              linear-gradient(180deg, #fff7f4 0%, #f8fafc 38%, #eefaf8 100%) !important;
+        }
+        body:not(.theme-dark) .glass-panel {
+            background: linear-gradient(145deg, rgba(255,255,255,0.96), rgba(248,250,252,0.9)) !important;
+            border-color: rgba(185,18,27,0.12) !important;
+            box-shadow:
+              0 18px 42px rgba(15,23,42,0.08),
+              inset 0 1px 0 rgba(255,255,255,0.72) !important;
+            backdrop-filter: blur(14px) saturate(125%);
+            -webkit-backdrop-filter: blur(14px) saturate(125%);
+        }
+        body.theme-dark .glass-panel {
+            box-shadow:
+              0 16px 42px rgba(0,0,0,0.48),
+              inset 0 1px 0 rgba(255,220,145,0.08),
+              0 0 18px var(--gold-subtle) !important;
+        }
+        .page-enter {
+            animation: pageSoftIn 0.24s cubic-bezier(.2,.72,.2,1) both;
+        }
+        @keyframes pageSoftIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        button,
+        [role="button"],
+        .active-scale,
+        .section-item,
+        .nav-card {
+            transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease, background .18s ease, color .18s ease;
+        }
+        button:focus-visible,
+        [role="button"]:focus-visible,
+        input:focus-visible,
+        select:focus-visible,
+        textarea:focus-visible {
+            outline: 3px solid rgba(245,158,11,0.34);
+            outline-offset: 3px;
+        }
+        .ui-back-row {
+            position: relative;
+        }
+        .ui-back-row::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: -1px;
+            height: 1px;
+            background: linear-gradient(90deg, var(--gold-bright, #b9121b), transparent 70%);
+            opacity: .35;
+        }
+        .ui-back-button {
+            width: 46px;
+            height: 46px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .ui-back-button:hover,
+        .section-item:hover,
+        .nav-card:hover {
+            transform: translateY(-2px);
+        }
+        .notification-dot {
+            box-shadow: 0 0 0 4px rgba(239,68,68,0.12), 0 0 18px rgba(239,68,68,0.5);
+        }
+        .section-item {
+            min-height: 74px;
+            overflow: hidden;
+        }
+        .section-item::before,
+        .nav-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.46), transparent 42%);
+            pointer-events: none;
+            opacity: .72;
+        }
+        .section-item-icon,
+        .nav-card-icon {
+            background: linear-gradient(145deg, rgba(255,255,255,0.95), rgba(255,244,230,0.72));
+            border: 1px solid rgba(185,18,27,0.12);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.75), 0 8px 18px rgba(15,23,42,0.06);
+        }
+        body.theme-dark .section-item-icon,
+        body.theme-dark .nav-card-icon {
+            background: linear-gradient(145deg, var(--leather-lift), var(--leather-mid));
+            border-color: var(--gold-border);
+            box-shadow: inset 0 1px 0 rgba(255,220,145,0.1), 0 8px 18px rgba(0,0,0,0.35);
+        }
+        .nav-card {
+            min-height: 142px;
+            overflow: hidden;
+            isolation: isolate;
+        }
+        .nav-card::after {
+            content: "";
+            position: absolute;
+            right: -26px;
+            bottom: -32px;
+            width: 94px;
+            height: 94px;
+            border-radius: 999px;
+            background: radial-gradient(circle, rgba(185,18,27,0.13), transparent 68%);
+            pointer-events: none;
+            z-index: -1;
+        }
+        .nav-card:hover .nav-card-icon,
+        .section-item:hover .section-item-icon {
+            color: var(--gold-bright, #b9121b);
+            border-color: rgba(185,18,27,0.24);
+        }
+        .app-header {
+            min-height: 72px;
+        }
+        .app-logo-mark {
+            background:
+              radial-gradient(circle at 30% 20%, rgba(255,255,255,.4), transparent 28%),
+              var(--gold-gradient) !important;
+            box-shadow: 0 12px 24px var(--gold-subtle), inset 0 1px 0 rgba(255,255,255,.28) !important;
+        }
+        .home-selector-card,
+        .inspection-summary-card {
+            position: relative;
+            overflow: hidden;
+        }
+        .home-selector-card {
+            background: linear-gradient(145deg, #172033 0%, #0f172a 58%, #28080c 100%) !important;
+            border-color: rgba(245,158,11,0.24) !important;
+            color: #ffffff !important;
+            box-shadow: 0 18px 42px rgba(15,23,42,0.18), inset 0 1px 0 rgba(255,255,255,0.08) !important;
+        }
+        .home-selector-card .text-slate-400,
+        .home-selector-card select {
+            color: #cbd5e1 !important;
+            -webkit-text-fill-color: currentColor !important;
+        }
+        .home-selector-card select {
+            color: #ffffff !important;
+        }
+        .home-selector-card::before,
+        .inspection-summary-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background:
+              radial-gradient(circle at 88% 12%, rgba(245,158,11,0.2), transparent 28%),
+              linear-gradient(135deg, rgba(255,255,255,0.14), transparent 52%);
+            pointer-events: none;
+        }
+        .inspection-summary-card {
+            border-left-width: 0 !important;
+        }
+        .inspection-summary-card::after {
+            content: "";
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 6px;
+            background: linear-gradient(180deg, var(--gold-bright, #b9121b), rgba(245,158,11,.9));
+            border-radius: 999px;
+        }
+        .inspection-progress-ring {
+            width: 52px;
+            height: 52px;
+            border-radius: 999px;
+            display: grid;
+            place-items: center;
+            background:
+              radial-gradient(circle at center, var(--leather-light,#fff) 54%, transparent 56%),
+              conic-gradient(var(--gold-bright,#b9121b) var(--progress), rgba(148,163,184,.22) 0);
+            border: 1px solid rgba(185,18,27,.16);
+        }
+        .inspection-zone-card,
+        .inspection-point-card,
+        .admin-summary-card {
+            position: relative;
+            overflow: hidden;
+        }
+        .inspection-zone-card::before,
+        .inspection-point-card::before,
+        .admin-summary-card::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,.42), transparent 46%);
+            pointer-events: none;
+        }
+        .inspection-zone-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 18px 38px rgba(15,23,42,.1) !important;
+        }
+        .inspection-point-card {
+            border-radius: 28px;
+        }
+        .inspection-photo-label {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 26px;
+            padding: 0 10px;
+            border-radius: 999px;
+            background: rgba(15,23,42,.04);
+            border: 1px solid rgba(148,163,184,.16);
+        }
+        .admin-tabbar {
+            position: sticky;
+            top: 76px;
+            z-index: 30;
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+        }
+        .admin-tab {
+            min-height: 42px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .admin-summary-card {
+            min-height: 78px;
+        }
+        /* ═══ Operations Palette Guard：營運頁固定品牌配色，避免主題色互相打架 ═══ */
+        .operations-page .text-brand-red,
+        .home-page .inspection-summary-card .text-brand-red {
+            background: none !important;
+            animation: none !important;
+            color: var(--ops-gold-bright) !important;
+            -webkit-text-fill-color: currentColor !important;
+        }
+        body:not(.theme-dark) .operations-page .text-brand-red,
+        body:not(.theme-dark) .home-page .inspection-summary-card .text-brand-red {
+            color: var(--ops-accent) !important;
+        }
+        .operations-page .bg-brand-red,
+        .operations-page button.bg-brand-red,
+        .operations-page a.bg-brand-red,
+        .home-page .inspection-summary-card .bg-brand-red {
+            background: linear-gradient(135deg, #7f1225 0%, #b9121b 58%, #d4a017 135%) !important;
+            color: var(--ops-cream) !important;
+            -webkit-text-fill-color: currentColor !important;
+            border-color: var(--ops-border) !important;
+            box-shadow: 0 16px 34px rgba(20,7,11,0.28), inset 0 1px 0 rgba(255,255,255,0.14) !important;
+        }
+        .operations-page .bg-brand-red *,
+        .operations-page button.bg-brand-red *,
+        .home-page .inspection-summary-card .bg-brand-red * {
+            color: var(--ops-cream) !important;
+            -webkit-text-fill-color: currentColor !important;
+        }
+        .operations-page .border-brand-red,
+        .operations-page .border-brand-red\/30,
+        .operations-page .border-brand-red\/40 {
+            border-color: var(--ops-border) !important;
+        }
+        .inspection-page .inspection-summary-card,
+        .home-page .inspection-summary-card {
+            background: linear-gradient(135deg, #2a0508 0%, #5e1519 68%, #7a211f 100%) !important;
+            border: 1px solid var(--ops-border) !important;
+            color: var(--ops-cream) !important;
+            box-shadow: 0 20px 44px rgba(20,7,11,0.34), inset 0 1px 0 rgba(255,255,255,0.1) !important;
+        }
+        .inspection-page .inspection-summary-card *,
+        .home-page .inspection-summary-card * {
+            -webkit-text-fill-color: currentColor;
+        }
+        .inspection-page .inspection-summary-card .text-slate-400,
+        .inspection-page .inspection-summary-card .text-slate-800,
+        .home-page .inspection-summary-card .text-slate-400,
+        .home-page .inspection-summary-card .text-slate-800 {
+            color: var(--ops-muted) !important;
+            -webkit-text-fill-color: currentColor !important;
+        }
+        .inspection-page .inspection-summary-card h3,
+        .home-page .inspection-summary-card h3,
+        .inspection-page .inspection-summary-card p,
+        .home-page .inspection-summary-card p {
+            color: var(--ops-cream) !important;
+            -webkit-text-fill-color: currentColor !important;
+        }
+        .inspection-page .inspection-summary-card .bg-slate-100,
+        .home-page .inspection-summary-card .bg-slate-100 {
+            background: rgba(255,247,237,0.16) !important;
+            border-color: rgba(240,192,64,0.22) !important;
+        }
+        .inspection-page .inspection-progress-ring,
+        .home-page .inspection-progress-ring {
+            background:
+              radial-gradient(circle at center, #361018 54%, transparent 56%),
+              conic-gradient(var(--ops-gold-bright) var(--progress), rgba(255,247,237,.18) 0) !important;
+            border-color: rgba(240,192,64,.34) !important;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.12);
+        }
+        .inspection-page .inspection-progress-ring span,
+        .home-page .inspection-progress-ring span {
+            color: var(--ops-gold-bright) !important;
+            -webkit-text-fill-color: currentColor !important;
+        }
+        .inspection-page .inspection-day-note {
+            background: linear-gradient(135deg, #fff7ed, #ffedd5) !important;
+            border: 1px solid rgba(212,160,23,0.38) !important;
+            color: #7f1d1d !important;
+            box-shadow: 0 10px 24px rgba(20,7,11,0.16) !important;
+        }
+        body.theme-dark .inspection-page .inspection-zone-card:not(.bg-emerald-50),
+        body.theme-dark .inspection-page .inspection-point-card,
+        body.theme-dark .admin-page .admin-summary-card {
+            background: linear-gradient(145deg, var(--ops-card-lift), var(--ops-card)) !important;
+            border-color: var(--ops-border) !important;
+            box-shadow: 0 16px 34px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,220,145,0.08) !important;
+        }
+        body.theme-dark .inspection-page .inspection-zone-card:not(.bg-emerald-50) .text-slate-800,
+        body.theme-dark .inspection-page .inspection-zone-card:not(.bg-emerald-50) .text-slate-400,
+        body.theme-dark .inspection-page .inspection-point-card .text-slate-700,
+        body.theme-dark .inspection-page .inspection-point-card .text-slate-400,
+        body.theme-dark .admin-page .admin-summary-card .text-slate-800,
+        body.theme-dark .admin-page .admin-summary-card .text-slate-400 {
+            color: var(--ops-muted) !important;
+            -webkit-text-fill-color: currentColor !important;
+        }
+        body.theme-dark .inspection-page .section-item-icon,
+        body.theme-dark .admin-page .section-item-icon {
+            background: linear-gradient(145deg, #4a1721, #2b0d14) !important;
+            border-color: rgba(240,192,64,0.25) !important;
+            color: var(--ops-gold-bright) !important;
+        }
+        body.theme-dark .inspection-page .bg-slate-50,
+        body.theme-dark .inspection-page .bg-slate-100,
+        body.theme-dark .admin-page .bg-slate-50,
+        body.theme-dark .admin-page .bg-slate-100 {
+            background-color: rgba(255,247,237,0.08) !important;
+            border-color: rgba(240,192,64,0.18) !important;
+        }
+        body.theme-dark .inspection-page .bg-emerald-50,
+        body.theme-dark .inspection-page .bg-emerald-100 {
+            background: linear-gradient(145deg, #0b2f25, #123d30) !important;
+            border-color: rgba(74,222,128,0.28) !important;
+        }
+        body.theme-dark .inspection-page .text-emerald-600,
+        body.theme-dark .inspection-page .text-emerald-700 {
+            color: #86efac !important;
+            -webkit-text-fill-color: currentColor !important;
+        }
+        .admin-page .home-selector-card {
+            background: linear-gradient(145deg, #2a0508 0%, #3d0a0e 58%, #14070b 100%) !important;
+            border-color: var(--ops-border) !important;
+        }
+        .admin-page .admin-tabbar {
+            background: linear-gradient(145deg, rgba(42,5,8,0.92), rgba(34,11,18,0.88)) !important;
+            border-color: var(--ops-border) !important;
+        }
+        .admin-page .admin-tab:not(.bg-brand-red) {
+            color: var(--ops-muted) !important;
+            -webkit-text-fill-color: currentColor !important;
+        }
+        body:not(.theme-dark) .admin-page .admin-tabbar {
+            background: rgba(255,247,237,0.9) !important;
+        }
+        body:not(.theme-dark) .admin-page .admin-tab:not(.bg-brand-red) {
+            color: #7f1d1d !important;
+        }
+        body:has(.operations-page) {
+            background:
+              radial-gradient(circle at 22% 0%, rgba(212,160,23,0.12), transparent 36%),
+              radial-gradient(circle at 86% 12%, rgba(185,18,27,0.12), transparent 34%),
+              linear-gradient(180deg, var(--ops-deep), #090408 72%) !important;
+        }
+        body:not(.theme-dark):has(.operations-page) {
+            background:
+              radial-gradient(circle at 12% 0%, rgba(185,18,27,0.08), transparent 34%),
+              radial-gradient(circle at 88% 8%, rgba(212,160,23,0.10), transparent 30%),
+              linear-gradient(180deg, #fff7ed 0%, #fffaf4 38%, #f8fafc 100%) !important;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: linear-gradient(180deg, rgba(185,18,27,.55), rgba(245,158,11,.55));
+            border-radius: 999px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(148,163,184,0.14);
+            border-radius: 999px;
+        }
+        @media (hover: none) {
+            .ui-back-button:hover,
+            .section-item:hover,
+            .nav-card:hover {
+                transform: none;
+            }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .page-enter,
+            .text-brand-red,
+            .ticker-move {
+                animation: none !important;
+            }
+            button,
+            [role="button"],
+            .active-scale,
+            .section-item,
+            .nav-card {
+                transition: none !important;
+            }
+        }
+
     </style>
 
     <!-- 班表專屬 CSS：放在所有主題 CSS 之後，確保最後載入 = 最高優先 -->
@@ -735,7 +1158,7 @@ window._gameJsReady = false;
      '內場正職/計時人員': { label: '內場正職/計時人員', badge: 'bg-amber-50 text-amber-700 border-amber-100' },
      '外場正職/計時人員': { label: '外場正職/計時人員', badge: 'bg-sky-50 text-sky-700 border-sky-100' },
      '內場主管': { label: '內場主管', badge: 'bg-brand-red text-white border-brand-red' },
-     '外場主管': { label: '外場主管', badge: 'bg-violet-50 text-violet-700 border-violet-100' }
+     '外場主管': { label: '外場主管', badge: 'bg-blue-50 text-blue-700 border-blue-200' }
     };
     const normalizeRole = (role) => {
      role = String(role || '');
@@ -934,7 +1357,7 @@ window._gameJsReady = false;
 
     const triggerLineAlert = async (type, payload = {}) => {
      try {
-      await fetch("https://script.google.com/macros/s/AKfycbxtZrN7Dg6X7JW1hyMp0b0Df63KRxE_GTLfd6N1SW1dUzJvwaNudzeEaG5Ui30uQr5m/exec", {
+      await fetch("https://script.google.com/macros/s/AKfycbyzntg1YRiQsys1oLGgy6BaJUES5uS3-16BAlbn9gM3Lek9Ymr7B26CiuLU5PODllPq/exec", {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'application/json' },
@@ -996,35 +1419,34 @@ window._gameJsReady = false;
     };
 
     const BackButton = ({ onClick, title }) => (
-     <div className="flex items-center gap-4 mb-8 text-left border-b border-slate-200/50 pb-4">
-      <button onClick={onClick} className="p-3 glass-panel rounded-2xl border active:scale-90 transition-all bg-white shadow-sm"><Icon name="arrow-left" size={20}/></button>
-      <h2 className="text-2xl font-black text-slate-800 tracking-tighter leading-tight font-bold">{title}</h2>
+     <div className="ui-back-row flex items-center gap-3 mb-7 text-left border-b border-slate-200/40 pb-4">
+      <button onClick={onClick} className="ui-back-button glass-panel rounded-2xl border active:scale-95 bg-white shadow-sm" aria-label="返回"><Icon name="arrow-left" size={20}/></button>
+      <h2 className="text-[1.45rem] font-black text-slate-800 tracking-tight leading-tight font-bold">{title}</h2>
      </div>
     );
 
     const NotificationDot = ({ show }) => show ? (
-     <span className="absolute top-4 right-4 w-3 h-3 rounded-full bg-red-500 border-2 border-white shadow-lg animate-pulse" aria-label="未讀提醒"></span>
+     <span className="notification-dot absolute top-4 right-4 w-3 h-3 rounded-full bg-red-500 border-2 border-white shadow-lg animate-pulse" aria-label="未讀提醒"></span>
     ) : null;
 
     const SectionItem = ({ title, iconName, onClick, unread = false }) => (
-     <div onClick={onClick} className="relative glass-panel p-6 rounded-[2rem] flex items-center justify-between active:bg-slate-50 cursor-pointer group transition-all mb-3 text-left bg-white shadow-sm">
+     <div onClick={onClick} className="section-item relative glass-panel p-5 rounded-[2rem] flex items-center justify-between active:bg-slate-50 cursor-pointer group mb-3 text-left bg-white shadow-sm">
       <NotificationDot show={unread} />
-      <div className="flex items-center gap-4 text-slate-400 group-active:text-brand-red font-bold">
-        {iconName && <Icon name={iconName} size={18} />}
-        <span className="text-slate-800 text-sm font-bold leading-none">{title}</span>
+      <div className="relative z-[1] flex items-center gap-4 text-slate-400 group-active:text-brand-red font-bold min-w-0">
+        {iconName && <span className="section-item-icon w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"><Icon name={iconName} size={19} /></span>}
+        <span className="text-slate-800 text-sm font-black leading-tight truncate">{title}</span>
       </div>
-      <Icon name="chevron-right" size={18} className="text-slate-300" />
+      <span className="relative z-[1] w-8 h-8 rounded-full bg-slate-100/70 flex items-center justify-center shrink-0"><Icon name="chevron-right" size={17} className="text-slate-300 group-hover:text-brand-red" /></span>
      </div>
     );
 
     const NavCard = ({ title, onClick, colorClass, iconName, unread = false }) => (
-     <button onClick={onClick} className={`relative ${colorClass} py-10 flex flex-col items-center justify-center rounded-[2.5rem] border border-slate-100 shadow-sm active:scale-95 transition-all group`}>
+     <button onClick={onClick} className={`nav-card relative ${colorClass} p-5 flex flex-col items-center justify-center rounded-[2rem] border border-slate-100 shadow-sm active:scale-95 group`}>
       <NotificationDot show={unread} />
-      {/* 重點修改：將顏色改為 text-brand-red，並在 hover 時稍微改變亮度或不透明度 */}
-      <div className="mb-3 text-brand-red/80 group-hover:text-brand-red transition-colors">
-        <Icon name={iconName} size={28} />
+      <div className="nav-card-icon relative z-[1] mb-4 w-14 h-14 rounded-2xl text-brand-red/80 group-hover:text-brand-red flex items-center justify-center">
+        <Icon name={iconName} size={27} />
       </div>
-      <span className="font-black text-slate-800 text-sm tracking-widest uppercase font-bold">{title}</span>
+      <span className="relative z-[1] font-black text-slate-800 text-sm tracking-wider text-center leading-tight font-bold">{title}</span>
      </button>
     );
 
@@ -4719,11 +5141,30 @@ window._gameJsReady = false;
     setIsCleaningPhotos(false);
   };
 
-  if(activeZone) return (
-    <div className="p-4 space-y-6 page-enter pb-24 text-left font-bold">
-     <button onClick={()=>{setActiveZone(null);setIsSubmitted(false);}} className="p-3 bg-white rounded-2xl shadow-sm border active:scale-90 transition-all"><Icon name="arrow-left" size={20}/></button>
+  if(activeZone) {
+   const activeStandards = standards[activeZone.id] || [];
+   const activeUploadedCount = activeStandards.filter((_, i) => !!dailyPhotos[`${activeZone.id}_${i}`]?.photo).length;
+   const activeProgress = activeStandards.length > 0 ? Math.round((activeUploadedCount / activeStandards.length) * 100) : 100;
+   return (
+    <div className="inspection-page operations-page p-4 space-y-5 page-enter pb-24 text-left font-bold">
+     <BackButton onClick={()=>{setActiveZone(null);setIsSubmitted(false);}} title={activeZone.name} />
+     <div className="inspection-summary-card glass-panel p-5 rounded-[2rem] border bg-white shadow-sm">
+      <div className="relative z-[1] flex items-center justify-between gap-4">
+       <div className="min-w-0">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">區站巡視完成度</p>
+        <h3 className="text-xl font-black text-slate-800 leading-tight">{activeUploadedCount} / {activeStandards.length || 0} 張實拍照</h3>
+        <p className="text-[10px] font-black text-slate-400 mt-2">{isSubmitted ? '此崗位已完成' : '照片全部上傳後會自動完成此崗位'}</p>
+       </div>
+       <div className="inspection-progress-ring shrink-0" style={{"--progress": `${activeProgress}%`}}>
+        <span className="text-[11px] font-black text-brand-red">{activeProgress}%</span>
+       </div>
+      </div>
+      <div className="relative z-[1] bg-slate-100 h-3 rounded-full overflow-hidden border shadow-inner mt-4">
+       <div className="h-full bg-brand-red opacity-80 transition-all duration-700" style={{ width: `${activeProgress}%` }}></div>
+      </div>
+     </div>
       <div className="space-y-4">
-       {(standards[activeZone.id] || []).map((item, i) => {
+       {activeStandards.map((item, i) => {
         const photoKey = `${activeZone.id}_${i}`;
         const photoInfo = dailyPhotos[photoKey] || {};
         const historyIndex = pointHistoryIndexes[photoKey] || 0;
@@ -4736,14 +5177,14 @@ window._gameJsReady = false;
         const isUploadingPhoto = !!uploadingPhotoKeys[photoKey];
         const photoError = photoErrors[photoKey] || '';
         return (
-         <div key={i} className="glass-panel p-4 rounded-[2rem] border border-slate-100 bg-white">
-          <p className="text-[11px] font-black text-slate-700 mb-3 bg-slate-50 p-3 rounded-xl flex items-center gap-2 border shadow-inner"><Icon name="info" size={14} className="text-brand-red" />要求：{item.note || "無說明"}</p>
+         <div key={i} className="inspection-point-card glass-panel p-4 border border-slate-100 bg-white">
+          <p className="relative z-[1] text-[11px] font-black text-slate-700 mb-3 bg-slate-50 p-3 rounded-xl flex items-center gap-2 border shadow-inner"><Icon name="info" size={14} className="text-brand-red" />要求：{item.note || "無說明"}</p>
           <div className="grid grid-cols-2 gap-3">
-            <div className="text-center"><span className="text-[9px] font-black text-emerald-600">標準照</span><img src={item.url} className="w-full aspect-square object-cover rounded-2xl border mt-2 shadow-inner" /></div>
+            <div className="relative z-[1] text-center"><span className="inspection-photo-label text-[9px] font-black text-emerald-600">標準照</span><img src={item.url} className="w-full aspect-square object-cover rounded-2xl border mt-2 shadow-inner" /></div>
             
-            <div className="text-center">
+            <div className="relative z-[1] text-center">
              <div className="flex items-center justify-center gap-1.5">
-              <span className="text-[9px] font-black text-brand-red">實拍照</span>
+              <span className="inspection-photo-label text-[9px] font-black text-brand-red">實拍照</span>
               {(isManager || isSuperAdmin) && <span className="text-[8px] font-black text-slate-400">{displayDate}</span>}
              </div>
              <div className="relative mt-2">
@@ -4829,16 +5270,17 @@ window._gameJsReady = false;
       </div>
      )}
     </div>
-  );
+   );
+  }
 
   return (
-    <div className="p-4 space-y-4 page-enter pb-20 text-left font-bold">
+    <div className="inspection-page operations-page p-4 space-y-4 page-enter pb-20 text-left font-bold">
      <BackButton onClick={onBack} title="巡視崗位清單" />
-     <div className="bg-brand-red p-7 rounded-[2.5rem] text-white shadow-lg flex justify-between items-center mb-2">
-      <div><p className="text-[10px] font-black uppercase opacity-60 mb-1 leading-none tracking-widest">巡視進度 ({INSPECTION_RESET_LABEL}切換營業日)</p><p className="text-3xl font-black mt-2 font-bold">{completedZones.length} / {branchZones.length || 1}</p></div>
-      <div className="w-14 h-14 rounded-full border-4 border-white/20 flex items-center justify-center font-bold text-xs">{branchZones.length > 0 ? Math.round((completedZones.length/branchZones.length)*100) : 0}%</div>
+     <div className="inspection-summary-card bg-brand-red p-7 rounded-[2rem] text-white shadow-lg flex justify-between items-center mb-2">
+      <div className="relative z-[1]"><p className="text-[10px] font-black uppercase opacity-70 mb-1 leading-none tracking-widest">巡視進度 ({INSPECTION_RESET_LABEL}切換營業日)</p><p className="text-3xl font-black mt-2 font-bold">{completedZones.length} / {branchZones.length || 1}</p></div>
+      <div className="relative z-[1] w-14 h-14 rounded-full border-4 border-white/20 flex items-center justify-center font-bold text-xs">{branchZones.length > 0 ? Math.round((completedZones.length/branchZones.length)*100) : 0}%</div>
      </div>
-     <div className="rounded-2xl px-4 py-3 text-[10px] font-black leading-relaxed flex items-start gap-2 shadow-sm" style={{background:'linear-gradient(135deg,rgba(255,247,237,.96),rgba(255,237,213,.9))',border:'1px solid rgba(251,191,36,.42)',color:'#9f1239',boxShadow:'0 8px 24px rgba(76,5,25,.12)'}}>
+     <div className="inspection-day-note rounded-2xl px-4 py-3 text-[10px] font-black leading-relaxed flex items-start gap-2 shadow-sm">
       <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center" style={{background:'rgba(159,18,57,.09)',color:'#be123c'}}><Icon name="calendar-days" size={13}/></span>
       <span>今日營業日：{inspectionBusinessDate}。{INSPECTION_RESET_LABEL} 開始新的巡視日；今日畫面會清空供重新上傳，舊照片保留 7 天供查詢。</span>
      </div>
@@ -4866,20 +5308,23 @@ window._gameJsReady = false;
          <div 
            key={z.id} 
            onClick={() => setActiveZone(z)} 
-           className={`p-6 rounded-[2rem] flex items-center justify-between cursor-pointer transition-all shadow-sm border ${
+           className={`inspection-zone-card p-5 rounded-[2rem] flex items-center justify-between cursor-pointer transition-all shadow-sm border ${
             isCompleted 
             ? 'bg-emerald-50 border-emerald-200 active:bg-emerald-100' 
             : 'bg-white border-slate-100 active:bg-slate-50 glass-panel'
            }`}
          >
-           <div className={`flex items-center gap-4 font-bold ${isCompleted ? 'text-emerald-500' : 'text-slate-400'}`}>
-            <Icon name={isCompleted ? "check-circle" : "camera"} size={22} />
-            <span className={`text-sm font-bold leading-none ${isCompleted ? 'text-emerald-700' : 'text-slate-800'}`}>{z.name}</span>
+           <div className={`relative z-[1] flex items-center gap-4 font-bold min-w-0 ${isCompleted ? 'text-emerald-500' : 'text-slate-400'}`}>
+            <span className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${isCompleted ? 'bg-emerald-100 text-emerald-600' : 'section-item-icon text-brand-red'}`}><Icon name={isCompleted ? "check-circle" : "camera"} size={22} /></span>
+            <div className="min-w-0">
+             <span className={`text-sm font-black leading-tight block truncate ${isCompleted ? 'text-emerald-700' : 'text-slate-800'}`}>{z.name}</span>
+             <span className="text-[10px] font-black text-slate-400 mt-1 block">{isCompleted ? '今日巡視已完成' : '等待上傳實拍照'}</span>
+            </div>
            </div>
            {isCompleted ? (
-            <span className="text-[10px] font-black text-emerald-600 bg-emerald-100 px-3 py-1.5 rounded-full flex items-center gap-1 shadow-sm"><Icon name="check" size={12}/> 已完成</span>
+            <span className="relative z-[1] text-[10px] font-black text-emerald-600 bg-emerald-100 px-3 py-1.5 rounded-full flex items-center gap-1 shadow-sm shrink-0"><Icon name="check" size={12}/> 已完成</span>
            ) : (
-            <Icon name="chevron-right" size={18} className="text-slate-300" />
+            <span className="relative z-[1] w-8 h-8 rounded-full bg-slate-100/80 flex items-center justify-center shrink-0"><Icon name="chevron-right" size={18} className="text-slate-300" /></span>
            )}
          </div>
         );
@@ -9796,6 +10241,8 @@ return (
       }
      });
      const roleFilteredUsers = visibleUsers.filter(u => u.normalizedRole === activeRoleTab);
+     const pendingUserCount = visibleUsers.filter(u => u.status === 'pending').length;
+     const adminTabItems = [{id:'members',n:'人員'},{id:'menu',n:'菜單'},{id:'content',n:'公告'},{id:'onboard',n:'入職'},{id:'ingredients',n:'食材'},{id:'rules',n:'守則'},{id:'safety',n:'各店巡視'},{id:'sign',n:'簽署'}, ...(isSuperAdmin ? [{id:'report',n:'月報'}, {id:'system',n:'系統設定'}, {id:'game',n:'限時活動'}] : [])];
 
      const handleSaveUserEdit = async () => {
       if(editFormData.branches.length === 0) {
@@ -9814,31 +10261,46 @@ return (
      };
 
      return (
-      <div className="p-4 pb-24 page-enter text-left font-bold">
-        <div className="flex justify-between items-center mb-4"><BackButton onClick={onBack} title="管理後台" /><button onClick={onLogout} className="bg-red-50 text-red-600 font-black text-[10px] px-4 py-2 rounded-full border border-red-100 active:scale-90 transition-all">登出</button></div>
+      <div className="admin-page operations-page p-4 pb-24 page-enter text-left font-bold">
+        <div className="flex justify-between items-start mb-4 gap-3"><BackButton onClick={onBack} title="管理後台" /><button onClick={onLogout} className="mt-1 bg-red-50 text-red-600 font-black text-[10px] px-4 py-2 rounded-full border border-red-100 active:scale-90 transition-all shrink-0">登出</button></div>
         
 {/* 支援最高權限與多店主管：後台快速切換分店 */}
         {(isSuperAdmin || (Array.isArray(currentUser?.branch) && currentUser.branch.length > 1)) && (
-         <div className="mb-6 bg-slate-900 text-white p-4 rounded-3xl flex items-center justify-between shadow-xl mb-2">
-           <div>
+         <div className="home-selector-card mb-5 bg-slate-900 text-white p-5 rounded-[2rem] flex items-center justify-between shadow-xl border">
+           <div className="relative z-[1] min-w-0">
             <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">目前管理分店</p>
             <select 
               value={currentBranch} 
               onChange={e => setCurrentBranch(e.target.value)} 
-              className="bg-transparent border-none text-lg font-black outline-none appearance-none cursor-pointer text-white"
+              className="bg-transparent border-none text-lg font-black outline-none appearance-none cursor-pointer text-white max-w-[240px] truncate"
             >
               {(isSuperAdmin ? globalBranches : currentUser.branch).map(b => (
                <option key={b} value={b} className="text-slate-900">{b}</option>
               ))}
             </select>
            </div>
-           <Icon name="chevron-down" className="text-brand-red"/>
+           <span className="relative z-[1] w-10 h-10 rounded-2xl bg-brand-red flex items-center justify-center shadow-lg shrink-0"><Icon name="building-2" size={18} className="text-white"/></span>
          </div>
         )}
 
-        <div className="flex bg-slate-100 p-1.5 rounded-2xl overflow-x-auto no-scrollbar gap-1.5 mb-6 shadow-inner">
-         {[{id:'members',n:'人員'},{id:'menu',n:'菜單'},{id:'content',n:'公告'},{id:'onboard',n:'入職'},{id:'ingredients',n:'食材'},{id:'rules',n:'守則'},{id:'safety',n:'各店巡視'},{id:'sign',n:'簽署'}, ...(isSuperAdmin ? [{id:'report',n:'月報'}, {id:'system',n:'系統設定'}, {id:'game',n:'限時活動'}] : [])].map(t => (
-           <button key={t.id} onClick={()=>{setTab(t.id); setUserPageLimit(10); if(t.id==='rules') setSubCat('廚房規則'); else if(t.id==='sign') setSignSubCat('廚房規則'); else if(t.id==='ingredients') setSubCat('specs'); else setSubCat('list');}} className={`shrink-0 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${tab===t.id?'bg-brand-red text-white shadow-md':'text-slate-400'}`}>{t.n}</button>
+        <div className="grid grid-cols-3 gap-2 mb-5">
+         <div className="admin-summary-card glass-panel p-3 rounded-2xl border bg-white shadow-sm">
+          <p className="relative z-[1] text-[9px] font-black text-slate-400 uppercase tracking-widest">人員</p>
+          <p className="relative z-[1] text-xl font-black text-slate-800 mt-1">{visibleUsers.length}</p>
+         </div>
+         <div className="admin-summary-card glass-panel p-3 rounded-2xl border bg-white shadow-sm">
+          <p className="relative z-[1] text-[9px] font-black text-slate-400 uppercase tracking-widest">待核准</p>
+          <p className="relative z-[1] text-xl font-black text-brand-red mt-1">{pendingUserCount}</p>
+         </div>
+         <div className="admin-summary-card glass-panel p-3 rounded-2xl border bg-white shadow-sm">
+          <p className="relative z-[1] text-[9px] font-black text-slate-400 uppercase tracking-widest">區站</p>
+          <p className="relative z-[1] text-xl font-black text-slate-800 mt-1">{branchZones.length}</p>
+         </div>
+        </div>
+
+        <div className="admin-tabbar flex bg-slate-100/90 p-1.5 rounded-2xl overflow-x-auto no-scrollbar gap-1.5 mb-6 shadow-inner border border-slate-100">
+         {adminTabItems.map(t => (
+           <button key={t.id} onClick={()=>{setTab(t.id); setUserPageLimit(10); if(t.id==='rules') setSubCat('廚房規則'); else if(t.id==='sign') setSignSubCat('廚房規則'); else if(t.id==='ingredients') setSubCat('specs'); else setSubCat('list');}} className={`admin-tab shrink-0 px-5 py-2.5 rounded-xl text-xs font-bold transition-all ${tab===t.id?'bg-brand-red text-white shadow-md':'text-slate-400'}`}>{t.n}</button>
          ))}
         </div>
         
@@ -11121,34 +11583,42 @@ return (
          const progressPercent = branchZones.length > 0 ? Math.round((completedZones.length / branchZones.length) * 100) : 0;
          const hasUnsignedRules = !!(currentUser?.phone && RULE_CATEGORIES.some(cat => !signatures.some(s => s.category === `守則簽署 - ${cat}` && s.phone === currentUser.phone)));
          return (
-           <div className="page-enter pb-10">
+           <div className="home-page page-enter pb-10">
             <Ticker text={tickerText} />
             <div className="p-4 space-y-6 mt-2 text-left font-bold">
               
 {/* 支援最高權限與多店主管：首頁快速切換分店 */}
               {(isSuperAdmin || (Array.isArray(currentUser?.branch) && currentUser.branch.length > 1)) && (
-               <div className="bg-slate-900 text-white p-4 rounded-[2rem] flex items-center justify-between shadow-xl mb-2">
-                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-0.5">目前檢視分店</p>
+               <div className="home-selector-card glass-panel text-white p-5 rounded-[2rem] flex items-center justify-between shadow-xl mb-2 bg-slate-900 border">
+                 <div className="relative z-[1] min-w-0">
+                  <p className="text-[10px] uppercase tracking-widest text-slate-400 mb-1">目前檢視分店</p>
                   <select 
                     value={currentBranch} 
                     onChange={e => setCurrentBranch(e.target.value)} 
-                    className="bg-transparent border-none text-xl font-black outline-none appearance-none cursor-pointer text-white"
+                    className="bg-transparent border-none text-xl font-black outline-none appearance-none cursor-pointer text-white max-w-[240px] truncate"
                   >
                     {(isSuperAdmin ? globalBranches : currentUser.branch).map(b => (
                      <option key={b} value={b} className="text-slate-900">{b}</option>
                     ))}
                   </select>
                  </div>
-                 <div className="bg-brand-red w-10 h-10 rounded-xl flex items-center justify-center shadow-lg">
+                 <div className="relative z-[1] bg-brand-red w-11 h-11 rounded-2xl flex items-center justify-center shadow-lg shrink-0">
                   <Icon name="building-2" size={20} className="text-white"/>
                  </div>
                </div>
               )}
 
-              <div onClick={() => setCurrentPage('inspection')} className="glass-panel p-6 rounded-[2.5rem] border-l-4 border-l-brand-red bg-white shadow-sm active-scale cursor-pointer">
-               <div className="flex justify-between items-end mb-4 px-1"><div><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-1">巡視進度 ({INSPECTION_RESET_LABEL}切換營業日)</p><h3 className="text-lg font-black text-slate-800 leading-tight">{completedZones.length >= branchZones.length && branchZones.length > 0 ? "✅ 全數巡視完成" : `進度：${completedZones.length} / ${branchZones.length || 1}`}</h3></div><span className="text-sm font-black text-brand-red">{progressPercent}%</span></div>
-               <div className="bg-slate-100 h-3.5 rounded-full overflow-hidden border shadow-inner"><div className="h-full bg-brand-red opacity-80 transition-all duration-700" style={{ width: `${progressPercent}%` }}></div></div>
+              <div onClick={() => setCurrentPage('inspection')} className="inspection-summary-card glass-panel p-6 pl-7 rounded-[2rem] border bg-white shadow-sm active-scale cursor-pointer">
+               <div className="relative z-[1] flex justify-between items-center gap-4 mb-5 px-1">
+                <div className="min-w-0">
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none mb-2">巡視進度 ({INSPECTION_RESET_LABEL}切換營業日)</p>
+                 <h3 className="text-lg font-black text-slate-800 leading-tight">{completedZones.length >= branchZones.length && branchZones.length > 0 ? "全數巡視完成" : `進度：${completedZones.length} / ${branchZones.length || 1}`}</h3>
+                </div>
+                <div className="inspection-progress-ring shrink-0" style={{"--progress": `${progressPercent}%`}}>
+                 <span className="text-[11px] font-black text-brand-red">{progressPercent}%</span>
+                </div>
+               </div>
+               <div className="relative z-[1] bg-slate-100 h-3.5 rounded-full overflow-hidden border shadow-inner"><div className="h-full bg-brand-red opacity-80 transition-all duration-700" style={{ width: `${progressPercent}%` }}></div></div>
               </div>
               
               {/* 最新公告區塊 */}
@@ -11187,7 +11657,7 @@ return (
                <NavCard title="本季菜單" onClick={() => setCurrentPage('menu')} colorClass="bg-yellow-50/50" iconName="utensils" unread={isContentUnread('menu')} />
                <NavCard title="限時活動" onClick={() => setCurrentPage('game-center')} colorClass="bg-amber-50/50" iconName="gamepad-2" />
                {canAccessBusinessManagement && (
-                <NavCard title="經營管理" onClick={() => setCurrentPage('ingredients')} colorClass="bg-purple-50/50" iconName="briefcase-business" />
+                <NavCard title="經營管理" onClick={() => setCurrentPage('ingredients')} colorClass="bg-rose-50/50" iconName="briefcase-business" />
                )}
               </section>
             </div>
@@ -11271,9 +11741,9 @@ return (
        </div>
 
         {currentPage !== 'auth' && (
-         <header className="p-3 sticky top-0 z-50 flex justify-between items-center bg-white/80 backdrop-blur-md border-b" style={{maxWidth:"100vw",overflow:"hidden"}}>
+         <header className="app-header p-3 sticky top-0 z-50 flex justify-between items-center bg-white/80 backdrop-blur-md border-b" style={{maxWidth:"100vw",overflow:"hidden"}}>
            <div className="flex items-center gap-3 cursor-pointer shrink-0" onClick={() => (isManager || currentUser?.status === 'approved') && setCurrentPage('home')}>
-            <div className="bg-brand-red w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg shrink-0 font-black text-xl leading-none">
+            <div className="app-logo-mark bg-brand-red w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-lg shrink-0 font-black text-xl leading-none">
               饗
             </div>
             <div>
@@ -11283,15 +11753,15 @@ return (
            </div>
            <div className="flex gap-2">
             {/* 新增的主題按鈕 */}
-            <button onClick={() => setShowThemeModal(true)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-slate-100 text-slate-600 hover:text-brand-red active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap">
+            <button onClick={() => setShowThemeModal(true)} className="h-10 min-w-10 flex items-center justify-center gap-1.5 px-3 rounded-2xl text-xs font-black bg-slate-100 text-slate-600 hover:text-brand-red active:scale-95 shadow-sm shrink-0 whitespace-nowrap" aria-label="切換主題">
               <Icon name="palette" size={16} />
             </button>
-            <button onClick={() => isManager ? setCurrentPage('admin') : (currentUser?.status === 'approved' && setCurrentPage('home'))} className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap ${isSuperAdmin ? 'bg-brand-red text-white' : (isManager ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}`}>
+            <button onClick={() => isManager ? setCurrentPage('admin') : (currentUser?.status === 'approved' && setCurrentPage('home'))} className={`h-10 flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-black active:scale-95 shadow-sm shrink-0 whitespace-nowrap ${isSuperAdmin ? 'bg-brand-red text-white' : (isManager ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600')}`}>
               <Icon name={isManager ? "settings" : "bell"} size={16} />
               {isManager ? "後台" : "通知"}
             </button>
             {(currentUser || isManager) && (
-              <button onClick={logout} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black bg-rose-50 text-brand-red border border-rose-100 active:scale-95 transition-all shadow-sm shrink-0 whitespace-nowrap">
+              <button onClick={logout} className="h-10 flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-xs font-black bg-rose-50 text-brand-red border border-rose-100 active:scale-95 shadow-sm shrink-0 whitespace-nowrap">
                <Icon name="log-out" size={16} />
                登出
               </button>
