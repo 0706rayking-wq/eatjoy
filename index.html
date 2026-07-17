@@ -2624,8 +2624,7 @@ window._gameJsReady = false;
      );
     };
 
-    const PromotionPathPage = ({ onBack }) => {
-     const levels = [
+    const DEFAULT_PROMOTION_LEVELS = [
       {
        title: '正職',
        items: ['全區站通關', '盤點物料', '廚房守則']
@@ -2647,21 +2646,149 @@ window._gameJsReady = false;
        items: []
       }
      ];
+
+    const PromotionPathPage = ({ onBack, isSuperAdmin = false, getPublicPath, triggerNotify }) => {
+     const [levels, setLevels] = useState(DEFAULT_PROMOTION_LEVELS);
+     const [draftLevels, setDraftLevels] = useState(DEFAULT_PROMOTION_LEVELS);
+     const [isEditing, setIsEditing] = useState(false);
+     const [saving, setSaving] = useState(false);
+     const [loadedAt, setLoadedAt] = useState(null);
+
+     useEffect(() => {
+      if (!getPublicPath) return;
+      const ref = db.doc(getPublicPath('business/promotion_path'));
+      const unsub = ref.onSnapshot(doc => {
+       const data = doc.exists ? doc.data() : {};
+       const nextLevels = Array.isArray(data.levels) && data.levels.length > 0
+        ? data.levels.map(level => ({ title: level.title || '', items: Array.isArray(level.items) ? level.items : [] }))
+        : DEFAULT_PROMOTION_LEVELS;
+       setLevels(nextLevels);
+       if (!isEditing) setDraftLevels(nextLevels);
+       setLoadedAt(data.updatedAt || null);
+      }, () => {
+       triggerNotify?.("升遷管道讀取失敗，已顯示預設內容", "warning");
+      });
+      return () => unsub();
+     }, [getPublicPath, isEditing]);
+
+     const activeLevels = isEditing ? draftLevels : levels;
+
+     const updateLevelTitle = (idx, title) => {
+      setDraftLevels(prev => prev.map((level, i) => i === idx ? { ...level, title } : level));
+     };
+     const updateItem = (levelIdx, itemIdx, value) => {
+      setDraftLevels(prev => prev.map((level, i) => {
+       if (i !== levelIdx) return level;
+       return { ...level, items: level.items.map((item, j) => j === itemIdx ? value : item) };
+      }));
+     };
+     const addLevel = () => {
+      setDraftLevels(prev => [...prev, { title: '新職務', items: [''] }]);
+     };
+     const removeLevel = (idx) => {
+      if (!window.confirm("確定要刪除此職務階段嗎？")) return;
+      setDraftLevels(prev => prev.filter((_, i) => i !== idx));
+     };
+     const moveLevel = (idx, delta) => {
+      setDraftLevels(prev => {
+       const nextIdx = idx + delta;
+       if (nextIdx < 0 || nextIdx >= prev.length) return prev;
+       const next = [...prev];
+       const [item] = next.splice(idx, 1);
+       next.splice(nextIdx, 0, item);
+       return next;
+      });
+     };
+     const addItem = (levelIdx) => {
+      setDraftLevels(prev => prev.map((level, i) => i === levelIdx ? { ...level, items: [...level.items, ''] } : level));
+     };
+     const removeItem = (levelIdx, itemIdx) => {
+      setDraftLevels(prev => prev.map((level, i) => {
+       if (i !== levelIdx) return level;
+       return { ...level, items: level.items.filter((_, j) => j !== itemIdx) };
+      }));
+     };
+     const cancelEdit = () => {
+      setDraftLevels(levels);
+      setIsEditing(false);
+     };
+     const savePromotionPath = async () => {
+      const cleaned = draftLevels
+       .map(level => ({
+        title: String(level.title || '').trim(),
+        items: (level.items || []).map(item => String(item || '').trim()).filter(Boolean)
+       }))
+       .filter(level => level.title);
+      if (cleaned.length === 0) return triggerNotify?.("至少保留一個職務階段", "error");
+      setSaving(true);
+      try {
+       await db.doc(getPublicPath('business/promotion_path')).set({
+        levels: cleaned,
+        updatedAt: Date.now()
+       }, { merge: true });
+       setLevels(cleaned);
+       setDraftLevels(cleaned);
+       setIsEditing(false);
+       triggerNotify?.("升遷管道已更新", "success");
+      } catch (e) {
+       console.error("升遷管道儲存失敗", e);
+       triggerNotify?.("升遷管道儲存失敗", "error");
+      } finally {
+       setSaving(false);
+      }
+     };
+
      return (
       <div className="p-4 space-y-5 page-enter text-left pb-20 font-bold">
-       <BackButton onClick={onBack} title="升遷管道" />
-       <div className="glass-panel p-5 rounded-[2rem] bg-white border shadow-sm text-[11px] text-slate-500 leading-relaxed">
-        該職務具備該職能後，才能再往上晉升。
+       <div className="flex items-start justify-between gap-3">
+        <BackButton onClick={onBack} title="升遷管道" />
+        {isSuperAdmin && (
+         <button onClick={() => isEditing ? savePromotionPath() : setIsEditing(true)} disabled={saving} className={`mt-1 shrink-0 px-4 py-2.5 rounded-2xl text-[10px] font-black flex items-center gap-1.5 active:scale-95 transition-all shadow-sm ${isEditing ? 'bg-brand-red text-white' : 'bg-slate-900 text-white'}`}>
+          <Icon name={saving ? "loader-2" : (isEditing ? "save" : "edit-3")} size={14} className={saving ? "animate-spin" : ""} />
+          {saving ? "儲存中" : (isEditing ? "儲存" : "編輯")}
+         </button>
+        )}
+       </div>
+       <div className="glass-panel p-5 rounded-[2rem] bg-white border shadow-sm text-[11px] text-slate-500 leading-relaxed space-y-3">
+        <p>該職務具備該職能後，才能再往上晉升。</p>
+        {loadedAt && <p className="text-[10px] text-slate-400">最後更新：{new Date(loadedAt).toLocaleString()}</p>}
+        {isSuperAdmin && isEditing && (
+         <div className="flex gap-2 pt-2">
+          <button onClick={addLevel} className="flex-1 py-3 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-100 font-black text-xs flex items-center justify-center gap-2"><Icon name="plus" size={14} />新增職務階段</button>
+          <button onClick={cancelEdit} className="px-5 py-3 rounded-2xl bg-slate-100 text-slate-500 border border-slate-200 font-black text-xs">取消</button>
+         </div>
+        )}
        </div>
        <div className="space-y-4">
-        {levels.map((level, idx) => (
-         <div key={level.title} className="space-y-3">
+        {activeLevels.map((level, idx) => (
+         <div key={`${level.title}_${idx}`} className="space-y-3">
           <div className="glass-panel p-5 rounded-[2rem] bg-white border shadow-sm">
            <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-2xl bg-rose-50 text-brand-red border border-rose-100 flex items-center justify-center text-xs font-black shrink-0">{idx + 1}</div>
-            <h3 className="text-lg font-black text-slate-800">{level.title}</h3>
+            {isEditing ? (
+             <input value={level.title} onChange={e => updateLevelTitle(idx, e.target.value)} className="flex-1 input-light p-3 rounded-xl text-sm font-black outline-none border border-slate-200" placeholder="職務名稱" />
+            ) : (
+             <h3 className="text-lg font-black text-slate-800">{level.title}</h3>
+            )}
+            {isEditing && (
+             <div className="flex gap-1 ml-auto">
+              <button onClick={() => moveLevel(idx, -1)} disabled={idx === 0} className="w-8 h-8 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center disabled:opacity-30"><Icon name="chevron-up" size={15} /></button>
+              <button onClick={() => moveLevel(idx, 1)} disabled={idx === activeLevels.length - 1} className="w-8 h-8 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center disabled:opacity-30"><Icon name="chevron-down" size={15} /></button>
+              <button onClick={() => removeLevel(idx)} className="w-8 h-8 rounded-xl bg-red-50 text-red-500 flex items-center justify-center"><Icon name="trash-2" size={15} /></button>
+             </div>
+            )}
            </div>
-           {level.items.length > 0 ? (
+           {isEditing ? (
+            <div className="space-y-2">
+             {(level.items || []).map((item, itemIdx) => (
+              <div key={itemIdx} className="flex gap-2">
+               <input value={item} onChange={e => updateItem(idx, itemIdx, e.target.value)} className="flex-1 input-light p-3 rounded-xl text-xs font-black outline-none border border-slate-200" placeholder="職能項目" />
+               <button onClick={() => removeItem(idx, itemIdx)} className="w-10 rounded-xl bg-red-50 text-red-500 flex items-center justify-center"><Icon name="x" size={15} /></button>
+              </div>
+             ))}
+             <button onClick={() => addItem(idx)} className="w-full py-3 rounded-xl border-2 border-dashed border-slate-200 text-slate-500 font-black text-xs flex items-center justify-center gap-2"><Icon name="plus" size={14} />新增職能</button>
+            </div>
+           ) : level.items.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
              {level.items.map(item => (
               <div key={item} className="flex items-start gap-2 bg-slate-50 border border-slate-100 rounded-2xl p-3">
@@ -4234,7 +4361,235 @@ window._gameJsReady = false;
      </label>
     );
 
-    const InvoluntaryOffboardingProcessPage = ({ onBack, goProbation, goImprovement }) => (
+    const PROBATION_EVALUATION_CRITERIA = [
+     ['attendance', '出勤與準時交接'],
+     ['hygiene', '個人衛生與食品安全'],
+     ['sop', '依標準作業流程執行'],
+     ['prep', '備料、保存與標籤管理'],
+     ['speed', '出餐速度與尖峰抗壓'],
+     ['quality', '餐點品質穩定度'],
+     ['teamwork', '溝通協作與服從調度'],
+     ['service', '服務態度與客訴意識']
+    ];
+
+    const buildProbationEvaluationPrintHtml = (form, total, average) => {
+     const rows = PROBATION_EVALUATION_CRITERIA.map(([key, label]) => `<tr><th>${businessFormEscapeHtml(label)}</th><td>${businessFormEscapeHtml(form.scores?.[key])} / 5</td></tr>`).join('');
+     return `
+       <h1>《饗麻饗辣》試用期考核表</h1>
+       <div class="note">本表為試用/到職初期工作表現與輔導紀錄。試用期不等於可任意終止契約；若評估終止，仍須依勞動基準法及相關法令確認法定事由與程序。</div>
+       <h2>一、基本資料</h2>
+       <table>
+        <tr><th>分店</th><td>${businessFormEscapeHtml(form.branch)}</td><th>員工姓名</th><td>${businessFormEscapeHtml(form.employeeName)}</td></tr>
+        <tr><th>職務</th><td>${businessFormEscapeHtml(form.role)}</td><th>到職日</th><td>${businessFormEscapeHtml(form.hireDate)}</td></tr>
+        <tr><th>考核日</th><td>${businessFormEscapeHtml(form.evaluationDate)}</td><th>試用/觀察期間</th><td>${businessFormEscapeHtml(form.probationPeriod)}</td></tr>
+        <tr><th>考核主管</th><td colspan="3">${businessFormEscapeHtml(form.evaluator)}</td></tr>
+       </table>
+       <h2>二、饗麻饗辣工作評核</h2>
+       <table>${rows}<tr><th>總分 / 平均</th><td>${businessFormEscapeHtml(total)} 分 / ${businessFormEscapeHtml(average)}</td></tr></table>
+       <h2>三、事實紀錄與輔導</h2>
+       <table>
+        <tr><th>優點或適任表現</th><td>${businessFormEscapeHtml(form.strengths)}</td></tr>
+        <tr><th>具體不適任事實</th><td>${businessFormEscapeHtml(form.facts)}</td></tr>
+        <tr><th>已提供訓練、提醒或輔導</th><td>${businessFormEscapeHtml(form.coaching)}</td></tr>
+        <tr><th>食品安全/營運風險</th><td>${businessFormEscapeHtml(form.risk)}</td></tr>
+        <tr><th>考核結論</th><td>${businessFormEscapeHtml(form.result)}</td></tr>
+        <tr><th>法遵確認</th><td>${businessFormEscapeHtml(form.legalReview)}</td></tr>
+       </table>
+       <div class="sign-grid"><div class="sign-box">員工簽名：</div><div class="sign-box">直屬主管：</div><div class="sign-box">人事/店主管：</div></div>
+      `;
+    };
+
+    const buildImprovementInterviewPrintHtml = (form) => `
+       <h1>《饗麻饗辣》面談改善表</h1>
+       <div class="note">本表用於記錄改善面談、輔導與複評安排。若後續涉及終止契約，仍須以具體事實確認是否符合勞基法法定事由與程序。</div>
+       <h2>一、基本資料</h2>
+       <table>
+        <tr><th>分店</th><td>${businessFormEscapeHtml(form.branch)}</td><th>員工姓名</th><td>${businessFormEscapeHtml(form.employeeName)}</td></tr>
+        <tr><th>職務</th><td>${businessFormEscapeHtml(form.role)}</td><th>面談日期</th><td>${businessFormEscapeHtml(form.interviewDate)}</td></tr>
+        <tr><th>面談主管</th><td>${businessFormEscapeHtml(form.interviewer)}</td><th>問題類別</th><td>${businessFormEscapeHtml(form.issueCategory)}</td></tr>
+       </table>
+       <h2>二、面談與改善內容</h2>
+       <table>
+        <tr><th>具體事實紀錄</th><td>${businessFormEscapeHtml(form.facts)}</td></tr>
+        <tr><th>員工說明</th><td>${businessFormEscapeHtml(form.employeeStatement)}</td></tr>
+        <tr><th>改善目標</th><td>${businessFormEscapeHtml(form.improvementGoal)}</td></tr>
+        <tr><th>公司提供協助/訓練</th><td>${businessFormEscapeHtml(form.supportPlan)}</td></tr>
+        <tr><th>複評日期</th><td>${businessFormEscapeHtml(form.reviewDate)}</td></tr>
+        <tr><th>未改善後續處理提醒</th><td>${businessFormEscapeHtml(form.consequence)}</td></tr>
+        <tr><th>本次結論</th><td>${businessFormEscapeHtml(form.followUp)}</td></tr>
+       </table>
+       <div class="sign-grid"><div class="sign-box">員工簽名：</div><div class="sign-box">面談主管：</div><div class="sign-box">見證/人事：</div></div>
+      `;
+
+    const printOffboardingRecord = (record) => {
+     const form = record?.form || {};
+     if (record?.formType === 'probation_evaluation') {
+      const total = record.total ?? PROBATION_EVALUATION_CRITERIA.reduce((sum, [key]) => sum + Number(form.scores?.[key] || 0), 0);
+      const average = record.average ?? (PROBATION_EVALUATION_CRITERIA.length ? (total / PROBATION_EVALUATION_CRITERIA.length).toFixed(1) : '0.0');
+      printBusinessForm('《饗麻饗辣》試用期考核表', buildProbationEvaluationPrintHtml(form, total, average));
+     } else {
+      printBusinessForm('《饗麻饗辣》面談改善表', buildImprovementInterviewPrintHtml(form));
+     }
+    };
+
+    const RecordRow = ({ label, value }) => (
+     <div className="bg-slate-50 border border-slate-100 rounded-2xl p-3">
+      <p className="text-[10px] font-black text-slate-400 uppercase mb-1">{label}</p>
+      <p className="text-xs font-black text-slate-700 leading-relaxed whitespace-pre-wrap break-words">{value || '未填寫'}</p>
+     </div>
+    );
+
+    const OffboardingFormRecordsPanel = ({ currentBranch, getPublicPath, triggerNotify, isSuperAdmin = false }) => {
+     const [records, setRecords] = useState([]);
+     const [selectedRecord, setSelectedRecord] = useState(null);
+     const [deletingId, setDeletingId] = useState('');
+
+     useEffect(() => {
+      if (!currentBranch || !getPublicPath) return;
+      const unsub = db.collection(getPublicPath(`offboarding_form_records_${currentBranch}`)).onSnapshot(snapshot => {
+       const next = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }))
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+       setRecords(next);
+      }, error => {
+       console.error("讀取非自願離職表單紀錄失敗", error);
+       triggerNotify?.("表單紀錄讀取失敗", "error");
+      });
+      return () => unsub();
+     }, [currentBranch, getPublicPath]);
+
+     const renderRecordDetails = (record) => {
+      const form = record?.form || {};
+      if (record?.formType === 'probation_evaluation') {
+       return (
+        <div className="space-y-3">
+         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <RecordRow label="分店" value={form.branch} />
+          <RecordRow label="員工姓名" value={form.employeeName} />
+          <RecordRow label="職務" value={form.role} />
+          <RecordRow label="到職日" value={form.hireDate} />
+          <RecordRow label="考核日" value={form.evaluationDate} />
+          <RecordRow label="考核主管" value={form.evaluator} />
+         </div>
+         <div className="glass-panel p-4 rounded-2xl bg-white border">
+          <p className="text-[10px] font-black text-slate-400 uppercase mb-3">評核分數</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+           {PROBATION_EVALUATION_CRITERIA.map(([key, label]) => (
+            <div key={key} className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
+             <span className="text-[11px] font-black text-slate-600">{label}</span>
+             <span className="text-xs font-black text-brand-red">{form.scores?.[key] || '-'} / 5</span>
+            </div>
+           ))}
+          </div>
+          <p className="text-right text-xs font-black text-brand-red mt-3">總分 {record.total ?? '-'} / 平均 {record.average ?? '-'}</p>
+         </div>
+         <RecordRow label="優點或適任表現" value={form.strengths} />
+         <RecordRow label="具體不適任事實" value={form.facts} />
+         <RecordRow label="已提供訓練、提醒或輔導" value={form.coaching} />
+         <RecordRow label="食品安全/營運風險" value={form.risk} />
+         <RecordRow label="考核結論" value={form.result} />
+         <RecordRow label="法遵確認備註" value={form.legalReview} />
+        </div>
+       );
+      }
+      return (
+       <div className="space-y-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+         <RecordRow label="分店" value={form.branch} />
+         <RecordRow label="員工姓名" value={form.employeeName} />
+         <RecordRow label="職務" value={form.role} />
+         <RecordRow label="面談日期" value={form.interviewDate} />
+         <RecordRow label="面談主管" value={form.interviewer} />
+         <RecordRow label="問題類別" value={form.issueCategory} />
+        </div>
+        <RecordRow label="具體事實紀錄" value={form.facts} />
+        <RecordRow label="員工說明" value={form.employeeStatement} />
+        <RecordRow label="改善目標" value={form.improvementGoal} />
+        <RecordRow label="公司提供協助/訓練" value={form.supportPlan} />
+        <RecordRow label="複評日期" value={form.reviewDate} />
+        <RecordRow label="未改善後續處理提醒" value={form.consequence} />
+        <RecordRow label="本次結論" value={form.followUp} />
+       </div>
+      );
+     };
+
+     const deleteRecord = async (record) => {
+      if (!isSuperAdmin || !record?.id) return;
+      const label = `${record.formTitle || '表單紀錄'} - ${record.employeeName || '未填姓名'}`;
+      if (!window.confirm(`確定要刪除「${label}」嗎？\n刪除後無法復原。`)) return;
+      setDeletingId(record.id);
+      try {
+       await db.collection(getPublicPath(`offboarding_form_records_${currentBranch}`)).doc(record.id).delete();
+       setSelectedRecord(null);
+       triggerNotify?.("表單紀錄已刪除", "success");
+      } catch (error) {
+       console.error("刪除非自願離職表單紀錄失敗", error);
+       triggerNotify?.("刪除失敗，請稍後再試", "error");
+      } finally {
+       setDeletingId('');
+      }
+     };
+
+     return (
+      <div className="glass-panel p-5 rounded-[2rem] bg-white border shadow-sm space-y-4">
+       <div className="flex items-center justify-between gap-3">
+        <div>
+         <h3 className="font-black text-slate-800 text-sm flex items-center gap-2"><Icon name="archive" size={18} className="text-brand-red" /> 表單存檔紀錄</h3>
+         <p className="text-[10px] text-slate-400 mt-1">可點擊紀錄查看完整內容，並再次列印。</p>
+        </div>
+        <span className="text-[10px] font-black text-slate-500 bg-slate-100 border border-slate-200 rounded-full px-3 py-1">{records.length} 筆</span>
+       </div>
+       {records.length > 0 ? (
+        <div className="space-y-2 max-h-[420px] overflow-y-auto custom-scrollbar pr-1">
+         {records.map(record => (
+          <button key={record.id} onClick={() => setSelectedRecord(record)} className="w-full text-left bg-slate-50 border border-slate-100 rounded-2xl p-4 active:scale-[0.99] transition-all hover:border-brand-red/30">
+           <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+             <p className="text-xs font-black text-slate-800 truncate">{record.employeeName || '未填姓名'}</p>
+             <p className="text-[10px] font-black text-slate-400 mt-1">{record.formTitle || '表單紀錄'} · {record.employeeRole || '未填職務'}</p>
+             <p className="text-[10px] text-slate-400 mt-1">存檔：{record.createdAt ? new Date(record.createdAt).toLocaleString() : '未知時間'}</p>
+            </div>
+            <span className={`text-[10px] font-black px-3 py-1 rounded-full shrink-0 ${record.formType === 'probation_evaluation' ? 'bg-rose-50 text-brand-red border border-rose-100' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+             {record.formType === 'probation_evaluation' ? '考核' : '面談'}
+            </span>
+           </div>
+          </button>
+         ))}
+        </div>
+       ) : (
+        <div className="py-10 text-center text-slate-300 font-black text-xs border border-dashed rounded-2xl">目前尚無存檔紀錄</div>
+       )}
+
+       {selectedRecord && (
+        <div className="fixed inset-0 z-[9999] bg-slate-900/70 backdrop-blur-sm p-4 flex items-center justify-center page-enter" onClick={() => setSelectedRecord(null)}>
+         <div className="bg-white rounded-[2rem] shadow-2xl border max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+          <div className="p-4 border-b flex items-center justify-between gap-3 shrink-0">
+           <div className="min-w-0">
+            <h3 className="font-black text-slate-800 text-base truncate">{selectedRecord.formTitle} - {selectedRecord.employeeName || '未填姓名'}</h3>
+            <p className="text-[10px] text-slate-400 mt-1">{selectedRecord.branch || currentBranch} · {selectedRecord.createdAt ? new Date(selectedRecord.createdAt).toLocaleString() : '未知時間'} · {selectedRecord.createdByName || '未知填寫者'}</p>
+           </div>
+           <button onClick={() => setSelectedRecord(null)} className="w-10 h-10 rounded-xl bg-slate-100 text-slate-500 flex items-center justify-center shrink-0 active:scale-95"><Icon name="x" size={18} /></button>
+          </div>
+          <div className="p-4 overflow-y-auto custom-scrollbar flex-1 bg-slate-50">
+           {renderRecordDetails(selectedRecord)}
+          </div>
+          <div className="p-4 border-t bg-white shrink-0 grid grid-cols-1 sm:grid-cols-2 gap-3">
+           {isSuperAdmin && (
+            <button onClick={() => deleteRecord(selectedRecord)} disabled={deletingId === selectedRecord.id} className="w-full bg-red-50 text-red-600 border border-red-100 font-black py-4 rounded-2xl active:scale-95 transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-60">
+             <Icon name={deletingId === selectedRecord.id ? "loader-2" : "trash-2"} size={18} className={deletingId === selectedRecord.id ? "animate-spin" : ""} /> {deletingId === selectedRecord.id ? "刪除中..." : "刪除紀錄"}
+            </button>
+           )}
+           <button onClick={() => printOffboardingRecord(selectedRecord)} className="w-full bg-brand-red text-white font-black py-4 rounded-2xl active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2">
+            <Icon name="printer" size={18} /> 列印這份紀錄
+           </button>
+          </div>
+         </div>
+        </div>
+       )}
+      </div>
+     );
+    };
+
+    const InvoluntaryOffboardingProcessPage = ({ onBack, goProbation, goImprovement, currentBranch, getPublicPath, triggerNotify, isSuperAdmin = false }) => (
      <div className="p-4 space-y-4 page-enter text-left pb-10">
       <BackButton onClick={onBack} title="非自願離職流程" />
       <div className="glass-panel p-5 rounded-[2rem] bg-white border shadow-sm space-y-4">
@@ -4250,10 +4605,11 @@ window._gameJsReady = false;
       </div>
       <SectionItem title="試用期考核表" iconName="clipboard-check" onClick={goProbation} />
       <SectionItem title="面談改善表" iconName="messages-square" onClick={goImprovement} />
+      <OffboardingFormRecordsPanel currentBranch={currentBranch} getPublicPath={getPublicPath} triggerNotify={triggerNotify} isSuperAdmin={isSuperAdmin} />
      </div>
     );
 
-    const ProbationEvaluationFormPage = ({ onBack, currentBranch, currentUser }) => {
+    const ProbationEvaluationFormPage = ({ onBack, currentBranch, currentUser, getPublicPath, triggerNotify }) => {
      const criteria = [
       ['attendance', '出勤與準時交接'],
       ['hygiene', '個人衛生與食品安全'],
@@ -4279,12 +4635,44 @@ window._gameJsReady = false;
       coaching: '',
       risk: '',
       result: '建議續任並完成試用',
-      legalReview: '如評估終止契約，須確認是否符合勞基法第11條、第12條或其他法定事由，並依個案辦理預告、資遣費、資遣通報及相關程序。'
+       legalReview: '如評估終止契約，須確認是否符合勞基法第11條、第12條或其他法定事由，並依個案辦理預告、資遣費、資遣通報及相關程序。'
      });
+     const [saving, setSaving] = useState(false);
+     const [savedAt, setSavedAt] = useState(null);
      const update = (key, value) => setForm(prev => ({...prev, [key]: value}));
      const updateScore = (key, value) => setForm(prev => ({...prev, scores: {...prev.scores, [key]: value}}));
      const total = criteria.reduce((sum, [key]) => sum + Number(form.scores[key] || 0), 0);
      const average = criteria.length ? (total / criteria.length).toFixed(1) : '0.0';
+     const saveRecord = async () => {
+      if (!form.employeeName.trim()) return triggerNotify?.("請先填寫員工姓名", "error");
+      if (!getPublicPath) return triggerNotify?.("系統尚未連線，無法存檔", "error");
+      setSaving(true);
+      try {
+       const now = Date.now();
+       await db.collection(getPublicPath(`offboarding_form_records_${currentBranch}`)).add({
+        formType: 'probation_evaluation',
+        formTitle: '試用期考核表',
+        branch: form.branch || currentBranch || '',
+        employeeName: form.employeeName.trim(),
+        employeeRole: form.role || '',
+        evaluator: form.evaluator || currentUser?.name || '',
+        createdBy: currentUser?.phone || '',
+        createdByName: currentUser?.name || '',
+        total,
+        average,
+        form: JSON.parse(JSON.stringify(form)),
+        createdAt: now,
+        updatedAt: now
+       });
+       setSavedAt(now);
+       triggerNotify?.("試用期考核表已存檔", "success");
+      } catch (error) {
+       console.error("試用期考核表存檔失敗", error);
+       triggerNotify?.("存檔失敗，請確認網路後再試", "error");
+      } finally {
+       setSaving(false);
+      }
+     };
      const printForm = () => {
       const rows = criteria.map(([key, label]) => `<tr><th>${businessFormEscapeHtml(label)}</th><td>${businessFormEscapeHtml(form.scores[key])} / 5</td></tr>`).join('');
       printBusinessForm('《饗麻饗辣》試用期考核表', `
@@ -4352,15 +4740,21 @@ window._gameJsReady = false;
          </select>
         </label>
         <BusinessTextarea label="法遵確認備註" value={form.legalReview} onChange={v=>update('legalReview', v)} rows={3} />
-        <button onClick={printForm} className="w-full bg-brand-red text-white font-black py-4 rounded-2xl active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2">
-         <Icon name="printer" size={18} /> 列印試用期考核表
-        </button>
+        {savedAt && <div className="text-[10px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-2xl p-3">已存檔：{new Date(savedAt).toLocaleString()}</div>}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+         <button onClick={saveRecord} disabled={saving} className="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-60">
+          <Icon name={saving ? "loader-2" : "save"} size={18} className={saving ? "animate-spin" : ""} /> {saving ? "存檔中..." : "存檔紀錄"}
+         </button>
+         <button onClick={printForm} className="w-full bg-brand-red text-white font-black py-4 rounded-2xl active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2">
+          <Icon name="printer" size={18} /> 列印試用期考核表
+         </button>
+        </div>
        </div>
       </div>
      );
     };
 
-    const ImprovementInterviewFormPage = ({ onBack, currentBranch, currentUser }) => {
+    const ImprovementInterviewFormPage = ({ onBack, currentBranch, currentUser, getPublicPath, triggerNotify }) => {
      const [form, setForm] = useState({
       branch: currentBranch || '',
       employeeName: '',
@@ -4376,7 +4770,39 @@ window._gameJsReady = false;
       consequence: '未於期限內改善者，將再依事實與勞基法規定進行人事評估。',
       followUp: '持續輔導並於期限複評'
      });
+     const [saving, setSaving] = useState(false);
+     const [savedAt, setSavedAt] = useState(null);
      const update = (key, value) => setForm(prev => ({...prev, [key]: value}));
+     const saveRecord = async () => {
+      if (!form.employeeName.trim()) return triggerNotify?.("請先填寫員工姓名", "error");
+      if (!getPublicPath) return triggerNotify?.("系統尚未連線，無法存檔", "error");
+      setSaving(true);
+      try {
+       const now = Date.now();
+       await db.collection(getPublicPath(`offboarding_form_records_${currentBranch}`)).add({
+        formType: 'improvement_interview',
+        formTitle: '面談改善表',
+        branch: form.branch || currentBranch || '',
+        employeeName: form.employeeName.trim(),
+        employeeRole: form.role || '',
+        interviewer: form.interviewer || currentUser?.name || '',
+        createdBy: currentUser?.phone || '',
+        createdByName: currentUser?.name || '',
+        issueCategory: form.issueCategory || '',
+        reviewDate: form.reviewDate || '',
+        form: JSON.parse(JSON.stringify(form)),
+        createdAt: now,
+        updatedAt: now
+       });
+       setSavedAt(now);
+       triggerNotify?.("面談改善表已存檔", "success");
+      } catch (error) {
+       console.error("面談改善表存檔失敗", error);
+       triggerNotify?.("存檔失敗，請確認網路後再試", "error");
+      } finally {
+       setSaving(false);
+      }
+     };
      const printForm = () => {
       printBusinessForm('《饗麻饗辣》面談改善表', `
        <h1>《饗麻饗辣》面談改善表</h1>
@@ -4439,9 +4865,15 @@ window._gameJsReady = false;
           <option>轉人事複核是否符合終止契約法定事由</option>
          </select>
         </label>
-        <button onClick={printForm} className="w-full bg-brand-red text-white font-black py-4 rounded-2xl active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2">
-         <Icon name="printer" size={18} /> 列印面談改善表
-        </button>
+        {savedAt && <div className="text-[10px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-2xl p-3">已存檔：{new Date(savedAt).toLocaleString()}</div>}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+         <button onClick={saveRecord} disabled={saving} className="w-full bg-emerald-600 text-white font-black py-4 rounded-2xl active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-60">
+          <Icon name={saving ? "loader-2" : "save"} size={18} className={saving ? "animate-spin" : ""} /> {saving ? "存檔中..." : "存檔紀錄"}
+         </button>
+         <button onClick={printForm} className="w-full bg-brand-red text-white font-black py-4 rounded-2xl active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2">
+          <Icon name="printer" size={18} /> 列印面談改善表
+         </button>
+        </div>
        </div>
       </div>
      );
@@ -5029,10 +5461,23 @@ window._gameJsReady = false;
           lastResetSyncedAt: Date.now()
          }, { merge: true }).catch(() => {});
          const snap = await progressRef.get();
-         const latestCompleted = snap.exists ? (snap.data().completedZones || []) : [];
-         const currentHour = new Date().getHours();
-         if (latestCompleted.length >= branchZones.length && branchZones.length > 0 && currentHour < 23) {
-          triggerLineAlert("COMPLETION", { branch: currentBranch, time: new Date().toLocaleTimeString() });
+         const latestCompleted = snap.exists ? [...new Set(snap.data().completedZones || [])] : [];
+         if (latestCompleted.length >= branchZones.length && branchZones.length > 0) {
+          const cronRef = db.doc(getPublicPath(`system/cron_${currentBranch}`));
+          const shouldSendCompletionAlert = await db.runTransaction(async transaction => {
+           const cronSnap = await transaction.get(cronRef);
+           const cronData = cronSnap.exists ? (cronSnap.data() || {}) : {};
+           if (cronData.lastCompletionAlert === inspectionBusinessDate) return false;
+           transaction.set(cronRef, {
+            lastCompletionAlert: inspectionBusinessDate,
+            lastCompletionSyncedBy: 'inspection-complete',
+            lastCompletionSyncedAt: Date.now()
+           }, { merge: true });
+           return true;
+          });
+          if (shouldSendCompletionAlert) {
+           triggerLineAlert("COMPLETION", { branch: currentBranch, time: new Date().toLocaleTimeString() });
+          }
          }
       }
       db.collection(getPublicPath(`daily_photo_submissions_${currentBranch}`)).add({
@@ -11304,18 +11749,32 @@ return (
            const targetAlertStr = formatDateKey(targetAlertDate);
 
            if (h >= 23 && data.lastMissingAlert !== targetAlertStr) {
-            await cronRef.set({ lastMissingAlert: targetAlertStr }, {merge: true});
-
             const progSnap = await db.doc(getPublicPath(`system/progress_${branch}`)).get();
             const progData = progSnap.exists ? (progSnap.data() || {}) : {};
             const progBusinessDate = progData.businessDate || getInspectionBusinessDate(progData.updatedAt || progData.resetAt || Date.now());
-            const completed = progBusinessDate === targetAlertStr ? (progData.completedZones || []) : [];
+            const completed = progBusinessDate === targetAlertStr ? [...new Set(progData.completedZones || [])] : [];
             const zoneSnap = await db.doc(getPublicPath(`config/zones_${branch}`)).get();
-            const zones = zoneSnap.exists ? (zoneSnap.data().zones || []) : [];
+            const zones = zoneSnap.exists ? (zoneSnap.data().zones || []) : DEFAULT_ZONES;
+            const latestCronSnap = await cronRef.get();
+            const latestCron = latestCronSnap.exists ? (latestCronSnap.data() || {}) : {};
 
-            if (zones.length > 0 && completed.length < zones.length) {
+            if (zones.length > 0 && completed.length >= zones.length) {
+              const shouldBackfillCompletionAlert = latestCron.lastCompletionAlert !== targetAlertStr;
+              await cronRef.set({
+               lastMissingAlert: targetAlertStr,
+               lastCompletionAlert: targetAlertStr,
+               lastCompletionSyncedBy: latestCron.lastCompletionSyncedBy || 'inspection-nightly-check',
+               lastCompletionSyncedAt: latestCron.lastCompletionSyncedAt || Date.now()
+              }, {merge: true});
+              if (shouldBackfillCompletionAlert) {
+               triggerLineAlert("COMPLETION", { branch: branch, time: new Date().toLocaleTimeString() });
+              }
+            } else if (zones.length > 0 && latestCron.lastCompletionAlert !== targetAlertStr) {
+              await cronRef.set({ lastMissingAlert: targetAlertStr, lastMissingAlertAt: Date.now() }, {merge: true});
               const missing = zones.filter(z => !completed.includes(z.id)).map(z => z.name);
               triggerLineAlert("INCOMPLETE_ALERT", { branch: branch, missingZones: missing.join(', ') });
+            } else {
+              await cronRef.set({ lastMissingAlert: targetAlertStr, lastMissingAlertSkippedAt: Date.now() }, {merge: true});
             }
            }
 
@@ -11714,10 +12173,10 @@ return (
         case 'people-onboarding-process': return canAccessBusinessManagement ? <PeopleOnboardingProcessPage onBack={()=>setCurrentPage('people-management')} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
         case 'people-offboarding': return canAccessBusinessManagement ? <PeopleOffboardingPage onBack={()=>setCurrentPage('people-management')} goVoluntary={()=>setCurrentPage('voluntary-offboarding-process')} goInvoluntary={()=>setCurrentPage('involuntary-offboarding-process')} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
         case 'voluntary-offboarding-process': return canAccessBusinessManagement ? <VoluntaryOffboardingProcessPage onBack={()=>setCurrentPage('people-offboarding')} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
-        case 'involuntary-offboarding-process': return canAccessBusinessManagement ? <InvoluntaryOffboardingProcessPage onBack={()=>setCurrentPage('people-offboarding')} goProbation={()=>setCurrentPage('probation-evaluation-form')} goImprovement={()=>setCurrentPage('improvement-interview-form')} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
-        case 'probation-evaluation-form': return canAccessBusinessManagement ? <ProbationEvaluationFormPage onBack={()=>setCurrentPage('involuntary-offboarding-process')} currentBranch={currentBranch} currentUser={currentUser} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
-        case 'improvement-interview-form': return canAccessBusinessManagement ? <ImprovementInterviewFormPage onBack={()=>setCurrentPage('involuntary-offboarding-process')} currentBranch={currentBranch} currentUser={currentUser} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
-        case 'promotion-path': return canAccessBusinessManagement ? <PromotionPathPage onBack={()=>setCurrentPage('ingredients')} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
+        case 'involuntary-offboarding-process': return canAccessBusinessManagement ? <InvoluntaryOffboardingProcessPage onBack={()=>setCurrentPage('people-offboarding')} goProbation={()=>setCurrentPage('probation-evaluation-form')} goImprovement={()=>setCurrentPage('improvement-interview-form')} currentBranch={currentBranch} getPublicPath={getPublicPath} triggerNotify={triggerNotify} isSuperAdmin={isSuperAdmin} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
+        case 'probation-evaluation-form': return canAccessBusinessManagement ? <ProbationEvaluationFormPage onBack={()=>setCurrentPage('involuntary-offboarding-process')} currentBranch={currentBranch} currentUser={currentUser} getPublicPath={getPublicPath} triggerNotify={triggerNotify} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
+        case 'improvement-interview-form': return canAccessBusinessManagement ? <ImprovementInterviewFormPage onBack={()=>setCurrentPage('involuntary-offboarding-process')} currentBranch={currentBranch} currentUser={currentUser} getPublicPath={getPublicPath} triggerNotify={triggerNotify} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
+        case 'promotion-path': return canAccessBusinessManagement ? <PromotionPathPage onBack={()=>setCurrentPage('ingredients')} isSuperAdmin={isSuperAdmin} getPublicPath={getPublicPath} triggerNotify={triggerNotify} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
         case 'admin': return <AdminPage onBack={()=>setCurrentPage('home')} onLogout={logout} announcements={announcements} standards={standards} users={users} triggerNotify={triggerNotify} menu={menuData} onboarding={onboardingData} benefits={benefitsData} rulesData={rulesData} isSuperAdmin={isSuperAdmin} currentBranch={currentBranch} setCurrentBranch={setCurrentBranch} globalBranches={globalBranches} branchZones={branchZones} getPublicPath={getPublicPath} signatures={signatures} tickerText={tickerText} setTickerText={setTickerText} globalRecipes={globalRecipes} currentUser={currentUser} contentStatus={contentStatus} publishContent={publishContent} ingredientData={ingredientData} wasteReports={wasteReports} />;
         default: return <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><Icon name="loader-2" className="animate-spin text-brand-red" size={32}/> 系統啟動中...</div>;
       }
