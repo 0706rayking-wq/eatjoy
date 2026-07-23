@@ -1578,7 +1578,7 @@ window._gameJsReady = false;
            )}
          </div>
          {categories && (
-           <select value={newCat} onChange={e=>setNewCat(e.target.value)} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none appearance-none">
+           <select value={newCat} onChange={e=>setNewCat(e.target.value)} disabled={!isSuperAdmin} className="w-full input-light p-4 rounded-xl text-sm font-bold outline-none appearance-none disabled:opacity-60 disabled:cursor-not-allowed">
             {categories.map(c => <option key={c} value={c}>{c}</option>)}
            </select>
          )}
@@ -4879,18 +4879,436 @@ window._gameJsReady = false;
      );
     };
 
-    const IngredientSpecsPage = ({ onBack, items = [] }) => (
-     <div className="p-4 space-y-4 page-enter text-left pb-10">
-      <BackButton onClick={onBack} title="食材規格" />
-      {items.length > 0 ? items.map((item, idx) => (
-       <RuleStandardBlock key={item.id || idx} id={idx + 1} title={item.title} desc={item.content} img={item.img} />
-      )) : (
-       <div className="py-20 text-center glass-panel rounded-[3rem] border border-dashed bg-white text-slate-300 font-bold text-xs">
-        目前尚未建立食材規格
+    const INGREDIENT_SPEC_CATEGORIES = ['肉品', '蔬菜', '海鮮', '水果', '壽司'];
+    const INGREDIENT_SPEC_CATEGORY_META = {
+     '肉品': { icon:'beef', tone:'rose', desc:'肉品分切、修整與保存規格' },
+     '蔬菜': { icon:'salad', tone:'emerald', desc:'葉菜、根莖與蔬菜前處理規格' },
+     '海鮮': { icon:'fish', tone:'sky', desc:'魚、蝦、貝類的處理與保存規格' },
+     '水果': { icon:'apple', tone:'amber', desc:'水果清洗、切製與保存規格' },
+     '壽司': { icon:'sushi', tone:'orange', desc:'壽司備料、製作與盛盤規格' }
+    };
+    const DEFAULT_INGREDIENT_SPECS = [
+     {
+      id:'spec-meat-m9-wagyu-marbling', category:'肉品', title:'M9+ 和牛霜降',
+      img:'assets/ingredient-specs/meat-m9-wagyu-marbling.jpg', sortOrder:100,
+      content:'肉品資訊：澳洲／腿肉／原塊肉\n供應時段：假日\n每份規格：4 片'
+     },
+     {
+      id:'spec-meat-premium-snowflake-wagyu', category:'肉品', title:'極上雪花和牛',
+      img:'assets/ingredient-specs/meat-premium-snowflake-wagyu.jpg', sortOrder:101,
+      content:'肉品資訊：澳洲／胸腹／原塊肉\n供應時段：全日\n每份規格：4～6 片'
+     },
+     {
+      id:'spec-meat-angus-boneless-short-rib', category:'肉品', title:'安格斯無骨肩小排',
+      img:'assets/ingredient-specs/meat-angus-boneless-short-rib.jpg', sortOrder:102,
+      content:'肉品資訊：肩胛／原塊肉\n供應時段：平日晚餐\n每份規格：6 片'
+     },
+     {
+      id:'spec-meat-wet-aged-marbling-beef', category:'肉品', title:'濕式熟成霜降牛',
+      img:'assets/ingredient-specs/meat-wet-aged-marbling-beef.jpg', sortOrder:103,
+      content:'肉品資訊：美國／肩胛／原塊肉\n供應時段：全日\n每份規格：6 片'
+     },
+     {
+      id:'spec-meat-wet-aged-flat-iron', category:'肉品', title:'濕式熟成板腱牛',
+      img:'assets/ingredient-specs/meat-wet-aged-flat-iron.jpg', sortOrder:104,
+      content:'肉品資訊：美國／肩胛／原塊肉\n供應時段：全日\n每份規格：8 片'
+     },
+     {
+      id:'spec-meat-wet-aged-snowflake-beef', category:'肉品', title:'濕式熟成雪花牛',
+      img:'assets/ingredient-specs/meat-wet-aged-snowflake-beef.jpg', sortOrder:105,
+      content:'肉品資訊：美國／胸腹／原塊肉\n供應時段：全日\n每份規格：10 片'
+     },
+     {
+      id:'spec-meat-herb-pork', category:'肉品', title:'霜降香草豬',
+      img:'assets/ingredient-specs/meat-herb-pork.jpg', sortOrder:106,
+      content:'肉品資訊：台灣／腹脅／原塊肉\n供應時段：全時段\n每份規格：8 片'
+     },
+     {
+      id:'spec-meat-premium-pork-collar', category:'肉品', title:'極上好豚梅花豬',
+      img:'assets/ingredient-specs/meat-premium-pork-collar.jpg', sortOrder:107,
+      content:'肉品資訊：台灣／肩胛／原塊肉\n供應時段：全時段\n每份規格：10 片'
+     },
+     {
+      id:'spec-meat-pork-belly', category:'肉品', title:'白霜大腹豬五花',
+      img:'assets/ingredient-specs/meat-pork-belly.jpg', sortOrder:108,
+      content:'肉品資訊：台灣／腹脅／原塊肉\n供應時段：平日晚餐\n每份規格：8～10 片'
+     },
+     {
+      id:'spec-meat-lamb-shoulder', category:'肉品', title:'小羔羊',
+      img:'assets/ingredient-specs/meat-lamb-shoulder.jpg', sortOrder:109,
+      content:'肉品資訊：紐奧／羊肩／組合肉\n供應時段：全時段\n每份規格：8 片'
+     },
+     {
+      id:'spec-meat-cherry-duck', category:'肉品', title:'台灣豪饗櫻桃鴨',
+      img:'assets/ingredient-specs/meat-cherry-duck.jpg', sortOrder:110,
+      content:'肉品資訊：台灣／鴨腿／原塊肉\n供應時段：全時段\n每份規格：10 片'
+     },
+     {
+      id:'spec-meat-a5-wagyu-ume-roll', category:'肉品', title:'日本 A5 和牛－梅花捲',
+      img:'assets/ingredient-specs/meat-a5-wagyu-ume-roll.jpg', sortOrder:111,
+      content:'肉品資訊：梅花捲／原塊肉\n供應時段：1688 限定\n每份規格：6 片'
+     },
+     {
+      id:'spec-meat-a5-wagyu-kameko', category:'肉品', title:'日本 A5 和牛－龜子',
+      img:'assets/ingredient-specs/meat-a5-wagyu-kameko.jpg', sortOrder:112,
+      content:'肉品資訊：龜子／原塊肉\n供應時段：1688 限定\n每份規格：6 片'
+     },
+     {
+      id:'spec-meat-a5-wagyu-shinshu-tritip', category:'肉品', title:'日本 A5 和牛－信州三叉',
+      img:'assets/ingredient-specs/meat-a5-wagyu-shinshu-tritip.jpg', sortOrder:113,
+      content:'肉品資訊：信州三叉／原塊肉\n供應時段：1688 限定\n每份規格：6 片'
+     },
+     {
+      id:'spec-meat-beef-tongue', category:'肉品', title:'牛舌',
+      img:'assets/ingredient-specs/meat-beef-tongue.jpg', sortOrder:114,
+      content:'供應方式：壽星招待\n每份規格：7 片'
+     },
+     {
+      id:'spec-vegetable-napa-cabbage', category:'蔬菜', title:'大白菜',
+      img:'assets/ingredient-specs/vegetable-napa-cabbage.jpg', sortOrder:0,
+      content:'1. 先撥掉外層較爛、較綠的葉子\n2. 將大白菜對切後去除菜心\n3. 將對切的大白菜再次對切\n4. 依每段 3～4 公分切塊\n5. 用綠籃裝起清洗乾淨\n6. 最後放入竹籃，出於檯面即可'
+     },
+     {
+      id:'spec-vegetable-a-choy', category:'蔬菜', title:'A菜',
+      img:'assets/ingredient-specs/vegetable-a-choy.jpg', sortOrder:1,
+      content:'1. 取少許 A 菜排放整齊\n2. 去除少許菜梗\n3. 將剩餘菜葉部分對半\n4. 將其清洗乾淨（一定要清洗兩次，A 菜較多泥土）\n5. 最後放入竹籃，出於檯面即可'
+     },
+     {
+      id:'spec-vegetable-you-choy', category:'蔬菜', title:'油菜',
+      img:'assets/ingredient-specs/vegetable-you-choy.jpg', sortOrder:2,
+      content:'1. 取少許油菜排放整齊\n2. 去除少許菜梗\n3. 將菜葉清洗乾淨\n4. 最後放入竹籃，出於檯面即可'
+     },
+     {
+      id:'spec-vegetable-water-lotus', category:'蔬菜', title:'水蓮',
+      img:'assets/ingredient-specs/vegetable-water-lotus.jpg', sortOrder:3,
+      content:'1. 先將水蓮從袋子拿出來，全部放於水槽\n2. 條件符合下拿兩塊砧板橫放在一起\n3. 以三把至五把排放整齊，放置砧板上\n4. 將少許根部去除，橡皮筋綁住要保留的部分\n5. 以每段 10 公分分段切\n6. 最後如不夠 10 公分，請平均對半\n7. 切完請放蔬菜區塑膠盒，橫放剛好可以放兩排'
+     },
+     {
+      id:'spec-meat-beef-tripe', category:'海鮮', title:'毛肚', img:'assets/ingredient-specs/meat-beef-tripe.jpg', sortOrder:196,
+      content:'1. 將毛肚打開倒進瀝水盆清洗乾淨\n2. 取出一片，以每 1 公分用鋒利的刀垂直於紋理切成條狀\n3. 每條需要有 8～10 公分\n4. 將切完的毛肚放置 PC 盒保存\n\n注意事項：\n1. 標籤紙要寫品項日期\n2. 出檯面前請先沖洗過後再出餐'
+     },
+     {
+      id:'spec-meat-duck-intestine', category:'海鮮', title:'鴨腸', img:'assets/ingredient-specs/meat-duck-intestine.jpg', sortOrder:197,
+      content:'1. 將鴨腸打開倒進瀝水盆清洗乾淨\n2. 鴨腸會有黏黏稠稠的汁液，一定要洗兩次以上\n3. 清洗好後用手將鴨腸抓一把起來，以每 20 公分剪斷\n4. 將剪完的鴨腸放置 PC 盒保存\n\n注意事項：\n1. 標籤紙要寫品項日期\n2. 出檯面前請先沖洗過後再出餐\n3. 鴨腸煮後會縮水，請勿剪太短'
+     },
+     {
+      id:'spec-meat-pork-liver', category:'海鮮', title:'豬肝', img:'assets/ingredient-specs/meat-pork-liver.jpg', sortOrder:198,
+      content:'1. 將整塊豬肝拿出來放置砧板上\n2. 整塊豬肝有五葉，把每葉切下來\n3. 將豬肝以每 0.5 公分切片\n4. 將切好的豬肝放進 PC 盒保存\n\n注意事項：\n1. 每日豬肝空後請切一包就好，請勿多切\n2. 豬肝請勿過水，肉質會變色'
+     },
+     {
+      id:'spec-meat-pork-aorta', category:'海鮮', title:'豬脆管', img:'assets/ingredient-specs/meat-pork-aorta.jpg', sortOrder:199,
+      content:'1. 將脆管打開倒進瀝水盆清洗乾淨\n2. 請清洗至少兩次以上\n3. 將清洗好的脆管放進 PC 盒保存\n\n注意事項：\n1. 標籤紙要寫品項日期\n2. 出檯面前請先沖洗過後再出餐'
+     },
+     {
+      id:'spec-seafood-tilapia-skin', category:'海鮮', title:'鯛魚皮', img:'assets/ingredient-specs/seafood-tilapia-skin.jpg', sortOrder:200,
+      content:'1. 將魚皮打開倒進瀝水盆清洗乾淨\n2. 每片分成三段（如果較小可分二段）\n3. 將切完的魚皮放置 PC 盒保存\n\n注意事項：\n1. 標籤紙要寫品項日期\n2. 出檯面前請先沖洗過後再出餐\n3. 魚皮煮後會縮水，請勿切太小塊'
+     },
+     {
+      id:'spec-seafood-crab', category:'海鮮', title:'螃蟹', img:'assets/ingredient-specs/seafood-crab.jpg', sortOrder:201,
+      content:'1. 將螃蟹倒入瀝水盆或水槽\n2. 沖水將螃蟹微退冰，至外層沒有包冰\n3. 用剪刀或手將蟹臍以及口中的沙袋去除\n4. 將處理好的螃蟹出於檯面即可\n\n注意事項：\n1. 假日可以多殺起來放在 PC 盒內，保存於海鮮冰箱\n2. 平日盡量不要剩太多，能現殺就現殺'
+     },
+     {
+      id:'spec-seafood-sea-bass', category:'海鮮', title:'鱸魚', img:'assets/ingredient-specs/seafood-mullet-fillet.jpg', sortOrder:202,
+      content:'1. 將鱸魚取出，皮朝下放置砧板上\n2. 沿著魚中間對半，對半後翻回正面\n3. 以每 2 公分、45 度角斜切魚片\n4. 將切完的魚片放入圓盤，出於檯面即可\n\n注意事項：\n1. 鱸魚皮偏硬，刀需磨利再做分切\n2. 每片頭尾會有差異，請按照比例分切\n3. 一盤鱸魚全滿可以切 4～5 片'
+     },
+     {
+      id:'spec-seafood-basa', category:'海鮮', title:'巴沙魚', img:'assets/ingredient-specs/seafood-basa-fillet.jpg', sortOrder:203,
+      content:'1. 將巴沙魚有紋路那一面朝上放置砧板上\n2. 以每 2～3 公分、45 度角斜切魚片\n3. 將切完的魚片放入圓盤，出於檯面即可\n\n注意事項：\n1. 每片頭尾會有差異，請按照比例分切\n2. 一盤巴沙魚全滿可以切 3 包'
+     },
+     {
+      id:'spec-seafood-grouper', category:'海鮮', title:'石狗公', img:'assets/ingredient-specs/seafood-grouper-fillet.jpg', sortOrder:204,
+      content:'1. 將石狗公皮朝上放置砧板上\n2. 以每公分 2 公分、45 度角斜切魚片\n3. 將切完的魚片放入圓盤，出於檯面即可\n\n注意事項：\n1. 每片頭尾會有差異，請按照比例分切\n2. 一盤石狗公全滿可以切 8 片'
+     },
+     {
+      id:'spec-seafood-konjac-squid', category:'海鮮', title:'蒟蒻小卷', img:'assets/ingredient-specs/seafood-konjac-squid.jpg', sortOrder:205,
+      content:'1. 將脆管打開倒進瀝水盆清洗乾淨\n2. 請清洗至少兩次以上\n3. 將清洗好的蒟蒻小卷出於檯面即可'
+     },
+     {
+      id:'spec-seafood-whelk', category:'海鮮', title:'雪螺', img:'assets/ingredient-specs/seafood-whelk.jpg', sortOrder:206,
+      content:'1. 將雪螺打開倒進瀝水盆清洗乾淨\n2. 請清洗至少兩次以上\n3. 將清洗好的雪螺出於檯面即可\n\n注意事項：\n1. 海鮮冰箱每日最多退 3 包即可'
+     },
+     {
+      id:'spec-seafood-squid-flower', category:'海鮮', title:'魷魚花', img:'assets/ingredient-specs/seafood-squid-flower.jpg', sortOrder:207,
+      content:'1. 將魷魚花打開倒進瀝水盆清洗乾淨\n2. 請清洗至少兩次以上\n3. 將清洗好的魷魚花放進 PC 盒保存\n\n注意事項：\n1. 標籤紙要寫品項日期\n2. 出檯面前請先沖洗過後再出餐'
+     },
+     {
+      id:'spec-seafood-oyster', category:'海鮮', title:'鮮蚵／蚵仔', img:'assets/ingredient-specs/seafood-oyster.jpg', sortOrder:208,
+      content:'1. 用瀝水盆儲一盆水\n2. 將鮮蚵打開倒進瀝水盆\n3. 加入一匙蘿蔔泥，將鮮蚵清洗乾淨\n4. 將水瀝掉後再清洗第二次（不可用強水）\n5. 將洗好的鮮蚵出於檯面即可\n\n注意事項：\n1. 一水產盒鮮蚵全滿可洗大包半包；如果小包需洗 4 包\n2. 廠商送鮮蚵來必須立刻將其打開，倒冰塊進去\n3. 鮮蚵要幾包拿幾包，請勿多拿到海鮮冰箱'
+     },
+     {
+      id:'spec-seafood-milkfish-skin', category:'海鮮', title:'虱目魚皮', img:'assets/ingredient-specs/seafood-milkfish-skin.jpg', sortOrder:209,
+      content:'1. 將魚皮一包打開倒進瀝水籃\n2. 將血水沖洗乾淨\n3. 取出沖好的魚皮，一片一片放置砧板上\n4. 用刀把每片魚鱗刮乾淨\n5. 將全部刮好的魚皮放好\n6. 將魚皮分三段\n7. 將切完的魚皮放入圓盤，出於檯面即可'
+     },
+     {
+      id:'spec-seafood-milkfish-fillet', category:'海鮮', title:'虱目魚柳', img:'assets/ingredient-specs/seafood-milkfish-fillet.jpg', sortOrder:210,
+      content:'1. 將魚柳打開倒置砧板上\n2. 把魚柳排整齊後對切\n3. 將切完的魚柳放入圓盤，出於檯面即可\n\n注意事項：\n1. 魚柳不可以過水，肉會變色\n2. 出於檯面時也不需要加冰塊\n3. 有些會有小塊的魚柳，就不需要對切'
+     },
+     {
+      id:'spec-vegetable-cabbage', category:'蔬菜', title:'高麗菜', img:'assets/ingredient-specs/vegetable-cabbage.jpg', sortOrder:300,
+      content:'1. 先撥掉外層較爛的葉子\n2. 高麗菜對切\n3. 去掉菜心（菜心要留著）\n4. 一半的高麗菜一開三\n5. 將水槽口堵住，儲水\n6. 將切好的高麗菜放進水槽泡水清洗\n7. 洗好後拿大綠籃，有洞加沒洞，放進籃內即可\n8. 冰進大冷藏時要蓋白抹布、打標籤紙'
+     },
+     {
+      id:'spec-vegetable-bok-choy', category:'蔬菜', title:'青江菜', img:'assets/ingredient-specs/vegetable-bok-choy.jpg', sortOrder:301,
+      content:'1. 將少許青江菜排放整齊\n2. 去掉少許菜梗\n3. 將去掉菜梗的青江菜清洗乾淨\n4. 挑掉爛掉以及不好的部分\n5. 最後放進竹籃內，出檯面即可'
+     },
+     {
+      id:'spec-vegetable-baby-bok-choy', category:'蔬菜', title:'小白菜', img:'assets/ingredient-specs/vegetable-baby-bok-choy.jpg', sortOrder:302,
+      content:'1. 將少許小白菜排放整齊\n2. 去掉少許菜梗\n3. 將去掉菜梗的小白菜清洗乾淨\n4. 挑掉爛掉以及不好的部分\n5. 最後放進竹籃內，出檯面即可'
+     },
+     {
+      id:'spec-vegetable-romaine', category:'蔬菜', title:'大陸妹', img:'assets/ingredient-specs/vegetable-romaine.jpg', sortOrder:303,
+      content:'1. 將外層爛葉、枯葉去除\n2. 用刀子或用手將梗部去除\n3. 採開檢查是否有異物後清洗乾淨\n4. 最後放進竹籃內，出檯面即可\n\n注意事項：\n1. 假日可以一次洗多一點，放在大綠籃'
+     },
+     {
+      id:'spec-vegetable-white-bitter-melon', category:'蔬菜', title:'白苦瓜', img:'assets/ingredient-specs/vegetable-white-bitter-melon.jpg', sortOrder:304,
+      content:'1. 將苦瓜清洗乾淨，去頭尾\n2. 將苦瓜對半\n3. 用湯匙將苦瓜內部刮乾淨\n4. 橫放在砧板，以每 1.5 公分切段\n5. 最後將其放進根莖類盒子\n6. 用清水沖洗過後出於檯面即可（需泡水出於檯面）'
+     },
+     {
+      id:'spec-vegetable-bitter-melon', category:'蔬菜', title:'山苦瓜', img:'assets/ingredient-specs/vegetable-bitter-melon.jpg', sortOrder:305,
+      content:'1. 將苦瓜清洗乾淨，去頭尾\n2. 將苦瓜對半\n3. 用湯匙將苦瓜內部刮乾淨\n4. 橫放在砧板，以每 1.5 公分切段\n5. 最後將其放進根莖類盒子\n6. 用清水沖洗過後出於檯面即可（需泡水出於檯面）'
+     },
+     {
+      id:'spec-vegetable-carrot', category:'蔬菜', title:'紅蘿蔔', img:'assets/ingredient-specs/vegetable-carrot.jpg', sortOrder:306,
+      content:'1. 將蘿蔔去頭尾\n2. 拿削皮刀把外皮削掉\n3. 將蘿蔔對半\n4. 較粗的部分以 1 公分切片；較細的部分以 2 公分切塊\n5. 最後將其放進根莖類盒子\n6. 用清水沖洗過後出於檯面即可（需泡水出於檯面）'
+     },
+     {
+      id:'spec-vegetable-loofah', category:'蔬菜', title:'絲瓜', img:'assets/ingredient-specs/vegetable-loofah.jpg', sortOrder:307,
+      content:'1. 先去除頭尾\n2. 將外皮用削皮刀削掉，請將皮薄薄削，勿削太深，保留紋路\n3. 將絲瓜對半\n4. 以每段 1.5 公分切段\n5. 將切完的絲瓜放進菜盒，出於檯面即可'
+     },
+     {
+      id:'spec-vegetable-cucumber', category:'蔬菜', title:'大黃瓜', img:'assets/ingredient-specs/vegetable-cucumber.jpg', sortOrder:308,
+      content:'1. 先將大黃瓜去除頭尾\n2. 將外皮用削皮刀削掉，勿將皮削過薄\n3. 將大黃瓜對半\n4. 將心用湯匙挖出來\n5. 以每 2～3 公分用波浪刨斜切\n6. 將切完的大黃瓜放進菜盒，出於檯面即可'
+     },
+     {
+      id:'spec-vegetable-pumpkin', category:'蔬菜', title:'南瓜', img:'assets/ingredient-specs/vegetable-pumpkin.jpg', sortOrder:309,
+      content:'1. 將南瓜外皮清洗乾淨並擦乾\n2. 去除頭尾，將南瓜對半\n3. 將南瓜以 3 公分切段，每段再分 3～4 塊\n4. 將每小塊的種子部分切除\n5. 將切好的放進透明塑膠盒\n\n注意事項：\n1. 南瓜一定要擦到非常乾\n2. 標籤紙要寫品項日期'
+     },
+     {
+      id:'spec-vegetable-yellow-sweet-potato', category:'蔬菜', title:'黃地瓜', img:'assets/ingredient-specs/vegetable-yellow-sweet-potato.jpg', sortOrder:310,
+      content:'1. 將黃地瓜用削皮刀去除外皮；如果長得比較畸形，可以先切開再削皮\n2. 將黃地瓜對半之後再對半\n3. 以每 3 公分 × 3 公分切塊\n4. 切完後放入根莖類盒內沖水清洗，須清洗到水變清澈\n5. 用清水沖洗過後出於檯面即可（需泡水出於檯面）'
+     },
+     {
+      id:'spec-vegetable-purple-sweet-potato', category:'蔬菜', title:'紫地瓜', img:'assets/ingredient-specs/vegetable-purple-sweet-potato.jpg', sortOrder:311,
+      content:'1. 將紫地瓜用削皮刀去除外皮；如果長得比較畸形，可以先切開再削皮\n2. 將紫地瓜對半之後再對半\n3. 以每 3 公分 × 3 公分切塊\n4. 切完後放入根莖類盒內沖水清洗，須清洗到水變清澈\n5. 用清水沖洗過後出於檯面即可（需泡水出於檯面）'
+     },
+     {
+      id:'spec-vegetable-daikon', category:'蔬菜', title:'白蘿蔔', img:'assets/ingredient-specs/vegetable-daikon.jpg', sortOrder:312,
+      content:'1. 將蘿蔔去頭尾\n2. 拿削皮刀把外皮削掉\n3. 將蘿蔔對半\n4. 將蘿蔔以 0.5～0.8 公分切片\n5. 最後將其放進根莖類盒子\n6. 用清水沖洗過後出於檯面即可（需泡水出於檯面）'
+     },
+     {
+      id:'spec-vegetable-wood-ear', category:'蔬菜', title:'黑木耳', img:'assets/ingredient-specs/vegetable-wood-ear.jpg', sortOrder:313,
+      content:'1. 將木耳取出，或是放在砧板上\n2. 使用菜刀或剪刀去除木耳梗部\n3. 將去掉梗部的木耳以 7 公分 × 7 公分切成片\n4. 將切好的木耳放入透明菜盒即可\n\n注意事項：\n1. 標籤紙要寫品項日期'
+     },
+     {
+      id:'spec-vegetable-corn', category:'蔬菜', title:'玉米', img:'assets/ingredient-specs/vegetable-corn.jpg', sortOrder:314,
+      content:'1. 將玉米取出放在砧板上\n2. 用剁刀去除頭尾（將頭尾留著跟高麗菜心放一起）\n3. 以每 3.5～4 公分切成段\n4. 將切好的玉米放進透明菜盒即可\n\n注意事項：\n1. 標籤紙要寫品項日期'
+     },
+     {
+      id:'spec-fruit-grapefruit', category:'水果', title:'葡萄柚', img:'assets/ingredient-specs/fruit-grapefruit.jpg', sortOrder:400,
+      content:'1. 將葡萄柚去除頭尾\n2. 用西瓜刀或水果刀將其對半\n3. 每對半的葡萄柚再切成三半\n4. 再將每半的白色皮囊切除\n5. 最後整齊放進水果盤，出於檯面即可'
+     },
+     {
+      id:'spec-fruit-pineapple', category:'水果', title:'鳳梨', img:'assets/ingredient-specs/fruit-pineapple.jpg', sortOrder:401,
+      content:'1. 將鳳梨去除頭尾\n2. 用西瓜刀或水果刀將外皮削掉，必須削到看不到黑點\n3. 將削完皮的鳳梨對半\n4. 對半後的鳳梨直放對半；如果比較大顆可以分三半\n5. 以每 1.5～2 公分切片\n6. 最後放進水果盤，出於檯面即可'
+     },
+     {
+      id:'spec-fruit-mango', category:'水果', title:'芒果', img:'assets/ingredient-specs/fruit-mango.jpg', sortOrder:402,
+      content:'1. 先將芒果外皮用削皮刀削掉\n2. 將削好的芒果去除頭尾\n3. 以橫擺的方式沿著中間的籽把果肉切下來\n4. 兩側果肉切下來後，將籽的較寬兩側果肉也切下來\n5. 將果肉對半後，以每 2.5 公分切塊；兩側小果肉以適量大小切塊\n6. 最後放進水果盤，出於檯面即可\n\n注意事項：\n1. 假日可以切一點放菜區透明塑膠盒備用，或是一到二盤放冰箱'
+     },
+     {
+      id:'spec-fruit-watermelon', category:'水果', title:'西瓜', img:'assets/ingredient-specs/fruit-watermelon.jpg', sortOrder:403,
+      content:'1. 將西瓜抱進水槽清洗乾淨後對半\n2. 將一邊的西瓜放在砧板上，去掉頭部\n3. 再將西瓜對半後會得到半圓形西瓜\n4. 將半圓形西瓜切開成四半\n5. 以每 2 公分將每半切片\n6. 將切好的西瓜整齊放進水果長盤，出於檯面即可\n\n注意事項：\n1. 可以排滿一層後，將第二層側靠在第一層，這樣可以放更多\n2. 假日可以多背幾盤放冰箱'
+     },
+     {
+      id:'spec-sushi-lobster-salad-gunkan', category:'壽司', title:'龍蝦沙拉軍艦',
+      img:'assets/ingredient-specs/sushi-lobster-salad-gunkan.jpg', sortOrder:500,
+      content:'成品標準：內餡份量、海苔包覆與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-crab-paste-gunkan', category:'壽司', title:'蟹膏軍艦',
+      img:'assets/ingredient-specs/sushi-crab-paste-gunkan.jpg', sortOrder:501,
+      content:'成品標準：內餡份量、海苔包覆與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-shrimp-roe-gunkan', category:'壽司', title:'蝦卵軍艦',
+      img:'assets/ingredient-specs/sushi-shrimp-roe-gunkan.jpg', sortOrder:502,
+      content:'成品標準：內餡份量、海苔包覆與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-corn-salad-gunkan', category:'壽司', title:'玉米沙拉軍艦',
+      img:'assets/ingredient-specs/sushi-corn-salad-gunkan.jpg', sortOrder:503,
+      content:'成品標準：內餡份量、海苔包覆與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-swordfish-nigiri', category:'壽司', title:'旗魚握壽司',
+      img:'assets/ingredient-specs/sushi-swordfish-nigiri.jpg', sortOrder:504,
+      content:'成品標準：魚片覆蓋、醋飯比例與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-seared-beef', category:'壽司', title:'炙燒牛肉壽司',
+      img:'assets/ingredient-specs/sushi-seared-beef.jpg', sortOrder:505,
+      content:'成品標準：牛肉覆蓋、醬汁與芝麻份量、醋飯比例及盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-conger-eel', category:'壽司', title:'星鰻壽司',
+      img:'assets/ingredient-specs/sushi-conger-eel.jpg', sortOrder:506,
+      content:'成品標準：星鰻覆蓋、醬汁與芝麻份量、醋飯比例及盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-seared-cheese-prawn', category:'壽司', title:'炙燒起司大蝦壽司',
+      img:'assets/ingredient-specs/sushi-seared-cheese-prawn.jpg', sortOrder:507,
+      content:'成品標準：大蝦覆蓋、炙燒起司份量、醋飯比例與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-mentaiko-prawn', category:'壽司', title:'明太子大蝦壽司',
+      img:'assets/ingredient-specs/sushi-mentaiko-prawn.jpg', sortOrder:508,
+      content:'成品標準：大蝦覆蓋、明太子醬份量、醋飯比例與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-caramelized-prawn', category:'壽司', title:'炙燒焦糖大蝦壽司',
+      img:'assets/ingredient-specs/sushi-caramelized-prawn.jpg', sortOrder:509,
+      content:'成品標準：大蝦覆蓋、焦糖炙燒程度、醋飯比例與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-seared-cheese-salmon', category:'壽司', title:'炙燒起司鮭魚壽司',
+      img:'assets/ingredient-specs/sushi-seared-cheese-salmon.jpg', sortOrder:510,
+      content:'成品標準：鮭魚覆蓋、炙燒起司份量、醋飯比例與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-caramelized-salmon', category:'壽司', title:'炙燒焦糖鮭魚壽司',
+      img:'assets/ingredient-specs/sushi-caramelized-salmon.jpg', sortOrder:511,
+      content:'成品標準：鮭魚覆蓋、焦糖炙燒程度、醋飯比例與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-mentaiko-salmon', category:'壽司', title:'明太子鮭魚壽司',
+      img:'assets/ingredient-specs/sushi-mentaiko-salmon.jpg', sortOrder:512,
+      content:'成品標準：鮭魚覆蓋、明太子醬份量、醋飯比例與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-seared-salmon', category:'壽司', title:'炙燒鮭魚壽司',
+      img:'assets/ingredient-specs/sushi-seared-salmon.jpg', sortOrder:513,
+      content:'成品標準：鮭魚覆蓋、炙燒程度、醋飯比例與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-lobster-salad-inari', category:'壽司', title:'龍蝦沙拉豆皮壽司',
+      img:'assets/ingredient-specs/sushi-lobster-salad-inari.jpg', sortOrder:514,
+      content:'成品標準：龍蝦沙拉份量、豆皮包覆、醋飯比例與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-crab-paste-inari', category:'壽司', title:'蟹膏豆皮壽司',
+      img:'assets/ingredient-specs/sushi-crab-paste-inari.jpg', sortOrder:515,
+      content:'成品標準：蟹膏份量、豆皮包覆、醋飯比例與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-corn-salad-inari', category:'壽司', title:'玉米沙拉豆皮壽司',
+      img:'assets/ingredient-specs/sushi-corn-salad-inari.jpg', sortOrder:516,
+      content:'成品標準：玉米沙拉份量、豆皮包覆、醋飯比例與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-shrimp-roe-inari', category:'壽司', title:'蝦卵豆皮壽司',
+      img:'assets/ingredient-specs/sushi-shrimp-roe-inari.jpg', sortOrder:517,
+      content:'成品標準：蝦卵份量、豆皮包覆、醋飯比例與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-seared-cheese-red-shrimp', category:'壽司', title:'炙燒起司天使紅蝦',
+      img:'assets/ingredient-specs/sushi-seared-cheese-red-shrimp.jpg', sortOrder:518,
+      content:'成品標準：天使紅蝦覆蓋、炙燒起司份量、醋飯比例與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-caramelized-red-shrimp', category:'壽司', title:'炙燒焦糖天使紅蝦',
+      img:'assets/ingredient-specs/sushi-caramelized-red-shrimp.jpg', sortOrder:519,
+      content:'成品標準：天使紅蝦覆蓋、焦糖炙燒程度、醋飯比例與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-mentaiko-red-shrimp', category:'壽司', title:'炙燒明太子天使紅蝦',
+      img:'assets/ingredient-specs/sushi-mentaiko-red-shrimp.jpg', sortOrder:520,
+      content:'成品標準：天使紅蝦覆蓋、明太子醬份量、醋飯比例與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-seared-cheese-tamagoyaki', category:'壽司', title:'炙燒起司玉子燒壽司',
+      img:'assets/ingredient-specs/sushi-seared-cheese-tamagoyaki.jpg', sortOrder:521,
+      content:'成品標準：玉子燒覆蓋、炙燒起司份量、醋飯比例與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-mentaiko-tamagoyaki', category:'壽司', title:'炙燒明太子玉子燒壽司',
+      img:'assets/ingredient-specs/sushi-mentaiko-tamagoyaki.jpg', sortOrder:522,
+      content:'成品標準：玉子燒覆蓋、明太子醬份量、醋飯比例與盛盤外觀依照片呈現'
+     },
+     {
+      id:'spec-sushi-caramelized-tamagoyaki', category:'壽司', title:'炙燒焦糖玉子燒壽司',
+      img:'assets/ingredient-specs/sushi-caramelized-tamagoyaki.jpg', sortOrder:523,
+      content:'成品標準：玉子燒覆蓋、焦糖炙燒程度、醋飯比例與盛盤外觀依照片呈現'
+     }
+    ];
+
+    const IngredientSpecsPage = ({ onBack, items = [] }) => {
+     const [selectedCategory, setSelectedCategory] = useState(null);
+     const [selectedItem, setSelectedItem] = useState(null);
+     const sortedItems = useMemo(() => [...(items || [])].sort((a,b)=>(a.sortOrder ?? 999999) - (b.sortOrder ?? 999999)), [items]);
+     const categoryItems = selectedCategory ? sortedItems.filter(item => item.category === selectedCategory) : [];
+     const toneClasses = {
+      rose:'bg-rose-50 text-rose-600 border-rose-100', emerald:'bg-emerald-50 text-emerald-600 border-emerald-100',
+      sky:'bg-sky-50 text-sky-600 border-sky-100', amber:'bg-amber-50 text-amber-600 border-amber-100',
+      orange:'bg-orange-50 text-orange-600 border-orange-100'
+     };
+
+     if (selectedItem) {
+      return (
+       <div className="p-4 space-y-5 page-enter text-left pb-12">
+        <BackButton onClick={()=>setSelectedItem(null)} title={selectedItem.title || '食材規格'} />
+        <div className="bg-white border border-slate-100 rounded-[2rem] overflow-hidden shadow-sm">
+         {selectedItem.img && <img src={selectedItem.img} className="w-full aspect-[4/3] object-cover bg-slate-100" alt={selectedItem.title || '食材照片'} />}
+         <div className="p-5 space-y-4">
+          <div className="flex items-start justify-between gap-3">
+           <div><p className="text-[10px] font-black text-emerald-600 mb-1">{selectedItem.category || '未分類'}</p><h2 className="text-2xl font-black text-slate-800">{selectedItem.title}</h2></div>
+           <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0"><Icon name="clipboard-check" size={20}/></div>
+          </div>
+          <div className="border-t border-slate-100 pt-4 space-y-3">
+           {(selectedItem.content || '').split('\n').filter(Boolean).map((line, idx)=><p key={idx} className="text-sm font-bold text-slate-600 leading-relaxed">{line}</p>)}
+          </div>
+         </div>
+        </div>
        </div>
-      )}
-     </div>
-    );
+      );
+     }
+
+     if (selectedCategory) {
+      const meta = INGREDIENT_SPEC_CATEGORY_META[selectedCategory] || {icon:'folder',tone:'rose',desc:'食材處理規格'};
+      return (
+       <div className="p-4 space-y-5 page-enter text-left pb-12">
+        <BackButton onClick={()=>setSelectedCategory(null)} title={selectedCategory} />
+        <div className={`p-5 rounded-2xl border ${toneClasses[meta.tone] || toneClasses.rose}`}>
+         <div className="flex items-center gap-3"><Icon name={meta.icon} size={24}/><div><h2 className="font-black text-lg">{selectedCategory}</h2><p className="text-[11px] font-bold opacity-75 mt-0.5">{meta.desc}</p></div></div>
+        </div>
+        {categoryItems.length ? <div className="grid grid-cols-2 gap-3">
+         {categoryItems.map(item => (
+          <button key={item.id} onClick={()=>setSelectedItem(item)} className="bg-white border border-slate-100 rounded-2xl overflow-hidden text-left shadow-sm active:scale-[0.98] transition-all min-w-0">
+           {item.img ? <img src={item.img} className="w-full aspect-[4/3] object-cover bg-slate-100" alt={item.title || '食材照片'} /> : <div className="w-full aspect-[4/3] bg-slate-50 flex items-center justify-center text-slate-300"><Icon name="image" size={28}/></div>}
+           <div className="p-3 flex items-center justify-between gap-2"><span className="font-black text-sm text-slate-800 truncate">{item.title}</span><Icon name="chevron-right" size={16} className="text-slate-300 shrink-0"/></div>
+          </button>
+         ))}
+        </div> : <div className="py-16 text-center bg-white rounded-2xl border border-dashed text-slate-400 text-xs font-bold">此分類尚未建立食材規格</div>}
+       </div>
+      );
+     }
+
+     return (
+      <div className="p-4 space-y-5 page-enter text-left pb-12">
+       <BackButton onClick={onBack} title="食材規格" />
+       <div><h2 className="text-xl font-black text-slate-800">依食材分類查找</h2><p className="text-xs font-bold text-slate-400 mt-1">選擇分類後查看各項食材的實拍照片與文字規格</p></div>
+       <div className="grid grid-cols-2 gap-3">
+        {INGREDIENT_SPEC_CATEGORIES.map(category => {
+         const meta = INGREDIENT_SPEC_CATEGORY_META[category];
+         const count = sortedItems.filter(item => item.category === category).length;
+         return <button key={category} onClick={()=>setSelectedCategory(category)} className="bg-white border border-slate-100 rounded-2xl p-4 text-left shadow-sm active:scale-[0.98] transition-all min-h-[132px] flex flex-col justify-between">
+          <div className={`w-11 h-11 rounded-xl border flex items-center justify-center ${toneClasses[meta.tone]}`}><Icon name={meta.icon} size={22}/></div>
+          <div><div className="flex items-center justify-between gap-2"><h3 className="text-base font-black text-slate-800">{category}</h3><Icon name="chevron-right" size={16} className="text-slate-300"/></div><p className="text-[10px] font-bold text-slate-400 mt-1">{count} 項食材</p></div>
+         </button>;
+        })}
+       </div>
+      </div>
+     );
+    };
 
     const IngredientWasteReportPage = ({ onBack, currentBranch, currentUser, getPublicPath, triggerNotify, reports = [], isSuperAdmin = false }) => {
      const [form, setForm] = useState({
@@ -10949,7 +11367,7 @@ return (
             {subCat === 'waste' ? (
              <WasteReportsAdminList reports={wasteReports} getPublicPath={getPublicPath} triggerNotify={triggerNotify} />
             ) : (
-             <UniversalListManager categoryPath="ingredients/specs" currentBranch={currentBranch} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} items={ingredientData?.specs || []} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />
+             <UniversalListManager categoryPath="ingredients/specs" currentBranch={currentBranch} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} items={ingredientData?.specs || []} titleLabel="食材名稱" categories={INGREDIENT_SPEC_CATEGORIES} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />
             )}
            </div>
          )}
@@ -11975,6 +12393,318 @@ return (
         ruleSubs.forEach(un => un());
       };
      }, [user, currentBranch]);
+
+     useEffect(() => {
+      if (!user || !currentBranch || !isSuperAdmin) return;
+      let cancelled = false;
+      const seedIngredientSpecs = async () => {
+       const markerRef = db.doc(getPublicPath(`ingredients/spec_seed_v2_${currentBranch}`));
+       try {
+        const marker = await markerRef.get();
+        if (marker.exists || cancelled) return;
+        const collectionRef = db.collection(getPublicPath(`ingredients/specs_${currentBranch}/items`));
+        const existing = await collectionRef.get();
+        const existingIds = new Set(existing.docs.map(doc => doc.id));
+        const batch = db.batch();
+        DEFAULT_INGREDIENT_SPECS.forEach((item, index) => {
+         if (!existingIds.has(item.id)) batch.set(collectionRef.doc(item.id), {...item, timestamp:Date.now() + index, updateTime:Date.now()}, {merge:true});
+        });
+        batch.set(markerRef, {done:true, seededAt:Date.now(), itemCount:DEFAULT_INGREDIENT_SPECS.length});
+        await batch.commit();
+       } catch (error) {
+        console.warn('ingredient spec seed skipped', error);
+       }
+      };
+      seedIngredientSpecs();
+      return () => { cancelled = true; };
+     }, [user, currentBranch, isSuperAdmin, getPublicPath]);
+
+     useEffect(() => {
+      if (!user || !currentBranch || !isSuperAdmin) return;
+      const migrateFourSeafoodItems = async () => {
+       const markerRef = db.doc(getPublicPath(`ingredients/spec_category_fix_v3_${currentBranch}`));
+       try {
+        const marker = await markerRef.get();
+        if (marker.exists) return;
+        const collectionRef = db.collection(getPublicPath(`ingredients/specs_${currentBranch}/items`));
+        const batch = db.batch();
+        [
+         ['spec-meat-beef-tripe', 196],
+         ['spec-meat-duck-intestine', 197],
+         ['spec-meat-pork-liver', 198],
+         ['spec-meat-pork-aorta', 199]
+        ].forEach(([id, sortOrder]) => batch.set(collectionRef.doc(id), {category:'海鮮', sortOrder, updateTime:Date.now()}, {merge:true}));
+        batch.set(markerRef, {done:true, migratedAt:Date.now(), category:'海鮮', itemCount:4});
+        await batch.commit();
+       } catch (error) {
+        console.warn('ingredient category migration skipped', error);
+       }
+      };
+     migrateFourSeafoodItems();
+    }, [user, currentBranch, isSuperAdmin, getPublicPath]);
+
+    useEffect(() => {
+     if (!user || !currentBranch || !isSuperAdmin) return;
+     let cancelled = false;
+     const importMeatSpecs = async () => {
+      const markerRef = db.doc(getPublicPath(`ingredients/spec_meat_import_v4_${currentBranch}`));
+      try {
+       const marker = await markerRef.get();
+       if (marker.exists || cancelled) return;
+       const collectionRef = db.collection(getPublicPath(`ingredients/specs_${currentBranch}/items`));
+       const existing = await collectionRef.get();
+       const existingIds = new Set(existing.docs.map(doc => doc.id));
+       const meatItems = DEFAULT_INGREDIENT_SPECS.filter(item => item.category === '肉品');
+       const batch = db.batch();
+       meatItems.forEach((item, index) => {
+        if (!existingIds.has(item.id)) batch.set(collectionRef.doc(item.id), {...item, timestamp:Date.now() + index, updateTime:Date.now()}, {merge:true});
+       });
+       batch.set(markerRef, {done:true, importedAt:Date.now(), category:'肉品', itemCount:meatItems.length});
+       await batch.commit();
+      } catch (error) {
+       console.warn('meat ingredient spec import skipped', error);
+      }
+     };
+     importMeatSpecs();
+     return () => { cancelled = true; };
+    }, [user, currentBranch, isSuperAdmin, getPublicPath]);
+
+    useEffect(() => {
+     if (!user || !currentBranch || !isSuperAdmin) return;
+     let cancelled = false;
+     const importSushiSpecs = async () => {
+      const markerRef = db.doc(getPublicPath(`ingredients/spec_sushi_import_v5_${currentBranch}`));
+      try {
+       const marker = await markerRef.get();
+       if (marker.exists || cancelled) return;
+       const collectionRef = db.collection(getPublicPath(`ingredients/specs_${currentBranch}/items`));
+       const existing = await collectionRef.get();
+       const existingIds = new Set(existing.docs.map(doc => doc.id));
+       const sushiItems = DEFAULT_INGREDIENT_SPECS.filter(item => item.category === '壽司');
+       const batch = db.batch();
+       sushiItems.forEach((item, index) => {
+        if (!existingIds.has(item.id)) batch.set(collectionRef.doc(item.id), {...item, timestamp:Date.now() + index, updateTime:Date.now()}, {merge:true});
+       });
+       batch.set(markerRef, {done:true, importedAt:Date.now(), category:'壽司', itemCount:sushiItems.length});
+       await batch.commit();
+      } catch (error) {
+       console.warn('sushi ingredient spec import skipped', error);
+      }
+     };
+     importSushiSpecs();
+     return () => { cancelled = true; };
+    }, [user, currentBranch, isSuperAdmin, getPublicPath]);
+
+    useEffect(() => {
+     if (!user || !currentBranch || !isSuperAdmin) return;
+     const importSwordfishNigiri = async () => {
+      const markerRef = db.doc(getPublicPath(`ingredients/spec_sushi_swordfish_v6_${currentBranch}`));
+      try {
+       const marker = await markerRef.get();
+       if (marker.exists) return;
+       const item = DEFAULT_INGREDIENT_SPECS.find(spec => spec.id === 'spec-sushi-swordfish-nigiri');
+       if (!item) return;
+       const collectionRef = db.collection(getPublicPath(`ingredients/specs_${currentBranch}/items`));
+       const itemRef = collectionRef.doc(item.id);
+       const existing = await itemRef.get();
+       const batch = db.batch();
+       if (!existing.exists) batch.set(itemRef, {...item, timestamp:Date.now(), updateTime:Date.now()}, {merge:true});
+       batch.set(markerRef, {done:true, importedAt:Date.now(), category:'壽司', itemCount:1});
+       await batch.commit();
+      } catch (error) {
+       console.warn('swordfish nigiri spec import skipped', error);
+      }
+     };
+     importSwordfishNigiri();
+    }, [user, currentBranch, isSuperAdmin, getPublicPath]);
+
+    useEffect(() => {
+     if (!user || !currentBranch || !isSuperAdmin) return;
+     const importSearedBeefSushi = async () => {
+      const markerRef = db.doc(getPublicPath(`ingredients/spec_sushi_seared_beef_v7_${currentBranch}`));
+      try {
+       const marker = await markerRef.get();
+       if (marker.exists) return;
+       const item = DEFAULT_INGREDIENT_SPECS.find(spec => spec.id === 'spec-sushi-seared-beef');
+       if (!item) return;
+       const collectionRef = db.collection(getPublicPath(`ingredients/specs_${currentBranch}/items`));
+       const itemRef = collectionRef.doc(item.id);
+       const existing = await itemRef.get();
+       const batch = db.batch();
+       if (!existing.exists) batch.set(itemRef, {...item, timestamp:Date.now(), updateTime:Date.now()}, {merge:true});
+       batch.set(markerRef, {done:true, importedAt:Date.now(), category:'壽司', itemCount:1});
+       await batch.commit();
+      } catch (error) {
+       console.warn('seared beef sushi spec import skipped', error);
+      }
+     };
+     importSearedBeefSushi();
+    }, [user, currentBranch, isSuperAdmin, getPublicPath]);
+
+    useEffect(() => {
+     if (!user || !currentBranch || !isSuperAdmin) return;
+     const importCongerEelSushi = async () => {
+      const markerRef = db.doc(getPublicPath(`ingredients/spec_sushi_conger_eel_v8_${currentBranch}`));
+      try {
+       const marker = await markerRef.get();
+       if (marker.exists) return;
+       const item = DEFAULT_INGREDIENT_SPECS.find(spec => spec.id === 'spec-sushi-conger-eel');
+       if (!item) return;
+       const collectionRef = db.collection(getPublicPath(`ingredients/specs_${currentBranch}/items`));
+       const itemRef = collectionRef.doc(item.id);
+       const existing = await itemRef.get();
+       const batch = db.batch();
+       if (!existing.exists) batch.set(itemRef, {...item, timestamp:Date.now(), updateTime:Date.now()}, {merge:true});
+       batch.set(markerRef, {done:true, importedAt:Date.now(), category:'壽司', itemCount:1});
+       await batch.commit();
+      } catch (error) {
+       console.warn('conger eel sushi spec import skipped', error);
+      }
+     };
+     importCongerEelSushi();
+    }, [user, currentBranch, isSuperAdmin, getPublicPath]);
+
+    useEffect(() => {
+     if (!user || !currentBranch || !isSuperAdmin) return;
+     const importPrawnSushiSpecs = async () => {
+      const markerRef = db.doc(getPublicPath(`ingredients/spec_sushi_prawn_set_v9_${currentBranch}`));
+      try {
+       const marker = await markerRef.get();
+       if (marker.exists) return;
+       const ids = [
+        'spec-sushi-seared-cheese-prawn',
+        'spec-sushi-mentaiko-prawn',
+        'spec-sushi-caramelized-prawn'
+       ];
+       const items = DEFAULT_INGREDIENT_SPECS.filter(spec => ids.includes(spec.id));
+       const collectionRef = db.collection(getPublicPath(`ingredients/specs_${currentBranch}/items`));
+       const existingDocs = await Promise.all(items.map(item => collectionRef.doc(item.id).get()));
+       const batch = db.batch();
+       items.forEach((item, index) => {
+        if (!existingDocs[index].exists) batch.set(collectionRef.doc(item.id), {...item, timestamp:Date.now() + index, updateTime:Date.now()}, {merge:true});
+       });
+       batch.set(markerRef, {done:true, importedAt:Date.now(), category:'壽司', itemCount:items.length});
+       await batch.commit();
+      } catch (error) {
+       console.warn('prawn sushi spec import skipped', error);
+      }
+     };
+     importPrawnSushiSpecs();
+    }, [user, currentBranch, isSuperAdmin, getPublicPath]);
+
+    useEffect(() => {
+     if (!user || !currentBranch || !isSuperAdmin) return;
+     const importSalmonSushiSpecs = async () => {
+      const markerRef = db.doc(getPublicPath(`ingredients/spec_sushi_salmon_set_v10_${currentBranch}`));
+      try {
+       const marker = await markerRef.get();
+       if (marker.exists) return;
+       const ids = [
+        'spec-sushi-seared-cheese-salmon',
+        'spec-sushi-caramelized-salmon',
+        'spec-sushi-mentaiko-salmon',
+        'spec-sushi-seared-salmon'
+       ];
+       const items = DEFAULT_INGREDIENT_SPECS.filter(spec => ids.includes(spec.id));
+       const collectionRef = db.collection(getPublicPath(`ingredients/specs_${currentBranch}/items`));
+       const existingDocs = await Promise.all(items.map(item => collectionRef.doc(item.id).get()));
+       const batch = db.batch();
+       items.forEach((item, index) => {
+        if (!existingDocs[index].exists) batch.set(collectionRef.doc(item.id), {...item, timestamp:Date.now() + index, updateTime:Date.now()}, {merge:true});
+       });
+       batch.set(markerRef, {done:true, importedAt:Date.now(), category:'壽司', itemCount:items.length});
+       await batch.commit();
+      } catch (error) {
+       console.warn('salmon sushi spec import skipped', error);
+      }
+     };
+     importSalmonSushiSpecs();
+    }, [user, currentBranch, isSuperAdmin, getPublicPath]);
+
+    useEffect(() => {
+     if (!user || !currentBranch || !isSuperAdmin) return;
+     const importInariSushiSpecs = async () => {
+      const markerRef = db.doc(getPublicPath(`ingredients/spec_sushi_inari_set_v11_${currentBranch}`));
+      try {
+       const marker = await markerRef.get();
+       if (marker.exists) return;
+       const ids = [
+        'spec-sushi-lobster-salad-inari',
+        'spec-sushi-crab-paste-inari',
+        'spec-sushi-corn-salad-inari',
+        'spec-sushi-shrimp-roe-inari'
+       ];
+       const items = DEFAULT_INGREDIENT_SPECS.filter(spec => ids.includes(spec.id));
+       const collectionRef = db.collection(getPublicPath(`ingredients/specs_${currentBranch}/items`));
+       const existingDocs = await Promise.all(items.map(item => collectionRef.doc(item.id).get()));
+       const batch = db.batch();
+       items.forEach((item, index) => {
+        if (!existingDocs[index].exists) batch.set(collectionRef.doc(item.id), {...item, timestamp:Date.now() + index, updateTime:Date.now()}, {merge:true});
+       });
+       batch.set(markerRef, {done:true, importedAt:Date.now(), category:'壽司', itemCount:items.length});
+       await batch.commit();
+      } catch (error) {
+       console.warn('inari sushi spec import skipped', error);
+      }
+     };
+     importInariSushiSpecs();
+    }, [user, currentBranch, isSuperAdmin, getPublicPath]);
+
+    useEffect(() => {
+     if (!user || !currentBranch || !isSuperAdmin) return;
+     const importRedShrimpSushiSpecs = async () => {
+      const markerRef = db.doc(getPublicPath(`ingredients/spec_sushi_red_shrimp_set_v12_${currentBranch}`));
+      try {
+       const marker = await markerRef.get();
+       if (marker.exists) return;
+       const ids = [
+        'spec-sushi-seared-cheese-red-shrimp',
+        'spec-sushi-caramelized-red-shrimp',
+        'spec-sushi-mentaiko-red-shrimp'
+       ];
+       const items = DEFAULT_INGREDIENT_SPECS.filter(spec => ids.includes(spec.id));
+       const collectionRef = db.collection(getPublicPath(`ingredients/specs_${currentBranch}/items`));
+       const existingDocs = await Promise.all(items.map(item => collectionRef.doc(item.id).get()));
+       const batch = db.batch();
+       items.forEach((item, index) => {
+        if (!existingDocs[index].exists) batch.set(collectionRef.doc(item.id), {...item, timestamp:Date.now() + index, updateTime:Date.now()}, {merge:true});
+       });
+       batch.set(markerRef, {done:true, importedAt:Date.now(), category:'壽司', itemCount:items.length});
+       await batch.commit();
+      } catch (error) {
+       console.warn('red shrimp sushi spec import skipped', error);
+      }
+     };
+     importRedShrimpSushiSpecs();
+    }, [user, currentBranch, isSuperAdmin, getPublicPath]);
+
+    useEffect(() => {
+     if (!user || !currentBranch || !isSuperAdmin) return;
+     const importTamagoyakiSushiSpecs = async () => {
+      const markerRef = db.doc(getPublicPath(`ingredients/spec_sushi_tamagoyaki_set_v13_${currentBranch}`));
+      try {
+       const marker = await markerRef.get();
+       if (marker.exists) return;
+       const ids = [
+        'spec-sushi-seared-cheese-tamagoyaki',
+        'spec-sushi-mentaiko-tamagoyaki',
+        'spec-sushi-caramelized-tamagoyaki'
+       ];
+       const items = DEFAULT_INGREDIENT_SPECS.filter(spec => ids.includes(spec.id));
+       const collectionRef = db.collection(getPublicPath(`ingredients/specs_${currentBranch}/items`));
+       const existingDocs = await Promise.all(items.map(item => collectionRef.doc(item.id).get()));
+       const batch = db.batch();
+       items.forEach((item, index) => {
+        if (!existingDocs[index].exists) batch.set(collectionRef.doc(item.id), {...item, timestamp:Date.now() + index, updateTime:Date.now()}, {merge:true});
+       });
+       batch.set(markerRef, {done:true, importedAt:Date.now(), category:'壽司', itemCount:items.length});
+       await batch.commit();
+      } catch (error) {
+       console.warn('tamagoyaki sushi spec import skipped', error);
+      }
+     };
+     importTamagoyakiSushiSpecs();
+    }, [user, currentBranch, isSuperAdmin, getPublicPath]);
 
      useEffect(() => {
       if (!user) return;
