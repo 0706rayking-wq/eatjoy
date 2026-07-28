@@ -3133,9 +3133,15 @@ window._gameJsReady = false;
      
      const monthKey = useMemo(() => `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}`, [currentDate]);
      const activeMonthData = scheduleData.months?.[monthKey] || null;
+     const publishedMonthData = activeMonthData?.publishedSnapshot || null;
+     const isMonthPublished = !!publishedMonthData;
 
      const staffList = useMemo(() => {
-      if (activeMonthData && activeMonthData.staffList) return activeMonthData.staffList;
+      if (activeMonthData) {
+       if (isManager) return activeMonthData.staffList || [];
+       return publishedMonthData?.staffList || [];
+      }
+      if (!isManager) return [];
       if (scheduleData.months) {
         const pastMonths = Object.keys(scheduleData.months)
          .filter(k => k < monthKey)
@@ -3146,13 +3152,17 @@ window._gameJsReady = false;
         }
       }
       return scheduleData.staffList || []; 
-     }, [activeMonthData, scheduleData.months, scheduleData.staffList, monthKey]);
+     }, [activeMonthData, publishedMonthData, isManager, scheduleData.months, scheduleData.staffList, monthKey]);
 
      const holidays = useMemo(() => {
-      if (activeMonthData && activeMonthData.holidays) return activeMonthData.holidays;
+      if (activeMonthData) {
+       if (isManager) return activeMonthData.holidays || {};
+       return publishedMonthData?.holidays || {};
+      }
+      if (!isManager) return {};
       if (!scheduleData.months) return scheduleData.holidays || {};
       return {};
-     }, [activeMonthData, scheduleData.months, scheduleData.holidays]);
+     }, [activeMonthData, publishedMonthData, isManager, scheduleData.months, scheduleData.holidays]);
 
      const getHolidayData = useCallback((dateString) => {
       const h = holidays[dateString];
@@ -3205,12 +3215,28 @@ window._gameJsReady = false;
             [`months.${monthKey}`]: finalMonthData
            });
          }
-        });
-      } catch (e) {
-        console.error("更新班表失敗: ", e);
-        triggerNotify("排班儲存異常，請稍後再試", "error");
-      }
-     };
+         });
+         return true;
+       } catch (e) {
+         console.error("更新班表失敗: ", e);
+         triggerNotify("排班儲存異常，請稍後再試", "error");
+         return false;
+       }
+      };
+
+      const handlePublishSchedule = async () => {
+       if (!isManager) return;
+       const publishedAt = Date.now();
+       const saved = await updateMonthData(currentMonthData => ({
+        publishedSnapshot: {
+         staffList: currentMonthData.staffList || [],
+         holidays: currentMonthData.holidays || {},
+         publishedAt
+        }
+       }));
+       if (!saved) return;
+       await publishContent('schedule', `${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月班表已更新`);
+      };
 
      const setShiftRules = (newRules) => updateData({ shiftRules: newRules });
      const addShiftRule = () => {
@@ -3677,9 +3703,9 @@ window._gameJsReady = false;
               <button onClick={() => setIsHighlightMode(!isHighlightMode)} className={`flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap ${isHighlightMode ? 'bg-yellow-400 text-[#713f12] border border-[#eab308] shadow-inner' : 'bg-[#f1f5f9] text-[#334155] border border-[#cbd5e1]'}`}>
                <Icon name="edit-3" size={14} /> {isHighlightMode ? '結束標記' : '標記修改'}
               </button>
-              <button onClick={() => publishContent('schedule', `${currentDate.getFullYear()}年${currentDate.getMonth() + 1}月班表已更新`)} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-brand-red text-[#ffffff] rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap">
-               <Icon name="send" size={14} /> 更新發布
-              </button>
+               <button onClick={handlePublishSchedule} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-brand-red text-[#ffffff] rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap">
+                <Icon name="send" size={14} /> {isMonthPublished ? '更新發布' : '發布班表'}
+               </button>
               <button onClick={addStaff} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-[#1e293b] text-[#ffffff] rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap"><Icon name="plus" size={14} /> 新增</button>
               <button onClick={() => setShowSettings(!showSettings)} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-[#f1f5f9] text-[#334155] rounded-xl border border-[#cbd5e1] active:scale-95 transition-all text-xs sm:text-sm font-bold whitespace-nowrap"><Icon name="settings" size={14} /> 設定</button>
             </>
@@ -3687,7 +3713,13 @@ window._gameJsReady = false;
          </div>
         </div>
 
-        <div className="p-4">
+         <div className="p-4">
+          {!isManager && !isMonthPublished && (
+           <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-center">
+            <p className="font-black text-amber-800 text-sm">本月份班表尚未發布</p>
+            <p className="mt-1 text-xs font-bold text-amber-600">主管完成排班並按下發布後，才會顯示正式班表。</p>
+           </div>
+          )}
          {isManager && showSettings && (
            <div className="mb-4 p-5 bg-[#eff6ff] border border-[#bfdbfe] rounded-3xl shadow-sm text-left animate-in slide-in-from-top-2">
             <h3 className="font-black text-[#1e40af] mb-3 flex items-center gap-2 text-sm"><Icon name="settings" size={16} /> 班別代碼與統計歸類設定</h3>
@@ -4229,12 +4261,12 @@ window._gameJsReady = false;
      );
     };
 
-    const IngredientManagementPage = ({ onBack, goSpecs, goWaste, goPeople, goPromotion }) => (
+    const IngredientManagementPage = ({ onBack, goSpecs, goWaste, goPeople, goPromotion, canManage }) => (
      <div className="p-4 space-y-4 page-enter text-left">
       <BackButton onClick={onBack} title="經營管理" />
       <SectionItem title="食材規格" iconName="clipboard-list" onClick={goSpecs} />
-      <SectionItem title="食材報廢回報" iconName="trash-2" onClick={goWaste} />
-      <SectionItem title="人事管理" iconName="users" onClick={goPeople} />
+      {canManage && <SectionItem title="食材報廢回報" iconName="trash-2" onClick={goWaste} />}
+      {canManage && <SectionItem title="人事管理" iconName="users" onClick={goPeople} />}
       <SectionItem title="升遷管道" iconName="trending-up" onClick={goPromotion} />
      </div>
     );
@@ -12845,9 +12877,7 @@ return (
                <NavCard title="廚房月報" onClick={() => setCurrentPage('kitchenReport')} colorClass="bg-rose-50/50" iconName="presentation" unread={isContentUnread('kitchenReport') || isContentUnread('monthlyAssembly')} />
                <NavCard title="本季菜單" onClick={() => setCurrentPage('menu')} colorClass="bg-yellow-50/50" iconName="utensils" unread={isContentUnread('menu')} />
                <NavCard title="限時活動" onClick={() => setCurrentPage('game-center')} colorClass="bg-amber-50/50" iconName="gamepad-2" />
-               {canAccessBusinessManagement && (
-                <NavCard title="經營管理" onClick={() => setCurrentPage('ingredients')} colorClass="bg-rose-50/50" iconName="briefcase-business" />
-               )}
+               <NavCard title="經營管理" onClick={() => setCurrentPage('ingredients')} colorClass="bg-rose-50/50" iconName="briefcase-business" />
               </section>
             </div>
            </div>
@@ -12896,8 +12926,8 @@ return (
         case 'uniform-guidelines': return <UniformGuidelinesPage onBack={()=>setCurrentPage('onboarding')} />;
         case 'benefit-eval': return <ListDetailPage onBack={()=>setCurrentPage('onboarding')} title="考核標準" list={benefitsData?.evaluation} />;
         case 'benefit-wel': return <ListDetailPage onBack={()=>setCurrentPage('onboarding')} title="福利項目" list={benefitsData?.welfare} />;
-        case 'ingredients': return canAccessBusinessManagement ? <IngredientManagementPage onBack={()=>setCurrentPage('home')} goSpecs={()=>setCurrentPage('ingredient-specs')} goWaste={()=>setCurrentPage('ingredient-waste')} goPeople={()=>setCurrentPage('people-management')} goPromotion={()=>setCurrentPage('promotion-path')} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
-        case 'ingredient-specs': return canAccessBusinessManagement ? <IngredientSpecsPage onBack={()=>setCurrentPage('ingredients')} items={ingredientData?.specs || []} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
+        case 'ingredients': return <IngredientManagementPage onBack={()=>setCurrentPage('home')} goSpecs={()=>setCurrentPage('ingredient-specs')} goWaste={()=>setCurrentPage('ingredient-waste')} goPeople={()=>setCurrentPage('people-management')} goPromotion={()=>setCurrentPage('promotion-path')} canManage={canAccessBusinessManagement} />;
+        case 'ingredient-specs': return <IngredientSpecsPage onBack={()=>setCurrentPage('ingredients')} items={ingredientData?.specs || []} />;
         case 'ingredient-waste': return canAccessBusinessManagement ? <IngredientWasteReportPage onBack={()=>setCurrentPage('ingredients')} currentBranch={currentBranch} currentUser={currentUser} getPublicPath={getPublicPath} triggerNotify={triggerNotify} reports={wasteReports} isSuperAdmin={isSuperAdmin} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
         case 'people-management': return canAccessBusinessManagement ? <PeopleManagementPage onBack={()=>setCurrentPage('ingredients')} goOnboarding={()=>setCurrentPage('people-onboarding-process')} goOffboarding={()=>setCurrentPage('people-offboarding')} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
         case 'people-onboarding-process': return canAccessBusinessManagement ? <PeopleOnboardingProcessPage onBack={()=>setCurrentPage('people-management')} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
@@ -12906,7 +12936,7 @@ return (
         case 'involuntary-offboarding-process': return canAccessBusinessManagement ? <InvoluntaryOffboardingProcessPage onBack={()=>setCurrentPage('people-offboarding')} goProbation={()=>setCurrentPage('probation-evaluation-form')} goImprovement={()=>setCurrentPage('improvement-interview-form')} currentBranch={currentBranch} getPublicPath={getPublicPath} triggerNotify={triggerNotify} isSuperAdmin={isSuperAdmin} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
         case 'probation-evaluation-form': return canAccessBusinessManagement ? <ProbationEvaluationFormPage onBack={()=>setCurrentPage('involuntary-offboarding-process')} currentBranch={currentBranch} currentUser={currentUser} getPublicPath={getPublicPath} triggerNotify={triggerNotify} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
         case 'improvement-interview-form': return canAccessBusinessManagement ? <ImprovementInterviewFormPage onBack={()=>setCurrentPage('involuntary-offboarding-process')} currentBranch={currentBranch} currentUser={currentUser} getPublicPath={getPublicPath} triggerNotify={triggerNotify} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
-        case 'promotion-path': return canAccessBusinessManagement ? <PromotionPathPage onBack={()=>setCurrentPage('ingredients')} isSuperAdmin={isSuperAdmin} getPublicPath={getPublicPath} triggerNotify={triggerNotify} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
+        case 'promotion-path': return <PromotionPathPage onBack={()=>setCurrentPage('ingredients')} isSuperAdmin={isSuperAdmin} getPublicPath={getPublicPath} triggerNotify={triggerNotify} />;
         case 'admin': return <AdminPage onBack={()=>setCurrentPage('home')} onLogout={logout} announcements={announcements} standards={standards} users={users} triggerNotify={triggerNotify} menu={menuData} onboarding={onboardingData} benefits={benefitsData} rulesData={rulesData} isSuperAdmin={isSuperAdmin} currentBranch={currentBranch} setCurrentBranch={setCurrentBranch} globalBranches={globalBranches} branchZones={branchZones} getPublicPath={getPublicPath} signatures={signatures} tickerText={tickerText} setTickerText={setTickerText} globalRecipes={globalRecipes} currentUser={currentUser} contentStatus={contentStatus} publishContent={publishContent} ingredientData={ingredientData} wasteReports={wasteReports} />;
         default: return <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><Icon name="loader-2" className="animate-spin text-brand-red" size={32}/> 系統啟動中...</div>;
       }
