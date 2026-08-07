@@ -217,10 +217,7 @@ async function loadNueipAttendanceBrowser(date) {
     }
     lastUrl = page.url();
     stage = '等待出勤表格';
-    await page.waitForFunction(
-      () => document.querySelectorAll('table tbody tr, [role="row"]').length > 3,
-      { timeout: 20000 }
-    );
+    await page.waitForSelector('table tbody tr, [role="row"]', { timeout: 20000 });
     const html = await page.content();
     const attendance = parseAttendanceHtml(html);
     if (attendance.length === 0) throw new Error('NUEIP瀏覽器讀取為0筆');
