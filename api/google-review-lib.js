@@ -1,7 +1,7 @@
 const crypto = require('node:crypto');
 
 const DEFAULT_REVIEW_URL =
-  'https://www.google.com/maps?hl=zh-TW&cid=10154763518669145936';
+  'https://www.google.com/maps/place//data=!4m4!3m3!1s0x3442addb0e0a1d19:0x8cecf79e345ec750!9m1!1b1?hl=zh-TW';
 const REVIEW_CARD_SELECTOR = '.bwb7ce, .jftiEf';
 const REVIEW_CONTENT_SELECTOR = '.OA1nbd, .wiI7pd';
 const REVIEWER_SELECTOR = '.Vpc5Fe';

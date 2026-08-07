@@ -23,9 +23,9 @@ assert.equal(isReviewEntryLabel('2,529 則評論'), true);
 assert.equal(isReviewEntryLabel('評論'), true);
 assert.equal(isReviewEntryLabel('撰寫評論'), false);
 assert.equal(isReviewEntryLabel('查看針對王小明的評論可使用的評論選項'), false);
-assert.match(resolveReviewUrl('https://share.google/tHH2TSFPQhsFBcnuL'), /^https:\/\/www\.google\.com\/maps\?/);
+assert.match(resolveReviewUrl('https://share.google/tHH2TSFPQhsFBcnuL'), /^https:\/\/www\.google\.com\/maps/);
 assert.equal(resolveReviewUrl('https://www.google.com/search?q=test'), 'https://www.google.com/search?q=test');
-assert.match(resolveReviewUrl('not-a-url'), /^https:\/\/www\.google\.com\/maps\?/);
+assert.match(resolveReviewUrl('not-a-url'), /^https:\/\/www\.google\.com\/maps/);
 
 const signature = reviewSignature('12345', '2026-08-07', 'secret');
 assert.equal(verifyReviewSignature('12345', '2026-08-07', signature, 'secret'), true);
