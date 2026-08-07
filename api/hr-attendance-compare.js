@@ -229,7 +229,7 @@ async function loadNueipAttendance(date) {
     showByBelongDate: '1',
     filterModify: '0'
   });
-  const attendanceResponse = await fetchWithCookies(
+  const enterResponse = await fetchWithCookies(
     'https://cloud.nueip.com/attendance_record',
     {
       method: 'POST',
@@ -240,7 +240,21 @@ async function loadNueipAttendance(date) {
         'Referer': 'https://portal.nueip.com/',
         'User-Agent': 'EatJoy-HR-Automation/1.0'
       },
-      body: query.toString()
+      body: new URLSearchParams({ jumpcorrection: 'true' }).toString()
+    },
+    jar
+  );
+  await enterResponse.text();
+
+  const attendanceResponse = await fetchWithCookies(
+    `https://cloud.nueip.com/attendance_record?${query.toString()}`,
+    {
+      method: 'GET',
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml',
+        'Referer': 'https://cloud.nueip.com/attendance_record',
+        'User-Agent': 'EatJoy-HR-Automation/1.0'
+      }
     },
     jar
   );
