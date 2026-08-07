@@ -163,8 +163,10 @@ async function fetchWithCookies(url, options, jar, redirectsLeft = 5) {
 }
 
 async function loadNueipAttendanceBrowser(date) {
-  const chromium = require('@sparticuz/chromium');
-  const puppeteer = require('puppeteer-core');
+  const chromiumModule = await import('@sparticuz/chromium');
+  const puppeteerModule = await import('puppeteer-core');
+  const chromium = chromiumModule.default || chromiumModule;
+  const puppeteer = puppeteerModule.default || puppeteerModule;
   const companyCode = readRequiredEnv('NUEIP_COMPANY_CODE');
   const employeeId = readRequiredEnv('NUEIP_EMPLOYEE_ID');
   const password = readRequiredEnv('NUEIP_PASSWORD');
