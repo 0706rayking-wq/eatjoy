@@ -219,13 +219,15 @@ async function loadNueipAttendanceBrowser(date) {
     const selectValue = async (value) => page.evaluate((targetValue) => {
       const setValue = (element, value) => {
         if (!element) throw new Error(`找不到選項 ${value}`);
+        if (element.value === value) return false;
         element.value = value;
         element.dispatchEvent(new Event('input', { bubbles: true }));
         element.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
       };
       const selects = [...document.querySelectorAll('form select')];
       const target = selects.find((select) => [...select.options].some((option) => option.value === targetValue));
-      setValue(target, targetValue);
+      return setValue(target, targetValue);
     }, value);
     const waitForOption = async (value) => page.waitForFunction(
       (targetValue) => [...document.querySelectorAll('form select option')]
@@ -236,14 +238,19 @@ async function loadNueipAttendanceBrowser(date) {
 
     stage = '設定公司';
     await waitForOption(companyValue);
-    await selectValue(companyValue);
+    if (await selectValue(companyValue)) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
     stage = '等待部門選單';
     await waitForOption(departmentValue);
-    await selectValue(departmentValue);
+    if (await selectValue(departmentValue)) {
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+    }
     const employeeValue = `${departmentValue}_0`;
     stage = '等待全部員工選項';
     await waitForOption(employeeValue);
     await selectValue(employeeValue);
+    await new Promise((resolve) => setTimeout(resolve, 500));
     stage = '設定日期並查詢';
     await page.evaluate(({ date }) => {
       const setValue = (element, value) => {
