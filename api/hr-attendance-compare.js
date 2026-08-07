@@ -217,7 +217,7 @@ async function loadNueipAttendanceBrowser(date) {
     }
     lastUrl = page.url();
     stage = '設定部門與日期';
-    await page.evaluate(({ companyValue, departmentValue, date }) => {
+    await page.evaluate(({ companyValue, departmentValue, employeeValue, date }) => {
       const setValue = (element, value) => {
         if (!element) return;
         element.value = value;
@@ -227,15 +227,17 @@ async function loadNueipAttendanceBrowser(date) {
       const selects = [...document.querySelectorAll('form select')];
       const companySelect = selects.find((select) => [...select.options].some((option) => option.value === companyValue));
       const departmentSelect = selects.find((select) => [...select.options].some((option) => option.value === departmentValue));
+      const employeeSelect = selects.find((select) => [...select.options].some((option) => option.value === employeeValue));
       setValue(companySelect, companyValue);
       setValue(departmentSelect, departmentValue);
+      setValue(employeeSelect, employeeValue);
       setValue(document.querySelector('[name="date_start"]'), date);
       setValue(document.querySelector('[name="date_end"]'), date);
       const queryButton = [...document.querySelectorAll('button, input[type="submit"]')]
         .find((element) => (element.textContent || element.value || '').trim() === '查詢');
       if (!queryButton) throw new Error('找不到查詢按鈕');
       queryButton.click();
-    }, { companyValue, departmentValue, date });
+    }, { companyValue, departmentValue, employeeValue: `${departmentValue}_0`, date });
     stage = '等待部門出勤表格';
     await page.waitForFunction(
       () => document.querySelectorAll('table tbody tr, [role="row"]').length >= 10,
