@@ -216,8 +216,31 @@ async function loadNueipAttendanceBrowser(date) {
       throw new Error('NUEIP cloud工作階段建立失敗');
     }
     lastUrl = page.url();
-    stage = '等待出勤表格';
-    await page.waitForSelector('table tbody tr, [role="row"]', { timeout: 20000 });
+    stage = '設定部門與日期';
+    await page.evaluate(({ companyValue, departmentValue, date }) => {
+      const setValue = (element, value) => {
+        if (!element) return;
+        element.value = value;
+        element.dispatchEvent(new Event('input', { bubbles: true }));
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      const selects = [...document.querySelectorAll('form select')];
+      const companySelect = selects.find((select) => [...select.options].some((option) => option.value === companyValue));
+      const departmentSelect = selects.find((select) => [...select.options].some((option) => option.value === departmentValue));
+      setValue(companySelect, companyValue);
+      setValue(departmentSelect, departmentValue);
+      setValue(document.querySelector('[name="date_start"]'), date);
+      setValue(document.querySelector('[name="date_end"]'), date);
+      const queryButton = [...document.querySelectorAll('button, input[type="submit"]')]
+        .find((element) => (element.textContent || element.value || '').trim() === '查詢');
+      if (!queryButton) throw new Error('找不到查詢按鈕');
+      queryButton.click();
+    }, { companyValue, departmentValue, date });
+    stage = '等待部門出勤表格';
+    await page.waitForFunction(
+      () => document.querySelectorAll('table tbody tr, [role="row"]').length >= 10,
+      { timeout: 25000 }
+    );
     const html = await page.content();
     const attendance = parseAttendanceHtml(html);
     if (attendance.length === 0) throw new Error('NUEIP瀏覽器讀取為0筆');
