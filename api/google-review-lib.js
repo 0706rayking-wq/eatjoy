@@ -392,6 +392,8 @@ async function screenshotCard(card) {
 }
 
 module.exports = {
+  launchBrowser,
+  openLatestReviews,
   buildReviewImageUrl,
   checkGoogleReviews,
   checkGoogleReviewsWithScreenshots,
