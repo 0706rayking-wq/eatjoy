@@ -1,0 +1,10 @@
+{
+  "name": "eatjoy",
+  "private": true,
+  "scripts": {
+    "test": "node api/line-webhook.test.js && node api/hr-attendance-compare.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

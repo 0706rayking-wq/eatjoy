@@ -1,0 +1,172 @@
+{
+  "name": "LINE人事－下班條全流程試跑",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "line-hr-relay-draft",
+        "authentication": "headerAuth",
+        "options": {}
+      },
+      "id": "d8522f9a-7e46-41e5-8d8a-411caf3b80be",
+      "name": "LINE人事事件入口",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "webhookId": "53ab7f9f-0870-4c55-bf72-195fa0dcf551",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3MgQHeI5cuvePCWR",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const events = Array.isArray($json.body?.events) ? $json.body.events : [];\nconst event = events.find((item) => item?.type === 'message' && item?.message?.type === 'image');\nif (!event) return [];\nreturn [{ json: { event, receivedAt: $json.body?.receivedAt || null } }];"
+      },
+      "id": "54f818c4-33bf-4a86-bd93-0cb7aec54e17",
+      "name": "僅處理下班條照片",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [224, 0]
+    },
+    {
+      "parameters": {
+        "url": "=https://api-data.line.me/v2/bot/message/{{ $json.event.message.id }}/content",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "5fda8c0f-1a1e-4759-a9ec-9c8e31090982",
+      "name": "下載LINE照片",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [448, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eqZPgNeJ2WPXRyVW",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.6-flash",
+          "mode": "list"
+        },
+        "text": "You are analyzing a Taiwanese restaurant handwritten work shift / attendance sheet. Return valid JSON ONLY, with no markdown, code fences, or prose.\n\nUse exactly this structure:\n{\n  \"date\": string | null,\n  \"employees\": [\n    {\n      \"name\": string | null,\n      \"shifts\": [{\"start\": string | null, \"end\": string | null}],\n      \"off_or_unclear\": boolean,\n      \"needs_review\": boolean,\n      \"review_reason\": string | null\n    }\n  ],\n  \"warnings\": string[],\n  \"confidence\": number\n}\n\nRules:\n1. Read EVERY printed employee row in visual order. Never omit a row because it has a slash, blank times, changed day off, or unclear handwriting.\n2. Preserve printed Chinese names exactly. Never substitute a similar-looking character. If a name cannot be read confidently, use null and explain its row/location.\n3. A slash, 改休, 休, or blank schedule means shifts=[] and off_or_unclear=true.\n4. Convert readable times to 24-hour HH:mm. Examples: 930=>09:30, 15=>15:00, 2030=>20:30, 2145=>21:45.\n5. Each pair of columns is one shift. Do not combine split shifts.\n6. Set needs_review=true when the name, date, time, or mark is uncertain.\n7. Never invent missing values. Use null.\n8. confidence must be between 0 and 1.",
+        "inputType": "binary",
+        "options": {}
+      },
+      "id": "51f54d9d-756b-41d9-a53f-702bc1de96c5",
+      "name": "辨識下班條",
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [672, 0],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "ZpWaBKltRioEKUas",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const raw = $json.text ?? $json.content ?? $json.output ?? '';\nconst cleaned = String(raw).replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/i, '').trim();\nlet schedule;\ntry { schedule = JSON.parse(cleaned); } catch (error) { throw new Error('Gemini回傳不是有效JSON'); }\nif (!schedule.date || !Array.isArray(schedule.employees)) throw new Error('下班條缺少日期或員工資料');\nreturn [{ json: schedule }];"
+      },
+      "id": "7d7ed12e-c595-414c-894b-a73c21b28d03",
+      "name": "整理辨識結果",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [896, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://proeatjoy.vercel.app/api/hr-attendance-compare",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "f0cb1648-975b-4c58-b707-e0706dd7ff60",
+      "name": "NUEIP每日出勤比對",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1120, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3MgQHeI5cuvePCWR",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/push",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { to: $('僅處理下班條照片').first().json.event.source.groupId, messages: $json.lineMessages.slice(0, 5).map(text => ({ type: 'text', text })) } }}",
+        "options": {}
+      },
+      "id": "03e1b8e4-c8ed-4ccb-8de0-31f4c925b78b",
+      "name": "回傳LINE人事群",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1344, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eqZPgNeJ2WPXRyVW",
+          "name": "Header Auth account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "LINE人事事件入口": {
+      "main": [[{"node": "僅處理下班條照片", "type": "main", "index": 0}]]
+    },
+    "僅處理下班條照片": {
+      "main": [[{"node": "下載LINE照片", "type": "main", "index": 0}]]
+    },
+    "下載LINE照片": {
+      "main": [[{"node": "辨識下班條", "type": "main", "index": 0}]]
+    },
+    "辨識下班條": {
+      "main": [[{"node": "整理辨識結果", "type": "main", "index": 0}]]
+    },
+    "整理辨識結果": {
+      "main": [[{"node": "NUEIP每日出勤比對", "type": "main", "index": 0}]]
+    },
+    "NUEIP每日出勤比對": {
+      "main": [[{"node": "回傳LINE人事群", "type": "main", "index": 0}]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}
