@@ -5,6 +5,7 @@ const MAX_LINE_CHARS = 28;
 const MAX_LINE_MESSAGE_CHARS = 4500;
 const EARLY_SECONDS = 2 * 60;
 const LATE_SECONDS = 13 * 60;
+const NUEIP_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
 
 function readRequiredEnv(name) {
   const value = String(process.env[name] || '').trim();
@@ -183,7 +184,8 @@ async function loadNueipAttendance(date) {
       method: 'GET',
       headers: {
         'Accept': 'text/html,application/xhtml+xml',
-        'User-Agent': 'EatJoy-HR-Automation/1.0'
+        'User-Agent': NUEIP_USER_AGENT,
+        'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8'
       }
     },
     jar
@@ -198,7 +200,8 @@ async function loadNueipAttendance(date) {
         'X-Requested-With': 'XMLHttpRequest',
         'Origin': 'https://portal.nueip.com',
         'Referer': 'https://portal.nueip.com/login',
-        'User-Agent': 'EatJoy-HR-Automation/1.0'
+        'User-Agent': NUEIP_USER_AGENT,
+        'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8'
       },
       body: loginBody.toString()
     },
@@ -238,7 +241,8 @@ async function loadNueipAttendance(date) {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Origin': 'https://portal.nueip.com',
         'Referer': 'https://portal.nueip.com/',
-        'User-Agent': 'EatJoy-HR-Automation/1.0'
+        'User-Agent': NUEIP_USER_AGENT,
+        'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8'
       },
       body: new URLSearchParams({ jumpcorrection: 'true' }).toString()
     },
@@ -253,7 +257,8 @@ async function loadNueipAttendance(date) {
       headers: {
         'Accept': 'text/html,application/xhtml+xml',
         'Referer': 'https://cloud.nueip.com/attendance_record',
-        'User-Agent': 'EatJoy-HR-Automation/1.0'
+        'User-Agent': NUEIP_USER_AGENT,
+        'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8'
       }
     },
     jar
