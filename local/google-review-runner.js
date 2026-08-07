@@ -68,6 +68,9 @@ async function publishScreenshots(result, screenshots, config) {
 
 async function sendToN8n(config, result, images) {
   const messages = [{ type: 'text', text: reportText(result, config.storeName || '南港店') }];
+  if (process.argv.includes('--test')) {
+    messages[0].text = `【功能測試】\n${messages[0].text}`;
+  }
   for (const item of images.slice(0, 4)) {
     messages.push({ type: 'image', originalContentUrl: item.imageUrl, previewImageUrl: item.imageUrl });
   }
