@@ -80,6 +80,8 @@ assert.equal(comparison.issues.some((issue) => issue.name === '黃遠志'), fals
 
 const messages = formatLineMessages('2026-08-06', comparison);
 assert.ok(messages.length >= 1);
+assert.equal(messages.join('\n').includes('黃遠志'), false);
+assert.equal(messages.join('\n').includes('排除'), false);
 for (const line of messages.join('\n').split('\n')) {
   assert.ok(Array.from(line).length <= 28, `line exceeds 28 characters: ${line}`);
 }
