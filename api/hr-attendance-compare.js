@@ -179,17 +179,23 @@ async function loadNueipAttendanceBrowser(date) {
     headless: chromium.headless
   });
 
+  let stage = '開啟登入頁';
+  let lastUrl = '';
   try {
     const page = await browser.newPage();
     await page.setUserAgent(NUEIP_USER_AGENT);
     await page.setExtraHTTPHeaders({ 'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8' });
     await page.goto('https://portal.nueip.com/login', { waitUntil: 'domcontentloaded', timeout: 25000 });
+    lastUrl = page.url();
+    stage = '填寫登入資料';
     await page.waitForSelector('input[name="inputCompany"]', { timeout: 15000 });
     await page.type('input[name="inputCompany"]', companyCode);
     await page.type('input[name="inputID"]', employeeId);
     await page.type('input[name="inputPassword"]', password);
     await page.click('button.login-button');
+    stage = '等待登入完成';
     await page.waitForFunction(() => !location.pathname.startsWith('/login'), { timeout: 20000 });
+    lastUrl = page.url();
 
     const query = new URLSearchParams({
       work_status: '1',
@@ -201,6 +207,7 @@ async function loadNueipAttendanceBrowser(date) {
       showByBelongDate: '1',
       filterModify: '0'
     });
+    stage = '開啟出勤紀錄';
     await page.goto(`https://cloud.nueip.com/attendance_record?${query.toString()}`, {
       waitUntil: 'networkidle2',
       timeout: 30000
@@ -208,6 +215,8 @@ async function loadNueipAttendanceBrowser(date) {
     if (page.url().includes('portal.nueip.com/login')) {
       throw new Error('NUEIP cloud工作階段建立失敗');
     }
+    lastUrl = page.url();
+    stage = '等待出勤表格';
     await page.waitForFunction(
       () => document.querySelectorAll('table tbody tr, [role="row"]').length > 3,
       { timeout: 20000 }
@@ -216,6 +225,9 @@ async function loadNueipAttendanceBrowser(date) {
     const attendance = parseAttendanceHtml(html);
     if (attendance.length === 0) throw new Error('NUEIP瀏覽器讀取為0筆');
     return attendance;
+  } catch (error) {
+    const safeLocation = lastUrl ? new URL(lastUrl).pathname : '';
+    throw new Error(`NUEIP瀏覽器${stage}失敗[${safeLocation}]：${error.message}`);
   } finally {
     await browser.close();
   }
