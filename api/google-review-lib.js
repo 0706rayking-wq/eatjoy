@@ -1,7 +1,7 @@
 const crypto = require('node:crypto');
 
 const DEFAULT_REVIEW_URL =
-  'https://www.google.com/search?hl=zh-TW&q=%E9%A5%97%E9%BA%BB%E9%A5%97%E8%BE%A3PLUS%20LaLaport%E5%8D%97%E6%B8%AF%E5%BA%97#lrd=0x3442addb0e0a1d19:0x8cecf79e345ec750,1,,,,';
+  'https://www.google.com/maps?hl=zh-TW&cid=10154763518669145936';
 const REVIEW_CARD_SELECTOR = '.bwb7ce';
 const REVIEW_CONTENT_SELECTOR = '.OA1nbd';
 const REVIEWER_SELECTOR = '.Vpc5Fe';
