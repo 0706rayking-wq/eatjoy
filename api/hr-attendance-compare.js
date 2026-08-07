@@ -216,28 +216,49 @@ async function loadNueipAttendanceBrowser(date) {
       throw new Error('NUEIP cloud工作階段建立失敗');
     }
     lastUrl = page.url();
-    stage = '設定部門與日期';
-    await page.evaluate(({ companyValue, departmentValue, employeeValue, date }) => {
+    const selectValue = async (value) => page.evaluate((targetValue) => {
       const setValue = (element, value) => {
-        if (!element) return;
+        if (!element) throw new Error(`找不到選項 ${value}`);
         element.value = value;
         element.dispatchEvent(new Event('input', { bubbles: true }));
         element.dispatchEvent(new Event('change', { bubbles: true }));
       };
       const selects = [...document.querySelectorAll('form select')];
-      const companySelect = selects.find((select) => [...select.options].some((option) => option.value === companyValue));
-      const departmentSelect = selects.find((select) => [...select.options].some((option) => option.value === departmentValue));
-      const employeeSelect = selects.find((select) => [...select.options].some((option) => option.value === employeeValue));
-      setValue(companySelect, companyValue);
-      setValue(departmentSelect, departmentValue);
-      setValue(employeeSelect, employeeValue);
+      const target = selects.find((select) => [...select.options].some((option) => option.value === targetValue));
+      setValue(target, targetValue);
+    }, value);
+    const waitForOption = async (value) => page.waitForFunction(
+      (targetValue) => [...document.querySelectorAll('form select option')]
+        .some((option) => option.value === targetValue),
+      { timeout: 10000 },
+      value
+    );
+
+    stage = '設定公司';
+    await waitForOption(companyValue);
+    await selectValue(companyValue);
+    stage = '等待部門選單';
+    await waitForOption(departmentValue);
+    await selectValue(departmentValue);
+    const employeeValue = `${departmentValue}_0`;
+    stage = '等待全部員工選項';
+    await waitForOption(employeeValue);
+    await selectValue(employeeValue);
+    stage = '設定日期並查詢';
+    await page.evaluate(({ date }) => {
+      const setValue = (element, value) => {
+        if (!element) throw new Error(`找不到欄位 ${value}`);
+        element.value = value;
+        element.dispatchEvent(new Event('input', { bubbles: true }));
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+      };
       setValue(document.querySelector('[name="date_start"]'), date);
       setValue(document.querySelector('[name="date_end"]'), date);
       const queryButton = [...document.querySelectorAll('button, input[type="submit"]')]
         .find((element) => (element.textContent || element.value || '').trim() === '查詢');
       if (!queryButton) throw new Error('找不到查詢按鈕');
       queryButton.click();
-    }, { companyValue, departmentValue, employeeValue: `${departmentValue}_0`, date });
+    }, { date });
     stage = '等待部門出勤表格';
     await page.waitForFunction(
       () => document.querySelectorAll('table tbody tr, [role="row"]').length >= 10,
