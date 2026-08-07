@@ -720,7 +720,7 @@ function buildCombinedLineMessages(request, date, attendanceMessages, reviewResu
   const text = [
     ...attendanceMessages,
     '────────',
-    ...formatGoogleReviewLines(date, reviewResult, reviewError)
+    ...formatGoogleReviewLines(reviewResult?.date || date, reviewResult, reviewError)
   ].join('\n');
   const textObjects = splitLineText(text).map((message) => ({ type: 'text', text: message }));
   const secret = String(process.env.HR_AUTOMATION_SECRET || process.env.N8N_RELAY_SECRET || '').trim();
