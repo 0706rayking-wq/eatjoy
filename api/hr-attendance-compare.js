@@ -220,7 +220,15 @@ async function loadNueipAttendance(date) {
   }
   const attendance = parseAttendanceHtml(html);
   if (attendance.length === 0) {
-    throw new Error('NUEIP出勤表讀取為0筆，已停止回報以避免誤判');
+    const metrics = [
+      `html=${html.length}`,
+      `tr=${(html.match(/<tr\b/gi) || []).length}`,
+      `td=${(html.match(/<td\b/gi) || []).length}`,
+      `employeeLabel=${(html.match(/員工編號/g) || []).length}`,
+      `knownEmployee=${html.includes('403003') ? 1 : 0}`,
+      `loginForm=${/inputCompany|inputPassword/.test(html) ? 1 : 0}`
+    ].join(',');
+    throw new Error(`NUEIP出勤表讀取為0筆[${metrics}]`);
   }
   return attendance;
 }
@@ -500,7 +508,7 @@ async function handler(request, response) {
     console.error('HR attendance comparison failed', error.message);
     return response.status(500).json({
       status: 'error',
-      message: 'Attendance comparison failed'
+      message: String(error.message || 'Attendance comparison failed').slice(0, 300)
     });
   }
 }
