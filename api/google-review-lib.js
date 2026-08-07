@@ -7,6 +7,21 @@ const REVIEW_CONTENT_SELECTOR = '.OA1nbd, .wiI7pd';
 const REVIEWER_SELECTOR = '.Vpc5Fe';
 
 async function launchBrowser(viewport = { width: 1280, height: 1600 }) {
+  if (String(process.env.GOOGLE_REVIEW_RUNTIME || '').toLowerCase() === 'local') {
+    const executablePath = String(process.env.GOOGLE_CHROME_PATH || '').trim()
+      || 'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe';
+    const userDataDir = String(process.env.GOOGLE_REVIEW_PROFILE_DIR || '').trim();
+    if (!userDataDir) throw new Error('GOOGLE_REVIEW_PROFILE_DIR is required for local review checks');
+    const puppeteerModule = await import('puppeteer-core');
+    const puppeteer = puppeteerModule.default || puppeteerModule;
+    return puppeteer.launch({
+      executablePath,
+      userDataDir,
+      defaultViewport: viewport,
+      headless: String(process.env.GOOGLE_REVIEW_HEADLESS || 'true').toLowerCase() !== 'false',
+      args: ['--lang=zh-TW', '--disable-notifications']
+    });
+  }
   const chromiumModule = await import('@sparticuz/chromium');
   const puppeteerModule = await import('puppeteer-core');
   const chromium = chromiumModule.default || chromiumModule;
@@ -93,7 +108,7 @@ async function describeReviewPage(page) {
         .replace(/\s+/g, ' ')
         .trim())
       .filter(Boolean)
-      .slice(0, 12)
+      .slice(0, 40)
   }));
   return `url=${page.url()} title=${details.title || '-'} labels=${details.labels.join(' | ') || '-'}`;
 }
@@ -121,6 +136,7 @@ async function openLatestReviews(page) {
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.7' });
   await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }]);
   await page.goto(reviewUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  await page.waitForSelector('button, a, [role="button"]', { timeout: 15000 });
   await ensureReviewDialog(page);
   const latestWasVisible = await page.evaluate(() => {
     const latest = [...document.querySelectorAll('[role="radio"], [role="menuitemradio"]')]
@@ -216,6 +232,9 @@ async function checkGoogleReviews() {
   try {
     const page = await browser.newPage();
     await openLatestReviews(page);
+    const debugCards = String(process.env.GOOGLE_REVIEW_DEBUG || '') === '1'
+      ? await readCards(page)
+      : undefined;
     const reviews = await loadRecentReviews(page);
     const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
     for (const review of reviews) {
@@ -225,7 +244,41 @@ async function checkGoogleReviews() {
       date: taipeiDate(),
       total: reviews.length,
       counts,
-      negativeReviews: reviews.filter((review) => review.stars > 0 && review.stars <= 3)
+      negativeReviews: reviews.filter((review) => review.stars > 0 && review.stars <= 3),
+      ...(debugCards ? { debugCards } : {})
+    };
+  } finally {
+    await browser.close();
+  }
+}
+
+async function checkGoogleReviewsWithScreenshots() {
+  const browser = await launchBrowser({ width: 1280, height: 1800 });
+  try {
+    const page = await browser.newPage();
+    await openLatestReviews(page);
+    const debugCards = String(process.env.GOOGLE_REVIEW_DEBUG || '') === '1'
+      ? await readCards(page)
+      : undefined;
+    const reviews = await loadRecentReviews(page);
+    const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    for (const review of reviews) {
+      if (counts[review.stars] !== undefined) counts[review.stars] += 1;
+    }
+    const negativeReviews = reviews.filter((review) => review.stars > 0 && review.stars <= 3).slice(0, 4);
+    const negativeScreenshots = [];
+    for (const review of negativeReviews) {
+      const card = await findReviewCard(page, review);
+      if (!card) continue;
+      negativeScreenshots.push({ review, image: await screenshotCard(card) });
+    }
+    return {
+      date: taipeiDate(),
+      total: reviews.length,
+      counts,
+      negativeReviews,
+      negativeScreenshots,
+      ...(debugCards ? { debugCards } : {})
     };
   } finally {
     await browser.close();
@@ -259,16 +312,34 @@ function buildReviewImageUrl(request, review, date, secret) {
   return `${protocol}://${host}/api/google-review-image?${query.toString()}`;
 }
 
-async function findReviewCard(page, reviewerId) {
+async function findReviewCard(page, target) {
+  const expected = typeof target === 'string' ? { reviewerId: target } : (target || {});
   for (let round = 0; round < 18; round += 1) {
     const cards = await page.$$(REVIEW_CARD_SELECTOR);
     for (const card of cards) {
-      const id = await card.evaluate((element) => {
+      const actual = await card.evaluate((element) => {
         const link = [...element.querySelectorAll('a')]
           .find((candidate) => /\/maps\/contrib\/\d+/.test(candidate.href || ''));
-        return (link?.href || '').match(/\/maps\/contrib\/(\d+)/)?.[1] || '';
+        const text = element.innerText || '';
+        const ratingAlt = [...element.querySelectorAll('img, [role="img"], [aria-label]')]
+          .map((image) => image.getAttribute('alt') || image.getAttribute('aria-label') || '')
+          .find((alt) => /(?:獲評為|rated|顆星|stars?)\D*[1-5](?:\.0)?|[1-5](?:\.0)?\D*(?:顆星|stars?)/i.test(alt)) || '';
+        return {
+          reviewerId: (link?.href || '').match(/\/maps\/contrib\/(\d+)/)?.[1] || '',
+          reviewer: element.querySelector('.Vpc5Fe, .d4r55')?.textContent?.trim()
+            || link?.textContent?.trim()
+            || '未知評論者',
+          stars: Number(ratingAlt.match(/([1-5](?:\.0)?)/)?.[1] || 0),
+          ageLabel: text.match(/(?:剛剛|\d+\s*(?:分鐘|小時|天|週|個月|年)前)/)?.[0]
+            || text.match(/(?:just now|\d+\s+(?:minute|hour|day|week|month|year)s? ago)/i)?.[0]
+            || ''
+        };
       });
-      if (id === reviewerId) return card;
+      if (expected.reviewerId && actual.reviewerId === expected.reviewerId) return card;
+      if (!expected.reviewerId
+        && actual.reviewer === expected.reviewer
+        && actual.stars === expected.stars
+        && actual.ageLabel === expected.ageLabel) return card;
     }
     if (!await scrollReviewList(page)) break;
     await new Promise((resolve) => setTimeout(resolve, 450));
@@ -276,51 +347,54 @@ async function findReviewCard(page, reviewerId) {
   return null;
 }
 
-async function screenshotReview(reviewerId) {
+async function screenshotReview(target) {
   const browser = await launchBrowser({ width: 1280, height: 1800 });
   try {
     const page = await browser.newPage();
     await openLatestReviews(page);
-    const card = await findReviewCard(page, reviewerId);
+    const card = await findReviewCard(page, target);
     if (!card) throw new Error('Review is no longer available');
 
-    await card.evaluate((element) => {
-      element.scrollIntoView({ block: 'center', inline: 'nearest' });
-      const more = [...element.querySelectorAll('[role="button"], button')]
-        .find((button) => /更多|閱讀.*其他評論|more/i.test(
-          `${button.textContent || ''} ${button.getAttribute('aria-label') || ''}`
-        ));
-      if (more) more.click();
-    });
-    await new Promise((resolve) => setTimeout(resolve, 250));
-
-    await card.evaluate((element) => {
-      const cardRect = element.getBoundingClientRect();
-      const action = [...element.querySelectorAll('[aria-label]')]
-        .find((candidate) => /^(回應|分享|like|share)/i.test(candidate.getAttribute('aria-label') || ''));
-      const content = element.querySelector('.OA1nbd, .wiI7pd');
-      const photos = [...element.querySelectorAll('button[aria-label*="評論中的第"]')];
-      const contentBottom = content?.getBoundingClientRect().bottom || cardRect.top + 130;
-      const photoBottom = photos.reduce(
-        (bottom, photo) => Math.max(bottom, photo.getBoundingClientRect().bottom),
-        contentBottom
-      );
-      const actionTop = action?.getBoundingClientRect().top || photoBottom + 8;
-      const targetHeight = Math.max(120, Math.ceil(Math.min(actionTop - 6, photoBottom + 8) - cardRect.top));
-      element.style.height = `${targetHeight}px`;
-      element.style.overflow = 'hidden';
-      element.style.boxSizing = 'border-box';
-    });
-
-    return card.screenshot({ type: 'png' });
+    return screenshotCard(card);
   } finally {
     await browser.close();
   }
 }
 
+async function screenshotCard(card) {
+  await card.evaluate((element) => {
+    element.scrollIntoView({ block: 'center', inline: 'nearest' });
+    const more = [...element.querySelectorAll('[role="button"], button')]
+      .find((button) => /更多|閱讀.*其他評論|more/i.test(
+        `${button.textContent || ''} ${button.getAttribute('aria-label') || ''}`
+      ));
+    if (more) more.click();
+  });
+  await new Promise((resolve) => setTimeout(resolve, 250));
+  await card.evaluate((element) => {
+    const cardRect = element.getBoundingClientRect();
+    const action = [...element.querySelectorAll('[aria-label]')]
+      .find((candidate) => /^(回應|分享|like|share)/i.test(candidate.getAttribute('aria-label') || ''));
+    const content = element.querySelector('.OA1nbd, .wiI7pd');
+    const photos = [...element.querySelectorAll('button[aria-label*="評論中的第"]')];
+    const contentBottom = content?.getBoundingClientRect().bottom || cardRect.top + 130;
+    const photoBottom = photos.reduce(
+      (bottom, photo) => Math.max(bottom, photo.getBoundingClientRect().bottom),
+      contentBottom
+    );
+    const actionTop = action?.getBoundingClientRect().top || photoBottom + 8;
+    const targetHeight = Math.max(120, Math.ceil(Math.min(actionTop - 6, photoBottom + 8) - cardRect.top));
+    element.style.height = `${targetHeight}px`;
+    element.style.overflow = 'hidden';
+    element.style.boxSizing = 'border-box';
+  });
+  return card.screenshot({ type: 'png' });
+}
+
 module.exports = {
   buildReviewImageUrl,
   checkGoogleReviews,
+  checkGoogleReviewsWithScreenshots,
   extractAgeLabel,
   isReviewEntryLabel,
   isRecentAgeLabel,

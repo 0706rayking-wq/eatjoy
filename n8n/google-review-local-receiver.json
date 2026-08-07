@@ -1,0 +1,60 @@
+{
+  "name": "Google評論－本機巡檢接收",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/push",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\"to\":\"Cf47f4ae2865992470b5dc0a7c3ff3170\",\"messages\":$json.body.lineMessageObjects.slice(0,5)} }}",
+        "options": {}
+      },
+      "id": "ada0de07-a66f-4a95-8e73-847dff45dbd6",
+      "name": "發送台北人事群",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [480, 0],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eqZPgNeJ2WPXRyVW",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "google-review-local-7ef4236b-a736-4cab-a5d7-8a873ea0d4d6",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "id": "dfe66ab6-aa32-45b5-b2b1-806ab05a7fdd",
+      "name": "Webhook",
+      "webhookId": "47b6b285-0f9a-4378-8470-81a3d8aabfbb"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [[{
+        "node": "發送台北人事群",
+        "type": "main",
+        "index": 0
+      }]]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "tags": []
+}
