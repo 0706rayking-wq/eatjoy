@@ -1103,6 +1103,7 @@
 <body class="pb-12">
     <div id="root"></div>
     <div id="notify-root" style="position:fixed;top:80px;left:0;right:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none;padding:0 16px;isolation:isolate;"></div>
+    <script src="food-research-question-bank.js"></script>
 
     <script>
 // 動態載入 game.js，載完設 window._gameJsReady = true
@@ -1117,6 +1118,18 @@ window._gameJsReady = false;
 </script>
     <script type="text/babel" data-presets="env,react" data-cache="false">
     const { useState, useEffect, useCallback, useMemo, useRef } = React;
+    const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-04-570';
+    const FOOD_RESEARCH_QUESTIONS = Array.isArray(window.FOOD_RESEARCH_QUESTIONS) ? window.FOOD_RESEARCH_QUESTIONS : [];
+    const mergeFoodResearchQuestions = (...banks) => {
+     const seen = new Set();
+     return banks.flat().filter(item => {
+      const question = Array.isArray(item) ? item[0] : item?.q;
+      const key = String(question || '').replace(/\s+/g, ' ').trim();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+     });
+    };
 
     const appIdGlobal = 'kitchen-v16';
     const firebaseConfig = {
@@ -9858,8 +9871,11 @@ if (selectedActivity === 'food_research') {
 const bossName = config.bossName || '被感染的小雷神';
 const bossImgHtml = config.bossImg ? `<img src="${config.bossImg}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 50%; border: 4px solid #ef4444; background: white; box-shadow: 0 4px 10px -1px rgba(0, 0, 0, 0.2);" alt="Boss">` : `<div style="font-size:70px; line-height: 1; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));">👿</div>`;
 const bgImgHtml = config.bgImg ? `<div class="absolute inset-0 bg-cover bg-center opacity-30 z-0 pointer-events-none" style="background-image: url('${config.bgImg}');"></div>` : `<div class="absolute inset-0 bg-white z-0 pointer-events-none"></div>`;
-const safeQuestions = config.questions && config.questions.length > 0 
- ? config.questions.map(item => Array.isArray(item) ? item : [item.q, item.a, item.b, item.c, item.d, item.ansIdx]) 
+ const activeQuestionBank = config.questionBankVersion === FOOD_RESEARCH_QUESTION_BANK_VERSION
+  ? (config.questions || [])
+  : mergeFoodResearchQuestions(FOOD_RESEARCH_QUESTIONS, config.questions || []);
+ const safeQuestions = activeQuestionBank.length > 0 
+  ? activeQuestionBank.map(item => Array.isArray(item) ? item : [item.q, item.a, item.b, item.c, item.d, item.ansIdx]) 
  : [["請通知行政主廚至後台設定題目！", "知道", "了解", "收到", "明白", 0]];
 
 const scriptStart = "<scr" + "ipt>";
@@ -10360,7 +10376,7 @@ return (
       { id: 'gathering', title: '饗聚一堂', subtitle: '員餐與茶點', img: null, isOpen: false }
      ];
 
-     const [config, setConfig] = useState({ isOpen: false, bossName: '被感染的小雷神', bossImg: null, bgImg: null, questions: [], activities: defaultActivities });
+      const [config, setConfig] = useState({ isOpen: false, bossName: '被感染的小雷神', bossImg: null, bgImg: null, questions: FOOD_RESEARCH_QUESTIONS, questionBankVersion: FOOD_RESEARCH_QUESTION_BANK_VERSION, activities: defaultActivities });
      const [showModal, setShowModal] = useState(false);
      const [qForm, setQForm] = useState({ q: '', a: '', b: '', c: '', d: '', ansIdx: 0 });
 
@@ -10486,10 +10502,19 @@ return (
       fetchGlobalLeaderboard();
      }, [globalBranches, getPublicPath]);
 
-     useEffect(() => {
-      const unsub = db.doc(getPublicPath('system/game_config')).onSnapshot(d => {
-        if(d.exists) setConfig(d.data());
-      });
+      useEffect(() => {
+       const unsub = db.doc(getPublicPath('system/game_config')).onSnapshot(d => {
+         if(d.exists) {
+          const data = d.data();
+          setConfig({
+           ...data,
+           questions: data.questionBankVersion === FOOD_RESEARCH_QUESTION_BANK_VERSION
+            ? (data.questions || [])
+            : mergeFoodResearchQuestions(FOOD_RESEARCH_QUESTIONS, data.questions || []),
+           questionBankVersion: FOOD_RESEARCH_QUESTION_BANK_VERSION
+          });
+         }
+       });
       return () => unsub();
      }, [getPublicPath]);
 
@@ -10501,9 +10526,12 @@ return (
       return () => unsub();
      }, [getPublicPath]);
 
-     const saveConfig = (updates) => {
-      db.doc(getPublicPath('system/game_config')).set(updates, { merge: true });
-     };
+      const saveConfig = (updates) => {
+       const payload = updates.questions
+        ? { ...updates, questionBankVersion: FOOD_RESEARCH_QUESTION_BANK_VERSION }
+        : updates;
+       db.doc(getPublicPath('system/game_config')).set(payload, { merge: true });
+      };
 
      const handleSaveActivity = (id, field, value) => {
       const newActivities = [...activitiesList];
@@ -12050,12 +12078,13 @@ return (
      const [branchZones, setBranchZones] = useState([]);
      const [announcements, setAnnouncements] = useState([]);
      const [tickerText, setTickerText] = useState('');
-     const [gameConfig, setGameConfig] = useState({
-      isOpen: false,
-      bossName: "被感染的小雷神",
-      bossImg: null,
-      questions: []
-     });
+      const [gameConfig, setGameConfig] = useState({
+       isOpen: false,
+       bossName: "被感染的小雷神",
+       bossImg: null,
+       questions: FOOD_RESEARCH_QUESTIONS,
+       questionBankVersion: FOOD_RESEARCH_QUESTION_BANK_VERSION
+      });
      const [menuData, setMenuData] = useState({});
      const [onboardingData, setOnboardingData] = useState({});
      const [benefitsData, setBenefitsData] = useState({});
@@ -12336,9 +12365,18 @@ return (
       }, errH);
       const subStd = db.collection(getPublicPath(`standards_${currentBranch}`)).onSnapshot(s => { const m = {}; s.forEach(doc => { const d = doc.data(); if (!m[d.zoneId]) m[d.zoneId] = []; m[d.zoneId].push({...d, id: doc.id}); }); setStandards(m); }, errH);
       const subTicker = db.doc(getPublicPath(`ticker/branch_${currentBranch}`)).onSnapshot(d => { setTickerText(d.exists ? d.data().text || '' : ''); }, errH);
-      const subGame = db.doc(getPublicPath('system/game_config')).onSnapshot(d => {
-        if (d.exists) setGameConfig(d.data());
-      }, errH);
+       const subGame = db.doc(getPublicPath('system/game_config')).onSnapshot(d => {
+         if (d.exists) {
+          const data = d.data();
+          setGameConfig({
+           ...data,
+           questions: data.questionBankVersion === FOOD_RESEARCH_QUESTION_BANK_VERSION
+            ? (data.questions || [])
+            : mergeFoodResearchQuestions(FOOD_RESEARCH_QUESTIONS, data.questions || []),
+           questionBankVersion: FOOD_RESEARCH_QUESTION_BANK_VERSION
+          });
+         }
+       }, errH);
       const subContentStatus = db.doc(getPublicPath(`content_status/branch_${currentBranch}`)).onSnapshot(d => setContentStatus(d.exists ? d.data() : {}), errH);
       const subOnboardVid = db.doc(getPublicPath(`onboarding/settings_${currentBranch}`)).onSnapshot(d => setOnboardingData(p => ({...p, ...(d.exists ? d.data() : {})})), errH);
       const subSigs = db.collection(getPublicPath(`signatures_${currentBranch}`)).onSnapshot(s => setSignatures(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b)=>b.timestamp-a.timestamp)), errH);
