@@ -206,6 +206,15 @@ async function loadNueipAttendance(date) {
   );
 
   const loginText = await loginResponse.text();
+  let loginShape = `status:${loginResponse.status};body:${loginText.length}`;
+  try {
+    const loginJson = JSON.parse(loginText);
+    const safeEntries = Object.entries(loginJson)
+      .filter(([key, value]) => !/token|password|secret/i.test(key) && ['string', 'number', 'boolean'].includes(typeof value))
+      .slice(0, 6)
+      .map(([key, value]) => `${key}:${String(value).slice(0, 40)}`);
+    loginShape += `;json:${safeEntries.join('|')}`;
+  } catch {}
   if (!loginResponse.ok || /密碼錯誤|登入失敗|invalid|error/i.test(loginText)) {
     throw new Error('NUEIP login failed');
   }
@@ -243,7 +252,9 @@ async function loadNueipAttendance(date) {
       `td=${(html.match(/<td\b/gi) || []).length}`,
       `employeeLabel=${(html.match(/員工編號/g) || []).length}`,
       `knownEmployee=${html.includes('403003') ? 1 : 0}`,
-      `loginForm=${/inputCompany|inputPassword/.test(html) ? 1 : 0}`
+      `loginForm=${/inputCompany|inputPassword/.test(html) ? 1 : 0}`,
+      `cookies=${[...jar.cookies.keys()].join('|')}`,
+      `login=${loginShape}`
     ].join(',');
     throw new Error(`NUEIP出勤表讀取為0筆[${metrics}]`);
   }
