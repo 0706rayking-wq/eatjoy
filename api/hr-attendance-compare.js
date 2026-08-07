@@ -162,6 +162,63 @@ async function fetchWithCookies(url, options, jar, redirectsLeft = 5) {
   return response;
 }
 
+async function loadNueipAttendanceBrowser(date) {
+  const chromium = require('@sparticuz/chromium');
+  const puppeteer = require('puppeteer-core');
+  const companyCode = readRequiredEnv('NUEIP_COMPANY_CODE');
+  const employeeId = readRequiredEnv('NUEIP_EMPLOYEE_ID');
+  const password = readRequiredEnv('NUEIP_PASSWORD');
+  const companyValue = String(process.env.NUEIP_COMPANY_VALUE || '15451').trim();
+  const departmentValue = String(process.env.NUEIP_DEPARTMENT_VALUE || '15451_103016').trim();
+  const browser = await puppeteer.launch({
+    args: chromium.args,
+    defaultViewport: chromium.defaultViewport,
+    executablePath: await chromium.executablePath(),
+    headless: chromium.headless
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.setUserAgent(NUEIP_USER_AGENT);
+    await page.setExtraHTTPHeaders({ 'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8' });
+    await page.goto('https://portal.nueip.com/login', { waitUntil: 'domcontentloaded', timeout: 25000 });
+    await page.waitForSelector('input[name="inputCompany"]', { timeout: 15000 });
+    await page.type('input[name="inputCompany"]', companyCode);
+    await page.type('input[name="inputID"]', employeeId);
+    await page.type('input[name="inputPassword"]', password);
+    await page.click('button.login-button');
+    await page.waitForFunction(() => !location.pathname.startsWith('/login'), { timeout: 20000 });
+
+    const query = new URLSearchParams({
+      work_status: '1',
+      FLayer: companyValue,
+      SLayer: departmentValue,
+      TLayer: `${departmentValue}_0`,
+      date_start: date,
+      date_end: date,
+      showByBelongDate: '1',
+      filterModify: '0'
+    });
+    await page.goto(`https://cloud.nueip.com/attendance_record?${query.toString()}`, {
+      waitUntil: 'networkidle2',
+      timeout: 30000
+    });
+    if (page.url().includes('portal.nueip.com/login')) {
+      throw new Error('NUEIP cloud工作階段建立失敗');
+    }
+    await page.waitForFunction(
+      () => document.querySelectorAll('table tbody tr, [role="row"]').length > 3,
+      { timeout: 20000 }
+    );
+    const html = await page.content();
+    const attendance = parseAttendanceHtml(html);
+    if (attendance.length === 0) throw new Error('NUEIP瀏覽器讀取為0筆');
+    return attendance;
+  } finally {
+    await browser.close();
+  }
+}
+
 async function loadNueipAttendance(date) {
   const companyCode = readRequiredEnv('NUEIP_COMPANY_CODE');
   const employeeId = readRequiredEnv('NUEIP_EMPLOYEE_ID');
@@ -209,15 +266,6 @@ async function loadNueipAttendance(date) {
   );
 
   const loginText = await loginResponse.text();
-  let loginShape = `status:${loginResponse.status};body:${loginText.length}`;
-  try {
-    const loginJson = JSON.parse(loginText);
-    const safeEntries = Object.entries(loginJson)
-      .filter(([key, value]) => !/token|password|secret/i.test(key) && ['string', 'number', 'boolean'].includes(typeof value))
-      .slice(0, 6)
-      .map(([key, value]) => `${key}:${String(value).slice(0, 40)}`);
-    loginShape += `;json:${safeEntries.join('|')}`;
-  } catch {}
   if (!loginResponse.ok || /密碼錯誤|登入失敗|invalid|error/i.test(loginText)) {
     throw new Error('NUEIP login failed');
   }
@@ -269,17 +317,7 @@ async function loadNueipAttendance(date) {
   }
   const attendance = parseAttendanceHtml(html);
   if (attendance.length === 0) {
-    const metrics = [
-      `html=${html.length}`,
-      `tr=${(html.match(/<tr\b/gi) || []).length}`,
-      `td=${(html.match(/<td\b/gi) || []).length}`,
-      `employeeLabel=${(html.match(/員工編號/g) || []).length}`,
-      `knownEmployee=${html.includes('403003') ? 1 : 0}`,
-      `loginForm=${/inputCompany|inputPassword/.test(html) ? 1 : 0}`,
-      `login=${loginShape}`,
-      `activeCookies=${[...jar.cookies.entries()].filter(([, value]) => value !== 'deleted').map(([key]) => key).join('|')}`
-    ].join(',');
-    throw new Error(`NUEIP出勤表讀取為0筆[${metrics}]`);
+    return loadNueipAttendanceBrowser(date);
   }
   return attendance;
 }
