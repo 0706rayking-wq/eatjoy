@@ -77,11 +77,26 @@ async function clickReviewEntry(page) {
   });
 }
 
+async function describeReviewPage(page) {
+  const details = await page.evaluate(() => ({
+    title: document.title,
+    labels: [...document.querySelectorAll('button, a, [role="button"]')]
+      .map((candidate) => `${candidate.textContent || ''} ${candidate.getAttribute('aria-label') || ''}`
+        .replace(/\s+/g, ' ')
+        .trim())
+      .filter(Boolean)
+      .slice(0, 12)
+  }));
+  return `url=${page.url()} title=${details.title || '-'} labels=${details.labels.join(' | ') || '-'}`;
+}
+
 async function ensureReviewDialog(page) {
   if (await page.$(REVIEW_CARD_SELECTOR)) return;
 
   const clicked = await clickReviewEntry(page);
-  if (!clicked) throw new Error('Google review entry button was not found');
+  if (!clicked) {
+    throw new Error(`Google review entry button was not found; ${await describeReviewPage(page)}`);
+  }
   try {
     await page.waitForSelector(REVIEW_CARD_SELECTOR, { timeout: 20000 });
   } catch (error) {
