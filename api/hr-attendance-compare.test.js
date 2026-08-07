@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const {
+  alignClockOuts,
   compareAttendance,
   formatLineMessages,
   normalizeDate,
@@ -54,7 +55,7 @@ const html = `
 const attendance = parseAttendanceHtml(html);
 assert.equal(attendance.length, 4);
 assert.equal(attendance[0].name, '謝采穎');
-assert.deepEqual(attendance[2].clockOuts, ['14:02:30', '20:50:02']);
+assert.deepEqual(attendance[2].clockOuts, ['14:02', '20:50']);
 
 const positionalHtml = `
 <table><tbody><tr>
@@ -67,7 +68,19 @@ const positionalHtml = `
 const positionalAttendance = parseAttendanceHtml(positionalHtml);
 assert.equal(positionalAttendance.length, 1);
 assert.equal(positionalAttendance[0].name, '王永銓');
-assert.deepEqual(positionalAttendance[0].clockOuts, ['15:03:02', '20:41:40']);
+assert.deepEqual(positionalAttendance[0].clockOuts, ['15:03', '20:41']);
+
+const adjustedAndPhysicalHtml = `
+<table><tbody><tr>
+  <td>補卡</td><td>修改</td><td>900001</td><td><div class="user-popover">測試員工</div></td>
+  <td>2026-08-03</td><td>早班</td><td><span class="help color_black">09:30:59</span></td>
+  <td><span class="help color_yellow" data-original-title="辦公補卡">15:00:00</span>
+      <span class="help color_black" data-original-title="無">15:02:08</span></td>
+  <td>5小時32分</td><td></td>
+</tr></tbody></table>`;
+const adjustedAndPhysical = parseAttendanceHtml(adjustedAndPhysicalHtml)[0];
+assert.deepEqual(adjustedAndPhysical.clockOuts, ['15:02']);
+assert.deepEqual(adjustedAndPhysical.adjustedClockOuts, ['15:00']);
 
 const schedule = {
   date: '8/6',
@@ -86,7 +99,7 @@ const schedule = {
 };
 
 const comparison = compareAttendance(schedule, attendance, ['黃遠志']);
-assert.equal(comparison.issues.some((issue) => issue.type === 'late' && issue.name === '謝采穎'), true);
+assert.equal(comparison.issues.some((issue) => issue.type === 'late' && issue.name === '謝采穎'), false);
 assert.equal(comparison.issues.some((issue) => issue.type === 'early' && issue.name === '陳玉清福'), true);
 assert.equal(comparison.issues.some((issue) => issue.type === 'rest_day_work' && issue.name === '劉軒菱'), true);
 assert.equal(comparison.issues.some((issue) => issue.name === '黃遠志'), false);
@@ -101,5 +114,26 @@ for (const line of messages.join('\n').split('\n')) {
 
 assert.equal(normalizeDate('8/6', new Date('2026-08-07T00:00:00+08:00')), '2026-08-06');
 assert.deepEqual(wrapLine('123456', 3), ['123', '456']);
+
+const exactlyThirteenMinutes = alignClockOuts(['21:45'], ['21:58:59']);
+assert.equal(exactlyThirteenMinutes.pairs[0].differenceSeconds, 13 * 60);
+assert.equal(exactlyThirteenMinutes.pairs[0].actual, '21:58');
+const moreThanThirteenMinutes = alignClockOuts(['21:45'], ['21:59:01']);
+assert.equal(moreThanThirteenMinutes.pairs[0].differenceSeconds, 14 * 60);
+
+const adjustedComparison = compareAttendance({
+  employees: [{ name: '測試員工', shifts: [{ start: '09:30', end: '15:00' }] }]
+}, [adjustedAndPhysical]);
+assert.equal(adjustedComparison.issues.some((issue) => issue.type === 'nueip_status'), false);
+
+const unclearComparison = compareAttendance({
+  employees: [{
+    name: '測試員工',
+    shifts: [{ start: '09:30', end: '15:00' }],
+    needs_review: true
+  }]
+}, [{ ...adjustedAndPhysical, clockOuts: ['15:13', '21:33'] }]);
+assert.equal(unclearComparison.issues.some((issue) => issue.type === 'schedule_review'), true);
+assert.equal(unclearComparison.issues.some((issue) => issue.type === 'nueip_status'), false);
 
 console.log('hr-attendance-compare tests passed');

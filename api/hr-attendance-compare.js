@@ -60,6 +60,37 @@ function cellHtml(rowHtml, label) {
   return rowHtml.match(pattern)?.[1] || '';
 }
 
+function minuteTime(value) {
+  const match = String(value || '').match(/\b(\d{1,2}):(\d{2})(?::\d{2})?\b/);
+  if (!match) return String(value || '').trim();
+  return `${match[1].padStart(2, '0')}:${match[2]}`;
+}
+
+function parsePunchTimes(cell) {
+  const physical = [];
+  const adjusted = [];
+  const spanPattern = /<span\b([^>]*)>(\d{1,2}:\d{2}:\d{2})<\/span>/gi;
+  let match;
+
+  while ((match = spanPattern.exec(String(cell || ''))) !== null) {
+    const attributes = match[1];
+    const time = minuteTime(match[2]);
+    if (/color_yellow/i.test(attributes)) adjusted.push(time);
+    else physical.push(time);
+  }
+
+  // Older/simple NUEIP HTML and unit-test fixtures may omit colour classes.
+  if (physical.length === 0 && adjusted.length === 0) {
+    physical.push(...((String(cell || '').match(/\b\d{2}:\d{2}:\d{2}\b/g) || []).map(minuteTime)));
+  }
+
+  const unique = (values) => [...new Set(values)];
+  return {
+    actual: unique(physical.length > 0 ? physical : adjusted),
+    adjusted: unique(adjusted)
+  };
+}
+
 function parseAttendanceHtml(html) {
   const rows = [];
   // DataTables adds role/data-th attributes in the browser. NUEIP's server-side
@@ -85,8 +116,10 @@ function parseAttendanceHtml(html) {
     const scheduledRange = decodeHtml(scheduleCell.match(/data-original-title=["']([^"']*)["']/i)?.[1] || '');
     const clockInCell = readCell('上班', 6);
     const clockOutCell = readCell('下班', 7);
-    const clockIns = clockInCell.match(/\b\d{2}:\d{2}:\d{2}\b/g) || [];
-    const clockOuts = clockOutCell.match(/\b\d{2}:\d{2}:\d{2}\b/g) || [];
+    const clockInPunches = parsePunchTimes(clockInCell);
+    const clockOutPunches = parsePunchTimes(clockOutCell);
+    const clockIns = clockInPunches.actual;
+    const clockOuts = clockOutPunches.actual;
     const status = htmlText(readCell('出勤狀況', 9));
 
     rows.push({
@@ -97,6 +130,8 @@ function parseAttendanceHtml(html) {
       scheduledRange,
       clockIns,
       clockOuts,
+      adjustedClockIns: clockInPunches.adjusted,
+      adjustedClockOuts: clockOutPunches.adjusted,
       status
     });
   }
@@ -408,7 +443,7 @@ function timeToSeconds(value) {
   let minutes;
   let seconds = 0;
   if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(raw)) {
-    [hours, minutes, seconds = 0] = raw.split(':').map(Number);
+    [hours, minutes] = raw.split(':').map(Number);
   } else if (/^\d{3,4}$/.test(raw)) {
     hours = Number(raw.slice(0, -2));
     minutes = Number(raw.slice(-2));
@@ -423,15 +458,13 @@ function timeToSeconds(value) {
 }
 
 function formatDuration(seconds) {
-  const absolute = Math.abs(Math.round(seconds));
-  const minutes = Math.floor(absolute / 60);
-  const remainder = absolute % 60;
-  return remainder ? `${minutes}分${remainder}秒` : `${minutes}分鐘`;
+  const minutes = Math.abs(Math.round(seconds / 60));
+  return `${minutes}分鐘`;
 }
 
 function alignClockOuts(expectedEnds, actualOuts) {
   const unused = actualOuts
-    .map((value, index) => ({ value, index, seconds: timeToSeconds(value) }))
+    .map((value, index) => ({ value: minuteTime(value), index, seconds: timeToSeconds(value) }))
     .filter((entry) => entry.seconds !== null);
   const pairs = [];
 
@@ -504,7 +537,14 @@ function compareAttendance(schedule, attendance, excludedNames = ['黃遠志']) 
     }
 
     const alignment = alignClockOuts(expectedEnds, record.clockOuts);
-    let timeIssue = false;
+    if (employee.needs_review) {
+      issues.push({
+        type: 'schedule_review',
+        name: record.name,
+        detail: '下班條時間不清，請主管確認'
+      });
+    }
+    let timeIssue = Boolean(employee.needs_review);
     for (const pair of alignment.pairs) {
       if (pair.actual === null) {
         issues.push({
@@ -537,12 +577,13 @@ function compareAttendance(schedule, attendance, excludedNames = ['黃遠志']) 
       }
     }
 
-    if (alignment.extraClockOuts.length > 0 || /遲到|早退|缺卡|曠職|打卡異常/.test(record.status)) {
+    const extraClockOuts = employee.needs_review ? [] : alignment.extraClockOuts;
+    if (extraClockOuts.length > 0 || /遲到|早退|缺卡|曠職|打卡異常/.test(record.status)) {
       issues.push({
         type: 'nueip_status',
         name: record.name,
         detail: record.status ? `NUEIP標記：${record.status}` : 'NUEIP有額外打卡',
-        extraClockOuts: alignment.extraClockOuts
+        extraClockOuts
       });
     }
 
@@ -590,7 +631,8 @@ function formatLineMessages(date, comparison) {
       nueip_status: '打卡異常',
       nueip_only: '下班條漏列',
       missing_nueip: '名冊不符',
-      name_ambiguous: '姓名不明'
+      name_ambiguous: '姓名不明',
+      schedule_review: '班表待確認'
     };
     lines.push(`${index + 1}.${issue.name}｜${labels[issue.type] || '需確認'}`);
     if (issue.expected) lines.push(`下班條：${issue.expected}`);
