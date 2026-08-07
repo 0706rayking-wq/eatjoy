@@ -253,8 +253,8 @@ async function loadNueipAttendance(date) {
       `employeeLabel=${(html.match(/員工編號/g) || []).length}`,
       `knownEmployee=${html.includes('403003') ? 1 : 0}`,
       `loginForm=${/inputCompany|inputPassword/.test(html) ? 1 : 0}`,
-      `cookies=${[...jar.cookies.keys()].join('|')}`,
-      `login=${loginShape}`
+      `login=${loginShape}`,
+      `activeCookies=${[...jar.cookies.entries()].filter(([, value]) => value !== 'deleted').map(([key]) => key).join('|')}`
     ].join(',');
     throw new Error(`NUEIP出勤表讀取為0筆[${metrics}]`);
   }
