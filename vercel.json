@@ -6,6 +6,9 @@
     "api/google-review-check.js": {
       "maxDuration": 60
     },
+    "api/google-review-report.js": {
+      "maxDuration": 60
+    },
     "api/google-review-image.js": {
       "maxDuration": 60
     }

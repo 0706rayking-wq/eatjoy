@@ -1,8 +1,4 @@
 const crypto = require('node:crypto');
-const {
-  buildReviewImageUrl,
-  checkGoogleReviews
-} = require('./google-review-lib');
 
 const NUEIP_HOST_SUFFIX = '.nueip.com';
 const MAX_LINE_CHARS = 28;
@@ -678,67 +674,6 @@ function normalizeDate(value, now = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-function splitLineText(text, limit = 4900) {
-  const messages = [];
-  let current = '';
-  for (const line of String(text || '').split('\n')) {
-    const candidate = current ? `${current}\n${line}` : line;
-    if (Array.from(candidate).length > limit && current) {
-      messages.push(current);
-      current = line;
-    } else {
-      current = candidate;
-    }
-  }
-  if (current) messages.push(current);
-  return messages;
-}
-
-function formatGoogleReviewLines(date, reviewResult, reviewError) {
-  const displayDate = String(date).replace(/^\d{4}-/, '').replace('-', '/');
-  if (reviewError) {
-    return [
-      `【${displayDate} Google評論】`,
-      '店別：南港店',
-      '巡檢失敗，請主管人工確認'
-    ];
-  }
-
-  const counts = reviewResult?.counts || {};
-  return [
-    `【${displayDate} Google評論】`,
-    '店別：南港店',
-    `★★★★★：${counts[5] || 0}則`,
-    `★★★★：${counts[4] || 0}則`,
-    `★★★：${counts[3] || 0}則`,
-    `★★：${counts[2] || 0}則`,
-    `★：${counts[1] || 0}則`
-  ];
-}
-
-function buildCombinedLineMessages(request, date, attendanceMessages, reviewResult, reviewError) {
-  const text = [
-    ...attendanceMessages,
-    '────────',
-    ...formatGoogleReviewLines(reviewResult?.date || date, reviewResult, reviewError)
-  ].join('\n');
-  const textObjects = splitLineText(text).map((message) => ({ type: 'text', text: message }));
-  const secret = String(process.env.HR_AUTOMATION_SECRET || process.env.N8N_RELAY_SECRET || '').trim();
-  const imageSlots = Math.max(0, 5 - textObjects.length);
-  const imageObjects = (reviewResult?.negativeReviews || [])
-    .filter((review) => review.reviewerId)
-    .slice(0, imageSlots)
-    .map((review) => {
-      const imageUrl = buildReviewImageUrl(request, review, reviewResult.date || date, secret);
-      return {
-        type: 'image',
-        originalContentUrl: imageUrl,
-        previewImageUrl: imageUrl
-      };
-    });
-  return [...textObjects, ...imageObjects].slice(0, 5);
-}
-
 async function handler(request, response) {
   if (request.method !== 'POST') {
     response.setHeader('Allow', 'POST');
@@ -757,29 +692,13 @@ async function handler(request, response) {
       .filter(Boolean);
     const comparison = compareAttendance(schedule, attendance, excludedNames);
     const lineMessages = formatLineMessages(date, comparison);
-    let reviewResult = null;
-    let reviewError = null;
-    try {
-      reviewResult = await checkGoogleReviews();
-    } catch (error) {
-      reviewError = String(error.message || 'Google review check failed').slice(0, 200);
-      console.error('Google review check failed during attendance comparison', reviewError);
-    }
-    const lineMessageObjects = buildCombinedLineMessages(
-      request,
-      date,
-      lineMessages,
-      reviewResult,
-      reviewError
-    );
+    const lineMessageObjects = lineMessages.map((text) => ({ type: 'text', text })).slice(0, 5);
     return response.status(200).json({
       status: 'ok',
       date,
       attendanceCount: attendance.length,
       ...comparison,
       lineMessages,
-      googleReviews: reviewResult,
-      googleReviewError: reviewError,
       lineMessageObjects
     });
   } catch (error) {
@@ -795,8 +714,6 @@ module.exports = handler;
 module.exports._test = {
   alignClockOuts,
   compareAttendance,
-  buildCombinedLineMessages,
-  formatGoogleReviewLines,
   formatLineMessages,
   normalizeDate,
   normalizeName,
