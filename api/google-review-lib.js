@@ -2,8 +2,8 @@ const crypto = require('node:crypto');
 
 const DEFAULT_REVIEW_URL =
   'https://www.google.com/maps?hl=zh-TW&cid=10154763518669145936';
-const REVIEW_CARD_SELECTOR = '.bwb7ce';
-const REVIEW_CONTENT_SELECTOR = '.OA1nbd';
+const REVIEW_CARD_SELECTOR = '.bwb7ce, .jftiEf';
+const REVIEW_CONTENT_SELECTOR = '.OA1nbd, .wiI7pd';
 const REVIEWER_SELECTOR = '.Vpc5Fe';
 
 async function launchBrowser(viewport = { width: 1280, height: 1600 }) {
@@ -59,7 +59,11 @@ function resolveReviewUrl(value) {
 
 function isReviewEntryLabel(value) {
   const label = String(value || '').replace(/\s+/g, ' ').trim();
-  return /google\s*評論/i.test(label) || /google\s*reviews?/i.test(label);
+  if (/撰寫評論|評論可使用的評論選項|write a review|review options/i.test(label)) return false;
+  return /google\s*評論/i.test(label)
+    || /google\s*reviews?/i.test(label)
+    || /(?:^|\s|[^\p{L}])(?:[\d,]+\s*則\s*)?評論(?:$|\s)/u.test(label)
+    || /(?:^|\s)(?:[\d,]+\s+)?reviews?(?:$|\s)/i.test(label);
 }
 
 async function clickReviewEntry(page) {
@@ -69,7 +73,11 @@ async function clickReviewEntry(page) {
         const label = `${candidate.textContent || ''} ${candidate.getAttribute('aria-label') || ''}`
           .replace(/\s+/g, ' ')
           .trim();
-        return /google\s*評論/i.test(label) || /google\s*reviews?/i.test(label);
+        if (/撰寫評論|評論可使用的評論選項|write a review|review options/i.test(label)) return false;
+        return /google\s*評論/i.test(label)
+          || /google\s*reviews?/i.test(label)
+          || /(?:^|\s|[^\p{L}])(?:[\d,]+\s*則\s*)?評論(?:$|\s)/u.test(label)
+          || /(?:^|\s)(?:[\d,]+\s+)?reviews?(?:$|\s)/i.test(label);
       });
     if (!element) return false;
     element.click();
@@ -114,27 +122,46 @@ async function openLatestReviews(page) {
   await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }]);
   await page.goto(reviewUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await ensureReviewDialog(page);
-  await page.waitForFunction(() => [...document.querySelectorAll('[role="radio"]')]
-    .some((element) => (element.textContent || '').trim() === '最新'), { timeout: 15000 });
-  await page.evaluate(() => {
-    const latest = [...document.querySelectorAll('[role="radio"]')]
-      .find((element) => (element.textContent || '').trim() === '最新');
+  const latestWasVisible = await page.evaluate(() => {
+    const latest = [...document.querySelectorAll('[role="radio"], [role="menuitemradio"]')]
+      .find((element) => /^(最新|newest)$/i.test((element.textContent || '').trim()));
+    if (!latest) return false;
     latest.click();
+    return true;
   });
+  if (!latestWasVisible) {
+    const openedSort = await page.evaluate(() => {
+      const sort = [...document.querySelectorAll('button, [role="button"]')]
+        .find((element) => /排序評論|sort reviews/i.test(
+          `${element.textContent || ''} ${element.getAttribute('aria-label') || ''}`
+        ));
+      if (!sort) return false;
+      sort.click();
+      return true;
+    });
+    if (!openedSort) throw new Error('Google review sort button was not found');
+    await page.waitForFunction(() => [...document.querySelectorAll('[role="radio"], [role="menuitemradio"]')]
+      .some((element) => /^(最新|newest)$/i.test((element.textContent || '').trim())), { timeout: 15000 });
+    await page.evaluate(() => {
+      const latest = [...document.querySelectorAll('[role="radio"], [role="menuitemradio"]')]
+        .find((element) => /^(最新|newest)$/i.test((element.textContent || '').trim()));
+      latest.click();
+    });
+  }
   await new Promise((resolve) => setTimeout(resolve, 900));
 }
 
 async function readCards(page) {
   return page.$$eval(REVIEW_CARD_SELECTOR, (cards) => cards.map((card) => {
     const text = card.innerText || '';
-    const ratingAlt = [...card.querySelectorAll('img')]
-      .map((image) => image.getAttribute('alt') || '')
-      .find((alt) => /(?:獲評為|rated)\s*[1-5](?:\.0)?/i.test(alt)) || '';
+    const ratingAlt = [...card.querySelectorAll('img, [role="img"], [aria-label]')]
+      .map((image) => image.getAttribute('alt') || image.getAttribute('aria-label') || '')
+      .find((alt) => /(?:獲評為|rated|顆星|stars?)\D*[1-5](?:\.0)?|[1-5](?:\.0)?\D*(?:顆星|stars?)/i.test(alt)) || '';
     const stars = Number(ratingAlt.match(/([1-5](?:\.0)?)/)?.[1] || 0);
     const reviewerLink = [...card.querySelectorAll('a')]
       .find((link) => /\/maps\/contrib\/\d+/.test(link.href || ''));
     const reviewerId = (reviewerLink?.href || '').match(/\/maps\/contrib\/(\d+)/)?.[1] || '';
-    const reviewer = card.querySelector('.Vpc5Fe')?.textContent?.trim()
+    const reviewer = card.querySelector('.Vpc5Fe, .d4r55')?.textContent?.trim()
       || reviewerLink?.textContent?.trim()
       || '未知評論者';
     const ageLabel = text.match(/(?:剛剛|\d+\s*(?:分鐘|小時|天|週|個月|年)前)/)?.[0]
@@ -146,7 +173,7 @@ async function readCards(page) {
 
 async function scrollReviewList(page) {
   return page.evaluate(() => {
-    const card = document.querySelector('.bwb7ce');
+    const card = document.querySelector('.bwb7ce, .jftiEf');
     let container = card?.parentElement;
     while (container) {
       const style = getComputedStyle(container);
@@ -259,16 +286,19 @@ async function screenshotReview(reviewerId) {
 
     await card.evaluate((element) => {
       element.scrollIntoView({ block: 'center', inline: 'nearest' });
-      const more = [...element.querySelectorAll('[role="button"]')]
-        .find((button) => (button.getAttribute('aria-label') || '').startsWith('閱讀'));
+      const more = [...element.querySelectorAll('[role="button"], button')]
+        .find((button) => /更多|閱讀.*其他評論|more/i.test(
+          `${button.textContent || ''} ${button.getAttribute('aria-label') || ''}`
+        ));
       if (more) more.click();
     });
     await new Promise((resolve) => setTimeout(resolve, 250));
 
     await card.evaluate((element) => {
       const cardRect = element.getBoundingClientRect();
-      const action = [...element.querySelectorAll('[aria-label="回應"], [aria-label="分享"]')][0];
-      const content = element.querySelector('.OA1nbd');
+      const action = [...element.querySelectorAll('[aria-label]')]
+        .find((candidate) => /^(回應|分享|like|share)/i.test(candidate.getAttribute('aria-label') || ''));
+      const content = element.querySelector('.OA1nbd, .wiI7pd');
       const photos = [...element.querySelectorAll('button[aria-label*="評論中的第"]')];
       const contentBottom = content?.getBoundingClientRect().bottom || cardRect.top + 130;
       const photoBottom = photos.reduce(
