@@ -45,6 +45,18 @@ function taipeiDate(now = new Date()) {
   return `${read('year')}-${read('month')}-${read('day')}`;
 }
 
+function resolveReviewUrl(value) {
+  const configured = String(value || '').trim();
+  if (!configured) return DEFAULT_REVIEW_URL;
+  try {
+    const url = new URL(configured);
+    if (url.hostname.toLowerCase() === 'share.google') return DEFAULT_REVIEW_URL;
+  } catch {
+    return DEFAULT_REVIEW_URL;
+  }
+  return configured;
+}
+
 function isReviewEntryLabel(value) {
   const label = String(value || '').replace(/\s+/g, ' ').trim();
   return /google\s*評論/i.test(label) || /google\s*reviews?/i.test(label);
@@ -78,7 +90,7 @@ async function ensureReviewDialog(page) {
 }
 
 async function openLatestReviews(page) {
-  const reviewUrl = String(process.env.GOOGLE_REVIEW_URL || DEFAULT_REVIEW_URL).trim();
+  const reviewUrl = resolveReviewUrl(process.env.GOOGLE_REVIEW_URL);
   await page.setUserAgent(
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
       + '(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
@@ -267,6 +279,7 @@ module.exports = {
   extractAgeLabel,
   isReviewEntryLabel,
   isRecentAgeLabel,
+  resolveReviewUrl,
   reviewSignature,
   screenshotReview,
   taipeiDate,
