@@ -45,23 +45,36 @@ function taipeiDate(now = new Date()) {
   return `${read('year')}-${read('month')}-${read('day')}`;
 }
 
-async function clickText(page, text, selector = 'button, a, [role="button"]') {
-  return page.evaluate(({ targetText, targetSelector }) => {
-    const element = [...document.querySelectorAll(targetSelector)]
-      .find((candidate) => (candidate.textContent || '').trim() === targetText);
+function isReviewEntryLabel(value) {
+  const label = String(value || '').replace(/\s+/g, ' ').trim();
+  return /google\s*評論/i.test(label) || /google\s*reviews?/i.test(label);
+}
+
+async function clickReviewEntry(page) {
+  return page.evaluate(() => {
+    const element = [...document.querySelectorAll('button, a, [role="button"]')]
+      .find((candidate) => {
+        const label = `${candidate.textContent || ''} ${candidate.getAttribute('aria-label') || ''}`
+          .replace(/\s+/g, ' ')
+          .trim();
+        return /google\s*評論/i.test(label) || /google\s*reviews?/i.test(label);
+      });
     if (!element) return false;
     element.click();
     return true;
-  }, { targetText: text, targetSelector: selector });
+  });
 }
 
 async function ensureReviewDialog(page) {
   if (await page.$(REVIEW_CARD_SELECTOR)) return;
 
-  await clickText(page, 'Google 評論');
-  await new Promise((resolve) => setTimeout(resolve, 700));
-  await clickText(page, '查看所有 Google 評論');
-  await page.waitForSelector(REVIEW_CARD_SELECTOR, { timeout: 15000 });
+  const clicked = await clickReviewEntry(page);
+  if (!clicked) throw new Error('Google review entry button was not found');
+  try {
+    await page.waitForSelector(REVIEW_CARD_SELECTOR, { timeout: 20000 });
+  } catch (error) {
+    throw new Error(`Google review dialog did not open: ${error.message}`);
+  }
 }
 
 async function openLatestReviews(page) {
@@ -252,6 +265,7 @@ module.exports = {
   buildReviewImageUrl,
   checkGoogleReviews,
   extractAgeLabel,
+  isReviewEntryLabel,
   isRecentAgeLabel,
   reviewSignature,
   screenshotReview,

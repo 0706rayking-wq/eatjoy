@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const {
   extractAgeLabel,
+  isReviewEntryLabel,
   isRecentAgeLabel,
   reviewSignature,
   verifyReviewSignature
@@ -13,6 +14,11 @@ assert.equal(isRecentAgeLabel('1 天前'), false);
 assert.equal(isRecentAgeLabel('2 days ago'), false);
 assert.equal(isRecentAgeLabel('3 hours ago'), true);
 assert.equal(extractAgeLabel('五星 21 小時前 最新'), '21 小時前');
+assert.equal(isReviewEntryLabel('Google 評論'), true);
+assert.equal(isReviewEntryLabel('2,529 則 Google 評論'), true);
+assert.equal(isReviewEntryLabel('查看所有 Google 評論'), true);
+assert.equal(isReviewEntryLabel('2,529 Google reviews'), true);
+assert.equal(isReviewEntryLabel('撰寫評論'), false);
 
 const signature = reviewSignature('12345', '2026-08-07', 'secret');
 assert.equal(verifyReviewSignature('12345', '2026-08-07', signature, 'secret'), true);
