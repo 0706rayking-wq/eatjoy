@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const {
   alignClockOuts,
+  buildCombinedLineMessages,
   compareAttendance,
   formatLineMessages,
   normalizeDate,
@@ -135,5 +136,22 @@ const unclearComparison = compareAttendance({
 }, [{ ...adjustedAndPhysical, clockOuts: ['15:13', '21:33'] }]);
 assert.equal(unclearComparison.issues.some((issue) => issue.type === 'schedule_review'), true);
 assert.equal(unclearComparison.issues.some((issue) => issue.type === 'nueip_status'), false);
+
+process.env.N8N_RELAY_SECRET = 'test-secret';
+const combinedMessages = buildCombinedLineMessages(
+  { headers: { host: 'example.test', 'x-forwarded-proto': 'https' } },
+  '2026-08-07',
+  ['【08/07 下班條比對】\n異常：0項'],
+  {
+    date: '2026-08-07',
+    counts: { 5: 4, 4: 1, 3: 1, 2: 0, 1: 0 },
+    negativeReviews: [{ reviewerId: '12345', reviewer: '測試評論者', stars: 3 }]
+  },
+  null
+);
+assert.equal(combinedMessages[0].type, 'text');
+assert.equal(combinedMessages[0].text.includes('【08/07 Google評論】'), true);
+assert.equal(combinedMessages[1].type, 'image');
+assert.equal(combinedMessages.length <= 5, true);
 
 console.log('hr-attendance-compare tests passed');

@@ -2,6 +2,12 @@
   "functions": {
     "api/hr-attendance-compare.js": {
       "maxDuration": 60
+    },
+    "api/google-review-check.js": {
+      "maxDuration": 60
+    },
+    "api/google-review-image.js": {
+      "maxDuration": 60
     }
   }
 }
