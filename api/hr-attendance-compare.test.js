@@ -56,6 +56,19 @@ assert.equal(attendance.length, 4);
 assert.equal(attendance[0].name, '謝采穎');
 assert.deepEqual(attendance[2].clockOuts, ['14:02:30', '20:50:02']);
 
+const positionalHtml = `
+<table><tbody><tr>
+  <td>補卡</td><td>修改</td><td>403003</td>
+  <td><div class="user-popover">王永銓</div></td>
+  <td>2026-08-06(四)</td><td>全日(A930)</td>
+  <td>09:24:03 16:59:38</td><td>15:03:02 20:41:40</td>
+  <td>9小時15分</td><td></td>
+</tr></tbody></table>`;
+const positionalAttendance = parseAttendanceHtml(positionalHtml);
+assert.equal(positionalAttendance.length, 1);
+assert.equal(positionalAttendance[0].name, '王永銓');
+assert.deepEqual(positionalAttendance[0].clockOuts, ['15:03:02', '20:41:40']);
+
 const schedule = {
   date: '8/6',
   employees: [

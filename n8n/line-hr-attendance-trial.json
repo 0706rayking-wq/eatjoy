@@ -83,7 +83,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const raw = $json.text ?? $json.content ?? $json.output ?? '';\nconst cleaned = String(raw).replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/i, '').trim();\nlet schedule;\ntry { schedule = JSON.parse(cleaned); } catch (error) { throw new Error('Gemini回傳不是有效JSON'); }\nif (!schedule.date || !Array.isArray(schedule.employees)) throw new Error('下班條缺少日期或員工資料');\nreturn [{ json: schedule }];"
+        "jsCode": "const candidates = [\n  $json.text,\n  $json.content?.parts?.map((part) => part?.text).filter(Boolean).join('\\n'),\n  $json.content?.text,\n  $json.response?.text,\n  $json.output\n];\nlet raw = candidates.find((value) => typeof value === 'string' && value.trim());\nif (!raw && typeof $json.content === 'string') raw = $json.content;\nif (!raw) throw new Error('Gemini回傳缺少文字內容');\nlet cleaned = raw.replace(/^\\uFEFF/, '').replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/i, '').trim();\nconst firstBrace = cleaned.indexOf('{');\nconst lastBrace = cleaned.lastIndexOf('}');\nif (firstBrace >= 0 && lastBrace > firstBrace) cleaned = cleaned.slice(firstBrace, lastBrace + 1);\nlet schedule;\ntry { schedule = JSON.parse(cleaned); } catch (error) { throw new Error('Gemini回傳不是有效JSON'); }\nif (typeof schedule === 'string') schedule = JSON.parse(schedule);\nif (!schedule.date || !Array.isArray(schedule.employees)) throw new Error('下班條缺少日期或員工資料');\nreturn [{ json: schedule }];"
       },
       "id": "7d7ed12e-c595-414c-894b-a73c21b28d03",
       "name": "整理辨識結果",

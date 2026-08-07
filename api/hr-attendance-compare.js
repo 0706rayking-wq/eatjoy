@@ -61,27 +61,32 @@ function cellHtml(rowHtml, label) {
 
 function parseAttendanceHtml(html) {
   const rows = [];
-  const rowPattern = /<tr\b[^>]*role=["']row["'][^>]*>([\s\S]*?)<\/tr>/gi;
+  // DataTables adds role/data-th attributes in the browser. NUEIP's server-side
+  // HTML can omit them, so also support the original positional table cells.
+  const rowPattern = /<tr\b[^>]*>([\s\S]*?)<\/tr>/gi;
   let rowMatch;
 
   while ((rowMatch = rowPattern.exec(String(html || ''))) !== null) {
     const rowHtml = rowMatch[1];
-    const employeeNumber = htmlText(cellHtml(rowHtml, '員工編號'));
+    const positionalCells = [...rowHtml.matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)]
+      .map((match) => match[1]);
+    const readCell = (label, index) => cellHtml(rowHtml, label) || positionalCells[index] || '';
+    const employeeNumber = htmlText(readCell('員工編號', 2));
     if (!employeeNumber) continue;
 
-    const employeeCell = cellHtml(rowHtml, '員工');
+    const employeeCell = readCell('員工', 3);
     const nameMatch = employeeCell.match(/class=["'][^"']*user-popover[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
     const name = htmlText(nameMatch?.[1] || employeeCell).replace(/^.*?(?=[\p{Script=Han}]{2,})/u, '');
-    const dateCell = cellHtml(rowHtml, '日期');
+    const dateCell = readCell('日期', 4);
     const date = dateCell.match(/\d{4}-\d{2}-\d{2}/)?.[0] || '';
-    const scheduleCell = cellHtml(rowHtml, '表定時間');
+    const scheduleCell = readCell('表定時間', 5);
     const schedule = htmlText(scheduleCell);
     const scheduledRange = decodeHtml(scheduleCell.match(/data-original-title=["']([^"']*)["']/i)?.[1] || '');
-    const clockInCell = cellHtml(rowHtml, '上班');
-    const clockOutCell = cellHtml(rowHtml, '下班');
+    const clockInCell = readCell('上班', 6);
+    const clockOutCell = readCell('下班', 7);
     const clockIns = clockInCell.match(/\b\d{2}:\d{2}:\d{2}\b/g) || [];
     const clockOuts = clockOutCell.match(/\b\d{2}:\d{2}:\d{2}\b/g) || [];
-    const status = htmlText(cellHtml(rowHtml, '出勤狀況'));
+    const status = htmlText(readCell('出勤狀況', 9));
 
     rows.push({
       employeeNumber,
@@ -213,8 +218,11 @@ async function loadNueipAttendance(date) {
   if (!attendanceResponse.ok || !html.includes('出勤紀錄')) {
     throw new Error('Unable to read NUEIP attendance records');
   }
-
-  return parseAttendanceHtml(html);
+  const attendance = parseAttendanceHtml(html);
+  if (attendance.length === 0) {
+    throw new Error('NUEIP出勤表讀取為0筆，已停止回報以避免誤判');
+  }
+  return attendance;
 }
 
 function normalizeName(value) {
