@@ -174,6 +174,21 @@ async function loadNueipAttendance(date) {
     inputPassword: password
   });
 
+  // NUEIP issues the PHP session and CSRF cookies on the login-page request.
+  // A direct credential POST without this priming request returns the login
+  // page again even when the credentials are correct.
+  await fetchWithCookies(
+    'https://cloud.nueip.com/login',
+    {
+      method: 'GET',
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml',
+        'User-Agent': 'EatJoy-HR-Automation/1.0'
+      }
+    },
+    jar
+  );
+
   const loginResponse = await fetchWithCookies(
     'https://cloud.nueip.com/login/index/param',
     {
@@ -181,6 +196,8 @@ async function loadNueipAttendance(date) {
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         'X-Requested-With': 'XMLHttpRequest',
+        'Origin': 'https://portal.nueip.com',
+        'Referer': 'https://portal.nueip.com/login',
         'User-Agent': 'EatJoy-HR-Automation/1.0'
       },
       body: loginBody.toString()
