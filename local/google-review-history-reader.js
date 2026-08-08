@@ -5,6 +5,9 @@ const { launchBrowser, openLatestReviews, taipeiDate } = require('../api/google-
 const configPath = path.join(__dirname, 'google-review-config.json');
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
 const CARD_SELECTOR = '.jftiEf, .bwb7ce';
+const studyStoreName = process.env.GOOGLE_REVIEW_STUDY_STORE_NAME || config.storeName || '南港店';
+const studyStoreKey = process.env.GOOGLE_REVIEW_STUDY_STORE_KEY || 'nangang';
+const studyReviewUrl = process.env.GOOGLE_REVIEW_STUDY_URL || config.googleReviewUrl;
 
 function isWithinOneYear(ageLabel) {
   const label = String(ageLabel || '').toLowerCase();
@@ -96,7 +99,8 @@ async function sortByLowestRating(page) {
 
 async function main() {
   process.env.GOOGLE_REVIEW_RUNTIME = 'local';
-  process.env.GOOGLE_REVIEW_URL = config.googleReviewUrl;
+  process.env.GOOGLE_REVIEW_URL = studyReviewUrl;
+  process.env.GOOGLE_REVIEW_STORE_NAME = studyStoreName;
   process.env.GOOGLE_CHROME_PATH = config.chromePath;
   process.env.GOOGLE_REVIEW_PROFILE_DIR = config.chromeProfileDir;
   process.env.GOOGLE_REVIEW_HEADLESS = 'true';
@@ -105,6 +109,8 @@ async function main() {
   try {
     const page = await browser.newPage();
     await openLatestReviews(page);
+    const sourcePageTitle = await page.title();
+    const sourcePageUrl = page.url();
     await sortByLowestRating(page);
     const collected = new Map();
     let highRatingRounds = 0;
@@ -145,7 +151,10 @@ async function main() {
       .filter((card) => isWithinOneYear(card.ageLabel) && card.stars >= 1 && card.stars <= 3);
     const output = {
       capturedAt: new Date().toISOString(),
-      storeName: config.storeName || '南港店',
+      storeName: studyStoreName,
+      storeKey: studyStoreKey,
+      sourcePageTitle,
+      sourcePageUrl,
       scope: '最近一年內的 1～3 星評論（依 Google 相對日期）',
       loadedReviewCount: collected.size,
       lowReviewCount: lowReviews.length,
@@ -154,7 +163,7 @@ async function main() {
     };
     const outputDir = path.join(__dirname, 'review-study-output');
     fs.mkdirSync(outputDir, { recursive: true });
-    const outputPath = path.join(outputDir, `${taipeiDate()}.json`);
+    const outputPath = path.join(outputDir, `${taipeiDate()}-${studyStoreKey}.json`);
     fs.writeFileSync(outputPath, JSON.stringify(output, null, 2), 'utf8');
     console.log(`完成：${lowReviews.length} 則低星評論；${output.ownerReplyCount} 則有店家回覆`);
     console.log(outputPath);

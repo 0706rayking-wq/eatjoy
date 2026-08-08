@@ -127,6 +127,20 @@ async function ensureReviewDialog(page) {
   }
 }
 
+async function openNamedPlaceResult(page, storeName) {
+  const target = String(storeName || '').replace(/\s+/g, '').trim();
+  if (!target) return false;
+  const clicked = await page.evaluate((expected) => {
+    const normalize = (value) => String(value || '').replace(/\s+/g, '');
+    const candidate = [...document.querySelectorAll('a, button, [role="button"]')]
+      .find((element) => normalize(element.textContent).includes(expected));
+    candidate?.click();
+    return Boolean(candidate);
+  }, target);
+  if (clicked) await new Promise((resolve) => setTimeout(resolve, 6000));
+  return clicked;
+}
+
 async function openLatestReviews(page) {
   const reviewUrl = resolveReviewUrl(process.env.GOOGLE_REVIEW_URL);
   await page.setUserAgent(
@@ -137,6 +151,9 @@ async function openLatestReviews(page) {
   await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }]);
   await page.goto(reviewUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
   await page.waitForSelector('button, a, [role="button"]', { timeout: 15000 });
+  if (!await page.$(REVIEW_CARD_SELECTOR)) {
+    await openNamedPlaceResult(page, process.env.GOOGLE_REVIEW_STORE_NAME);
+  }
   await ensureReviewDialog(page);
   const latestWasVisible = await page.evaluate(() => {
     const latest = [...document.querySelectorAll('[role="radio"], [role="menuitemradio"]')]
