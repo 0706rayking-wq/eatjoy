@@ -114,6 +114,51 @@ assert.match(parseAssistantCommand('小雷神，刪除陳小華的所有紀錄',
 assert.match(parseAssistantCommand('小雷神，確認刪除陳小華的所有紀錄', expiredDeleteState, new Date(now.getTime() + 11 * 60000)), /無法刪除/);
 assert.notEqual(expiredDeleteState.people.陳小華, undefined);
 
+const batchDeleteState = {
+  people: {
+    楊過: { leaveStartDate: '2026-08-01', birthday: '09-11' },
+    郭靖: { medicalCompletedDate: '2026-07-06' }
+  }
+};
+const batchDeleteRequest = parseAssistantCommand(
+  '小雷神，幫我批量刪除以下人員\n楊過\n郭靖\n周伯通',
+  batchDeleteState,
+  now
+);
+assert.match(batchDeleteRequest, /楊過｜特休、生日/);
+assert.match(batchDeleteRequest, /郭靖｜體檢/);
+assert.match(batchDeleteRequest, /周伯通｜查無資料/);
+assert.notEqual(batchDeleteState.people.楊過, undefined);
+
+assert.match(
+  parseAssistantCommand('小雷神，確認批量刪除郭靖、楊過、周伯通', batchDeleteState, now),
+  /名單不一致/
+);
+assert.notEqual(batchDeleteState.people.楊過, undefined);
+
+const batchDeleteResult = parseAssistantCommand(
+  '小雷神，確認批量刪除楊過、郭靖、周伯通',
+  batchDeleteState,
+  new Date(now.getTime() + 5 * 60000)
+);
+assert.match(batchDeleteResult, /楊過：刪除完成/);
+assert.match(batchDeleteResult, /郭靖：刪除完成/);
+assert.match(batchDeleteResult, /周伯通：查無資料/);
+assert.equal(batchDeleteState.people.楊過, undefined);
+assert.equal(batchDeleteState.people.郭靖, undefined);
+
+const expiredBatchDeleteState = { people: { 黃蓉: {}, 小龍女: {} } };
+parseAssistantCommand('小雷神，批量刪除以下人員\n黃蓉\n小龍女', expiredBatchDeleteState, now);
+assert.match(
+  parseAssistantCommand('小雷神，確認批量刪除黃蓉、小龍女', expiredBatchDeleteState, new Date(now.getTime() + 11 * 60000)),
+  /無法批量刪除/
+);
+assert.notEqual(expiredBatchDeleteState.people.黃蓉, undefined);
+
+parseAssistantCommand('小雷神，批量刪除以下人員\n黃蓉\n小龍女', expiredBatchDeleteState, now);
+assert.match(parseAssistantCommand('小雷神，取消批量刪除', expiredBatchDeleteState, now), /已取消批量刪除/);
+assert.notEqual(expiredBatchDeleteState.people.黃蓉, undefined);
+
 assert.match(parseAssistantCommand('小雷神，刪除陳小華的所有紀錄', expiredDeleteState, now), /請再次確認/);
 assert.match(parseAssistantCommand('小雷神，取消刪除陳小華的所有紀錄', expiredDeleteState, now), /已取消刪除/);
 assert.notEqual(expiredDeleteState.people.陳小華, undefined);

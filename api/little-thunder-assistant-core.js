@@ -99,22 +99,41 @@ function statutoryLeaveDays(years) {
   return Math.min(30, 16 + Math.floor(years - 10));
 }
 
+function wrapMessageLine(value) {
+  const chars = Array.from(value);
+  const lines = [];
+  for (let index = 0; index < chars.length; index += 28) {
+    lines.push(chars.slice(index, index + 28).join(''));
+  }
+  return lines;
+}
+
 function completionReply(category, labels, failed = []) {
-  const wrap = (value) => {
-    const chars = Array.from(value);
-    const lines = [];
-    for (let index = 0; index < chars.length; index += 28) {
-      lines.push(chars.slice(index, index + 28).join(''));
-    }
-    return lines;
-  };
   const lines = [
     `【小雷神｜${category}新增完成】`,
-    ...wrap(`新增${labels.join('、')}已經完成，`),
+    ...wrapMessageLine(`新增${labels.join('、')}已經完成，`),
     '還有什麼我能協助你的嗎？'
   ];
-  if (failed.length) lines.push('', ...wrap(`未新增：${failed.join('、')}`));
+  if (failed.length) lines.push('', ...wrapMessageLine(`未新增：${failed.join('、')}`));
   return lines.join('\n');
+}
+
+function parseNameList(value) {
+  return [...new Set(String(value || '')
+    .split(/[\n、,，\s]+/)
+    .map((name) => name.trim())
+    .filter((name) => /^[^\d,，。]{1,20}$/.test(name)))];
+}
+
+function describePersonRecords(state, name) {
+  const person = state.people[name];
+  const labels = [];
+  if (person?.leaveStartDate) labels.push('特休');
+  if (person?.birthday) labels.push('生日');
+  if (person?.medicalCompletedDate) labels.push('體檢');
+  const memoCount = state.memos.filter((memo) => memo.personName === name).length;
+  if (memoCount) labels.push(`備忘錄${memoCount}筆`);
+  return labels.length ? labels.join('、') : '查無資料';
 }
 
 function parseMemoRequest(value, now) {
@@ -304,6 +323,71 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
     }
   }
 
+  match = command.match(/^取消(?:批量|批次)刪除$/);
+  if (match) {
+    const existed = Boolean(state.pendingBatchDelete);
+    state.pendingBatchDelete = null;
+    return existed
+      ? ['【小雷神｜已取消批量刪除】', '待刪除名單已取消', '所有資料均已保留'].join('\n')
+      : ['【小雷神｜沒有待確認的批量刪除】'].join('\n');
+  }
+
+  match = command.match(/^確認(?:批量|批次)刪除\s*(.+)$/s);
+  if (match) {
+    const pending = state.pendingBatchDelete;
+    const names = parseNameList(match[1]);
+    const isValid = pending && now.getTime() - pending.requestedAt <= 10 * 60 * 1000;
+    if (!isValid) {
+      state.pendingBatchDelete = null;
+      return [
+        '【小雷神｜無法批量刪除】',
+        '沒有有效的待確認名單',
+        '請重新提出批量刪除要求'
+      ].join('\n');
+    }
+    if (names.join('、') !== pending.names.join('、')) {
+      return [
+        '【小雷神｜名單不一致】',
+        '未刪除任何資料',
+        '請完整複製原確認指令'
+      ].join('\n');
+    }
+    const results = [];
+    for (const name of pending.names) {
+      const hadPerson = Boolean(state.people[name]);
+      const before = state.memos.length;
+      delete state.people[name];
+      state.memos = state.memos.filter((memo) => memo.personName !== name);
+      results.push(`${name}：${hadPerson || before !== state.memos.length ? '刪除完成' : '查無資料'}`);
+    }
+    state.pendingBatchDelete = null;
+    return ['【小雷神｜批量刪除結果】', ...results].join('\n');
+  }
+
+  match = command.match(/^(?:幫我)?(?:批量|批次)刪除(?:以下)?(?:人員|資料|紀錄)?[\s:：]*(.+)$/s);
+  if (match) {
+    const names = parseNameList(match[1]);
+    if (names.length < 2) {
+      return [
+        '【小雷神｜批量刪除需要多人】',
+        '請至少輸入兩位姓名',
+        '每位姓名可各放一行'
+      ].join('\n');
+    }
+    state.pendingBatchDelete = { names, requestedAt: now.getTime() };
+    const confirmation = `小雷神，確認批量刪除${names.join('、')}`;
+    return [
+      '【小雷神｜批量刪除待確認】',
+      '即將刪除：',
+      ...names.map((name, index) => `${index + 1}.${name}｜${describePersonRecords(state, name)}`),
+      '確認請完整輸入：',
+      ...wrapMessageLine(confirmation),
+      '10分鐘內未確認將自動失效',
+      '取消請輸入：',
+      '小雷神，取消批量刪除'
+    ].join('\n');
+  }
+
   match = command.match(/^確認刪除\s*([^\s的,。]+)(?:的)?所有紀錄$/);
   if (match) {
     const name = match[1];
@@ -434,7 +518,8 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
     '6.【刪除資料】',
     '成員離職後可透過文字訊息刪除，',
     '再次確認後才會執行',
-    '指令：刪除姓名的所有紀錄'
+    '指令：刪除姓名的所有紀錄',
+    '批量：批量刪除以下人員＋姓名清單'
   ].join('\n');
 }
 
