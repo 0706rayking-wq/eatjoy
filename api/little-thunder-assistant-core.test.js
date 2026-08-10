@@ -66,6 +66,27 @@ assert.match(
 );
 assert.equal(batchState.memos.length, 2);
 
+const naturalMemoState = {};
+const naturalMemoReply = parseAssistantCommand(
+  '小雷神，8/26開月大會，提前一週提醒我要統計請假名單',
+  naturalMemoState,
+  now
+);
+assert.match(naturalMemoReply, /備忘錄新增完成/);
+assert.match(naturalMemoReply, /還有什麼我能協助你的嗎/);
+assert.equal(naturalMemoState.memos[0].eventDate, '2026-08-26');
+assert.equal(naturalMemoState.memos[0].remindDate, '2026-08-19');
+assert.equal(naturalMemoState.memos[0].text, '開月大會；統計請假名單');
+
+const sameDayMemoState = {};
+assert.match(
+  parseAssistantCommand('小雷神，明天提醒我訂會議室', sameDayMemoState, now),
+  /新增訂會議室已經完成/
+);
+assert.equal(sameDayMemoState.memos[0].remindDate, '2026-08-11');
+
+assert.match(parseAssistantCommand('小雷神，記得處理請假名單', {}, now), /請補充提醒時間/);
+
 assert.equal(statutoryLeaveDays(0.5), 3);
 assert.equal(statutoryLeaveDays(1), 7);
 assert.equal(statutoryLeaveDays(2), 10);

@@ -117,6 +117,66 @@ function completionReply(category, labels, failed = []) {
   return lines.join('\n');
 }
 
+function parseMemoRequest(value, now) {
+  const text = normalizeText(value).trim();
+  const dateTokenPattern = '(下個月\\s*\\d{1,2}[號日]|(?:這個月|本月)\\s*\\d{1,2}[號日]|\\d{1,4}\\/\\d{1,2}(?:\\/\\d{1,2})?|\\d{1,2}月\\d{1,2}[號日]|明天|後天)';
+
+  const resolveDate = (token) => {
+    const today = dateParts(now);
+    if (token === '明天' || token === '後天') {
+      return addDays(isoDate(today.year, today.month, today.day), token === '明天' ? 1 : 2);
+    }
+    let match = token.match(/^下個月\s*(\d{1,2})[號日]$/);
+    if (match) {
+      let year = today.year;
+      let month = today.month + 1;
+      if (month === 13) { month = 1; year += 1; }
+      return isoDate(year, month, Number(match[1]));
+    }
+    match = token.match(/^(?:這個月|本月)\s*(\d{1,2})[號日]$/);
+    if (match) return isoDate(today.year, today.month, Number(match[1]));
+    match = token.match(/^(\d{1,2})月(\d{1,2})[號日]$/);
+    if (match) {
+      let year = today.year;
+      const month = Number(match[1]);
+      const day = Number(match[2]);
+      if (dateAtTaipei(isoDate(year, month, day)).getTime() < now.getTime()) year += 1;
+      return isoDate(year, month, day);
+    }
+    const parts = token.split('/').map(Number);
+    if (parts.length === 3) return isoDate(parts[0], parts[1], parts[2]);
+    let year = today.year;
+    if (dateAtTaipei(isoDate(year, parts[0], parts[1])).getTime() < now.getTime()) year += 1;
+    return isoDate(year, parts[0], parts[1]);
+  };
+
+  const advancePattern = new RegExp(`^${dateTokenPattern}\\s*(?:要)?(.+?)[,，。\\s]*(?:請)?提前\\s*(\\d+|[一二兩三四五六七八九十]+)\\s*(天|週|周)\\s*(?:提醒|通知)(?:我)?(.*)$`);
+  let match = text.match(advancePattern);
+  if (match) {
+    const eventDate = resolveDate(match[1]);
+    const amount = chineseNumber(match[3]);
+    const advanceDays = amount * (match[4] === '天' ? 1 : 7);
+    const trailing = match[5].trim().replace(/^要/, '');
+    const subject = match[2].trim().replace(/[，,。]$/, '');
+    return {
+      eventDate,
+      remindDate: addDays(eventDate, -advanceDays),
+      text: trailing ? `${subject}；${trailing}` : subject
+    };
+  }
+
+  const datedPattern = new RegExp(`^${dateTokenPattern}\\s*(?:要)?(.+)$`);
+  match = text.match(datedPattern);
+  if (!match) return null;
+  const eventDate = resolveDate(match[1]);
+  const subject = match[2]
+    .replace(/^(?:提醒|通知)(?:我)?/, '')
+    .replace(/[，,。]?請提醒我.*$/, '')
+    .trim();
+  if (!subject) return null;
+  return { eventDate, remindDate: eventDate, text: subject };
+}
+
 function parseAssistantCommand(rawText, state, now = new Date()) {
   ensureState(state);
   const text = normalizeText(rawText);
@@ -166,31 +226,15 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
         added.push(equipmentName);
       }
     } else {
-      const memoPattern = /^(下個月|這個月|本月|\d{1,2}月)\s*(\d{1,2})[號日]\s*(?:要)?(.+?)[,。\s]*請提前\s*(\d+|[一二兩三四五六七八九十]+)\s*天通知(?:我)?$/;
-      const today = dateParts(now);
       for (const line of lines) {
-        const entry = line.match(memoPattern);
-        if (!entry) { failed.push(line); continue; }
-        let targetYear = today.year;
-        let targetMonth;
-        if (entry[1] === '下個月') {
-          targetMonth = today.month + 1;
-          if (targetMonth === 13) { targetMonth = 1; targetYear += 1; }
-        } else if (entry[1] === '這個月' || entry[1] === '本月') {
-          targetMonth = today.month;
-        } else {
-          targetMonth = Number(entry[1].replace('月', ''));
-          if (targetMonth < today.month) targetYear += 1;
-        }
-        const eventDate = isoDate(targetYear, targetMonth, Number(entry[2]));
+        const memo = parseMemoRequest(line, now);
+        if (!memo) { failed.push(line); continue; }
         state.memos.push({
           id: `${Date.now()}-${state.memos.length}`,
-          eventDate,
-          remindDate: addDays(eventDate, -chineseNumber(entry[4])),
-          text: entry[3].trim(),
+          ...memo,
           sent: false
         });
-        added.push(entry[3].trim());
+        added.push(memo.text);
       }
     }
 
@@ -336,6 +380,27 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
     const memo = { id: `${Date.now()}-${state.memos.length}`, eventDate, remindDate, text: match[3].trim(), sent: false };
     state.memos.push(memo);
     return completionReply('備忘錄', [memo.text]);
+  }
+
+  const flexibleMemo = parseMemoRequest(command, now);
+  if (flexibleMemo) {
+    state.memos.push({
+      id: `${Date.now()}-${state.memos.length}`,
+      ...flexibleMemo,
+      sent: false
+    });
+    return completionReply('備忘錄', [flexibleMemo.text]);
+  }
+
+  const helpIntent = /可以做什麼|能做什麼|可用指令|功能|怎麼用|如何使用/.test(command);
+  if (!helpIntent) {
+    return [
+      '【小雷神｜請補充提醒時間】',
+      '這件事會先視為備忘錄，',
+      '請補充日期及提前多久提醒',
+      '例：8/26開月大會，',
+      '提前一週提醒我統計名單'
+    ].join('\n');
   }
 
   return [
