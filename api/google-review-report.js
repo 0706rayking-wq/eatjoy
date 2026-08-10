@@ -43,8 +43,11 @@ function formatReportText(result, error) {
 }
 
 function buildLineMessageObjects(request, result, error) {
-  const messages = [{ type: 'text', text: formatReportText(result, error) }];
-  if (error) return messages;
+  // The cloud fallback cannot access the signed-in Google session used by the
+  // local screenshot patrol. Suppress its expected failure instead of sending
+  // a false alarm immediately before the local patrol succeeds.
+  if (error) return [];
+  const messages = [{ type: 'text', text: formatReportText(result, null) }];
   const secret = String(process.env.HR_AUTOMATION_SECRET || process.env.N8N_RELAY_SECRET || '').trim();
   for (const review of (result?.negativeReviews || []).filter((item) => item.reviewerId).slice(0, 4)) {
     const imageUrl = buildReviewImageUrl(request, review, result.date, secret);

@@ -21,7 +21,6 @@ assert.equal(messages[1].type, 'image');
 assert.equal(messages.length, 2);
 
 const failed = buildLineMessageObjects({}, { date: '2026-08-07' }, 'blocked');
-assert.equal(failed.length, 1);
-assert.equal(failed[0].text.includes('巡檢失敗'), true);
+assert.deepEqual(failed, []);
 
 console.log('google-review-report tests passed');
