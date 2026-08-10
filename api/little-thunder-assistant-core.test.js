@@ -155,6 +155,40 @@ assert.match(
 );
 assert.notEqual(expiredBatchDeleteState.people.黃蓉, undefined);
 
+const flexibleDeleteState = {
+  people: {
+    周伯通: { birthday: '10-22' },
+    洪七公: { birthday: '11-11' },
+    王小明: { leaveStartDate: '2026-08-01' }
+  }
+};
+const flexibleBatchDelete = parseAssistantCommand(
+  '小雷神，刪除周伯通及洪七公的所有資料',
+  flexibleDeleteState,
+  now
+);
+assert.match(flexibleBatchDelete, /批量刪除待確認/);
+assert.match(flexibleBatchDelete, /周伯通｜生日/);
+assert.match(flexibleBatchDelete, /洪七公｜生日/);
+assert.deepEqual(flexibleDeleteState.pendingBatchDelete.names, ['周伯通', '洪七公']);
+
+const flexibleSingleDelete = parseAssistantCommand(
+  '小雷神，請幫我移除王小明全部資料',
+  flexibleDeleteState,
+  now
+);
+assert.match(flexibleSingleDelete, /請再次確認/);
+assert.notEqual(flexibleDeleteState.people.王小明, undefined);
+
+assert.match(
+  parseAssistantCommand('小雷神，幫我把周伯通和洪七公的資料刪掉', flexibleDeleteState, now),
+  /批量刪除待確認/
+);
+
+const malformedDeleteState = {};
+assert.match(parseAssistantCommand('小雷神，幫我刪除資料', malformedDeleteState, now), /無法辨識刪除名單/);
+assert.equal(malformedDeleteState.memos.length, 0);
+
 parseAssistantCommand('小雷神，批量刪除以下人員\n黃蓉\n小龍女', expiredBatchDeleteState, now);
 assert.match(parseAssistantCommand('小雷神，取消批量刪除', expiredBatchDeleteState, now), /已取消批量刪除/);
 assert.notEqual(expiredBatchDeleteState.people.黃蓉, undefined);

@@ -120,7 +120,7 @@ function completionReply(category, labels, failed = []) {
 
 function parseNameList(value) {
   return [...new Set(String(value || '')
-    .split(/[\n、,，\s]+/)
+    .split(/[\n、,，\s]+|及|和|與/)
     .map((name) => name.trim())
     .filter((name) => /^[^\d,，。]{1,20}$/.test(name)))];
 }
@@ -134,6 +134,62 @@ function describePersonRecords(state, name) {
   const memoCount = state.memos.filter((memo) => memo.personName === name).length;
   if (memoCount) labels.push(`備忘錄${memoCount}筆`);
   return labels.length ? labels.join('、') : '查無資料';
+}
+
+function buildBatchDeleteRequest(state, names, now) {
+  if (names.length < 2) {
+    return [
+      '【小雷神｜批量刪除需要多人】',
+      '請至少輸入兩位姓名',
+      '每位姓名可各放一行'
+    ].join('\n');
+  }
+  state.pendingBatchDelete = { names, requestedAt: now.getTime() };
+  const confirmation = `小雷神，確認批量刪除${names.join('、')}`;
+  return [
+    '【小雷神｜批量刪除待確認】',
+    '即將刪除：',
+    ...names.map((name, index) => `${index + 1}.${name}｜${describePersonRecords(state, name)}`),
+    '確認請完整輸入：',
+    ...wrapMessageLine(confirmation),
+    '10分鐘內未確認將自動失效',
+    '取消請輸入：',
+    '小雷神，取消批量刪除'
+  ].join('\n');
+}
+
+function buildSingleDeleteRequest(state, name, now) {
+  const hasPerson = Boolean(state.people[name]);
+  const hasMemos = state.memos.some((memo) => memo.personName === name);
+  if (!hasPerson && !hasMemos) {
+    return [`【小雷神｜查無資料】`, `姓名：${name}`, `沒有可刪除的紀錄`].join('\n');
+  }
+  state.pendingDeletes[name] = { requestedAt: now.getTime() };
+  return [
+    '【小雷神｜請再次確認】',
+    `即將刪除：${name}`,
+    `資料：${describePersonRecords(state, name)}`,
+    '確認請輸入：',
+    `小雷神，確認刪除${name}的所有紀錄`,
+    '10分鐘內未確認將自動失效',
+    '取消請輸入：',
+    `小雷神，取消刪除${name}的所有紀錄`
+  ].join('\n');
+}
+
+function extractFlexibleDeleteNames(command) {
+  let match = command.match(/^(?:請)?(?:幫我)?(?:刪除|刪掉|移除)\s*(.+)$/s);
+  let body = match?.[1];
+  if (!body) {
+    match = command.match(/^(?:請)?(?:幫我)?(?:把)?\s*(.+?)\s*(?:刪除|刪掉|移除)$/s);
+    body = match?.[1];
+  }
+  if (!body) return [];
+  body = body
+    .replace(/(?:的)?(?:所有|全部)?(?:資料|紀錄|記錄)\s*$/u, '')
+    .replace(/^(?:以下)?(?:人員|員工)\s*/u, '')
+    .trim();
+  return parseNameList(body);
 }
 
 function parseMemoRequest(value, now) {
@@ -367,25 +423,7 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
   match = command.match(/^(?:幫我)?(?:批量|批次)刪除(?:以下)?(?:人員|資料|紀錄)?[\s:：]*(.+)$/s);
   if (match) {
     const names = parseNameList(match[1]);
-    if (names.length < 2) {
-      return [
-        '【小雷神｜批量刪除需要多人】',
-        '請至少輸入兩位姓名',
-        '每位姓名可各放一行'
-      ].join('\n');
-    }
-    state.pendingBatchDelete = { names, requestedAt: now.getTime() };
-    const confirmation = `小雷神，確認批量刪除${names.join('、')}`;
-    return [
-      '【小雷神｜批量刪除待確認】',
-      '即將刪除：',
-      ...names.map((name, index) => `${index + 1}.${name}｜${describePersonRecords(state, name)}`),
-      '確認請完整輸入：',
-      ...wrapMessageLine(confirmation),
-      '10分鐘內未確認將自動失效',
-      '取消請輸入：',
-      '小雷神，取消批量刪除'
-    ].join('\n');
+    return buildBatchDeleteRequest(state, names, now);
   }
 
   match = command.match(/^確認刪除\s*([^\s的,。]+)(?:的)?所有紀錄$/);
@@ -422,26 +460,22 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
       : [`【小雷神｜沒有待確認刪除】`, `姓名：${name}`].join('\n');
   }
 
+  if (/(?:刪除|刪掉|移除)/.test(command)) {
+    const names = extractFlexibleDeleteNames(command);
+    if (names.length > 1) return buildBatchDeleteRequest(state, names, now);
+    if (names.length === 1) return buildSingleDeleteRequest(state, names[0], now);
+    return [
+      '【小雷神｜無法辨識刪除名單】',
+      '未刪除也未建立備忘錄',
+      '請輸入姓名，例如：',
+      '小雷神，刪除王小明的所有資料'
+    ].join('\n');
+  }
+
   match = command.match(/^(?:幫我)?刪除\s*([^\s的,。]+)(?:的)?所有紀錄$/);
   if (match) {
     const name = match[1];
-    const hasPerson = Boolean(state.people[name]);
-    const hasMemos = state.memos.some((memo) => memo.personName === name);
-    if (!hasPerson && !hasMemos) {
-      return [`【小雷神｜查無資料】`, `姓名：${name}`, `沒有可刪除的紀錄`].join('\n');
-    }
-    state.pendingDeletes[name] = { requestedAt: now.getTime() };
-    return [
-      '【小雷神｜請再次確認】',
-      `即將刪除：${name}`,
-      '包含特休、生日、體檢',
-      '及相關備忘紀錄',
-      '確認請輸入：',
-      `小雷神，確認刪除${name}的所有紀錄`,
-      '10分鐘內未確認將自動失效',
-      '取消請輸入：',
-      `小雷神，取消刪除${name}的所有紀錄`
-    ].join('\n');
+    return buildSingleDeleteRequest(state, name, now);
   }
 
   match = command.match(/(下個月|這個月|本月|\d{1,2}月)\s*(\d{1,2})[號日]\s*(?:要)?(.+?)[,。\s]*請提前\s*(\d+|[一二兩三四五六七八九十]+)\s*天通知(?:我)?/);
