@@ -129,7 +129,7 @@ async function handler(request, response) {
           payload,
           assistantEvents,
           process.env.N8N_ASSISTANT_RELAY_URL || LITTLE_THUNDER_RELAY_URL,
-          relaySecret
+          n8nRelaySecret
         );
       }
     }
