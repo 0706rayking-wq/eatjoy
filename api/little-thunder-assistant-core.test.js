@@ -85,6 +85,17 @@ assert.match(
 );
 assert.equal(sameDayMemoState.memos[0].remindDate, '2026-08-11');
 
+const reminderPrefixMemoState = {};
+const reminderPrefixMemoReply = parseAssistantCommand(
+  '小雷神，提醒我9/1要請大家於系統調整內場正職底薪',
+  reminderPrefixMemoState,
+  now
+);
+assert.match(reminderPrefixMemoReply, /備忘錄新增完成/);
+assert.equal(reminderPrefixMemoState.memos[0].eventDate, '2026-09-01');
+assert.equal(reminderPrefixMemoState.memos[0].remindDate, '2026-09-01');
+assert.equal(reminderPrefixMemoState.memos[0].text, '請大家於系統調整內場正職底薪');
+
 assert.match(parseAssistantCommand('小雷神，記得處理請假名單', {}, now), /請補充提醒時間/);
 
 assert.equal(statutoryLeaveDays(0.5), 3);

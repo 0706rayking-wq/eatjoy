@@ -193,7 +193,10 @@ function extractFlexibleDeleteNames(command) {
 }
 
 function parseMemoRequest(value, now) {
-  const text = normalizeText(value).trim();
+  const text = normalizeText(value)
+    .trim()
+    .replace(/^(?:請)?(?:幫我)?(?:提醒|通知)(?:我)?\s*/u, '')
+    .trim();
   const dateTokenPattern = '(下個月\\s*\\d{1,2}[號日]|(?:這個月|本月)\\s*\\d{1,2}[號日]|\\d{1,4}\\/\\d{1,2}(?:\\/\\d{1,2})?|\\d{1,2}月\\d{1,2}[號日]|明天|後天)';
 
   const resolveDate = (token) => {

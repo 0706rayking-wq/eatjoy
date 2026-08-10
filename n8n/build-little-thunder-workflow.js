@@ -41,7 +41,7 @@ if (Array.isArray(eventInput.body?.events)) {
     // AI may normalize additions and memos, but it can never rewrite or
     // authorize deletion, confirmation, cancellation, or help commands.
     if (!safetyCommand && !helpCommand && aiOutput?.needsClarification && aiOutput?.clarificationQuestion) {
-      messages.push(['【小雷神｜需要確認】', aiOutput.clarificationQuestion].join('\n'));
+      messages.push(['【小雷神｜需要確認】', aiOutput.clarificationQuestion].join('\\n'));
       continue;
     }
 
@@ -152,7 +152,7 @@ const workflow = {
     },
     {
       parameters: {
-        modelName: 'models/gemini-2.5-flash',
+        modelName: 'models/gemini-3.6-flash',
         options: { temperature: 0.1 }
       },
       id: 'd9255f4d-e30c-468d-96a3-dd098567df5e',
