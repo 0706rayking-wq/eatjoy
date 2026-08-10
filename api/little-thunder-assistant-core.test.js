@@ -11,6 +11,11 @@ const {
 const state = {};
 const now = new Date('2026-08-10T09:00:00+08:00');
 
+const helpMessage = parseAssistantCommand('小雷神，請問你可以做什麼', {}, now);
+assert.match(helpMessage, /我能幫你紀錄以下事情/);
+assert.match(helpMessage, /1\.【特休提醒】/);
+assert.match(helpMessage, /6\.【刪除資料】/);
+
 assert.match(parseAssistantCommand('小雷神，幫我新增王小明特休，8/1開始計算', state, now), /特休已新增/);
 assert.equal(state.people.王小明.leaveStartDate, '2026-08-01');
 assert.match(parseAssistantCommand('小雷神，幫我新增王小明7/6生日', state, now), /生日已新增/);
