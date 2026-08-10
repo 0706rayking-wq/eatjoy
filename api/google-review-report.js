@@ -23,13 +23,7 @@ function displayDate(value) {
 
 function formatReportText(result, error) {
   const date = displayDate(result?.date);
-  if (error) {
-    return [
-      `【${date} Google評論】`,
-      '店別：南港店',
-      '巡檢失敗，請主管人工確認'
-    ].join('\n');
-  }
+  if (error) return '';
   const counts = result?.counts || {};
   return [
     `【${date} Google評論】`,

@@ -22,5 +22,6 @@ assert.equal(messages.length, 2);
 
 const failed = buildLineMessageObjects({}, { date: '2026-08-07' }, 'blocked');
 assert.deepEqual(failed, []);
+assert.equal(formatReportText({ date: '2026-08-07' }, 'blocked'), '');
 
 console.log('google-review-report tests passed');
