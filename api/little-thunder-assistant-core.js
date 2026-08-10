@@ -99,6 +99,24 @@ function statutoryLeaveDays(years) {
   return Math.min(30, 16 + Math.floor(years - 10));
 }
 
+function completionReply(category, labels, failed = []) {
+  const wrap = (value) => {
+    const chars = Array.from(value);
+    const lines = [];
+    for (let index = 0; index < chars.length; index += 28) {
+      lines.push(chars.slice(index, index + 28).join(''));
+    }
+    return lines;
+  };
+  const lines = [
+    `【小雷神｜${category}新增完成】`,
+    ...wrap(`新增${labels.join('、')}已經完成，`),
+    '還有什麼我能協助你的嗎？'
+  ];
+  if (failed.length) lines.push('', ...wrap(`未新增：${failed.join('、')}`));
+  return lines.join('\n');
+}
+
 function parseAssistantCommand(rawText, state, now = new Date()) {
   ensureState(state);
   const text = normalizeText(rawText);
@@ -106,13 +124,87 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
   const command = text.replace(/^.*?小雷神[,:，\s]*/, '').trim();
   let match;
 
+  const batchMatch = command.match(/^(?:幫我)?新增以下(特休|體檢|設備保養|保養|備忘錄|備忘)[\s:：]*(.+)$/s);
+  if (batchMatch) {
+    const category = batchMatch[1];
+    const lines = batchMatch[2].split(/\n+/).map((line) => line.trim()).filter(Boolean);
+    const added = [];
+    const failed = [];
+
+    if (category === '特休') {
+      for (const line of lines) {
+        const entry = line.match(/^([^\d\s,，、。]{1,20})\s*(\d{1,4}\/\d{1,2}(?:\/\d{1,2})?)(?:\s*開始計算)?$/);
+        if (!entry) { failed.push(line); continue; }
+        state.people[entry[1]] ||= {};
+        state.people[entry[1]].leaveStartDate = parseDateToken(entry[2], now, 'current');
+        added.push(entry[1]);
+      }
+    } else if (category === '體檢') {
+      for (const line of lines) {
+        const entry = line.match(/^([^\d\s,，、。]{1,20})\s*(\d{1,4}\/\d{1,2}(?:\/\d{1,2})?)(?:\s*體檢完成)?$/);
+        if (!entry) { failed.push(line); continue; }
+        state.people[entry[1]] ||= {};
+        state.people[entry[1]].medicalCompletedDate = parseDateToken(entry[2], now, 'recent');
+        added.push(entry[1]);
+      }
+    } else if (category === '設備保養' || category === '保養') {
+      for (const line of lines) {
+        const entry = line.match(/^(.+?)\s*(\d{1,4}\/\d{1,2}(?:\/\d{1,2})?)(?:\s*保養完成)?(?:[,，\s]*每\s*(\d+|[一二兩三四五六七八九十]+)\s*個月(?:保養)?(?:一次)?)?$/);
+        if (!entry) { failed.push(line); continue; }
+        const equipmentName = entry[1].trim();
+        const cycleMonths = entry[3]
+          ? chineseNumber(entry[3])
+          : (state.equipment[equipmentName]?.cycleMonths || (equipmentName === '製冰機' ? 3 : 0));
+        if (!Number.isFinite(cycleMonths) || cycleMonths < 1) {
+          failed.push(`${equipmentName}（缺保養週期）`);
+          continue;
+        }
+        state.equipment[equipmentName] = {
+          completedDate: parseDateToken(entry[2], now, 'recent'),
+          cycleMonths
+        };
+        added.push(equipmentName);
+      }
+    } else {
+      const memoPattern = /^(下個月|這個月|本月|\d{1,2}月)\s*(\d{1,2})[號日]\s*(?:要)?(.+?)[,。\s]*請提前\s*(\d+|[一二兩三四五六七八九十]+)\s*天通知(?:我)?$/;
+      const today = dateParts(now);
+      for (const line of lines) {
+        const entry = line.match(memoPattern);
+        if (!entry) { failed.push(line); continue; }
+        let targetYear = today.year;
+        let targetMonth;
+        if (entry[1] === '下個月') {
+          targetMonth = today.month + 1;
+          if (targetMonth === 13) { targetMonth = 1; targetYear += 1; }
+        } else if (entry[1] === '這個月' || entry[1] === '本月') {
+          targetMonth = today.month;
+        } else {
+          targetMonth = Number(entry[1].replace('月', ''));
+          if (targetMonth < today.month) targetYear += 1;
+        }
+        const eventDate = isoDate(targetYear, targetMonth, Number(entry[2]));
+        state.memos.push({
+          id: `${Date.now()}-${state.memos.length}`,
+          eventDate,
+          remindDate: addDays(eventDate, -chineseNumber(entry[4])),
+          text: entry[3].trim(),
+          sent: false
+        });
+        added.push(entry[3].trim());
+      }
+    }
+
+    if (added.length) return completionReply(category === '保養' ? '設備保養' : category, added, failed);
+    return ['【小雷神｜沒有新增資料】', '請確認每行的姓名、日期與格式', ...failed].join('\n');
+  }
+
   match = command.match(/(?:幫我)?新增\s*([^\d,。\s]{1,20}?)(?:的)?特休[,\s]*(\d{1,4}\/\d{1,2}(?:\/\d{1,2})?)\s*開始計算/);
   if (match) {
     const name = match[1];
     const startDate = parseDateToken(match[2], now, 'current');
     state.people[name] ||= {};
     state.people[name].leaveStartDate = startDate;
-    return [`【小雷神｜特休已新增】`, `姓名：${name}`, `起算：${displayMd(startDate)}`, `滿半年：3日`, `滿一年：7日`, `將於生效前月25日提醒`].join('\n');
+    return completionReply('特休', [name]);
   }
 
   match = command.match(/(?:幫我)?新增\s*([^\d,。\s]{1,20}?)\s*(\d{1,2}\/\d{1,2})\s*生日/);
@@ -130,11 +222,7 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
         state.people[entry.name].birthday = `${pad2(entry.month)}-${pad2(entry.day)}`;
       }
       const names = entries.map((entry) => entry.name).join('、');
-      return [
-        '【小雷神｜生日新增完成】',
-        `新增${names}已經完成，`,
-        '還有什麼我能協助你的嗎？'
-      ].join('\n');
+      return completionReply('生日', entries.map((entry) => entry.name));
     }
   }
 
@@ -143,11 +231,7 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
     const birthday = match[2].split('/').map(Number);
     state.people[name] ||= {};
     state.people[name].birthday = `${pad2(birthday[0])}-${pad2(birthday[1])}`;
-    return [
-      '【小雷神｜生日新增完成】',
-      `新增${name}已經完成，`,
-      '還有什麼我能協助你的嗎？'
-    ].join('\n');
+    return completionReply('生日', [name]);
   }
 
   match = command.match(/(?:幫我)?新增\s*([^\d,。\s]{1,20}?)\s*(\d{1,4}\/\d{1,2}(?:\/\d{1,2})?)\s*體檢完成/);
@@ -156,8 +240,7 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
     const completedDate = parseDateToken(match[2], now, 'recent');
     state.people[name] ||= {};
     state.people[name].medicalCompletedDate = completedDate;
-    const reminder = addMonths(completedDate, 11).slice(0, 8) + '25';
-    return [`【小雷神｜體檢已新增】`, `姓名：${name}`, `完成：${displayMd(completedDate)}`, `提醒：${displayMd(reminder)}`].join('\n');
+    return completionReply('體檢', [name]);
   }
 
   if (command.includes('保養完成')) {
@@ -173,9 +256,7 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
         return [`【小雷神｜需要保養週期】`, `設備：${equipmentName}`, `請補充每幾個月保養`, `例：每3個月保養一次`].join('\n');
       }
       state.equipment[equipmentName] = { completedDate, cycleMonths };
-      const dueDate = addMonths(completedDate, cycleMonths);
-      const reminderDate = addMonths(completedDate, Math.max(0, cycleMonths - 1)).slice(0, 8) + '25';
-      return [`【小雷神｜保養已新增】`, `設備：${equipmentName}`, `週期：每${cycleMonths}個月`, `下次：${displayMd(dueDate)}`, `提醒：${displayMd(reminderDate)}`].join('\n');
+      return completionReply('設備保養', [equipmentName]);
     }
   }
 
@@ -254,7 +335,7 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
     const remindDate = addDays(eventDate, -advanceDays);
     const memo = { id: `${Date.now()}-${state.memos.length}`, eventDate, remindDate, text: match[3].trim(), sent: false };
     state.memos.push(memo);
-    return [`【小雷神｜備忘已新增】`, `事項：${memo.text}`, `日期：${displayMd(eventDate)}`, `提醒：${displayMd(remindDate)} 09:00`, `僅提醒一次`].join('\n');
+    return completionReply('備忘錄', [memo.text]);
   }
 
   return [
