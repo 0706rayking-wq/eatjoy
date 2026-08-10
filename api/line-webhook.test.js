@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const {
   selectHumanResourcesEvents,
+  selectLittleThunderEvents,
   verifyLineSignature
 } = require('./line-webhook')._test;
 
@@ -37,13 +38,23 @@ const payload = {
       type: 'postback',
       source: { type: 'group', groupId: 'HR_GROUP', userId: 'U4' },
       postback: { data: 'approve=1' }
+    },
+    {
+      type: 'message',
+      source: { type: 'group', groupId: 'HR_GROUP', userId: 'U5' },
+      message: { id: 'M5', type: 'text', text: '小雷神，幫我新增王小明7/6生日' }
     }
   ]
 };
 
 const selected = selectHumanResourcesEvents(payload, 'HR_GROUP');
-assert.equal(selected.length, 2);
+assert.equal(selected.length, 3);
 assert.equal(selected[0].message.id, 'M1');
 assert.equal(selected[1].type, 'postback');
+assert.equal(selected[2].message.id, 'M5');
+
+const assistantEvents = selectLittleThunderEvents(selected);
+assert.equal(assistantEvents.length, 1);
+assert.equal(assistantEvents[0].message.id, 'M5');
 
 console.log('line-webhook tests passed');

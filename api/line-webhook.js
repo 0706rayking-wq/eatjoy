@@ -1,6 +1,8 @@
 const crypto = require('node:crypto');
 
 const MAX_BODY_BYTES = 1024 * 1024;
+const LITTLE_THUNDER_RELAY_URL =
+  'https://rayking0706.app.n8n.cloud/webhook/little-thunder-assistant';
 
 function readRequiredEnv(name) {
   const value = String(process.env[name] || '').trim();
@@ -84,6 +86,16 @@ async function forwardToN8n(payload, events, relayUrl, relaySecret) {
   }
 }
 
+function selectLittleThunderEvents(events) {
+  return events.filter((event) => (
+    event &&
+    event.type === 'message' &&
+    event.message &&
+    event.message.type === 'text' &&
+    String(event.message.text || '').includes('小雷神')
+  ));
+}
+
 async function handler(request, response) {
   if (request.method !== 'POST') {
     response.setHeader('Allow', 'POST');
@@ -110,6 +122,16 @@ async function handler(request, response) {
 
     if (events.length > 0) {
       await forwardToN8n(payload, events, n8nRelayUrl, n8nRelaySecret);
+
+      const assistantEvents = selectLittleThunderEvents(events);
+      if (assistantEvents.length > 0) {
+        await forwardToN8n(
+          payload,
+          assistantEvents,
+          process.env.N8N_ASSISTANT_RELAY_URL || LITTLE_THUNDER_RELAY_URL,
+          relaySecret
+        );
+      }
     }
 
     return response.status(200).json({
@@ -135,5 +157,6 @@ module.exports.config = {
 module.exports._test = {
   readRawBody,
   selectHumanResourcesEvents,
+  selectLittleThunderEvents,
   verifyLineSignature
 };

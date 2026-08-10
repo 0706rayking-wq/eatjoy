@@ -1,0 +1,131 @@
+{
+  "name": "小雷神－人事提醒助理",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "little-thunder-assistant",
+        "authentication": "headerAuth",
+        "options": {}
+      },
+      "id": "74be1873-f591-47fd-ac4b-8db06b967d15",
+      "name": "小雷神LINE入口",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "cff738b9-155f-409b-8886-e744d2a25dda",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3MgQHeI5cuvePCWR",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "0b6a7dde-ff66-4a78-91c5-49af42fef51d",
+      "name": "每日09點提醒",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const TAIPEI_OFFSET = '+08:00';\n\nfunction pad2(value) {\n  return String(value).padStart(2, '0');\n}\n\nfunction isoDate(year, month, day) {\n  return `${year}-${pad2(month)}-${pad2(day)}`;\n}\n\nfunction dateAtTaipei(iso) {\n  return new Date(`${iso}T12:00:00${TAIPEI_OFFSET}`);\n}\n\nfunction dateParts(date) {\n  const parts = new Intl.DateTimeFormat('en-CA', {\n    timeZone: 'Asia/Taipei',\n    year: 'numeric',\n    month: '2-digit',\n    day: '2-digit'\n  }).formatToParts(date);\n  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));\n  return { year: Number(values.year), month: Number(values.month), day: Number(values.day) };\n}\n\nfunction addMonths(iso, months) {\n  const [year, month, day] = iso.split('-').map(Number);\n  const target = new Date(Date.UTC(year, month - 1 + months, 1));\n  const targetYear = target.getUTCFullYear();\n  const targetMonth = target.getUTCMonth() + 1;\n  const finalDay = Math.min(day, new Date(Date.UTC(targetYear, targetMonth, 0)).getUTCDate());\n  return isoDate(targetYear, targetMonth, finalDay);\n}\n\nfunction addDays(iso, days) {\n  const date = dateAtTaipei(iso);\n  date.setUTCDate(date.getUTCDate() + days);\n  const parts = dateParts(date);\n  return isoDate(parts.year, parts.month, parts.day);\n}\n\nfunction normalizeText(value) {\n  const digits = '０１２３４５６７８９';\n  return String(value || '')\n    .replace(/[０-９]/g, (char) => String(digits.indexOf(char)))\n    .replace(/：/g, ':')\n    .replace(/，/g, ',')\n    .replace(/／/g, '/')\n    .replace(/　/g, ' ')\n    .trim();\n}\n\nfunction chineseNumber(value) {\n  const text = String(value || '').trim();\n  if (/^\\d+$/.test(text)) return Number(text);\n  const map = { 零: 0, 一: 1, 二: 2, 兩: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };\n  if (text === '十') return 10;\n  if (text.includes('十')) {\n    const [left, right] = text.split('十');\n    return (left ? map[left] : 1) * 10 + (right ? map[right] : 0);\n  }\n  return map[text] ?? Number.NaN;\n}\n\nfunction parseDateToken(token, now, mode) {\n  const values = String(token).split('/').map(Number);\n  const today = dateParts(now);\n  if (values.length === 3) return isoDate(values[0], values[1], values[2]);\n  let year = today.year;\n  const candidate = isoDate(year, values[0], values[1]);\n  if (mode === 'recent' && dateAtTaipei(candidate).getTime() > now.getTime() + 7 * 86400000) year -= 1;\n  return isoDate(year, values[0], values[1]);\n}\n\nfunction displayMd(iso) {\n  const [, month, day] = iso.split('-').map(Number);\n  return `${month}/${day}`;\n}\n\nfunction ensureState(state) {\n  state.people ||= {};\n  state.equipment ||= {};\n  state.memos ||= [];\n  state.sent ||= {};\n  return state;\n}\n\nfunction statutoryLeaveDays(years) {\n  if (years < 0.5) return 0;\n  if (years < 1) return 3;\n  if (years < 2) return 7;\n  if (years < 3) return 10;\n  if (years < 5) return 14;\n  if (years < 10) return 15;\n  return Math.min(30, 16 + Math.floor(years - 10));\n}\n\nfunction parseAssistantCommand(rawText, state, now = new Date()) {\n  ensureState(state);\n  const text = normalizeText(rawText);\n  if (!text.includes('小雷神')) return null;\n  const command = text.replace(/^.*?小雷神[,:，\\s]*/, '').trim();\n  let match;\n\n  match = command.match(/(?:幫我)?新增\\s*([^\\d,。\\s]{1,20}?)(?:的)?特休[,\\s]*(\\d{1,4}\\/\\d{1,2}(?:\\/\\d{1,2})?)\\s*開始計算/);\n  if (match) {\n    const name = match[1];\n    const startDate = parseDateToken(match[2], now, 'current');\n    state.people[name] ||= {};\n    state.people[name].leaveStartDate = startDate;\n    return [`【小雷神｜特休已新增】`, `姓名：${name}`, `起算：${displayMd(startDate)}`, `滿半年：3日`, `滿一年：7日`, `將於生效前月25日提醒`].join('\\n');\n  }\n\n  match = command.match(/(?:幫我)?新增\\s*([^\\d,。\\s]{1,20}?)\\s*(\\d{1,2}\\/\\d{1,2})\\s*生日/);\n  if (match) {\n    const name = match[1];\n    const birthday = match[2].split('/').map(Number);\n    state.people[name] ||= {};\n    state.people[name].birthday = `${pad2(birthday[0])}-${pad2(birthday[1])}`;\n    return [`【小雷神｜生日已新增】`, `姓名：${name}`, `生日：${birthday[0]}/${birthday[1]}`, `前一個月25日提醒`].join('\\n');\n  }\n\n  match = command.match(/(?:幫我)?新增\\s*([^\\d,。\\s]{1,20}?)\\s*(\\d{1,4}\\/\\d{1,2}(?:\\/\\d{1,2})?)\\s*體檢完成/);\n  if (match) {\n    const name = match[1];\n    const completedDate = parseDateToken(match[2], now, 'recent');\n    state.people[name] ||= {};\n    state.people[name].medicalCompletedDate = completedDate;\n    const reminder = addMonths(completedDate, 11).slice(0, 8) + '25';\n    return [`【小雷神｜體檢已新增】`, `姓名：${name}`, `完成：${displayMd(completedDate)}`, `提醒：${displayMd(reminder)}`].join('\\n');\n  }\n\n  if (command.includes('保養完成')) {\n    const cycleMatch = command.match(/每\\s*(\\d+|[一二兩三四五六七八九十]+)\\s*個月/);\n    const stripped = command.replace(/每\\s*(\\d+|[一二兩三四五六七八九十]+)\\s*個月(?:保養)?(?:一次)?[,\\s]*/g, '');\n    match = stripped.match(/(?:幫我)?\\s*(.+?)\\s*(\\d{1,4}\\/\\d{1,2}(?:\\/\\d{1,2})?)\\s*保養完成/);\n    if (match) {\n      const equipmentName = match[1].trim();\n      const completedDate = parseDateToken(match[2], now, 'recent');\n      const priorCycle = state.equipment[equipmentName]?.cycleMonths;\n      const cycleMonths = cycleMatch ? chineseNumber(cycleMatch[1]) : (priorCycle || (equipmentName === '製冰機' ? 3 : 0));\n      if (!Number.isFinite(cycleMonths) || cycleMonths < 1) {\n        return [`【小雷神｜需要保養週期】`, `設備：${equipmentName}`, `請補充每幾個月保養`, `例：每3個月保養一次`].join('\\n');\n      }\n      state.equipment[equipmentName] = { completedDate, cycleMonths };\n      const dueDate = addMonths(completedDate, cycleMonths);\n      const reminderDate = addMonths(completedDate, Math.max(0, cycleMonths - 1)).slice(0, 8) + '25';\n      return [`【小雷神｜保養已新增】`, `設備：${equipmentName}`, `週期：每${cycleMonths}個月`, `下次：${displayMd(dueDate)}`, `提醒：${displayMd(reminderDate)}`].join('\\n');\n    }\n  }\n\n  match = command.match(/(?:幫我)?刪除\\s*([^\\s的,。]+)(?:的)?所有紀錄/);\n  if (match) {\n    const name = match[1];\n    const existed = Boolean(state.people[name]);\n    delete state.people[name];\n    const before = state.memos.length;\n    state.memos = state.memos.filter((memo) => memo.personName !== name);\n    return existed || before !== state.memos.length\n      ? [`【小雷神｜刪除完成】`, `已刪除：${name}`, `特休、生日、體檢`, `及相關備忘紀錄`].join('\\n')\n      : [`【小雷神｜查無資料】`, `姓名：${name}`, `沒有可刪除的紀錄`].join('\\n');\n  }\n\n  match = command.match(/(下個月|這個月|本月|\\d{1,2}月)\\s*(\\d{1,2})[號日]\\s*(?:要)?(.+?)[,。\\s]*請提前\\s*(\\d+|[一二兩三四五六七八九十]+)\\s*天通知(?:我)?/);\n  if (match) {\n    const today = dateParts(now);\n    let targetYear = today.year;\n    let targetMonth;\n    if (match[1] === '下個月') {\n      targetMonth = today.month + 1;\n      if (targetMonth === 13) { targetMonth = 1; targetYear += 1; }\n    } else if (match[1] === '這個月' || match[1] === '本月') {\n      targetMonth = today.month;\n    } else {\n      targetMonth = Number(match[1].replace('月', ''));\n      if (targetMonth < today.month) targetYear += 1;\n    }\n    const eventDate = isoDate(targetYear, targetMonth, Number(match[2]));\n    const advanceDays = chineseNumber(match[4]);\n    const remindDate = addDays(eventDate, -advanceDays);\n    const memo = { id: `${Date.now()}-${state.memos.length}`, eventDate, remindDate, text: match[3].trim(), sent: false };\n    state.memos.push(memo);\n    return [`【小雷神｜備忘已新增】`, `事項：${memo.text}`, `日期：${displayMd(eventDate)}`, `提醒：${displayMd(remindDate)} 09:00`, `僅提醒一次`].join('\\n');\n  }\n\n  return [\n    '【小雷神｜可用指令】',\n    '新增姓名＋特休起算日',\n    '新增姓名＋生日',\n    '新增姓名＋體檢完成日',\n    '新增設備保養與週期',\n    '新增指定日期備忘',\n    '刪除姓名的所有紀錄'\n  ].join('\\n');\n}\n\nfunction leaveMilestoneLabel(years) {\n  if (years === 0.5) return '滿半年';\n  return `滿${years}年`;\n}\n\nfunction buildMonthlyReminder(state, now = new Date()) {\n  ensureState(state);\n  const today = dateParts(now);\n  if (today.day !== 25) return null;\n  const todayIso = isoDate(today.year, today.month, today.day);\n  const sections = { leave: [], birthday: [], medical: [], maintenance: [] };\n\n  for (const [name, person] of Object.entries(state.people)) {\n    if (person.leaveStartDate) {\n      const milestones = [0.5, ...Array.from({ length: 40 }, (_, index) => index + 1)];\n      for (const years of milestones) {\n        const effective = years === 0.5 ? addMonths(person.leaveStartDate, 6) : addMonths(person.leaveStartDate, years * 12);\n        const [year, month] = effective.split('-').map(Number);\n        const reminderMonthDate = new Date(Date.UTC(year, month - 2, 1));\n        const reminder = isoDate(reminderMonthDate.getUTCFullYear(), reminderMonthDate.getUTCMonth() + 1, 25);\n        const key = `leave:${name}:${effective}`;\n        if (reminder === todayIso && !state.sent[key]) {\n          sections.leave.push(`${name}｜${leaveMilestoneLabel(years)}${statutoryLeaveDays(years)}日\\n${displayMd(effective)}起生效`);\n          state.sent[key] = todayIso;\n        }\n      }\n    }\n\n    if (person.birthday) {\n      const [birthMonth, birthDay] = person.birthday.split('-').map(Number);\n      const nextMonth = today.month === 12 ? 1 : today.month + 1;\n      const birthdayYear = today.month === 12 ? today.year + 1 : today.year;\n      const key = `birthday:${name}:${birthdayYear}`;\n      if (birthMonth === nextMonth && !state.sent[key]) {\n        sections.birthday.push(`${name}｜${birthMonth}/${birthDay}`);\n        state.sent[key] = todayIso;\n      }\n    }\n\n    if (person.medicalCompletedDate) {\n      const targetMonth = addMonths(person.medicalCompletedDate, 11);\n      const reminder = targetMonth.slice(0, 8) + '25';\n      const key = `medical:${name}:${person.medicalCompletedDate}`;\n      if (reminder === todayIso && !state.sent[key]) {\n        sections.medical.push(`${name}｜下月需體檢`);\n        state.sent[key] = todayIso;\n      }\n    }\n  }\n\n  for (const [name, equipment] of Object.entries(state.equipment)) {\n    const reminderMonth = addMonths(equipment.completedDate, Math.max(0, equipment.cycleMonths - 1));\n    const reminder = reminderMonth.slice(0, 8) + '25';\n    const due = addMonths(equipment.completedDate, equipment.cycleMonths);\n    const key = `maintenance:${name}:${equipment.completedDate}`;\n    if (reminder === todayIso && !state.sent[key]) {\n      sections.maintenance.push(`${name}｜${displayMd(due)}前保養`);\n      state.sent[key] = todayIso;\n    }\n  }\n\n  const list = (items) => items.length ? items.join('\\n') : '無';\n  return [\n    `【${pad2(today.month)}/25 小雷神月提醒】`,\n    '【特休】', list(sections.leave),\n    '【生日】', list(sections.birthday),\n    '【體檢】', list(sections.medical),\n    '【設備保養】', list(sections.maintenance)\n  ].join('\\n');\n}\n\nfunction buildDueMemos(state, now = new Date()) {\n  ensureState(state);\n  const today = dateParts(now);\n  const todayIso = isoDate(today.year, today.month, today.day);\n  const due = state.memos.filter((memo) => memo.remindDate === todayIso && !memo.sent);\n  if (!due.length) return null;\n  for (const memo of due) memo.sent = true;\n  return [`【小雷神｜今日備忘】`, ...due.flatMap((memo) => [`事項：${memo.text}`, `日期：${displayMd(memo.eventDate)}`])].join('\\n');\n}\n\nconst state = ensureState($getWorkflowStaticData('global'));\nconst input = $input.first().json;\nconst messages = [];\n\nif (Array.isArray(input.body?.events)) {\n  for (const event of input.body.events) {\n    if (event?.source?.groupId) state.groupId = event.source.groupId;\n    if (event?.type !== 'message' || event?.message?.type !== 'text') continue;\n    const reply = parseAssistantCommand(event.message.text, state, new Date());\n    if (reply) messages.push(reply);\n  }\n} else {\n  const now = new Date();\n  const memoMessage = buildDueMemos(state, now);\n  const monthlyMessage = buildMonthlyReminder(state, now);\n  if (memoMessage) messages.push(memoMessage);\n  if (monthlyMessage) messages.push(monthlyMessage);\n}\n\nif (!messages.length || !state.groupId) return [];\n\nreturn [{\n  json: {\n    linePayload: {\n      to: state.groupId,\n      messages: messages.slice(0, 5).map((text) => ({ type: 'text', text }))\n    }\n  }\n}];"
+      },
+      "id": "9551e615-eb3b-4842-a296-c23497d84c88",
+      "name": "辨識並保存小雷神任務",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/push",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.linePayload }}",
+        "options": {}
+      },
+      "id": "fe64007c-4e9c-43d7-af8b-52d8d05948c1",
+      "name": "回傳小雷神結果",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        640,
+        120
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eqZPgNeJ2WPXRyVW",
+          "name": "Header Auth account 2"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "小雷神LINE入口": {
+      "main": [
+        [
+          {
+            "node": "辨識並保存小雷神任務",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "每日09點提醒": {
+      "main": [
+        [
+          {
+            "node": "辨識並保存小雷神任務",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "辨識並保存小雷神任務": {
+      "main": [
+        [
+          {
+            "node": "回傳小雷神結果",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Taipei",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "active": false,
+  "tags": []
+}
