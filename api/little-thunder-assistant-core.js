@@ -116,12 +116,38 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
   }
 
   match = command.match(/(?:幫我)?新增\s*([^\d,。\s]{1,20}?)\s*(\d{1,2}\/\d{1,2})\s*生日/);
+  const batchBirthdayMatch = command.match(/^(?:幫我)?新增以下生日[\s:：]*(.+)$/s);
+  if (batchBirthdayMatch) {
+    const entries = [...batchBirthdayMatch[1].matchAll(/([^\d\s,，、。]{1,20})\s*(\d{1,2}\/\d{1,2})/g)]
+      .map((entry) => {
+        const [month, day] = entry[2].split('/').map(Number);
+        return { name: entry[1], month, day };
+      })
+      .filter((entry) => entry.month >= 1 && entry.month <= 12 && entry.day >= 1 && entry.day <= 31);
+    if (entries.length) {
+      for (const entry of entries) {
+        state.people[entry.name] ||= {};
+        state.people[entry.name].birthday = `${pad2(entry.month)}-${pad2(entry.day)}`;
+      }
+      const names = entries.map((entry) => entry.name).join('、');
+      return [
+        '【小雷神｜生日新增完成】',
+        `新增${names}已經完成，`,
+        '還有什麼我能協助你的嗎？'
+      ].join('\n');
+    }
+  }
+
   if (match) {
     const name = match[1];
     const birthday = match[2].split('/').map(Number);
     state.people[name] ||= {};
     state.people[name].birthday = `${pad2(birthday[0])}-${pad2(birthday[1])}`;
-    return [`【小雷神｜生日已新增】`, `姓名：${name}`, `生日：${birthday[0]}/${birthday[1]}`, `前一個月25日提醒`].join('\n');
+    return [
+      '【小雷神｜生日新增完成】',
+      `新增${name}已經完成，`,
+      '還有什麼我能協助你的嗎？'
+    ].join('\n');
   }
 
   match = command.match(/(?:幫我)?新增\s*([^\d,。\s]{1,20}?)\s*(\d{1,4}\/\d{1,2}(?:\/\d{1,2})?)\s*體檢完成/);

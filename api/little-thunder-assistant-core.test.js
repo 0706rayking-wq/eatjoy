@@ -18,8 +18,21 @@ assert.match(helpMessage, /6\.【刪除資料】/);
 
 assert.match(parseAssistantCommand('小雷神，幫我新增王小明特休，8/1開始計算', state, now), /特休已新增/);
 assert.equal(state.people.王小明.leaveStartDate, '2026-08-01');
-assert.match(parseAssistantCommand('小雷神，幫我新增王小明7/6生日', state, now), /生日已新增/);
+assert.match(parseAssistantCommand('小雷神，幫我新增王小明7/6生日', state, now), /新增王小明已經完成/);
 assert.equal(state.people.王小明.birthday, '07-06');
+
+const batchBirthdayState = {};
+const batchBirthdayReply = parseAssistantCommand(
+  '小雷神，幫我新增以下生日\n楊過 9/11\n郭靖 9/16\n周伯通10/22\n洪七公11/11',
+  batchBirthdayState,
+  now
+);
+assert.match(batchBirthdayReply, /新增楊過、郭靖、周伯通、洪七公已經完成/);
+assert.match(batchBirthdayReply, /還有什麼我能協助你的嗎/);
+assert.equal(batchBirthdayState.people.楊過.birthday, '09-11');
+assert.equal(batchBirthdayState.people.郭靖.birthday, '09-16');
+assert.equal(batchBirthdayState.people.周伯通.birthday, '10-22');
+assert.equal(batchBirthdayState.people.洪七公.birthday, '11-11');
 assert.match(parseAssistantCommand('小雷神，幫我新增王小明7/6體檢完成', state, now), /6\/25/);
 assert.equal(state.people.王小明.medicalCompletedDate, '2026-07-06');
 assert.match(parseAssistantCommand('小雷神，製冰機8/25保養完成', state, now), /每3個月/);
