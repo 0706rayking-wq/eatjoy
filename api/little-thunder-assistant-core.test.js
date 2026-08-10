@@ -42,7 +42,18 @@ parseAssistantCommand('小雷神，下個月10號要開月大會，請提前十�
 assert.match(buildDueMemos(memoState, new Date('2026-08-31T09:00:00+08:00')), /開月大會/);
 assert.equal(buildDueMemos(memoState, new Date('2026-08-31T09:01:00+08:00')), null);
 
-assert.match(parseAssistantCommand('小雷神，幫我刪除王小明的所有紀錄', state, now), /刪除完成/);
+assert.match(parseAssistantCommand('小雷神，幫我刪除王小明的所有紀錄', state, now), /請再次確認/);
+assert.notEqual(state.people.王小明, undefined);
+assert.match(parseAssistantCommand('小雷神，確認刪除王小明的所有紀錄', state, new Date(now.getTime() + 5 * 60000)), /刪除完成/);
 assert.equal(state.people.王小明, undefined);
+
+const expiredDeleteState = { people: { 陳小華: { birthday: '01-01' } } };
+assert.match(parseAssistantCommand('小雷神，刪除陳小華的所有紀錄', expiredDeleteState, now), /請再次確認/);
+assert.match(parseAssistantCommand('小雷神，確認刪除陳小華的所有紀錄', expiredDeleteState, new Date(now.getTime() + 11 * 60000)), /無法刪除/);
+assert.notEqual(expiredDeleteState.people.陳小華, undefined);
+
+assert.match(parseAssistantCommand('小雷神，刪除陳小華的所有紀錄', expiredDeleteState, now), /請再次確認/);
+assert.match(parseAssistantCommand('小雷神，取消刪除陳小華的所有紀錄', expiredDeleteState, now), /已取消刪除/);
+assert.notEqual(expiredDeleteState.people.陳小華, undefined);
 
 console.log('little-thunder-assistant tests passed');

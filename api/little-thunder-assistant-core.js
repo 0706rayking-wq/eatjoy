@@ -85,6 +85,7 @@ function ensureState(state) {
   state.equipment ||= {};
   state.memos ||= [];
   state.sent ||= {};
+  state.pendingDeletes ||= {};
   return state;
 }
 
@@ -152,16 +153,60 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
     }
   }
 
-  match = command.match(/(?:幫我)?刪除\s*([^\s的,。]+)(?:的)?所有紀錄/);
+  match = command.match(/^確認刪除\s*([^\s的,。]+)(?:的)?所有紀錄$/);
   if (match) {
     const name = match[1];
+    const pending = state.pendingDeletes[name];
+    const isValid = pending && now.getTime() - pending.requestedAt <= 10 * 60 * 1000;
+    if (!isValid) {
+      delete state.pendingDeletes[name];
+      return [
+        '【小雷神｜無法刪除】',
+        `姓名：${name}`,
+        '沒有有效的待確認要求',
+        '請先重新提出刪除指令'
+      ].join('\n');
+    }
     const existed = Boolean(state.people[name]);
     delete state.people[name];
     const before = state.memos.length;
     state.memos = state.memos.filter((memo) => memo.personName !== name);
+    delete state.pendingDeletes[name];
     return existed || before !== state.memos.length
       ? [`【小雷神｜刪除完成】`, `已刪除：${name}`, `特休、生日、體檢`, `及相關備忘紀錄`].join('\n')
       : [`【小雷神｜查無資料】`, `姓名：${name}`, `沒有可刪除的紀錄`].join('\n');
+  }
+
+  match = command.match(/^取消刪除\s*([^\s的,。]+)(?:的)?所有紀錄$/);
+  if (match) {
+    const name = match[1];
+    const existed = Boolean(state.pendingDeletes[name]);
+    delete state.pendingDeletes[name];
+    return existed
+      ? [`【小雷神｜已取消刪除】`, `姓名：${name}`, `所有資料均已保留`].join('\n')
+      : [`【小雷神｜沒有待確認刪除】`, `姓名：${name}`].join('\n');
+  }
+
+  match = command.match(/^(?:幫我)?刪除\s*([^\s的,。]+)(?:的)?所有紀錄$/);
+  if (match) {
+    const name = match[1];
+    const hasPerson = Boolean(state.people[name]);
+    const hasMemos = state.memos.some((memo) => memo.personName === name);
+    if (!hasPerson && !hasMemos) {
+      return [`【小雷神｜查無資料】`, `姓名：${name}`, `沒有可刪除的紀錄`].join('\n');
+    }
+    state.pendingDeletes[name] = { requestedAt: now.getTime() };
+    return [
+      '【小雷神｜請再次確認】',
+      `即將刪除：${name}`,
+      '包含特休、生日、體檢',
+      '及相關備忘紀錄',
+      '確認請輸入：',
+      `小雷神，確認刪除${name}的所有紀錄`,
+      '10分鐘內未確認將自動失效',
+      '取消請輸入：',
+      `小雷神，取消刪除${name}的所有紀錄`
+    ].join('\n');
   }
 
   match = command.match(/(下個月|這個月|本月|\d{1,2}月)\s*(\d{1,2})[號日]\s*(?:要)?(.+?)[,。\s]*請提前\s*(\d+|[一二兩三四五六七八九十]+)\s*天通知(?:我)?/);
@@ -215,7 +260,8 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
     '指令：新增指定日期備忘',
     '',
     '6.【刪除資料】',
-    '成員離職後可透過文字訊息刪除',
+    '成員離職後可透過文字訊息刪除，',
+    '再次確認後才會執行',
     '指令：刪除姓名的所有紀錄'
   ].join('\n');
 }
