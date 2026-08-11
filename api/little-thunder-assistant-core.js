@@ -255,12 +255,57 @@ function parseMemoRequest(value, now) {
   return { eventDate, remindDate: eventDate, text: subject };
 }
 
+function buildReminderList(state) {
+  ensureState(state);
+  const sections = { leave: [], birthday: [], medical: [], maintenance: [], memos: [] };
+  const people = Object.entries(state.people).sort(([left], [right]) => left.localeCompare(right, 'zh-Hant'));
+
+  for (const [name, person] of people) {
+    if (person.leaveStartDate) sections.leave.push(`${name}｜起算${displayMd(person.leaveStartDate)}`);
+    if (person.birthday) {
+      const [month, day] = person.birthday.split('-').map(Number);
+      sections.birthday.push(`${name}｜${month}/${day}`);
+    }
+    if (person.medicalCompletedDate) sections.medical.push(`${name}｜${displayMd(person.medicalCompletedDate)}完成`);
+  }
+
+  for (const [name, equipment] of Object.entries(state.equipment).sort(([left], [right]) => left.localeCompare(right, 'zh-Hant'))) {
+    sections.maintenance.push(`${name}｜${displayMd(equipment.completedDate)}完成｜每${equipment.cycleMonths}個月`);
+  }
+
+  const pendingMemos = state.memos
+    .filter((memo) => !memo.sent)
+    .sort((left, right) => String(left.remindDate).localeCompare(String(right.remindDate)) || String(left.eventDate).localeCompare(String(right.eventDate)));
+  for (const memo of pendingMemos) {
+    sections.memos.push(`${displayMd(memo.remindDate)}提醒｜${memo.text}`);
+  }
+
+  const sectionLines = (title, items) => [
+    `【${title}】`,
+    ...(items.length
+      ? items.flatMap((item, index) => wrapMessageLine(`${index + 1}.${item}`))
+      : ['無'])
+  ];
+
+  return [
+    '【小雷神｜目前提醒清單】',
+    ...sectionLines('特休', sections.leave),
+    ...sectionLines('生日', sections.birthday),
+    ...sectionLines('體檢', sections.medical),
+    ...sectionLines('設備保養', sections.maintenance),
+    ...sectionLines('備忘錄', sections.memos)
+  ].join('\n');
+}
+
 function parseAssistantCommand(rawText, state, now = new Date()) {
   ensureState(state);
   const text = normalizeText(rawText);
   if (!text.includes('小雷神')) return null;
   const command = text.replace(/^.*?小雷神[,:，\s]*/, '').trim();
   let match;
+
+  const reminderListIntent = /提醒清單|待提醒(?:的)?(?:任務|事項|紀錄|記錄)|(?:檢視|查看|顯示|列出).*(?:提醒|待辦)|(?:目前|現在).*(?:提醒|待辦)/.test(command);
+  if (reminderListIntent) return buildReminderList(state);
 
   const batchMatch = command.match(/^(?:幫我)?新增以下(特休|體檢|設備保養|保養|備忘錄|備忘)[\s:：]*(.+)$/s);
   if (batchMatch) {
@@ -556,7 +601,11 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
     '成員離職後可透過文字訊息刪除，',
     '再次確認後才會執行',
     '指令：刪除姓名的所有紀錄',
-    '批量：批量刪除以下人員＋姓名清單'
+    '批量：批量刪除以下人員＋姓名清單',
+    '',
+    '7.【檢視目前提醒清單】',
+    '查看所有已紀錄且待提醒的任務',
+    '指令：檢視目前提醒清單'
   ].join('\n');
 }
 
@@ -647,6 +696,7 @@ module.exports = {
   addMonths,
   buildDueMemos,
   buildMonthlyReminder,
+  buildReminderList,
   ensureState,
   parseAssistantCommand,
   statutoryLeaveDays

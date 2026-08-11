@@ -36,16 +36,17 @@ if (Array.isArray(eventInput.body?.events)) {
     if (!rawText.includes('小雷神')) continue;
     const safetyCommand = /刪除|確認|取消/.test(rawText);
     const helpCommand = /可以做什麼|能做什麼|可用指令|功能|怎麼用|如何使用/.test(rawText);
+    const reminderListCommand = /提醒清單|待提醒(?:的)?(?:任務|事項|紀錄|記錄)|(?:檢視|查看|顯示|列出).*(?:提醒|待辦)|(?:目前|現在).*(?:提醒|待辦)/.test(rawText);
     let commandText = rawText;
 
     // AI may normalize additions and memos, but it can never rewrite or
     // authorize deletion, confirmation, cancellation, or help commands.
-    if (!safetyCommand && !helpCommand && aiOutput?.needsClarification && aiOutput?.clarificationQuestion) {
+    if (!safetyCommand && !helpCommand && !reminderListCommand && aiOutput?.needsClarification && aiOutput?.clarificationQuestion) {
       messages.push(['【小雷神｜需要確認】', aiOutput.clarificationQuestion].join('\\n'));
       continue;
     }
 
-    if (!safetyCommand && !helpCommand && typeof aiOutput?.canonicalText === 'string' && aiOutput.canonicalText.trim()) {
+    if (!safetyCommand && !helpCommand && !reminderListCommand && typeof aiOutput?.canonicalText === 'string' && aiOutput.canonicalText.trim()) {
       commandText = aiOutput.canonicalText.trim();
       if (!commandText.includes('小雷神')) commandText = '小雷神，' + commandText;
     }
@@ -89,6 +90,7 @@ const extractorPrompt = `你是LINE人事助理「小雷神」的語意理解層
 - 體檢：小雷神，新增王小明7/6體檢完成
 - 保養：小雷神，製冰機8/25保養完成，每3個月保養一次
 - 備忘：小雷神，8/26開月大會，提前7天提醒我統計請假名單
+- 清單：小雷神，檢視目前提醒清單
 一次多筆資料時，每筆各占一行並保留姓名、日期、週期與事項。
 
 安全規則：

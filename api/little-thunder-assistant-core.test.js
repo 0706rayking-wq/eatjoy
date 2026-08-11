@@ -15,6 +15,28 @@ const helpMessage = parseAssistantCommand('小雷神，請問你可以做什麼'
 assert.match(helpMessage, /我能幫你紀錄以下事情/);
 assert.match(helpMessage, /1\.【特休提醒】/);
 assert.match(helpMessage, /6\.【刪除資料】/);
+assert.match(helpMessage, /7\.【檢視目前提醒清單】/);
+
+const reminderListState = {
+  people: {
+    王小明: { leaveStartDate: '2026-08-01', birthday: '07-06', medicalCompletedDate: '2026-07-06' }
+  },
+  equipment: {
+    製冰機: { completedDate: '2026-08-25', cycleMonths: 3 }
+  },
+  memos: [
+    { id: 'memo-1', eventDate: '2026-09-01', remindDate: '2026-09-01', text: '調整內場正職底薪', sent: false },
+    { id: 'memo-2', eventDate: '2026-08-01', remindDate: '2026-08-01', text: '已完成事項', sent: true }
+  ]
+};
+const reminderListReply = parseAssistantCommand('小雷神，檢視目前提醒清單', reminderListState, now);
+assert.match(reminderListReply, /【小雷神｜目前提醒清單】/);
+assert.match(reminderListReply, /王小明｜起算8\/1/);
+assert.match(reminderListReply, /王小明｜7\/6完成/);
+assert.match(reminderListReply, /製冰機｜8\/25完成｜每3個月/);
+assert.match(reminderListReply, /9\/1提醒｜調整內場正職底薪/);
+assert.doesNotMatch(reminderListReply, /已完成事項/);
+assert.equal(reminderListReply.split('\n').every((line) => Array.from(line).length <= 28), true);
 
 assert.match(parseAssistantCommand('小雷神，幫我新增王小明特休，8/1開始計算', state, now), /新增王小明已經完成/);
 assert.equal(state.people.王小明.leaveStartDate, '2026-08-01');
