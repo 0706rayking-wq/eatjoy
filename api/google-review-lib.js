@@ -34,12 +34,22 @@ async function launchBrowser(viewport = { width: 1280, height: 1600 }) {
   });
 }
 
-function isRecentAgeLabel(value) {
+function isRecentAgeLabel(value, ageDays = 0) {
   const label = String(value || '').trim().toLowerCase();
   if (!label) return false;
-  if (/剛剛|分鐘前|小時前/.test(label)) return true;
-  if (/just now|minute[s]? ago|hour[s]? ago/.test(label)) return true;
+  if (ageDays === 0 && /剛剛|分鐘前|小時前/.test(label)) return true;
+  if (ageDays === 0 && /just now|minute[s]? ago|hour[s]? ago/.test(label)) return true;
+  if (ageDays > 0) {
+    const zhDays = Number(label.match(/^(\d+)\s*天前$/)?.[1]);
+    const enDays = Number(label.match(/^(\d+)\s*days? ago$/)?.[1]);
+    return zhDays === ageDays || enDays === ageDays;
+  }
   return false;
+}
+
+function configuredReviewAgeDays() {
+  const value = Number(process.env.GOOGLE_REVIEW_AGE_DAYS || 0);
+  return Number.isInteger(value) && value >= 0 ? value : 0;
 }
 
 function extractAgeLabel(text) {
@@ -222,18 +232,22 @@ async function scrollReviewList(page) {
 
 async function loadRecentReviews(page) {
   const reviews = new Map();
+  const ageDays = configuredReviewAgeDays();
   let stableRounds = 0;
   let previousSize = 0;
 
   for (let round = 0; round < 16; round += 1) {
     const cards = await readCards(page);
     for (const card of cards) {
-      if (!isRecentAgeLabel(card.ageLabel)) continue;
+      if (!isRecentAgeLabel(card.ageLabel, ageDays)) continue;
       const key = card.reviewerId || `${card.reviewer}|${card.stars}|${card.ageLabel}`;
       reviews.set(key, card);
     }
 
-    const hasOlderReview = cards.some((card) => card.ageLabel && !isRecentAgeLabel(card.ageLabel));
+    const hasOlderReview = cards.some((card) => {
+      const match = String(card.ageLabel || '').match(/(\d+)\s*(?:天前|days? ago)/i);
+      return match && Number(match[1]) > ageDays;
+    });
     stableRounds = reviews.size === previousSize ? stableRounds + 1 : 0;
     if (hasOlderReview && stableRounds >= 1) break;
     previousSize = reviews.size;
@@ -258,7 +272,7 @@ async function checkGoogleReviews() {
       if (counts[review.stars] !== undefined) counts[review.stars] += 1;
     }
     return {
-      date: taipeiDate(),
+      date: String(process.env.GOOGLE_REVIEW_REPORT_DATE || '').trim() || taipeiDate(),
       total: reviews.length,
       counts,
       negativeReviews: reviews.filter((review) => review.stars > 0 && review.stars <= 3),
@@ -290,7 +304,7 @@ async function checkGoogleReviewsWithScreenshots() {
       negativeScreenshots.push({ review, image: await screenshotCard(card) });
     }
     return {
-      date: taipeiDate(),
+      date: String(process.env.GOOGLE_REVIEW_REPORT_DATE || '').trim() || taipeiDate(),
       total: reviews.length,
       counts,
       negativeReviews,
