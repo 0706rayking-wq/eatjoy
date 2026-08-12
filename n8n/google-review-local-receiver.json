@@ -3,6 +3,22 @@
   "nodes": [
     {
       "parameters": {
+        "httpMethod": "POST",
+        "path": "google-review-local-7ef4236b-a736-4cab-a5d7-8a873ea0d4d6",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        -180
+      ],
+      "id": "dfe66ab6-aa32-45b5-b2b1-806ab05a7fdd",
+      "name": "巡檢結果入口",
+      "webhookId": "47b6b285-0f9a-4378-8470-81a3d8aabfbb"
+    },
+    {
+      "parameters": {
         "method": "POST",
         "url": "https://api.line.me/v2/bot/message/push",
         "authentication": "genericCredentialType",
@@ -13,10 +29,13 @@
         "options": {}
       },
       "id": "ada0de07-a66f-4a95-8e73-847dff45dbd6",
-      "name": "發送台北人事群",
+      "name": "發送巡檢與截圖",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [480, 0],
+      "position": [
+        300,
+        -180
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "eqZPgNeJ2WPXRyVW",
@@ -27,25 +46,181 @@
     {
       "parameters": {
         "httpMethod": "POST",
-        "path": "google-review-local-7ef4236b-a736-4cab-a5d7-8a873ea0d4d6",
+        "path": "google-review-draft-local-7ef4236b-a736-4cab-a5d7-8a873ea0d4d6",
         "options": {}
       },
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [0, 0],
-      "id": "dfe66ab6-aa32-45b5-b2b1-806ab05a7fdd",
-      "name": "Webhook",
-      "webhookId": "47b6b285-0f9a-4378-8470-81a3d8aabfbb"
+      "position": [
+        0,
+        180
+      ],
+      "id": "58b02436-d657-4396-a1ef-17a691cbfbd0",
+      "name": "負評初稿入口",
+      "webhookId": "93c1c020-2495-47d4-b210-d3b65c935580"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body || {};\nconst reviews = Array.isArray(body.reviews) ? body.reviews : [];\nreturn reviews\n  .filter((review) => String(review.reviewText || '').trim())\n  .slice(0, 4)\n  .map((review) => ({\n    json: {\n      date: body.date || '',\n      storeName: body.storeName || '南港店',\n      reviewerId: review.reviewerId || '',\n      reviewer: review.reviewer || '未辨識',\n      stars: Number(review.stars || 0),\n      ageLabel: review.ageLabel || '',\n      reviewText: String(review.reviewText || '').trim()\n    }\n  }));"
+      },
+      "id": "8fc80849-3449-4b58-8b42-1f16b9c8f535",
+      "name": "準備負評原文",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "text": "={{ $json.reviewText }}",
+        "schemaType": "fromJson",
+        "jsonSchemaExample": "{\"draftReply\":\"您好，感謝您撥空分享此次用餐經驗。\",\"categories\":[\"service_attitude\"],\"draftNeedsReview\":[\"當日服務人員與現場處理經過\"],\"riskLevel\":\"medium\"}",
+        "options": {
+          "systemPromptTemplate": "你是饗麻饗辣 Google 評論回覆助理。你已參考南港店、台中 LaLaport 店、中華店共 161 組低星評論與既有回覆。\n任務：根據本次完整評論原文，擬定一份主管可審核的繁體中文回覆初稿。必須針對評論中實際提到的 2～4 個問題具體回應，不可只套用通用道歉模板。\n\n公司回覆風格：\n1. 使用繁體中文，語氣誠懇、克制、具體，不與顧客爭辯。\n2. 開頭感謝顧客撥空回饋，接著為未達期待的體驗致歉。\n3. 逐項回應評論中最重要的二至四個問題，避免只寫制式道歉。\n4. 說明會交由相關主管查核、檢討流程、加強教育訓練或品質把關；不得承諾尚未核准的補償。\n5. 不要公開責怪或辨認特定員工，也不要否定顧客的主觀感受。\n6. 涉及身體不適或食安疑慮時，表達關心並建議就醫；在未查證前不要承認餐點與症狀有直接因果。\n7. 結尾感謝提醒，表達持續改善，並保留未來再次服務的機會。\n8. 回覆以三至五段為原則，通常控制在繁體中文 180 至 320 字；簡短評論可以更短。\n9. 不得虛構已完成的調查、改善、退款、贈送或聯絡紀錄。\n10. 輸出必須標示「回覆初稿」，由主管確認後才能發布。\n\n安全規則：\n- 感謝並致歉，語氣誠懇、節制、具體，不與客人爭辯。\n- 不可捏造已完成的調查、監視器查核、員工處分、退款、贈品、補償、聯絡或改善成果。\n- 可寫將請主管查核、加強教育訓練或檢討流程，但不可承諾未經授權的補償。\n- 不得責怪或點名員工。\n- 若涉及食安、身體不適、歧視、騷擾、受傷、退款或法律爭議，riskLevel 必須是 high，並明確列入 draftNeedsReview。\n- draftNeedsReview 列出主管在發布前必須確認的具體事實；不可寫空泛的「請主管確認」。\n- draftReply 只輸出回覆正文，不加標題，通常 3～5 段、180～320 字。\n\n代表性學習範例：\n範例1（饗麻饗辣PLUS - LaLaport南港店／1星）\n評論：剛晚上去用餐，因在高雄吃過很期待Plus是否會特別不一樣，但發現食材沒有比在高雄吃的新鮮外，湯底整體也都偏鹹，有一點小失望！\n\n體驗感最不佳的是家人先去上廁所，因廁所在外面， 所以先在餐廳內稍作等待了一下，家人一回到座位，即馬上跑到座位旁趕人，並告知說因為時間已到若再不離開就得收加時費，雖能理解店家要進行時間控管，但應該能看出我們在等家人，且當時門外並無其他客人在等候這桌，旁邊也有很多空桌，若店家能有多一點彈性調整會感受度較好，或是員工的用詞能稍作調整，態度很像我們死佔位子趕不走，本次是帶媽媽去吃生日餐，希望有好的生日體驗，但很可惜最後半小時一直被提醒用餐時間，感受度相當不佳。\n既有店家回覆：您好，感謝您撥空分享此次用餐心得。\n\n很抱歉此次用餐體驗未能符合您的期待，您提及食材新鮮度、湯底鹹度，以及用餐時間提醒方式所帶來的感受，我們都會轉達相關單位進行檢視與改善。\n\n我們理解在慶祝家人生日的重要時刻，更希望能有愉快且舒適的用餐體驗。對於現場同仁的應對未能讓您感受到應有的服務溫度，我們深感抱歉，後續也將加強同仁的服務教育訓練與應對方式，提升顧客的用餐感受。\n\n感謝您的寶貴意見，期待未來有機會以更好的餐點與服務迎接您再次蒞臨。謝謝。\n\n範例2（饗麻饗辣PLUS - LaLaport台中店／1星）\n評論：​久聞貴店名聲，特地在週日晚間前往用餐，本想享受一頓高品質的晚餐，沒想到竟然是一場“健康的災難”\n\n​當晚用餐後，我跟同行友人深夜就開始出現胃不舒服友人甚至嚴重的急性胃痛和腸胃炎反應，整整折騰到今天（週二）都還沒好轉。\n\n這不僅讓身體承受極大負擔，更嚴重耽誤了接下來的事業行程，對於我們這種講求效率的人來說，這點真的無法接受。\n\n​我們支付了相應的價格，期待的是安全、新鮮的食材，這是最基本的底線。雖然店內的裝潢和服務勉強算及格，但最核心的“食材管理”顯然出了巨大紕漏。\n這已經不是好不好吃的問題，\n而是嚴重的食品安全問題。\n\n​請貴店務必徹查當晚的食材來源，\n不要再讓下一位客人受害。\n\n這是我遇過最糟糕的用餐後遺症，\n這次的經驗讓我極度失望，絕對不會再訪。\n既有店家回覆：親愛的貴賓您好，很抱歉讓您⽤餐上有所缺失。\n請問您是何時來用餐的呢？我們想了解下當日的餐點品質，目前當日尚無收到與您相似情況的回饋，我們會再多加注意；\n若是身體不適，建議您儘早就醫，可以和我們聯繫台中店粉專說明下您的情況，等待您的聯繄，謝謝\n\n範例3（饗麻饗辣-中華旗艦店／1星）\n評論：前陣子假日十一點到的，但是我看壽司那區很快就不補了，泡菜哪些，很多東西也是不補，就空著！！\n\n提前預約卻坐在廁所旁邊，真的很臭，不知道為什麼廁所芳香劑要放那麼多，不只是坐旁邊，是去拿餐點，經過都明顯聞到，整個沒食慾⋯\n\n牛肉也不喜歡，整個肉下鍋散散爛爛的⋯\n\n海鮮也不是很新鮮，因為我們吃完回家拉肚子，我前一天還因為要去吃，特別沒有吃東西，所以懷疑是海鮮不新鮮，因為我吃到蝦子腥味很重，我比較喜歡以前南紡舊店，整體下來旗艦店，不是很滿意，不會再訪，我會去別間。，\n既有店家回覆：親愛的貴賓您好，\n感謝您分享用餐的感受，對於用餐經驗未能符合您的期望，我們深感抱歉。\n補餐速度我們會請值班⼈員再多加強巡檢，另外若是有遇到想吃的食材尚未補充，也可以和我們服務⼈員說，我們會立即處理的。\n因近期訂位較多，若有任何需求建議先電話提前詢問告知，不便之處敬請見諒！\n關於貴賓提到肉品及海鮮的部分，我們都已詳細記錄，會與團隊檢討改進。\n也感謝您提供的意見，讓我們能持續檢視與改進。\n期待未來有機會再為您服務，讓您感受到更好的用餐體驗。"
+        }
+      },
+      "id": "7cb78a9a-0a97-49fa-bd6a-13fa3ab33ae0",
+      "name": "Gemini依評論擬稿",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        500,
+        180
+      ],
+      "retryOnFail": true,
+      "maxTries": 2
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.6-flash",
+        "options": {
+          "temperature": 0.25
+        }
+      },
+      "id": "acb6eef3-ff6a-4448-8046-090af3b46a7b",
+      "name": "Google Gemini回覆模型",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        500,
+        380
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "ZpWaBKltRioEKUas",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const review = $('準備負評原文').item.json;\nconst result = $json.output || $json;\nconst draftReply = String(result.draftReply || '').trim();\nif (!draftReply) throw new Error('Gemini 未產生回覆初稿');\n\nfunction wrap(value, width = 28) {\n  return String(value || '').split('\\n').flatMap((line) => {\n    if (!line) return [''];\n    const chars = Array.from(line);\n    const lines = [];\n    for (let index = 0; index < chars.length; index += width) {\n      lines.push(chars.slice(index, index + width).join(''));\n    }\n    return lines;\n  });\n}\n\nconst needsReview = Array.isArray(result.draftNeedsReview)\n  ? result.draftNeedsReview.filter(Boolean)\n  : [];\nconst lines = [\n  `【AI回覆初稿｜${review.storeName}】`,\n  `評論者：${review.reviewer}`,\n  `星等：${review.stars || '-'}星`,\n  `風險：${result.riskLevel || 'medium'}`,\n  '發布前須經主管確認',\n  '────────────',\n  ...wrap(draftReply)\n];\nif (needsReview.length) {\n  lines.push('', '主管應確認：', ...needsReview.flatMap((item, index) => wrap(`${index + 1}.${item}`)));\n}\n\nreturn [{\n  json: {\n    linePayload: {\n      to: 'Cf47f4ae2865992470b5dc0a7c3ff3170',\n      messages: [{ type: 'text', text: lines.join('\\n') }]\n    }\n  }\n}];"
+      },
+      "id": "5a4de464-3874-48bb-92ce-95630589933a",
+      "name": "整理AI回覆初稿",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        760,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/push",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.linePayload }}",
+        "options": {}
+      },
+      "id": "17240274-61d7-4bb2-a425-62b8379a551d",
+      "name": "發送AI回覆初稿",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1020,
+        180
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eqZPgNeJ2WPXRyVW",
+          "name": "Header Auth account 2"
+        }
+      }
     }
   ],
   "pinData": {},
   "connections": {
-    "Webhook": {
-      "main": [[{
-        "node": "發送台北人事群",
-        "type": "main",
-        "index": 0
-      }]]
+    "巡檢結果入口": {
+      "main": [
+        [
+          {
+            "node": "發送巡檢與截圖",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "負評初稿入口": {
+      "main": [
+        [
+          {
+            "node": "準備負評原文",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "準備負評原文": {
+      "main": [
+        [
+          {
+            "node": "Gemini依評論擬稿",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini回覆模型": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Gemini依評論擬稿",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini依評論擬稿": {
+      "main": [
+        [
+          {
+            "node": "整理AI回覆初稿",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "整理AI回覆初稿": {
+      "main": [
+        [
+          {
+            "node": "發送AI回覆初稿",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,

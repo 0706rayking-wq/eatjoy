@@ -207,11 +207,31 @@ async function readCards(page) {
     const reviewer = card.querySelector('.Vpc5Fe, .d4r55')?.textContent?.trim()
       || reviewerLink?.textContent?.trim()
       || '未知評論者';
+    const reviewText = card.querySelector('.OA1nbd, .wiI7pd')?.textContent?.trim() || '';
     const ageLabel = text.match(/(?:剛剛|\d+\s*(?:分鐘|小時|天|週|個月|年)前)/)?.[0]
       || text.match(/(?:just now|\d+\s+(?:minute|hour|day|week|month|year)s? ago)/i)?.[0]
       || '';
-    return { reviewerId, reviewer, stars, ageLabel };
+    return { reviewerId, reviewer, stars, ageLabel, reviewText };
   }));
+}
+
+async function expandReviewTexts(page) {
+  const clicked = await page.$$eval(REVIEW_CARD_SELECTOR, (cards) => {
+    let count = 0;
+    for (const card of cards) {
+      const buttons = [...card.querySelectorAll('button')];
+      const expand = buttons.find((button) => {
+        const label = `${button.textContent || ''} ${button.getAttribute('aria-label') || ''}`.trim();
+        return button.classList.contains('w8nwRe')
+          || /全文|更多|more|see more|顯示完整評論|show full review/i.test(label);
+      });
+      if (!expand) continue;
+      expand.click();
+      count += 1;
+    }
+    return count;
+  });
+  if (clicked) await new Promise((resolve) => setTimeout(resolve, 150));
 }
 
 async function scrollReviewList(page) {
@@ -237,6 +257,7 @@ async function loadRecentReviews(page) {
   let previousSize = 0;
 
   for (let round = 0; round < 16; round += 1) {
+    await expandReviewTexts(page);
     const cards = await readCards(page);
     for (const card of cards) {
       if (!isRecentAgeLabel(card.ageLabel, ageDays)) continue;
@@ -263,6 +284,7 @@ async function checkGoogleReviews() {
   try {
     const page = await browser.newPage();
     await openLatestReviews(page);
+    await expandReviewTexts(page);
     const debugCards = String(process.env.GOOGLE_REVIEW_DEBUG || '') === '1'
       ? await readCards(page)
       : undefined;
@@ -288,6 +310,7 @@ async function checkGoogleReviewsWithScreenshots() {
   try {
     const page = await browser.newPage();
     await openLatestReviews(page);
+    await expandReviewTexts(page);
     const debugCards = String(process.env.GOOGLE_REVIEW_DEBUG || '') === '1'
       ? await readCards(page)
       : undefined;

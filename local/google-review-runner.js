@@ -74,9 +74,11 @@ async function sendToN8n(config, result, images) {
   for (const item of images.slice(0, 4)) {
     messages.push({ type: 'image', originalContentUrl: item.imageUrl, previewImageUrl: item.imageUrl });
   }
+  const headers = { 'content-type': 'application/json' };
+  if (config.n8nWebhookSecret) headers['x-eatjoy-secret'] = config.n8nWebhookSecret;
   const response = await fetch(config.n8nWebhookUrl, {
     method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-eatjoy-secret': config.n8nWebhookSecret },
+    headers,
     body: JSON.stringify({
       date: result.date,
       counts: result.counts,
@@ -85,11 +87,55 @@ async function sendToN8n(config, result, images) {
     })
   });
   if (!response.ok) throw new Error(`n8n returned HTTP ${response.status}`);
+
+  await sendDraftsToN8n(config, result);
+}
+
+async function sendDraftsToN8n(config, result) {
+  const reviews = (result.negativeReviews || [])
+    .filter((review) => String(review.reviewText || '').trim())
+    .slice(0, 4);
+  if (!reviews.length) return 0;
+
+  const headers = { 'content-type': 'application/json' };
+  if (config.n8nWebhookSecret) headers['x-eatjoy-secret'] = config.n8nWebhookSecret;
+  const draftWebhookUrl = config.draftN8nWebhookUrl
+    || config.n8nWebhookUrl.replace('/google-review-local-', '/google-review-draft-local-');
+  const draftResponse = await fetch(draftWebhookUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      date: result.date,
+      messageType: 'google_review_reply_requests',
+      storeName: config.storeName || '南港店',
+      reviews: reviews.map(({ reviewerId, reviewer, stars, ageLabel, reviewText }) => ({
+        reviewerId,
+        reviewer,
+        stars,
+        ageLabel,
+        reviewText
+      }))
+    })
+  });
+  if (!draftResponse.ok) throw new Error(`n8n draft delivery returned HTTP ${draftResponse.status}`);
+  return reviews.length;
 }
 
 async function main() {
   const config = loadConfig();
+  const dateArgIndex = process.argv.indexOf('--date');
+  const requestedDate = dateArgIndex >= 0 ? String(process.argv[dateArgIndex + 1] || '') : '';
+  if (requestedDate) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)) throw new Error('--date must use YYYY-MM-DD');
+    const today = new Date(`${new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date())}T12:00:00+08:00`);
+    const target = new Date(`${requestedDate}T12:00:00+08:00`);
+    const ageDays = Math.round((today.getTime() - target.getTime()) / 86400000);
+    if (ageDays < 0 || ageDays > 7) throw new Error('--date supports today through 7 days ago');
+    process.env.GOOGLE_REVIEW_AGE_DAYS = String(ageDays);
+    process.env.GOOGLE_REVIEW_REPORT_DATE = requestedDate;
+  }
   const captureOnly = process.argv.includes('--capture-only');
+  const draftOnly = process.argv.includes('--draft-only');
   process.env.GOOGLE_REVIEW_RUNTIME = 'local';
   process.env.GOOGLE_REVIEW_URL = config.googleReviewUrl;
   process.env.GOOGLE_CHROME_PATH = config.chromePath;
@@ -97,6 +143,11 @@ async function main() {
   process.env.GOOGLE_REVIEW_HEADLESS = process.argv.includes('--show-browser') ? 'false' : 'true';
   const result = await checkGoogleReviewsWithScreenshots();
   const negativeReviews = (result.negativeReviews || []).slice(0, 4);
+  if (draftOnly) {
+    const sent = await sendDraftsToN8n(config, result);
+    console.log(`${result.date}: sent ${sent} review draft(s)`);
+    return;
+  }
   if (captureOnly) {
     console.log(reportText(result, config.storeName || '南港店'));
     if (result.debugCards) console.log(JSON.stringify(result.debugCards, null, 2));
