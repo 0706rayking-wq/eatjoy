@@ -86,6 +86,12 @@ function ensureState(state) {
   state.memos ||= [];
   state.sent ||= {};
   state.pendingDeletes ||= {};
+  for (const person of Object.values(state.people)) {
+    if (person && typeof person === 'object') delete person.birthday;
+  }
+  for (const key of Object.keys(state.sent)) {
+    if (key.startsWith('birthday:')) delete state.sent[key];
+  }
   return state;
 }
 

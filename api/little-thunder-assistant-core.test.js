@@ -11,6 +11,23 @@ const {
 const state = {};
 const now = new Date('2026-08-10T09:00:00+08:00');
 
+const birthdayCleanupState = {
+  people: {
+    王小明: { birthday: '07-06', medicalCompletedDate: '2026-07-06' },
+    李小華: { birthday: '09-11' }
+  },
+  sent: {
+    'birthday:王小明:2026': '2026-06-25',
+    'medical:王小明:2026-07-06': '2026-06-25'
+  }
+};
+parseAssistantCommand('小雷神，檢視目前提醒清單', birthdayCleanupState, now);
+assert.equal(birthdayCleanupState.people.王小明.birthday, undefined);
+assert.equal(birthdayCleanupState.people.王小明.medicalCompletedDate, '2026-07-06');
+assert.equal(birthdayCleanupState.people.李小華.birthday, undefined);
+assert.equal(birthdayCleanupState.sent['birthday:王小明:2026'], undefined);
+assert.equal(birthdayCleanupState.sent['medical:王小明:2026-07-06'], '2026-06-25');
+
 const helpMessage = parseAssistantCommand('小雷神，請問你可以做什麼', {}, now);
 assert.match(helpMessage, /我能幫你紀錄以下事情/);
 assert.match(helpMessage, /1\.【體檢提醒】/);
