@@ -13,9 +13,10 @@ const now = new Date('2026-08-10T09:00:00+08:00');
 
 const helpMessage = parseAssistantCommand('小雷神，請問你可以做什麼', {}, now);
 assert.match(helpMessage, /我能幫你紀錄以下事情/);
-assert.match(helpMessage, /1\.【特休提醒】/);
-assert.match(helpMessage, /6\.【刪除資料】/);
-assert.match(helpMessage, /7\.【檢視目前提醒清單】/);
+assert.match(helpMessage, /1\.【體檢提醒】/);
+assert.match(helpMessage, /4\.【刪除資料】/);
+assert.match(helpMessage, /5\.【檢視目前提醒清單】/);
+assert.doesNotMatch(helpMessage, /生日|特休/);
 
 const reminderListState = {
   people: {
@@ -31,17 +32,17 @@ const reminderListState = {
 };
 const reminderListReply = parseAssistantCommand('小雷神，檢視目前提醒清單', reminderListState, now);
 assert.match(reminderListReply, /【小雷神｜目前提醒清單】/);
-assert.match(reminderListReply, /王小明｜起算8\/1/);
 assert.match(reminderListReply, /王小明｜7\/6完成/);
 assert.match(reminderListReply, /製冰機｜8\/25完成｜每3個月/);
 assert.match(reminderListReply, /9\/1提醒｜調整內場正職底薪/);
 assert.doesNotMatch(reminderListReply, /已完成事項/);
+assert.doesNotMatch(reminderListReply, /生日|特休|起算8\/1/);
 assert.equal(reminderListReply.split('\n').every((line) => Array.from(line).length <= 28), true);
 
-assert.match(parseAssistantCommand('小雷神，幫我新增王小明特休，8/1開始計算', state, now), /新增王小明已經完成/);
-assert.equal(state.people.王小明.leaveStartDate, '2026-08-01');
-assert.match(parseAssistantCommand('小雷神，幫我新增王小明7/6生日', state, now), /新增王小明已經完成/);
-assert.equal(state.people.王小明.birthday, '07-06');
+assert.match(parseAssistantCommand('小雷神，幫我新增王小明特休，8/1開始計算', state, now), /功能已停用/);
+assert.equal(state.people?.王小明?.leaveStartDate, undefined);
+assert.match(parseAssistantCommand('小雷神，幫我新增王小明7/6生日', state, now), /功能已停用/);
+assert.equal(state.people?.王小明?.birthday, undefined);
 
 const batchBirthdayState = {};
 const batchBirthdayReply = parseAssistantCommand(
@@ -49,12 +50,8 @@ const batchBirthdayReply = parseAssistantCommand(
   batchBirthdayState,
   now
 );
-assert.match(batchBirthdayReply, /新增楊過、郭靖、周伯通、洪七公已經完成/);
-assert.match(batchBirthdayReply, /還有什麼我能協助你的嗎/);
-assert.equal(batchBirthdayState.people.楊過.birthday, '09-11');
-assert.equal(batchBirthdayState.people.郭靖.birthday, '09-16');
-assert.equal(batchBirthdayState.people.周伯通.birthday, '10-22');
-assert.equal(batchBirthdayState.people.洪七公.birthday, '11-11');
+assert.match(batchBirthdayReply, /功能已停用/);
+assert.deepEqual(batchBirthdayState.people, {});
 assert.match(parseAssistantCommand('小雷神，幫我新增王小明7/6體檢完成', state, now), /新增王小明已經完成/);
 assert.equal(state.people.王小明.medicalCompletedDate, '2026-07-06');
 assert.match(parseAssistantCommand('小雷神，製冰機8/25保養完成', state, now), /新增製冰機已經完成/);
@@ -63,10 +60,9 @@ assert.match(parseAssistantCommand('小雷神，下個月10號要開月大會，
 const batchState = {};
 assert.match(
   parseAssistantCommand('小雷神，幫我新增以下特休\n楊過 8/1開始計算\n郭靖 9/1開始計算', batchState, now),
-  /新增楊過、郭靖已經完成/
+  /功能已停用/
 );
-assert.equal(batchState.people.楊過.leaveStartDate, '2026-08-01');
-assert.equal(batchState.people.郭靖.leaveStartDate, '2026-09-01');
+assert.equal(batchState.people.楊過, undefined);
 
 assert.match(
   parseAssistantCommand('小雷神，幫我新增以下體檢\n楊過 7/6體檢完成\n郭靖 8/2體檢完成', batchState, now),
@@ -128,9 +124,9 @@ assert.equal(statutoryLeaveDays(5), 15);
 assert.equal(statutoryLeaveDays(10), 16);
 assert.equal(statutoryLeaveDays(24), 30);
 
-const leaveState = { people: { 王小明: { leaveStartDate: '2026-08-01' } } };
-assert.match(buildMonthlyReminder(leaveState, new Date('2027-01-25T09:00:00+08:00')), /滿半年3日/);
-assert.match(buildMonthlyReminder(leaveState, new Date('2027-07-25T09:00:00+08:00')), /滿1年7日/);
+const leaveState = { people: { 王小明: { leaveStartDate: '2026-08-01', birthday: '07-06' } } };
+const privacyMonthlyMessage = buildMonthlyReminder(leaveState, new Date('2027-01-25T09:00:00+08:00'));
+assert.doesNotMatch(privacyMonthlyMessage, /特休|生日|王小明|滿半年/);
 
 const memoState = {};
 parseAssistantCommand('小雷神，下個月10號要開月大會，請提前十天通知我', memoState, now);
@@ -158,7 +154,7 @@ const batchDeleteRequest = parseAssistantCommand(
   batchDeleteState,
   now
 );
-assert.match(batchDeleteRequest, /楊過｜特休、生日/);
+assert.match(batchDeleteRequest, /楊過｜查無資料/);
 assert.match(batchDeleteRequest, /郭靖｜體檢/);
 assert.match(batchDeleteRequest, /周伯通｜查無資料/);
 assert.notEqual(batchDeleteState.people.楊過, undefined);
@@ -201,8 +197,8 @@ const flexibleBatchDelete = parseAssistantCommand(
   now
 );
 assert.match(flexibleBatchDelete, /批量刪除待確認/);
-assert.match(flexibleBatchDelete, /周伯通｜生日/);
-assert.match(flexibleBatchDelete, /洪七公｜生日/);
+assert.match(flexibleBatchDelete, /周伯通｜查無資料/);
+assert.match(flexibleBatchDelete, /洪七公｜查無資料/);
 assert.deepEqual(flexibleDeleteState.pendingBatchDelete.names, ['周伯通', '洪七公']);
 
 const flexibleSingleDelete = parseAssistantCommand(

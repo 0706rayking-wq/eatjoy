@@ -35,18 +35,19 @@ if (Array.isArray(eventInput.body?.events)) {
     // AI can understand it. The wake word has to exist in the original text.
     if (!rawText.includes('小雷神')) continue;
     const safetyCommand = /刪除|確認|取消/.test(rawText);
+    const privacyDisabledCommand = /生日|特休/.test(rawText);
     const helpCommand = /可以做什麼|能做什麼|可用指令|功能|怎麼用|如何使用/.test(rawText);
     const reminderListCommand = /提醒清單|待提醒(?:的)?(?:任務|事項|紀錄|記錄)|(?:檢視|查看|顯示|列出).*(?:提醒|待辦)|(?:目前|現在).*(?:提醒|待辦)/.test(rawText);
     let commandText = rawText;
 
     // AI may normalize additions and memos, but it can never rewrite or
     // authorize deletion, confirmation, cancellation, or help commands.
-    if (!safetyCommand && !helpCommand && !reminderListCommand && aiOutput?.needsClarification && aiOutput?.clarificationQuestion) {
+    if (!safetyCommand && !privacyDisabledCommand && !helpCommand && !reminderListCommand && aiOutput?.needsClarification && aiOutput?.clarificationQuestion) {
       messages.push(['【小雷神｜需要確認】', aiOutput.clarificationQuestion].join('\\n'));
       continue;
     }
 
-    if (!safetyCommand && !helpCommand && !reminderListCommand && typeof aiOutput?.canonicalText === 'string' && aiOutput.canonicalText.trim()) {
+    if (!safetyCommand && !privacyDisabledCommand && !helpCommand && !reminderListCommand && typeof aiOutput?.canonicalText === 'string' && aiOutput.canonicalText.trim()) {
       commandText = aiOutput.canonicalText.trim();
       if (!commandText.includes('小雷神')) commandText = '小雷神，' + commandText;
     }
@@ -85,8 +86,6 @@ const extractorExample = JSON.stringify({
 const extractorPrompt = `你是LINE人事助理「小雷神」的語意理解層。只負責把使用者原話整理成既有規則可讀的標準指令，不得執行或承諾完成任何操作。
 
 可用標準格式：
-- 特休：小雷神，新增王小明特休，8/1開始計算
-- 生日：小雷神，新增王小明7/6生日
 - 體檢：小雷神，新增王小明7/6體檢完成
 - 保養：小雷神，製冰機8/25保養完成，每3個月保養一次
 - 備忘：小雷神，8/26開月大會，提前7天提醒我統計請假名單
@@ -95,11 +94,12 @@ const extractorPrompt = `你是LINE人事助理「小雷神」的語意理解層
 
 安全規則：
 1. 原文含「刪除」「確認」或「取消」時，canonicalText 必須逐字等於原文，intent 填 safety_command，絕不可改寫、補字或代替確認。
-2. 不得猜測姓名、日期、設備、保養週期或提醒天數。
-3. 必要資料不足時，needsClarification=true，clarificationQuestion 只問一個簡短問題；canonicalText 保留原意。
-4. 除特休、生日、體檢、設備保養外，有日期的交辦事項一律視為 memo。
-5. 原文必須含「小雷神」才是有效任務；不得替一般聊天補上喚醒詞。
-6. 僅輸出結構化資料，不要輸出說明文字。`;
+2. 原文含「生日」或「特休」時，canonicalText 必須逐字等於原文，intent 填 privacy_disabled；不得改寫成備忘錄或其他任務。
+3. 不得猜測姓名、日期、設備、保養週期或提醒天數。
+4. 必要資料不足時，needsClarification=true，clarificationQuestion 只問一個簡短問題；canonicalText 保留原意。
+5. 除體檢、設備保養外，有日期的交辦事項一律視為 memo。
+6. 原文必須含「小雷神」才是有效任務；不得替一般聊天補上喚醒詞。
+7. 僅輸出結構化資料，不要輸出說明文字。`;
 
 const workflow = {
   name: '小雷神｜人事提醒助理',

@@ -118,6 +118,15 @@ function completionReply(category, labels, failed = []) {
   return lines.join('\n');
 }
 
+function privacyDisabledReply() {
+  return [
+    '【小雷神｜功能已停用】',
+    '生日與特休屬個人資料，',
+    '目前不提供新增、查詢或提醒。',
+    '請改由公司授權的人事系統處理。'
+  ].join('\n');
+}
+
 function parseNameList(value) {
   return [...new Set(String(value || '')
     .split(/[\n、,，\s]+|及|和|與/)
@@ -128,8 +137,6 @@ function parseNameList(value) {
 function describePersonRecords(state, name) {
   const person = state.people[name];
   const labels = [];
-  if (person?.leaveStartDate) labels.push('特休');
-  if (person?.birthday) labels.push('生日');
   if (person?.medicalCompletedDate) labels.push('體檢');
   const memoCount = state.memos.filter((memo) => memo.personName === name).length;
   if (memoCount) labels.push(`備忘錄${memoCount}筆`);
@@ -257,15 +264,10 @@ function parseMemoRequest(value, now) {
 
 function buildReminderList(state) {
   ensureState(state);
-  const sections = { leave: [], birthday: [], medical: [], maintenance: [], memos: [] };
+  const sections = { medical: [], maintenance: [], memos: [] };
   const people = Object.entries(state.people).sort(([left], [right]) => left.localeCompare(right, 'zh-Hant'));
 
   for (const [name, person] of people) {
-    if (person.leaveStartDate) sections.leave.push(`${name}｜起算${displayMd(person.leaveStartDate)}`);
-    if (person.birthday) {
-      const [month, day] = person.birthday.split('-').map(Number);
-      sections.birthday.push(`${name}｜${month}/${day}`);
-    }
     if (person.medicalCompletedDate) sections.medical.push(`${name}｜${displayMd(person.medicalCompletedDate)}完成`);
   }
 
@@ -289,8 +291,6 @@ function buildReminderList(state) {
 
   return [
     '【小雷神｜目前提醒清單】',
-    ...sectionLines('特休', sections.leave),
-    ...sectionLines('生日', sections.birthday),
     ...sectionLines('體檢', sections.medical),
     ...sectionLines('設備保養', sections.maintenance),
     ...sectionLines('備忘錄', sections.memos)
@@ -304,25 +304,19 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
   const command = text.replace(/^.*?小雷神[,:，\s]*/, '').trim();
   let match;
 
+  if (/生日|特休/.test(command)) return privacyDisabledReply();
+
   const reminderListIntent = /提醒清單|待提醒(?:的)?(?:任務|事項|紀錄|記錄)|(?:檢視|查看|顯示|列出).*(?:提醒|待辦)|(?:目前|現在).*(?:提醒|待辦)/.test(command);
   if (reminderListIntent) return buildReminderList(state);
 
-  const batchMatch = command.match(/^(?:幫我)?新增以下(特休|體檢|設備保養|保養|備忘錄|備忘)[\s:：]*(.+)$/s);
+  const batchMatch = command.match(/^(?:幫我)?新增以下(體檢|設備保養|保養|備忘錄|備忘)[\s:：]*(.+)$/s);
   if (batchMatch) {
     const category = batchMatch[1];
     const lines = batchMatch[2].split(/\n+/).map((line) => line.trim()).filter(Boolean);
     const added = [];
     const failed = [];
 
-    if (category === '特休') {
-      for (const line of lines) {
-        const entry = line.match(/^([^\d\s,，、。]{1,20})\s*(\d{1,4}\/\d{1,2}(?:\/\d{1,2})?)(?:\s*開始計算)?$/);
-        if (!entry) { failed.push(line); continue; }
-        state.people[entry[1]] ||= {};
-        state.people[entry[1]].leaveStartDate = parseDateToken(entry[2], now, 'current');
-        added.push(entry[1]);
-      }
-    } else if (category === '體檢') {
+    if (category === '體檢') {
       for (const line of lines) {
         const entry = line.match(/^([^\d\s,，、。]{1,20})\s*(\d{1,4}\/\d{1,2}(?:\/\d{1,2})?)(?:\s*體檢完成)?$/);
         if (!entry) { failed.push(line); continue; }
@@ -363,42 +357,6 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
 
     if (added.length) return completionReply(category === '保養' ? '設備保養' : category, added, failed);
     return ['【小雷神｜沒有新增資料】', '請確認每行的姓名、日期與格式', ...failed].join('\n');
-  }
-
-  match = command.match(/(?:幫我)?新增\s*([^\d,。\s]{1,20}?)(?:的)?特休[,\s]*(\d{1,4}\/\d{1,2}(?:\/\d{1,2})?)\s*開始計算/);
-  if (match) {
-    const name = match[1];
-    const startDate = parseDateToken(match[2], now, 'current');
-    state.people[name] ||= {};
-    state.people[name].leaveStartDate = startDate;
-    return completionReply('特休', [name]);
-  }
-
-  match = command.match(/(?:幫我)?新增\s*([^\d,。\s]{1,20}?)\s*(\d{1,2}\/\d{1,2})\s*生日/);
-  const batchBirthdayMatch = command.match(/^(?:幫我)?新增以下生日[\s:：]*(.+)$/s);
-  if (batchBirthdayMatch) {
-    const entries = [...batchBirthdayMatch[1].matchAll(/([^\d\s,，、。]{1,20})\s*(\d{1,2}\/\d{1,2})/g)]
-      .map((entry) => {
-        const [month, day] = entry[2].split('/').map(Number);
-        return { name: entry[1], month, day };
-      })
-      .filter((entry) => entry.month >= 1 && entry.month <= 12 && entry.day >= 1 && entry.day <= 31);
-    if (entries.length) {
-      for (const entry of entries) {
-        state.people[entry.name] ||= {};
-        state.people[entry.name].birthday = `${pad2(entry.month)}-${pad2(entry.day)}`;
-      }
-      const names = entries.map((entry) => entry.name).join('、');
-      return completionReply('生日', entries.map((entry) => entry.name));
-    }
-  }
-
-  if (match) {
-    const name = match[1];
-    const birthday = match[2].split('/').map(Number);
-    state.people[name] ||= {};
-    state.people[name].birthday = `${pad2(birthday[0])}-${pad2(birthday[1])}`;
-    return completionReply('生日', [name]);
   }
 
   match = command.match(/(?:幫我)?新增\s*([^\d,。\s]{1,20}?)\s*(\d{1,4}\/\d{1,2}(?:\/\d{1,2})?)\s*體檢完成/);
@@ -494,7 +452,7 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
     state.memos = state.memos.filter((memo) => memo.personName !== name);
     delete state.pendingDeletes[name];
     return existed || before !== state.memos.length
-      ? [`【小雷神｜刪除完成】`, `已刪除：${name}`, `特休、生日、體檢`, `及相關備忘紀錄`].join('\n')
+      ? [`【小雷神｜刪除完成】`, `已刪除：${name}`, `人員與相關備忘紀錄`].join('\n')
       : [`【小雷神｜查無資料】`, `姓名：${name}`, `沒有可刪除的紀錄`].join('\n');
   }
 
@@ -573,37 +531,27 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
     '我能幫你紀錄以下事情，',
     '並於每月25號通知下個月的待辦',
     '',
-    '1.【特休提醒】',
-    '根據勞基法，計算入職後',
-    '勞工可享有的特休',
-    '指令：新增姓名＋特休起算日',
-    '',
-    '2.【生日提醒】',
-    '公司當月份壽星享有免費用餐福利，',
-    '於前一個月25號提醒',
-    '指令：新增姓名＋生日',
-    '',
-    '3.【體檢提醒】',
+    '1.【體檢提醒】',
     '餐飲從業人員每年須體檢一次，',
     '繳交報告後第11個月25號提醒',
     '指令：新增姓名＋體檢完成日',
     '',
-    '4.【保養提醒】',
+    '2.【保養提醒】',
     '依照各項設備的保養週期提醒',
     '指令：新增設備保養與週期',
     '',
-    '5.【備忘錄】',
+    '3.【備忘錄】',
     '可指定通知日期，於早上9點提醒，',
     '且只提醒一次',
     '指令：新增指定日期備忘',
     '',
-    '6.【刪除資料】',
+    '4.【刪除資料】',
     '成員離職後可透過文字訊息刪除，',
     '再次確認後才會執行',
     '指令：刪除姓名的所有紀錄',
     '批量：批量刪除以下人員＋姓名清單',
     '',
-    '7.【檢視目前提醒清單】',
+    '5.【檢視目前提醒清單】',
     '查看所有已紀錄且待提醒的任務',
     '指令：檢視目前提醒清單'
   ].join('\n');
@@ -619,35 +567,9 @@ function buildMonthlyReminder(state, now = new Date()) {
   const today = dateParts(now);
   if (today.day !== 25) return null;
   const todayIso = isoDate(today.year, today.month, today.day);
-  const sections = { leave: [], birthday: [], medical: [], maintenance: [] };
+  const sections = { medical: [], maintenance: [] };
 
   for (const [name, person] of Object.entries(state.people)) {
-    if (person.leaveStartDate) {
-      const milestones = [0.5, ...Array.from({ length: 40 }, (_, index) => index + 1)];
-      for (const years of milestones) {
-        const effective = years === 0.5 ? addMonths(person.leaveStartDate, 6) : addMonths(person.leaveStartDate, years * 12);
-        const [year, month] = effective.split('-').map(Number);
-        const reminderMonthDate = new Date(Date.UTC(year, month - 2, 1));
-        const reminder = isoDate(reminderMonthDate.getUTCFullYear(), reminderMonthDate.getUTCMonth() + 1, 25);
-        const key = `leave:${name}:${effective}`;
-        if (reminder === todayIso && !state.sent[key]) {
-          sections.leave.push(`${name}｜${leaveMilestoneLabel(years)}${statutoryLeaveDays(years)}日\n${displayMd(effective)}起生效`);
-          state.sent[key] = todayIso;
-        }
-      }
-    }
-
-    if (person.birthday) {
-      const [birthMonth, birthDay] = person.birthday.split('-').map(Number);
-      const nextMonth = today.month === 12 ? 1 : today.month + 1;
-      const birthdayYear = today.month === 12 ? today.year + 1 : today.year;
-      const key = `birthday:${name}:${birthdayYear}`;
-      if (birthMonth === nextMonth && !state.sent[key]) {
-        sections.birthday.push(`${name}｜${birthMonth}/${birthDay}`);
-        state.sent[key] = todayIso;
-      }
-    }
-
     if (person.medicalCompletedDate) {
       const targetMonth = addMonths(person.medicalCompletedDate, 11);
       const reminder = targetMonth.slice(0, 8) + '25';
@@ -673,8 +595,6 @@ function buildMonthlyReminder(state, now = new Date()) {
   const list = (items) => items.length ? items.join('\n') : '無';
   return [
     `【${pad2(today.month)}/25 小雷神月提醒】`,
-    '【特休】', list(sections.leave),
-    '【生日】', list(sections.birthday),
     '【體檢】', list(sections.medical),
     '【設備保養】', list(sections.maintenance)
   ].join('\n');
