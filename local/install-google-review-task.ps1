@@ -4,10 +4,15 @@ $taskName = 'Eatjoy Google Review Patrol'
 $repoDir = Split-Path -Parent $PSScriptRoot
 $runner = Join-Path $PSScriptRoot 'google-review-runner.js'
 $bundledNode = 'C:\Users\user\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe'
+$stableRuntimeDir = Join-Path $env:LOCALAPPDATA 'EatjoyReviewBot\Runtime'
+$stableNode = Join-Path $stableRuntimeDir 'node.exe'
 $systemNode = Get-Command node.exe -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty Source
-$nodePath = if ($systemNode) { $systemNode } elseif (Test-Path -LiteralPath $bundledNode) { $bundledNode } else {
-  throw 'Node.js was not found.'
+if (!$systemNode -and !(Test-Path -LiteralPath $stableNode)) {
+  if (!(Test-Path -LiteralPath $bundledNode)) { throw 'Node.js was not found.' }
+  New-Item -ItemType Directory -Path $stableRuntimeDir -Force | Out-Null
+  Copy-Item -LiteralPath $bundledNode -Destination $stableNode -Force
 }
+$nodePath = if ($systemNode) { $systemNode } else { $stableNode }
 
 $action = New-ScheduledTaskAction `
   -Execute $nodePath `
