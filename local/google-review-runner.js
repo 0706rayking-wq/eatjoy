@@ -4,6 +4,8 @@ const { execFileSync } = require('node:child_process');
 const { checkGoogleReviewsWithScreenshots } = require('../api/google-review-lib');
 
 const repoDir = path.resolve(__dirname, '..');
+const runtimeDir = path.join(__dirname, 'runtime');
+const logDir = path.join(__dirname, 'logs');
 const configPath = process.env.GOOGLE_REVIEW_CONFIG
   ? path.resolve(process.env.GOOGLE_REVIEW_CONFIG)
   : path.join(__dirname, 'google-review-config.json');
@@ -11,6 +13,33 @@ const configPath = process.env.GOOGLE_REVIEW_CONFIG
 function loadConfig() {
   if (!fs.existsSync(configPath)) throw new Error(`Missing config: ${configPath}`);
   return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+}
+
+function appendLog(message) {
+  fs.mkdirSync(logDir, { recursive: true });
+  const timestamp = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Taipei', dateStyle: 'short', timeStyle: 'medium'
+  }).format(new Date());
+  fs.appendFileSync(path.join(logDir, 'google-review-runner.log'), `[${timestamp}] ${message}\n`, 'utf8');
+}
+
+function runStatePath(date) {
+  fs.mkdirSync(runtimeDir, { recursive: true });
+  return path.join(runtimeDir, `${date}.json`);
+}
+
+function loadRunState(date) {
+  const statePath = runStatePath(date);
+  if (!fs.existsSync(statePath)) return { reportSent: false, draftsSent: false };
+  try {
+    return { reportSent: false, draftsSent: false, ...JSON.parse(fs.readFileSync(statePath, 'utf8')) };
+  } catch {
+    return { reportSent: false, draftsSent: false };
+  }
+}
+
+function saveRunState(date, state) {
+  fs.writeFileSync(runStatePath(date), `${JSON.stringify(state, null, 2)}\n`, 'utf8');
 }
 
 function displayDate(value) {
@@ -31,7 +60,12 @@ function reportText(result, storeName) {
 }
 
 function runGit(args) {
-  return execFileSync('git', args, { cwd: repoDir, encoding: 'utf8', windowsHide: true }).trim();
+  return execFileSync('git', args, {
+    cwd: repoDir,
+    encoding: 'utf8',
+    windowsHide: true,
+    timeout: 120000
+  }).trim();
 }
 
 function safeAssetName(review, index) {
@@ -79,6 +113,7 @@ async function sendToN8n(config, result, images) {
   const response = await fetch(config.n8nWebhookUrl, {
     method: 'POST',
     headers,
+    signal: AbortSignal.timeout(30000),
     body: JSON.stringify({
       date: result.date,
       counts: result.counts,
@@ -87,8 +122,6 @@ async function sendToN8n(config, result, images) {
     })
   });
   if (!response.ok) throw new Error(`n8n returned HTTP ${response.status}`);
-
-  await sendDraftsToN8n(config, result);
 }
 
 async function sendDraftsToN8n(config, result) {
@@ -104,6 +137,7 @@ async function sendDraftsToN8n(config, result) {
   const draftResponse = await fetch(draftWebhookUrl, {
     method: 'POST',
     headers,
+    signal: AbortSignal.timeout(90000),
     body: JSON.stringify({
       date: result.date,
       messageType: 'google_review_reply_requests',
@@ -136,12 +170,21 @@ async function main() {
   }
   const captureOnly = process.argv.includes('--capture-only');
   const draftOnly = process.argv.includes('--draft-only');
+  const force = process.argv.includes('--force');
+  const scheduledDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
+  const initialState = loadRunState(requestedDate || scheduledDate);
+  if (!captureOnly && !draftOnly && !force && initialState.reportSent && initialState.draftsSent) {
+    appendLog(`${requestedDate || scheduledDate} 已完成，略過重複排程`);
+    return;
+  }
+  appendLog(`${requestedDate || scheduledDate} 開始巡檢`);
   process.env.GOOGLE_REVIEW_RUNTIME = 'local';
   process.env.GOOGLE_REVIEW_URL = config.googleReviewUrl;
   process.env.GOOGLE_CHROME_PATH = config.chromePath;
   process.env.GOOGLE_REVIEW_PROFILE_DIR = config.chromeProfileDir;
   process.env.GOOGLE_REVIEW_HEADLESS = process.argv.includes('--show-browser') ? 'false' : 'true';
   const result = await checkGoogleReviewsWithScreenshots();
+  appendLog(`${result.date} 擷取完成：${result.total} 則，三星以下 ${(result.negativeReviews || []).length} 則`);
   const negativeReviews = (result.negativeReviews || []).slice(0, 4);
   if (draftOnly) {
     const sent = await sendDraftsToN8n(config, result);
@@ -165,11 +208,31 @@ async function main() {
     return;
   }
   const images = await publishScreenshots(result, result.negativeScreenshots, config);
-  await sendToN8n(config, result, images);
+  const state = loadRunState(result.date);
+  if (!state.reportSent || force) {
+    await sendToN8n(config, result, images);
+    state.reportSent = true;
+    saveRunState(result.date, state);
+    appendLog(`${result.date} 正常巡檢報告已送達 n8n`);
+  }
+  if (!state.draftsSent || force) {
+    const draftCount = await sendDraftsToN8n(config, result);
+    state.draftsSent = true;
+    saveRunState(result.date, state);
+    appendLog(`${result.date} 回覆初稿處理完成：${draftCount} 則`);
+  }
   console.log(`${result.date}: sent ${result.total} reviews, ${negativeReviews.length} negative`);
+  appendLog(`${result.date} 巡檢成功`);
 }
 
+const watchdog = setTimeout(() => {
+  appendLog('巡檢超過 4 分鐘，已安靜中止，等待下一次排程重試');
+  process.exit(124);
+}, 4 * 60 * 1000);
+watchdog.unref();
+
 main().catch((error) => {
+  appendLog(`巡檢失敗（不推播 LINE）：${error.message || error}`);
   console.error(error.message || error);
   process.exitCode = 1;
 });
