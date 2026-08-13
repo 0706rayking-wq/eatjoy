@@ -1104,13 +1104,20 @@
     <div id="root"></div>
     <div id="notify-root" style="position:fixed;top:80px;left:0;right:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none;padding:0 16px;isolation:isolate;"></div>
     <script src="food-research-question-bank.js"></script>
+<script src="food-research-forms.js?v=8"></script>
+    <script src="food-research-weapons.js?v=8"></script>
+    <script src="food-research-amulets.js?v=2"></script>
+    <script src="food-research-bosses.js?v=10"></script>
+    <script src="food-research-ui.js?v=5"></script>
+    <script src="food-research-balance.js?v=2"></script>
+    <script src="food-research-audio.js?v=3"></script>
 
     <script>
 // 動態載入 game.js，載完設 window._gameJsReady = true
 window._gameJsReady = false;
 (function() {
   var s = document.createElement('script');
-  s.src = 'game.js';
+  s.src = 'game.js?v=8';
   s.onload = function() { window._gameJsReady = true; };
   s.onerror = function() { console.error('game.js 載入失敗'); };
   document.head.appendChild(s);
@@ -1119,6 +1126,9 @@ window._gameJsReady = false;
     <script type="text/babel" data-presets="env,react" data-cache="false">
     const { useState, useEffect, useCallback, useMemo, useRef } = React;
     const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-04-570';
+    const FOOD_RESEARCH_FORM_CATALOG = window.FOOD_RESEARCH_FORMS || [];
+    const FOOD_RESEARCH_FORM_MAP = window.FOOD_RESEARCH_FORM_MAP || {};
+    const FOOD_RESEARCH_RARITIES = window.FOOD_RESEARCH_RARITIES || {};
     const FOOD_RESEARCH_QUESTIONS = Array.isArray(window.FOOD_RESEARCH_QUESTIONS) ? window.FOOD_RESEARCH_QUESTIONS : [];
     const mergeFoodResearchQuestions = (...banks) => {
      const seen = new Set();
@@ -7501,8 +7511,9 @@ const rivalDataRef = useRef('[]');
 const chosenPartnersRef = useRef([]);
 const foodResearchHTMLRef = useRef('');
 const [puzzleState, setPuzzleState] = useState({placed:{}, done:false});
-const [imageAns, setImageAns] = useState(null);
-const [imageCorrect, setImageCorrect] = useState(null);
+const [dailyQuizAnswer, setDailyQuizAnswer] = useState(null);
+const [questRevision, setQuestRevision] = useState(0);
+const dailyQuizLockRef = useRef(false);
 const [activeAmuletTab, setActiveAmuletTab] = useState(0);
 
 const defaultActivities = [
@@ -7512,6 +7523,9 @@ const defaultActivities = [
  { id: 'gathering', title: '饗聚一堂', subtitle: '員餐與茶點', img: null, isOpen: false }
 ];
 const activities = config?.activities || defaultActivities;
+const foodResearchQuestionBank = config?.questionBankVersion === FOOD_RESEARCH_QUESTION_BANK_VERSION && config?.questions?.length
+ ? config.questions
+ : mergeFoodResearchQuestions(FOOD_RESEARCH_QUESTIONS, config?.questions || []);
 const LEFTOVER_ITEMS = [
  { id:'cooked', label:'熟食剩食', desc:'讓可再運用的熟食剩食變成新料理', img:'assets/leftover/leftover-cooked-card.png' },
  { id:'rice', label:'隔夜飯', desc:'把隔夜飯翻轉成炒飯、米點或烘烤料理', img:'assets/leftover/leftover-rice-card.png' },
@@ -8098,79 +8112,125 @@ if (selectedActivity === 'food_research') {
  };
 
  const save = loadSave();
+ if (Number(save.amuletSchemaVersion || 0) < Number(window.FOOD_RESEARCH_AMULET_SCHEMA_VERSION || 2)) {
+  writeSave({
+   amuletSchemaVersion: window.FOOD_RESEARCH_AMULET_SCHEMA_VERSION || 2,
+   amulets: [],
+   equip: {...(save.equip || {}), amulets:['','','']}
+  });
+ }
+ const AMULET_POOL = window.FOOD_RESEARCH_AMULETS || [];
+ const AMULET_DESC_MAP = window.FOOD_RESEARCH_AMULET_DESCRIPTIONS || Object.fromEntries(AMULET_POOL.map(item=>[item.name,item.desc]));
+ const validAmuletNames = new Set(AMULET_POOL.map(item=>item.name));
+ const normalizeAmuletNames = (items=[]) => [...new Set((Array.isArray(items)?items:[]).filter(name=>validAmuletNames.has(name)))];
  const playerGold   = save.gold   || 0;
  const training     = save.training || { atk:0, def:0, hp:0, stam:0, stamRegen:0, crit:0 };
- const ownedForms   = save.ownedForms  || [];   // bought food form IDs
- const equippedForm = save.equippedForm || 'normal';
- const equip        = save.equip  || { ranged:'初始食材砲', melee:'初始鍋鏟', amulets:['','',''] };
+ const validFoodFormIds = new Set(FOOD_RESEARCH_FORM_CATALOG.map(form=>form.id));
+ const ownedForms   = (save.ownedForms || []).filter(id=>validFoodFormIds.has(id));
+ const equippedForm = validFoodFormIds.has(save.equippedForm) ? save.equippedForm : 'normal';
+ const equip        = {...(save.equip || { ranged:'初始食材砲', melee:'初始鍋鏟', amulets:['','',''] }), amulets:normalizeAmuletNames(save.equip?.amulets).concat(['','','']).slice(0,3)};
  const treasury     = save.treasury || [];
  const quests       = save.quests  || null;     // {date, tasks:[{type,desc,target,progress,reward,done}]}
  const weapons      = save.weapons  || { ranged:['初始食材砲'], melee:['初始鍋鏟'] };
- const amulets      = save.amulets  || [];
+ const amulets      = normalizeAmuletNames(save.amulets);
 
- const shopKey = 'fr_shop_' + (currentUser?.phone || 'guest');
- const getShop = () => {
-  try {
-   const s = JSON.parse(localStorage.getItem(shopKey));
-   if (s && s.refreshDate === new Date().toDateString()) return s.items;
-  } catch {}
-  const allFoods = [
-   {id:'burger', name:'漢堡肉排', emoji:'🍔', desc:'受傷-15%', price:80},
-   {id:'chili',  name:'辣椒粉',   emoji:'🌶️', desc:'燃燒+速度', price:75},
-   {id:'tofu',   name:'板豆腐',   emoji:'🧆', desc:'回血+護盾', price:90},
-   {id:'noodle', name:'拉麵叉燒', emoji:'🍜', desc:'速度+30%', price:70},
-   {id:'rice',   name:'蛋炒飯',   emoji:'🍚', desc:'金幣+50%', price:65},
-   {id:'ramen',  name:'豚骨濃湯', emoji:'🍲', desc:'爆擊+回血', price:100},
-   {id:'sushi',  name:'鮭魚握壽司', emoji:'🍣', desc:'速度+爆擊', price:95},
-   {id:'steak',  name:'和牛牛排', emoji:'🥩', desc:'攻擊+爆擊', price:120},
-  ];
-  const shuffled = [...allFoods].sort(() => Math.random()-.5).slice(0,6);
-  try { localStorage.setItem(shopKey, JSON.stringify({refreshDate: new Date().toDateString(), items: shuffled})); } catch {}
-  return shuffled;
+ const FOOD_DRAW_COST = window.FOOD_RESEARCH_BALANCE?.economy?.foodDraw || 350;
+ const shopItems = FOOD_RESEARCH_FORM_CATALOG;
+ const drawFoodForm = () => {
+  const latest=loadSave();
+  const gold=latest.gold||0;
+  const owned=(latest.ownedForms||[]).filter(id=>validFoodFormIds.has(id));
+  const available=FOOD_RESEARCH_FORM_CATALOG.filter(form=>!owned.includes(form.id));
+  if(!available.length){alert('21 種食材型態已全部收集完成！');return;}
+  if(gold<FOOD_DRAW_COST){alert(`金幣不足，需要 ${FOOD_DRAW_COST} 金幣。`);return;}
+  const availableRarities=['normal','rare','noble','top'].filter(rarity=>available.some(form=>form.rarity===rarity));
+  const totalRate=availableRarities.reduce((sum,rarity)=>sum+(FOOD_RESEARCH_RARITIES[rarity]?.rate||0),0);
+  let roll=Math.random()*totalRate;
+  let rarity=availableRarities[0];
+  for(const candidate of availableRarities){
+   roll-=FOOD_RESEARCH_RARITIES[candidate]?.rate||0;
+   if(roll<=0){rarity=candidate;break;}
+  }
+  const pool=available.filter(form=>form.rarity===rarity);
+  const result=pool[Math.floor(Math.random()*pool.length)];
+  writeSave({gold:gold-FOOD_DRAW_COST,ownedForms:[...owned,result.id]});
+  try{localStorage.setItem('fr_last_food_draw_'+(currentUser?.phone||'guest'),JSON.stringify({...result,drawnAt:Date.now()}));}catch{}
+  alert(`獲得 ${FOOD_RESEARCH_RARITIES[rarity]?.label||''}型態：${result.name}！`);
+  setFrPhase('camp');setTimeout(()=>setFrPhase('shop'),10);
  };
- const shopItems = getShop();
 
  const TRAIN_STATS = [
-  {key:'atk',   label:'⚔️ 攻擊力', costBase:15, max:10, effect:'+10% / Lv'},
-  {key:'def',   label:'🛡️ 防禦力', costBase:15, max:10, effect:'-8%傷 / Lv'},
-  {key:'hp',    label:'❤️ 最大血量', costBase:20, max:10, effect:'+20HP / Lv'},
-  {key:'stam',  label:'💨 氣力量',  costBase:12, max:10, effect:'+10 / Lv'},
-  {key:'stamRegen', label:'⚡ 氣力回復', costBase:12, max:10, effect:'+10% / Lv'},
-  {key:'crit',  label:'🎯 爆擊率',  costBase:25, max:8,  effect:'+5% / Lv'},
+  {key:'atk',   label:'⚔️ 攻擊力', costBase:80, max:10, effect:'+5% / Lv'},
+  {key:'def',   label:'🛡️ 防禦力', costBase:80, max:10, effect:'-4% 傷害 / Lv'},
+  {key:'hp',    label:'❤️ 最大血量', costBase:70, max:10, effect:'+12 HP / Lv'},
+  {key:'stam',  label:'💨 最大氣力', costBase:60, max:10, effect:'+6 / Lv'},
+  {key:'stamRegen', label:'⚡ 氣力回復', costBase:60, max:10, effect:'+10% / Lv'},
+  {key:'crit',  label:'🎯 爆擊率', costBase:100, max:10, effect:'+3% / Lv'},
  ];
+ const getTrainingCost = (stat, lv) => Math.round(stat.costBase * (1 + lv * .55));
 
- const RANGED_POOL = [
-  {id:'r1',name:'食材砲', emoji:'🏹', desc:'基本遠程'},
-  {id:'r2',name:'調味料噴射器', emoji:'🧂', desc:'廣域彈幕'},
-  {id:'r3',name:'冷凍光線', emoji:'❄️', desc:'冰結效果'},
-  {id:'r4',name:'辣油火焰炮', emoji:'🔥', desc:'燃燒傷害'},
-  {id:'r5',name:'醬汁雷射', emoji:'🍶', desc:'穿透彈'},
- ];
- const MELEE_POOL = [
-  {id:'m1',name:'鍋鏟劍', emoji:'🗡️', desc:'基本近戰'},
-  {id:'m2',name:'擀麵棍', emoji:'🥖', desc:'高傷近戰'},
-  {id:'m3',name:'菜刀', emoji:'🔪', desc:'連斬型'},
-  {id:'m4',name:'炒菜鍋', emoji:'🍳', desc:'範圍攻擊'},
-  {id:'m5',name:'砧板護盾', emoji:'🪵', desc:'格擋型'},
- ];
- const AMULET_POOL = [
-  {id:'a1',name:'廚神護符', emoji:'📿', desc:'攻擊+15%'},
-  {id:'a2',name:'食安符', emoji:'🧿', desc:'HP+30'},
-  {id:'a3',name:'鮮度符', emoji:'🌿', desc:'回血增加'},
-  {id:'a4',name:'辛香符', emoji:'🌶️', desc:'爆擊+8%'},
-  {id:'a5',name:'溫度符', emoji:'🌡️', desc:'受傷-10%'},
-  {id:'a6',name:'時令符', emoji:'🍂', desc:'金幣+20%'},
- ];
-
+ const WEAPON_RARITIES = window.FOOD_RESEARCH_WEAPON_RARITIES || {
+  normal:{label:'普通',rate:65,color:'#94a3b8'}, rare:{label:'稀有',rate:20,color:'#38bdf8'},
+  noble:{label:'高貴',rate:10,color:'#c084fc'}, top:{label:'頂級',rate:5,color:'#fbbf24'},
+ };
+ const RANGED_POOL = window.FOOD_RESEARCH_RANGED_WEAPONS || [];
+ const MELEE_POOL = window.FOOD_RESEARCH_MELEE_WEAPONS || [];
+ const WEAPON_MAP = window.FOOD_RESEARCH_WEAPON_MAP || {};
+ const weaponIconStyle = (type,index,size=58) => ({
+  width:size+'px', height:size+'px', flex:'0 0 '+size+'px', borderRadius:'8px',
+  backgroundImage:`url(assets/food-research/weapons/${type}/${String(index+1).padStart(2,'0')}.png?v=4)`,
+  backgroundRepeat:'no-repeat', backgroundSize:'contain',
+  backgroundPosition:'center',
+  imageRendering:'pixelated', overflow:'hidden',
+ });
+ const normalizeDailyKnowledgeQuestion = (item, index) => {
+  if (Array.isArray(item)) return { key:`legacy:${index}:${item[0]}`, q:item[0], opts:item.slice(1,5), ans:Number(item[5]) || 0 };
+  return {
+   key:item.id !== undefined ? `id:${item.id}` : `q:${item.q}`,
+   q:item.q,
+   opts:[item.a,item.b,item.c,item.d],
+   ans:Number(item.ansIdx) || 0
+  };
+ };
+ const dailyKnowledgeQuestions = foodResearchQuestionBank.map(normalizeDailyKnowledgeQuestion).filter(item => item.q && item.opts.length === 4 && item.opts.every(Boolean));
+ const dailyKnowledgeMap = new Map(dailyKnowledgeQuestions.map(item => [item.key, item]));
+ const makeDailyKnowledgeTask = () => {
+  const pool = [...dailyKnowledgeQuestions];
+  for (let i=pool.length-1;i>0;i--) {
+   const j=Math.floor(Math.random()*(i+1));
+   [pool[i],pool[j]]=[pool[j],pool[i]];
+  }
+  return {
+   type:'knowledge', desc:'完成每日食材知識挑戰', target:10, progress:0,
+   reward:0, rewardPerCorrect:10, done:false, completed:false,
+   correct:0, current:0, questionKeys:pool.slice(0,10).map(item=>item.key)
+  };
+ };
  const getTodayQuests = () => {
   const today = new Date().toDateString();
-  if (quests && quests.date === today) return quests;
+  if (quests && quests.date === today) {
+   const tasks = [...(quests.tasks || [])];
+   let migratedToday = false;
+   if (tasks[1]?.type !== 'puzzle') {
+    tasks[1] = { type:'puzzle', desc:'完成食材部位拼圖', target:1, progress:0, reward:25, done:false };
+    migratedToday = true;
+   }
+   const knowledgeTask = quests.tasks?.[2];
+   if (knowledgeTask?.type !== 'knowledge' || knowledgeTask.questionKeys?.length !== 10) {
+    tasks[2] = makeDailyKnowledgeTask();
+    migratedToday = true;
+   }
+   if (!migratedToday) return quests;
+   const migrated = {...quests,tasks};
+   writeSave({quests:migrated});
+   return migrated;
+  }
   const newQ = {
    date: today,
    tasks: [
-    { type:'battle', desc:'擊倒 10 隻小怪', target:10, progress:0, reward:30, done:false },
-    { type:'puzzle', desc:'完成食材部位拼圖', target:1, progress:0, reward:25, done:false },
-    { type:'image',  desc:'辨識食材剪影', target:3, progress:0, reward:20, done:false },
+     { type:'battle', desc:'擊倒 10 隻小怪', target:10, progress:0, reward:30, done:false },
+     { type:'puzzle', desc:'完成食材部位拼圖', target:1, progress:0, reward:25, done:false },
+    makeDailyKnowledgeTask(),
    ]
   };
   writeSave({quests: newQ});
@@ -8645,11 +8705,12 @@ if (selectedActivity === 'food_research') {
   );
  }
 
- if (frPhase === 'leaderboard') {
-  const rankTabs = [
-   {id:'kitchen', label:'本店內場排行', icon:'🍳', hint:'內場排行計分之後設定'},
-   {id:'service', label:'本店外場排行', icon:'🍽️', hint:'外場排行計分之後設定'},
-   {id:'all', label:'全台分店總排行', icon:'👑', hint:'全台排行計分之後設定'},
+  if (frPhase === 'leaderboard') {
+   const rankSave = loadSave();
+   const rankTabs = [
+    {id:'kitchen', label:'本店內場排行', icon:'🍳', hint:'採用單次遠征最高分'},
+    {id:'service', label:'本店外場排行', icon:'🍽️', hint:'採用單次遠征最高分'},
+    {id:'all', label:'全台分店總排行', icon:'👑', hint:'採用單次遠征最高分'},
   ];
   const activeRank = rankTabs.find(t => t.id === frRankTab) || rankTabs[0];
   return (
@@ -8659,7 +8720,10 @@ if (selectedActivity === 'food_research') {
      <div style={{...cardStyle, textAlign:'center'}}>
       <div style={{fontSize:'38px', marginBottom:'6px'}}>{activeRank.icon}</div>
       <div style={{color:'#e6edf3', fontWeight:900, fontSize:'18px'}}>{activeRank.label}</div>
-      <div style={{color:'#8b949e', fontSize:'12px', lineHeight:'1.6', marginTop:'6px'}}>排行榜區塊已放入營地，分數規則之後可再接入。</div>
+       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginTop:'12px'}}>
+        <div style={{background:'#0d1117',border:'1px solid #30363d',borderRadius:'10px',padding:'10px'}}><div style={{fontSize:'10px',color:'#8b949e'}}>最近成績</div><div style={{fontSize:'18px',color:'#58a6ff',fontWeight:900}}>{Number(rankSave.lastScore||0).toLocaleString()}</div></div>
+        <div style={{background:'#0d1117',border:'1px solid #30363d',borderRadius:'10px',padding:'10px'}}><div style={{fontSize:'10px',color:'#8b949e'}}>個人最高</div><div style={{fontSize:'18px',color:'#fbbf24',fontWeight:900}}>{Number(rankSave.bestScore||0).toLocaleString()}</div></div>
+       </div>
      </div>
      <div style={{display:'grid', gridTemplateColumns:'1fr', gap:'8px'}}>
       {rankTabs.map(tab => (
@@ -8672,9 +8736,10 @@ if (selectedActivity === 'food_research') {
        </button>
       ))}
      </div>
-     <div style={{...cardStyle, borderStyle:'dashed', textAlign:'center', color:'#8b949e', fontWeight:900, fontSize:'12px', lineHeight:'1.8'}}>
-      目前先做入口與版面佔位。<br/>等計分方式決定後，這裡會接入正式名次與分數。
-     </div>
+      <div style={{...cardStyle, color:'#c9d1d9', fontWeight:800, fontSize:'11px', lineHeight:'1.9'}}>
+       <div style={{color:'#fbbf24',fontWeight:900,fontSize:'13px',marginBottom:'5px'}}>計分規則</div>
+       小兵依類型與關卡獲得 100 至 483 分；BOSS、入侵者及通關另有獎勵。每關依完成速度加分，無傷再獲額外加分；制霸第 22 關可獲得 5,000 分。
+      </div>
     </div>
    </div>
   );
@@ -8694,7 +8759,7 @@ if (selectedActivity === 'food_research') {
      </div>
      {TRAIN_STATS.map(stat => {
      const lv = tr[stat.key] || 0;
-     const cost = stat.costBase + lv * 10;
+     const cost = getTrainingCost(stat, lv);
      const maxed = lv >= stat.max;
      return (
       <div key={stat.key} style={cardStyle}>
@@ -8747,42 +8812,38 @@ if (selectedActivity === 'food_research') {
  }
 
  if (frPhase === 'shop') {
+  let lastDraw=null;
+  try{lastDraw=JSON.parse(localStorage.getItem('fr_last_food_draw_'+(currentUser?.phone||'guest'))||'null');}catch{}
+  const currentOwned=(loadSave().ownedForms||[]).filter(id=>validFoodFormIds.has(id));
+  const remaining=Math.max(0,FOOD_RESEARCH_FORM_CATALOG.length-currentOwned.length);
   return (
    <div className="fixed inset-0 z-[10000] flex flex-col" style={campBg}>
     <NavBar title="🛒 食物商店" onBack={()=>setFrPhase('camp')} />
     <div className="flex-1 overflow-y-auto p-4 space-y-3">
      <div style={{...cardStyle, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-     <span style={{color:'#8b949e', fontSize:'11px', fontWeight:700}}>每次回營地重新整備</span>
+     <span style={{color:'#8b949e', fontSize:'11px', fontWeight:700}}>不會抽到已持有型態 · 尚餘 {remaining} 種</span>
      <span style={{color:'#fde047', fontWeight:900, fontSize:'15px'}}>💰 {loadSave().gold||0}</span>
      </div>
-     {shopItems.map(item => {
-     const owned = (loadSave().ownedForms||[]).includes(item.id);
-     const g = loadSave().gold||0;
-     return (
-      <div key={item.id} style={{...cardStyle, display:'flex', alignItems:'center', gap:'12px'}}>
-      <div style={{fontSize:'32px', flexShrink:0}}>{item.emoji}</div>
-      <div style={{flex:1}}>
-       <div style={{fontWeight:900, fontSize:'13px', color:'#e6edf3'}}>{item.name}</div>
-       <div style={{fontSize:'11px', color:'#8b949e', marginTop:'2px'}}>{item.desc}</div>
+     <div style={{...cardStyle,textAlign:'center',padding:'20px 16px'}}>
+      <div style={{fontSize:'44px',marginBottom:'8px'}}>🍲</div>
+      <div style={{fontSize:'16px',fontWeight:900,color:'#e6edf3'}}>抽取全新食物型態</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'6px',margin:'14px 0'}}>
+       {Object.entries(FOOD_RESEARCH_RARITIES).map(([key,rarity])=><div key={key} style={{padding:'8px 3px',borderRadius:'8px',border:`1px solid ${rarity.color}55`,background:`${rarity.color}12`}}><div style={{fontSize:'10px',fontWeight:900,color:rarity.color}}>{rarity.label}</div><div style={{fontSize:'14px',fontWeight:900,color:'#e6edf3'}}>{rarity.rate}%</div></div>)}
       </div>
-      {owned ? (
-       <span style={{fontSize:'10px', color:'#3fb950', fontWeight:900, whiteSpace:'nowrap'}}>已持有 ✓</span>
-      ) : (
-       <button onClick={()=>{
-        const s2=loadSave();
-        const g2=s2.gold||0;
-        if(g2<item.price){alert('金幣不足！');return;}
-        const of2=[...(s2.ownedForms||[])];
-        if(!of2.includes(item.id))of2.push(item.id);
-        writeSave({gold:g2-item.price, ownedForms:of2});
-        setFrPhase('camp'); setTimeout(()=>setFrPhase('shop'),10);
-       }} style={{...btnGold, width:'auto', padding:'7px 12px', fontSize:'11px', whiteSpace:'nowrap', opacity:g<item.price?'.4':'1'}}>
-        💰{item.price}
-       </button>
-      )}
+      <button onClick={drawFoodForm} disabled={!remaining} style={{...btnGold,opacity:remaining?1:.45}}>{remaining?`抽取一次 · 💰 ${FOOD_DRAW_COST}`:'已全數收集'}</button>
+     </div>
+     {lastDraw&&FOOD_RESEARCH_FORM_MAP[lastDraw.id]&&(
+      <div style={{...cardStyle,display:'flex',gap:'12px',alignItems:'center'}}>
+       <img src={lastDraw.portrait} alt={lastDraw.name} style={{width:'72px',height:'72px',objectFit:'contain',imageRendering:'pixelated',borderRadius:'8px',background:'#f5f0e8'}} />
+       <div style={{flex:1}}><div style={{fontSize:'10px',fontWeight:900,color:FOOD_RESEARCH_RARITIES[lastDraw.rarity]?.color}}>最近獲得 · {FOOD_RESEARCH_RARITIES[lastDraw.rarity]?.label}</div><div style={{fontSize:'15px',fontWeight:900,color:'#e6edf3',margin:'3px 0'}}>{lastDraw.name}</div><div style={{fontSize:'10px',color:'#8b949e'}}>被動：{lastDraw.passive}</div></div>
       </div>
-     );
-     })}
+     )}
+     <div style={{...cardStyle}}>
+      <div style={{fontSize:'12px',fontWeight:900,color:'#e6edf3',marginBottom:'10px'}}>食材圖鑑 {currentOwned.length} / {shopItems.length}</div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'8px'}}>
+       {shopItems.map(item=>{const owned=currentOwned.includes(item.id);const rarity=FOOD_RESEARCH_RARITIES[item.rarity];return <div key={item.id} style={{textAlign:'center',opacity:owned?1:.32,filter:owned?'none':'grayscale(1)'}}><img src={item.portrait} alt="" style={{width:'100%',aspectRatio:'1',objectFit:'contain',imageRendering:'pixelated',borderRadius:'7px',background:'#f5f0e8',border:`1px solid ${rarity?.color||'#30363d'}55`}}/><div style={{fontSize:'9px',fontWeight:900,color:owned?'#e6edf3':'#8b949e',marginTop:'4px'}}>{owned?item.name:'???'}</div></div>;})}
+      </div>
+     </div>
     </div>
    </div>
   );
@@ -8799,11 +8860,34 @@ if (selectedActivity === 'food_research') {
   const puzzleSlots = ['A','B','C','D'];
   const puzzleCorrect = puzzleParts.every(p => puzzleState.placed[p.id] === p.correct);
 
-  const imageQuiz = {
-   question: '這個食材剪影是？',
-   silhouette: '🥦',
-   options: ['A. 高麗菜', 'B. 白花椰菜', 'C. 青花菜', 'D. 茼蒿'],
-   ans: 2
+  const dailyKnowledgeTask = todayQuests.tasks[2];
+  const dailyKnowledgeSet = (dailyKnowledgeTask.questionKeys || []).map((key,index) => dailyKnowledgeMap.get(key) || dailyKnowledgeQuestions[index]).filter(Boolean);
+  const dailyKnowledgeCurrent = dailyKnowledgeSet[Math.min(dailyKnowledgeTask.current || 0, 9)] || null;
+  const answerDailyKnowledge = (answerIndex) => {
+   if (!dailyKnowledgeCurrent || dailyKnowledgeTask.completed || dailyKnowledgeTask.done || dailyQuizLockRef.current) return;
+   dailyQuizLockRef.current = true;
+   const isCorrect = answerIndex === dailyKnowledgeCurrent.ans;
+   setDailyQuizAnswer({chosen:answerIndex, correct:dailyKnowledgeCurrent.ans});
+   setTimeout(() => {
+    const latestSave = loadSave();
+    const latestQuests = latestSave.quests || todayQuests;
+    const tasks = [...(latestQuests.tasks || [])];
+    const task = {...(tasks[2] || dailyKnowledgeTask)};
+    if (!task.completed && !task.done) {
+     task.correct = (task.correct || 0) + (isCorrect ? 1 : 0);
+     task.current = Math.min(10, (task.current || 0) + 1);
+     task.progress = task.current;
+     if (task.current >= 10) {
+      task.completed = true;
+      task.reward = task.correct * (task.rewardPerCorrect || 10);
+     }
+     tasks[2] = task;
+     writeSave({quests:{...latestQuests, tasks}});
+    }
+    dailyQuizLockRef.current = false;
+    setDailyQuizAnswer(null);
+    setQuestRevision(value => value + 1);
+   }, 700);
   };
 
   const claimQuest = (i) => {
@@ -8842,36 +8926,29 @@ if (selectedActivity === 'food_research') {
      <div style={cardStyle}>
      <div style={sectionTitle}>🧩 食材拼圖</div>
      <div style={{color:'#e6edf3', fontWeight:900, fontSize:'12px', marginBottom:'10px'}}>將牛肉部位名稱拖曳到正確位置</div>
-     {/* Simplified drag-and-click puzzle */}
      <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px', marginBottom:'10px'}}>
       {puzzleSlots.map(slot => {
-      const placed = Object.entries(puzzleState.placed).find(([,v])=>v===slot);
-      const part = placed ? puzzleParts.find(p=>p.id===placed[0]) : null;
-      return (
-       <div key={slot} onClick={()=>{
-        if(placed) {
-         const np = {...puzzleState.placed};
-         delete np[placed[0]];
-         setPuzzleState(s=>({...s, placed:np}));
-        }
-       }} style={{border:'2px dashed '+(part?'#1f6feb':'#30363d'), borderRadius:'10px', padding:'10px', textAlign:'center', minHeight:'50px', display:'flex', alignItems:'center', justifyContent:'center', background:part?'rgba(31,111,235,.15)':'transparent', cursor:part?'pointer':'default'}}>
-        {part ? (
-         <span style={{fontWeight:900, fontSize:'11px', color:'#58a6ff'}}>{part.label}</span>
-        ) : (
-         <span style={{fontSize:'11px', color:'#30363d', fontWeight:700}}>{slot}</span>
-        )}
-       </div>
-      );
+       const placed = Object.entries(puzzleState.placed).find(([,v])=>v===slot);
+       const part = placed ? puzzleParts.find(p=>p.id===placed[0]) : null;
+       return (
+        <div key={slot} onClick={()=>{
+         if(placed) {
+          const np = {...puzzleState.placed};
+          delete np[placed[0]];
+          setPuzzleState(s=>({...s, placed:np}));
+         }
+        }} style={{border:'2px dashed '+(part?'#1f6feb':'#30363d'), borderRadius:'10px', padding:'10px', textAlign:'center', minHeight:'50px', display:'flex', alignItems:'center', justifyContent:'center', background:part?'rgba(31,111,235,.15)':'transparent', cursor:part?'pointer':'default'}}>
+         {part ? <span style={{fontWeight:900, fontSize:'11px', color:'#58a6ff'}}>{part.label}</span> : <span style={{fontSize:'11px', color:'#30363d', fontWeight:700}}>{slot}</span>}
+        </div>
+       );
       })}
      </div>
      <div style={{display:'flex', flexWrap:'wrap', gap:'6px', marginBottom:'10px'}}>
       {puzzleParts.filter(p=>!puzzleState.placed[p.id]).map(p=>(
-      <button key={p.id} onClick={()=>{
-       const empty = puzzleSlots.find(s=>!Object.values(puzzleState.placed).includes(s));
-       if(empty) setPuzzleState(st=>({...st, placed:{...st.placed,[p.id]:empty}}));
-      }} style={{padding:'6px 10px', borderRadius:'8px', border:'1px solid #388bfd', background:'rgba(56,139,253,.15)', color:'#58a6ff', fontSize:'11px', fontWeight:900, cursor:'pointer'}}>
-       {p.label}
-      </button>
+       <button key={p.id} onClick={()=>{
+        const empty = puzzleSlots.find(s=>!Object.values(puzzleState.placed).includes(s));
+        if(empty) setPuzzleState(st=>({...st, placed:{...st.placed,[p.id]:empty}}));
+       }} style={{padding:'6px 10px', borderRadius:'8px', border:'1px solid #388bfd', background:'rgba(56,139,253,.15)', color:'#58a6ff', fontSize:'11px', fontWeight:900, cursor:'pointer'}}>{p.label}</button>
       ))}
      </div>
      {todayQuests.tasks[1].done ? (
@@ -8883,28 +8960,35 @@ if (selectedActivity === 'food_research') {
      )}
      </div>
 
-     {/* Task 3: Image quiz */}
+     {/* Task 3: Daily knowledge quiz */}
      <div style={cardStyle}>
-     <div style={sectionTitle}>🖼️ 圖像辨識</div>
-     <div style={{color:'#e6edf3', fontWeight:900, fontSize:'12px', marginBottom:'10px'}}>{imageQuiz.question}</div>
-     <div style={{fontSize:'64px', textAlign:'center', margin:'8px 0', filter:'contrast(0) brightness(0.3)'}}>{imageQuiz.silhouette}</div>
-     <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'7px', marginBottom:'10px'}}>
-      {imageQuiz.options.map((opt,i)=>(
-      <button key={i} onClick={()=>{
-       if(imageAns!==null)return;
-       setImageAns(i);
-       setImageCorrect(i===imageQuiz.ans);
-      }} style={{padding:'9px 7px', borderRadius:'9px', border:'2px solid '+(imageAns===null?'#30363d':i===imageQuiz.ans?'#3fb950':imageAns===i?'#f85149':'#30363d'), background:imageAns===null?'#0d1117':i===imageQuiz.ans?'rgba(63,185,80,.15)':imageAns===i?'rgba(248,81,73,.15)':'#0d1117', color:'#e6edf3', fontSize:'11px', fontWeight:900, cursor:'pointer', textAlign:'left'}}>
-       {opt}
-      </button>
-      ))}
+     <div style={sectionTitle}>🧠 每日食材知識</div>
+     <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:'8px', marginBottom:'10px'}}>
+      <div style={{color:'#8b949e', fontSize:'11px', fontWeight:700}}>570 題隨機抽 10 題 · 每答對 1 題 +10💰</div>
+      <div style={{color:'#fbbf24', fontSize:'11px', fontWeight:900, whiteSpace:'nowrap'}}>{dailyKnowledgeTask.current || 0}/10</div>
      </div>
+     <div style={{display:'flex', gap:'4px', marginBottom:'10px'}}>
+      {Array.from({length:10},(_,i)=><div key={i} style={{height:'6px', flex:1, borderRadius:'3px', background:i<(dailyKnowledgeTask.current||0)?'#1f6feb':'#21262d'}} />)}
+     </div>
+     {!dailyKnowledgeTask.completed && !dailyKnowledgeTask.done && dailyKnowledgeCurrent && (
+      <React.Fragment>
+       <div style={{color:'#e6edf3', fontWeight:900, fontSize:'13px', lineHeight:'1.55', marginBottom:'10px'}}>
+        第 {(dailyKnowledgeTask.current || 0) + 1} 題：{dailyKnowledgeCurrent.q}
+       </div>
+       <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'7px', marginBottom:'10px'}}>
+        {dailyKnowledgeCurrent.opts.map((opt,i)=>(
+         <button key={i} onClick={()=>answerDailyKnowledge(i)} disabled={dailyQuizAnswer!==null} style={{padding:'10px 8px', minHeight:'52px', borderRadius:'9px', border:'2px solid '+(dailyQuizAnswer===null?'#30363d':i===dailyQuizAnswer.correct?'#3fb950':i===dailyQuizAnswer.chosen?'#f85149':'#30363d'), background:dailyQuizAnswer===null?'#0d1117':i===dailyQuizAnswer.correct?'rgba(63,185,80,.15)':i===dailyQuizAnswer.chosen?'rgba(248,81,73,.15)':'#0d1117', color:'#e6edf3', fontSize:'11px', fontWeight:900, cursor:dailyQuizAnswer===null?'pointer':'default', textAlign:'left', lineHeight:'1.45'}}>
+          {String.fromCharCode(65+i)}. {opt}
+         </button>
+        ))}
+       </div>
+       <div style={{fontSize:'11px', color:'#8b949e', fontWeight:700}}>目前答對 {dailyKnowledgeTask.correct || 0} 題</div>
+      </React.Fragment>
+     )}
      {todayQuests.tasks[2].done ? (
-      <div style={{color:'#3fb950', fontWeight:900, fontSize:'12px'}}>✅ 已完成 +{todayQuests.tasks[2].reward}💰</div>
-     ) : imageCorrect ? (
-      <button onClick={()=>claimQuest(2)} style={btnGold}>答對了！領取 +{todayQuests.tasks[2].reward}💰</button>
-     ) : imageAns !== null && !imageCorrect ? (
-      <div style={{color:'#f85149', fontWeight:900, fontSize:'12px'}}>❌ 答錯了，明天再來！</div>
+      <div style={{color:'#3fb950', fontWeight:900, fontSize:'12px'}}>✅ 今日答對 {todayQuests.tasks[2].correct || 0}/10 題，已領取 +{todayQuests.tasks[2].reward || 0}💰</div>
+     ) : dailyKnowledgeTask.completed ? (
+      <button onClick={()=>claimQuest(2)} style={btnGold}>答對 {dailyKnowledgeTask.correct || 0}/10 題 · 領取 +{dailyKnowledgeTask.reward || 0}💰</button>
      ) : null}
      </div>
     </div>
@@ -8913,53 +8997,69 @@ if (selectedActivity === 'food_research') {
  }
 
  if (frPhase === 'gacha') {
-  const GACHA_COST = 50;
+  const GACHA_COST = window.FOOD_RESEARCH_BALANCE?.economy?.weaponDraw || 500;
+  const ownsWeapon = (list,name) => (list||[]).includes(name) || (name==='辣油火焰砲' && (list||[]).includes('辣油火焰炮'));
   const doGacha = (type) => {
    const s2 = loadSave();
    const g2 = s2.gold||0;
-   if(g2 < GACHA_COST){ alert('金幣不足 50！'); return; }
+   if(g2 < GACHA_COST){ alert(`金幣不足，需要 ${GACHA_COST} 金幣！`); return; }
    const pool = type==='ranged' ? RANGED_POOL : MELEE_POOL;
-   const got = pool[Math.floor(Math.random()*pool.length)];
    const ws = {...(s2.weapons||{ranged:['初始食材砲'],melee:['初始鍋鏟']})};
-   const arr = ws[type]||[];
-   if(!arr.includes(got.name)) arr.push(got.name);
+   const arr = [...(ws[type]||[])];
+   const available = pool.filter(w=>!ownsWeapon(arr,w.name));
+   if(!available.length){alert(type==='ranged'?'21 種遠程武器已全部收集完成！':'21 種近戰武器已全部收集完成！');return;}
+   const availableRarities=['normal','rare','noble','top'].filter(r=>available.some(w=>w.rarity===r));
+   const totalRate=availableRarities.reduce((sum,r)=>sum+(WEAPON_RARITIES[r]?.rate||0),0);
+   let roll=Math.random()*totalRate;
+   let rarity=availableRarities[0];
+   for(const candidate of availableRarities){
+    roll-=WEAPON_RARITIES[candidate]?.rate||0;
+    if(roll<=0){rarity=candidate;break;}
+   }
+   const rarityPool=available.filter(w=>w.rarity===rarity);
+   const got=rarityPool[Math.floor(Math.random()*rarityPool.length)];
+   arr.push(got.name);
    ws[type] = arr;
    writeSave({gold:g2-GACHA_COST, weapons:ws});
-   alert('✨ 獲得：'+got.emoji+' '+got.name+'\n'+got.desc);
+   alert(`✨ 獲得${WEAPON_RARITIES[rarity]?.label||''}武器：${got.name}\n${got.desc}`);
    setFrPhase('camp'); setTimeout(()=>setFrPhase('gacha'),10);
   };
   const g = loadSave().gold||0;
   const ws = loadSave().weapons||{ranged:[],melee:[]};
+  const ownedRanged=RANGED_POOL.filter(w=>ownsWeapon(ws.ranged,w.name)).length;
+  const ownedMelee=MELEE_POOL.filter(w=>ownsWeapon(ws.melee,w.name)).length;
+  const WeaponPoolGrid=({type,pool,owned})=>(
+   <div style={{display:'grid',gridTemplateColumns:'repeat(3,minmax(0,1fr))',gap:'7px',marginBottom:'12px'}}>
+    {pool.map(w=>{
+     const has=ownsWeapon(owned,w.name),rarity=WEAPON_RARITIES[w.rarity]||WEAPON_RARITIES.normal;
+     return <div key={w.id} title={w.desc} style={{minWidth:0,padding:'6px 4px',borderRadius:'8px',textAlign:'center',background:has?(rarity.glow||'rgba(63,185,80,.16)'):'rgba(255,255,255,.035)',border:`1px solid ${has?rarity.color:'#30363d'}`,opacity:has?1:.55}}>
+      <div style={{...weaponIconStyle(type,w.icon,54),margin:'0 auto',filter:has?'none':'grayscale(.85) brightness(.58)'}} />
+      <div style={{fontSize:'9px',fontWeight:900,color:has?rarity.color:'#8b949e',marginTop:'4px',lineHeight:1.25,wordBreak:'break-all'}}>{has?'✓ ':''}{w.name}</div>
+      <div style={{fontSize:'8px',fontWeight:900,color:rarity.color,marginTop:'2px'}}>{rarity.label}</div>
+     </div>;
+    })}
+   </div>
+  );
   return (
    <div className="fixed inset-0 z-[10000] flex flex-col" style={campBg}>
     <NavBar title="🪣 神秘古井" onBack={()=>setFrPhase('camp')} />
     <div className="flex-1 overflow-y-auto p-4 space-y-4">
      <div style={{...cardStyle, textAlign:'center'}}>
-     <div style={{fontSize:'11px', color:'#8b949e', fontWeight:700}}>每次抽取費用</div>
-     <div style={{color:'#fde047', fontWeight:900, fontSize:'22px'}}>💰 {GACHA_COST}</div>
-     <div style={{color:'#fbbf24', fontWeight:900, fontSize:'14px', marginTop:'4px'}}>現有 {g} 金幣</div>
+      <div style={{fontSize:'11px', color:'#8b949e', fontWeight:700}}>每次抽取費用</div>
+      <div style={{color:'#fde047', fontWeight:900, fontSize:'22px'}}>💰 {GACHA_COST}</div>
+      <div style={{color:'#fbbf24', fontWeight:900, fontSize:'14px', marginTop:'4px'}}>現有 {g} 金幣</div>
+      <div style={{fontSize:'10px',color:'#8b949e',lineHeight:1.7,marginTop:'8px'}}>普通 65%　稀有 20%　高貴 10%　頂級 5%</div>
+      <div style={{fontSize:'10px',color:'#3fb950',fontWeight:900}}>不會抽到已擁有的武器</div>
      </div>
      <div style={cardStyle}>
-     <div style={sectionTitle}>🏹 遠程武器池</div>
-     <div style={{display:'flex', flexWrap:'wrap', gap:'6px', marginBottom:'12px'}}>
-      {RANGED_POOL.map(w=>(
-      <span key={w.id} style={{padding:'4px 8px', borderRadius:'6px', fontSize:'10px', fontWeight:900, background:(ws.ranged||[]).includes(w.name)?'rgba(63,185,80,.2)':'rgba(255,255,255,.05)', color:(ws.ranged||[]).includes(w.name)?'#3fb950':'#8b949e', border:'1px solid '+(ws.ranged||[]).includes(w.name)?'#3fb950':'#21262d'}}>
-       {w.emoji} {w.name}
-      </span>
-      ))}
-     </div>
-     <button onClick={()=>doGacha('ranged')} style={{...btnPrimary, opacity:g<GACHA_COST?'.4':'1'}}>🎰 抽取遠程武器</button>
+      <div style={sectionTitle}>🏹 遠程武器池　{ownedRanged}/21</div>
+      <WeaponPoolGrid type="ranged" pool={RANGED_POOL} owned={ws.ranged||[]} />
+      <button onClick={()=>doGacha('ranged')} disabled={ownedRanged>=21} style={{...btnPrimary, opacity:g<GACHA_COST||ownedRanged>=21?'.4':'1'}}>{ownedRanged>=21?'遠程武器已全數收集':`🎰 抽取遠程武器 · ${GACHA_COST}`}</button>
      </div>
      <div style={cardStyle}>
-     <div style={sectionTitle}>🗡️ 近戰武器池</div>
-     <div style={{display:'flex', flexWrap:'wrap', gap:'6px', marginBottom:'12px'}}>
-      {MELEE_POOL.map(w=>(
-      <span key={w.id} style={{padding:'4px 8px', borderRadius:'6px', fontSize:'10px', fontWeight:900, background:(ws.melee||[]).includes(w.name)?'rgba(63,185,80,.2)':'rgba(255,255,255,.05)', color:(ws.melee||[]).includes(w.name)?'#3fb950':'#8b949e', border:'1px solid '+(ws.melee||[]).includes(w.name)?'#3fb950':'#21262d'}}>
-       {w.emoji} {w.name}
-      </span>
-      ))}
-     </div>
-     <button onClick={()=>doGacha('melee')} style={{...btnPrimary, opacity:g<GACHA_COST?'.4':'1'}}>🎰 抽取近戰武器</button>
+      <div style={sectionTitle}>🗡️ 近戰武器池　{ownedMelee}/21</div>
+      <WeaponPoolGrid type="melee" pool={MELEE_POOL} owned={ws.melee||[]} />
+      <button onClick={()=>doGacha('melee')} disabled={ownedMelee>=21} style={{...btnPrimary, opacity:g<GACHA_COST||ownedMelee>=21?'.4':'1'}}>{ownedMelee>=21?'近戰武器已全數收集':`🎰 抽取近戰武器 · ${GACHA_COST}`}</button>
      </div>
     </div>
    </div>
@@ -8967,20 +9067,22 @@ if (selectedActivity === 'food_research') {
  }
 
  if (frPhase === 'shrine') {
-  const SHRINE_COST = 40;
-  const doShrine = () => {
+  const SHRINE_COST = window.FOOD_RESEARCH_BALANCE?.economy?.amuletDraw || 250;
+ const doShrine = () => {
    const s2 = loadSave();
    const g2 = s2.gold||0;
-   if(g2 < SHRINE_COST){ alert('金幣不足 40！'); return; }
-   const got = AMULET_POOL[Math.floor(Math.random()*AMULET_POOL.length)];
-   const am = [...(s2.amulets||[])];
-   if(!am.includes(got.name)) am.push(got.name);
-   writeSave({gold:g2-SHRINE_COST, amulets:am});
+   if(g2 < SHRINE_COST){ alert(`金幣不足，需要 ${SHRINE_COST} 金幣！`); return; }
+   const am = normalizeAmuletNames(s2.amulets);
+   const available = AMULET_POOL.filter(item=>!am.includes(item.name));
+   if(!available.length){ alert('30 種護符已全部收集完成！'); return; }
+   const got = available[Math.floor(Math.random()*available.length)];
+   am.push(got.name);
+   writeSave({gold:g2-SHRINE_COST, amulets:am, amuletSchemaVersion:window.FOOD_RESEARCH_AMULET_SCHEMA_VERSION||2});
    alert('🙏 神明賜予：'+got.emoji+' '+got.name+'\n'+got.desc);
    setFrPhase('camp'); setTimeout(()=>setFrPhase('shrine'),10);
   };
   const g = loadSave().gold||0;
-  const myAmulets = loadSave().amulets||[];
+  const myAmulets = normalizeAmuletNames(loadSave().amulets);
   return (
    <div className="fixed inset-0 z-[10000] flex flex-col" style={campBg}>
     <NavBar title="⛩️ 神社" onBack={()=>setFrPhase('camp')} />
@@ -9016,16 +9118,16 @@ if (selectedActivity === 'food_research') {
   const normalizeEquip = (equip={}) => ({
    ranged: equip.ranged || '初始食材砲',
    melee: equip.melee || '初始鍋鏟',
-   amulets: Array.isArray(equip.amulets) ? [...equip.amulets,'','',''].slice(0,3) : ['','',''],
+   amulets: normalizeAmuletNames(equip.amulets).concat(['','','']).slice(0,3),
   });
   const eq2 = normalizeEquip(s2.equip);
   let ws2 = s2.weapons||{ranged:['初始食材砲'],melee:['初始鍋鏟']};
-  let am2 = s2.amulets||[];
+  let am2 = normalizeAmuletNames(s2.amulets);
   let of2 = s2.ownedForms||[];
   if(isSuperAdmin){
    ws2={ranged:[...new Set(['初始食材砲',...RANGED_POOL.map(w=>w.name)])],melee:[...new Set(['初始鍋鏟',...MELEE_POOL.map(w=>w.name)])]};
    am2=AMULET_POOL.map(a=>a.name);
-   of2=['burger','chili','tofu','noodle','rice','ramen','sushi','steak'];
+   of2=FOOD_RESEARCH_FORM_CATALOG.map(form=>form.id);
   }
   const ef2 = s2.equippedForm||'normal';
 
@@ -9042,47 +9144,15 @@ if (selectedActivity === 'food_research') {
     writeSave({equip:e3}); setFrEquipRev(v=>v+1);
   };
 
-  const FOOD_FORMS_META = {
-   normal:{name:'原味型',emoji:'🍙'}, burger:{name:'漢堡型',emoji:'🍔'}, chili:{name:'辣椒型',emoji:'🌶️'},
-   tofu:{name:'豆腐型',emoji:'🧆'}, noodle:{name:'麵條型',emoji:'🍜'}, rice:{name:'炒飯型',emoji:'🍚'},
-   ramen:{name:'豚骨型',emoji:'🍲'}, sushi:{name:'壽司型',emoji:'🍣'}, steak:{name:'牛排型',emoji:'🥩'},
-  };
+  const FOOD_FORMS_META = {normal:{name:'原味型',emoji:'🍙'},...FOOD_RESEARCH_FORM_MAP};
 
-  const RANGED_DESC = {
-   '初始食材砲':'直線射擊，傷害適中，無特殊效果，適合入門',
-   '食材砲':'直線射擊，傷害適中，無特殊效果，適合入門',
-   '調味料噴射器':'扇形廣域彈幕，覆蓋範圍廣，適合對付密集敵人',
-   '冷凍光線':'冰結光束，命中後凍結敵人，大幅降低移動速度',
-   '辣油火焰炮':'燃燒彈幕，點燃敵人持續掉血，範圍傷害強',
-   '醬汁雷射':'高傷害穿透彈，可貫穿多個敵人，長距離有效',
-  };
-  const MELEE_DESC = {
-   '初始鍋鏟':'短距揮砍，傷害穩定，無特殊效果，適合入門',
-   '鍋鏟劍':'基礎近戰，攻速與傷害均衡，全能型武器',
-   '擀麵棍':'重型棍棒，傷害極高，單次打擊震退敵人',
-   '菜刀':'高速連斬，攻速最快，連續輕砍輸出爆發',
-   '炒菜鍋':'圓弧揮擊，攻擊範圍大，可同時打到多個敵人',
-   '砧板護盾':'格擋型武器，受擊減傷，技能冷卻縮短30%',
-  };
-  const AMULET_DESC = {
-   '廚神護符':'攻擊力+15%，所有傷害提升',
-   '食安符':'最大血量+30，生存能力增強',
-   '鮮度符':'持續回血效果，每秒回復少量HP',
-   '辛香符':'爆擊率+8%，有機率造成雙倍傷害',
-   '溫度符':'受到傷害-10%，防禦型護符',
-   '時令符':'金幣獲取+20%，擊敗敵人掉更多金幣',
-  };
-  const FORM_DESC = {
-   normal:'被動：MHP+10（可共享、可疊加）｜小招：舔傷口，回復 HP 5｜大招：亢奮，整隊移動速度及攻擊速度變成 2 倍',
-   burger:'🔹被動：護盾再生（每10秒回復護盾）｜⚡技能1：衝撞攻擊（衝向敵人造成傷害）｜💥技能2：超級護盾（短暫無敵護盾）',
-   chili:'🔹被動：灼燒光環（附近敵人持續掉血）｜⚡技能1：辣椒爆炸（範圍爆炸傷害）｜💥技能2：火焰噴射（短距高傷火焰）',
-   tofu:'🔹被動：減傷護盾（受傷-20%）｜⚡技能1：豆腐防禦（短暫無敵幀）｜💥技能2：反射力場（反彈子彈）',
-   noodle:'🔹被動：連擊加成（連續攻擊傷害遞增）｜⚡技能1：麵條纏繞（定身敵人）｜💥技能2：速度暴走（大幅提升攻速）',
-   rice:'🔹被動：金幣加成（金幣獲取+45%）｜⚡技能1：炒飯散彈（8方向散射）｜💥技能2：黃金雨（範圍金幣子彈）',
-   ramen:'🔹被動：生命吸取（攻擊回血）｜⚡技能1：湯汁滾燙（噴出燙傷液體）｜💥技能2：衝擊波（全屏震波傷害）',
-   sushi:'🔹被動：閃避加速（閃避後移動加快）｜⚡技能1：精準投擲（高傷單體）｜💥技能2：完美迴避（短距瞬移）',
-   steak:'🔹被動：暴擊加成（爆擊率+15%）｜⚡技能1：重擊斬裂（單次超高傷）｜💥技能2：霸王衝（無敵衝鋒撞飛）',
-  };
+  const RANGED_DESC = Object.fromEntries(RANGED_POOL.map(w=>[w.name,w.desc]));
+  RANGED_DESC['初始食材砲']='雙發直線食材彈，射速與傷害均衡。';
+  const MELEE_DESC = Object.fromEntries(MELEE_POOL.map(w=>[w.name,w.desc]));
+  MELEE_DESC['初始鍋鏟']='基礎揮擊，攻速、範圍與反彈能力均衡。';
+  const AMULET_DESC = AMULET_DESC_MAP;
+  const FORM_DESC = {normal:'被動：MHP+10（可共享、可疊加）｜小招：舔傷口｜大招：亢奮'};
+  FOOD_RESEARCH_FORM_CATALOG.forEach(form=>{FORM_DESC[form.id]=`被動：${form.passive}｜小招：${form.skill1}｜大招：${form.skill2}`;});
 
   return (
    <div className="fixed inset-0 z-[10000] flex flex-col" style={campBg}>
@@ -9175,12 +9245,7 @@ if (selectedActivity === 'food_research') {
     equip:{ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']},
     equippedForm:'normal'
    };
-   const PARTNER_FORMS = {
-    normal:{name:'原味型',emoji:'🍙'}, burger:{name:'漢堡型',emoji:'🍔'},
-    chili:{name:'辣椒型',emoji:'🌶️'}, tofu:{name:'豆腐型',emoji:'🧆'},
-    noodle:{name:'麵條型',emoji:'🍜'}, rice:{name:'炒飯型',emoji:'🍚'},
-    ramen:{name:'豚骨型',emoji:'🍲'}, sushi:{name:'壽司型',emoji:'🍣'}, steak:{name:'牛排型',emoji:'🥩'},
-   };
+   const PARTNER_FORMS = {normal:{name:'原味型',emoji:'🍙'},...FOOD_RESEARCH_FORM_MAP};
    const FR_MAP_OPTIONS = [
     {id:'random',name:'隨機地圖',text:'每次出征隨機'},
     {id:0,name:"甜蜜遊樂園",text:"爆米花轟炸"},
@@ -9195,41 +9260,12 @@ if (selectedActivity === 'food_research') {
     {id:9,name:"雲鏡海域",text:"狂暴活蝦"},
     {id:10,name:"雷霆之境",text:"最終BOSS地圖"},
    ];
-   const PARTNER_RANGED_DESC = {
-    '初始食材砲':'直線射擊，傷害適中，適合入門',
-    '食材砲':'直線射擊，傷害適中，適合入門',
-    '調味料噴射器':'扇形廣域彈幕，適合對付密集敵人',
-    '冷凍光線':'冰結光束，命中後凍結敵人',
-    '辣油火焰炮':'燃燒彈幕，讓敵人持續受傷',
-    '醬汁雷射':'高傷害穿透彈，可貫穿多個敵人',
-   };
-   const PARTNER_MELEE_DESC = {
-    '初始鍋鏟':'短距揮砍，傷害穩定',
-    '鍋鏟劍':'攻速與傷害均衡的基礎近戰',
-    '擀麵棍':'重型棍棒，單次打擊高且可震退',
-    '菜刀':'高速連斬，適合近距離爆發',
-    '炒菜鍋':'圓弧揮擊，能打到較大範圍',
-    '砧板護盾':'格擋型武器，受擊減傷並縮短技能冷卻',
-   };
-   const PARTNER_AMULET_DESC = {
-    '廚神護符':'攻擊力+15%',
-    '食安符':'最大血量+30',
-    '鮮度符':'持續回血效果提升',
-    '辛香符':'爆擊率+8%',
-    '溫度符':'受到傷害-10%',
-    '時令符':'金幣獲取+20%',
-   };
-   const PARTNER_FORM_DESC = {
-    normal:'原始型態，可靠隊伍支援型。被動可與隊友共享並疊加。',
-    burger:'防禦型，受傷降低。技能偏向護盾與衝撞。',
-    chili:'進攻型，附加燃燒。技能偏向追蹤與火焰傷害。',
-    tofu:'生存型，定期回血。技能偏向護盾與治癒。',
-    noodle:'速度型，移動速度提高。技能偏向連射與散射。',
-    rice:'收益型，金幣獲取提高。技能偏向金幣彈與護罩。',
-    ramen:'續戰型，爆擊與回血兼具。技能偏向熱湯與爆炸。',
-    sushi:'敏捷型，速度與爆擊提高。技能偏向精準連擊。',
-    steak:'重攻型，攻擊與爆擊提高。技能偏向高傷衝擊。',
-   };
+   const PARTNER_RANGED_DESC = Object.fromEntries(RANGED_POOL.map(w=>[w.name,w.desc]));
+   PARTNER_RANGED_DESC['初始食材砲']='雙發直線食材彈，射速與傷害均衡。';
+   const PARTNER_MELEE_DESC = Object.fromEntries(MELEE_POOL.map(w=>[w.name,w.desc]));
+   PARTNER_MELEE_DESC['初始鍋鏟']='基礎揮擊，攻速、範圍與反彈能力均衡。';
+   const PARTNER_AMULET_DESC = AMULET_DESC_MAP;
+   const PARTNER_FORM_DESC = {normal:'原始型態，可靠隊伍支援型。被動可與隊友共享並疊加。'};
    const PARTNER_FORM_ABILITIES = {
     normal:[
      {label:'被動技能',name:'MHP+10',desc:'全隊最大 HP +10，可與隊友共享並疊加。'},
@@ -9237,6 +9273,14 @@ if (selectedActivity === 'food_research') {
      {label:'大招',name:'亢奮',desc:'短時間提高整個隊伍的移動速度及攻擊速度至 2 倍。'},
     ],
    };
+   FOOD_RESEARCH_FORM_CATALOG.forEach(form=>{
+    PARTNER_FORM_DESC[form.id]=`${FOOD_RESEARCH_RARITIES[form.rarity]?.label||''}型態 · ${form.passive}`;
+    PARTNER_FORM_ABILITIES[form.id]=[
+     {label:'被動技能',name:form.passive,desc:form.passive},
+     {label:'小招',name:form.skill1,desc:'消耗 25 氣力施放'},
+     {label:'大招',name:form.skill2,desc:'消耗 40 氣力施放'},
+    ];
+   });
    const normalizePartnerSave = (raw={}) => ({
     training: raw.training || DEFAULT_PARTNER_SAVE.training,
     equip: raw.equip || DEFAULT_PARTNER_SAVE.equip,
@@ -9247,9 +9291,7 @@ if (selectedActivity === 'food_research') {
     const form = PARTNER_FORMS[s.equippedForm] || PARTNER_FORMS.normal;
     return (
      <div style={{width:size,height:size,borderRadius:'12px',background:'radial-gradient(circle,#fdf8f0,#dbeafe)',border:'1px solid #30363d',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',flexShrink:0}}>
-      {s.equippedForm === 'normal'
-       ? <img src="assets/food-research/hero-normal-portrait.png" style={{width:size-4,height:size-4,objectFit:'contain'}} />
-       : <div style={{fontSize:Math.floor(size*.56)}}>{form.emoji}</div>}
+      <img src={s.equippedForm === 'normal' ? 'assets/food-research/hero-normal-portrait.png' : form.portrait} style={{width:size-4,height:size-4,objectFit:'contain',imageRendering:'pixelated'}} />
      </div>
     );
    };
@@ -9484,26 +9526,50 @@ if (selectedActivity === 'food_research') {
   equip: p.equip || {ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']},
  })));
  // RIVALS: 已在 handleDeparture 背景計算並存入 rivalDataRef（不觸發 re-render）
- const saveData = JSON.stringify({
+  const normalizedExpeditionEquip = {...(s2.equip||{}),amulets:normalizeAmuletNames(s2.equip?.amulets).concat(['','','']).slice(0,3)};
+  const saveData = JSON.stringify({
   training: s2.training||{atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0},
-  equip: s2.equip||{ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']},
-  equippedForm: s2.equippedForm||'normal',
-  gold: s2.gold||0,
+  equip: normalizedExpeditionEquip,
+  equippedForm: FOOD_RESEARCH_FORM_MAP[s2.equippedForm] ? s2.equippedForm : 'normal',
+   gold: s2.gold||0,
+   runScore: s2.runScore||0,
   quests: s2.quests||null,
   playerName: currentUser?.name || (isSuperAdmin ? '主廚' : '玩家'),
   playerPhone: playerPhone,
   savedStageKey: savedStageKey,
   isSuperAdmin: !!isSuperAdmin,
-  startMapIdx: isSuperAdmin && frStartMapIdx !== 'random' ? Number(frStartMapIdx) : null,
- });
+   startMapIdx: isSuperAdmin && frStartMapIdx !== 'random' ? Number(frStartMapIdx) : null,
+  });
+  const configuredRevivalQuestions = config.questionBankVersion === FOOD_RESEARCH_QUESTION_BANK_VERSION && config.questions?.length
+   ? (config.questions || [])
+   : mergeFoodResearchQuestions(FOOD_RESEARCH_QUESTIONS, config.questions || []);
+  const revivalQuestionData = JSON.stringify(configuredRevivalQuestions.map(item => {
+   if (Array.isArray(item)) return { q:item[0], opts:item.slice(1,5), ans:Number(item[5]) || 0 };
+   return { q:item.q, opts:[item.a,item.b,item.c,item.d], ans:Number(item.ansIdx) || 0 };
+  }).filter(item => item.q && item.opts.length === 4 && item.opts.every(Boolean)));
+  const balancedGameBody = window.FOOD_RESEARCH_APPLY_BALANCE_PATCH ? window.FOOD_RESEARCH_APPLY_BALANCE_PATCH(GAME_JS_BODY) : GAME_JS_BODY;
+  const gameBodyWithImportedRevivalQuestions = (window.FOOD_RESEARCH_APPLY_AMULET_PATCH ? window.FOOD_RESEARCH_APPLY_AMULET_PATCH(balancedGameBody) : balancedGameBody).replace(
+   /const qaBank=\[[\s\S]*?\];\nfunction randQa\(\)\{return qaBank\[Math\.floor\(Math\.random\(\)\*qaBank\.length\)\];\}/,
+   "const qaBank=(Array.isArray(REVIVAL_QUESTION_BANK)&&REVIVAL_QUESTION_BANK.length?REVIVAL_QUESTION_BANK:[]);\n" +
+   "function shuffleQaBank(){const pool=[...qaBank];for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}return pool;}\n" +
+   "function randQa(){return qaBank[Math.floor(Math.random()*qaBank.length)];}"
+  ).replace(/revPool=\[\.\.\.qaBank\]\.sort\(\(\)=>Math\.random\(\)-\.5\);/g, 'revPool=shuffleQaBank();');
 
- // 遊戲 HTML 由 game.js 提供，這裡動態組裝
+  // 遊戲 HTML 由 game.js 提供，這裡動態組裝
  // Build once per expedition so parent data refreshes do not reload the iframe.
  let foodResearchHTML = foodResearchHTMLRef.current;
  if (!foodResearchHTML) {
-  foodResearchHTML = GAME_HTML_STATIC +
-  "<scr" + "ipt>\nconst PARTNERS=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(partnerData))) + "'))));\nconst SAVE=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(saveData))) + "'))));\nconst RIVALS=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(rivalDataRef.current))) + "'))));\n" +
-  GAME_JS_BODY +
+  const balancedGameHtml = GAME_HTML_STATIC.replace('魔王掉100金幣', '魔王獎勵隨關卡提升');
+  foodResearchHTML = balancedGameHtml +
+   "<scr" + "ipt>\nconst PARTNERS=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(partnerData))) + "'))));\nconst SAVE=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(saveData))) + "'))));\nconst RIVALS=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(rivalDataRef.current))) + "'))));\nconst REVIVAL_QUESTION_BANK=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(revivalQuestionData))) + "'))));\n" +
+    gameBodyWithImportedRevivalQuestions +
+     (window.FOOD_RESEARCH_GAME_PATCH || '') +
+     (window.FOOD_RESEARCH_WEAPON_PATCH || '') +
+     (window.FOOD_RESEARCH_AMULET_PATCH || '') +
+      (window.FOOD_RESEARCH_BOSS_PATCH || '') +
+      (window.FOOD_RESEARCH_UI_PATCH || '') +
+      (window.FOOD_RESEARCH_BALANCE_PATCH || '') +
+      (window.FOOD_RESEARCH_AUDIO_PATCH || '') +
   "</scr" + "ipt>\n</body>\n</html>";
   foodResearchHTMLRef.current = foodResearchHTML;
  }
@@ -9543,8 +9609,14 @@ if (selectedActivity === 'food_research') {
      const handler = msg => {
      if (!msg.data) return;
      if (msg.data.type === 'FR_BACK_TO_CAMP') {
-      const curGold = loadSave().gold || 0;
-      writeSave({ gold: curGold + (msg.data.gold || 0) });
+       const cur = loadSave();
+       const finalScore = Math.max(0, Number(msg.data.score)||0);
+       writeSave({
+        gold: (cur.gold || 0) + (msg.data.gold || 0),
+        lastScore: finalScore,
+        bestScore: Math.max(Number(cur.bestScore)||0, finalScore),
+        runScore: msg.data.completed ? 0 : finalScore
+       });
       window.removeEventListener('message', handler);
       foodResearchHTMLRef.current='';
       setFrPhase('camp');
@@ -9610,7 +9682,7 @@ if (selectedActivity === 'food_research') {
         pen.loseAmulets.forEach(a => { newAmulets = newAmulets.filter(x => x !== a); });
       }
       // 金幣：營地金幣不受影響（不扣 cur.gold），只損失本場賺的
-      writeSave({ equip: newEquip, weapons: newWeapons, amulets: newAmulets });
+       writeSave({ equip: newEquip, weapons: newWeapons, amulets: newAmulets, runScore:0 });
       window.removeEventListener('message', handler);
       foodResearchHTMLRef.current='';
       setFrPhase('camp');
@@ -9627,53 +9699,19 @@ if (selectedActivity === 'food_research') {
   </div>
  );
 }
- const FOOD_FORMS_CAMP = {
-  normal:{name:'原味型',emoji:'🍙'}, burger:{name:'漢堡型',emoji:'🍔'},
-  chili:{name:'辣椒型',emoji:'🌶️'}, tofu:{name:'豆腐型',emoji:'🧆'},
-  noodle:{name:'麵條型',emoji:'🍜'}, rice:{name:'炒飯型',emoji:'🍚'},
-  ramen:{name:'豚骨型',emoji:'🍲'}, sushi:{name:'壽司型',emoji:'🍣'}, steak:{name:'牛排型',emoji:'🥩'},
- };
+ const FOOD_FORMS_CAMP = {normal:{name:'原味型',emoji:'🍙'},...FOOD_RESEARCH_FORM_MAP};
  const campSave = loadSave();
  const campGold = campSave.gold || 0;
  const campForm = FOOD_FORMS_CAMP[campSave.equippedForm || 'normal'] || {name:'原味型',emoji:'🍙'};
  const campTraining = campSave.training || {atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0};
  const campEquip = campSave.equip || {ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']};
- const campAmulets = Array.isArray(campEquip.amulets) ? [...campEquip.amulets,'','',''].slice(0,3) : ['','',''];
- const CAMP_RANGED_DESC = {
-  '初始食材砲':'直線射擊，傷害適中，適合入門',
-  '食材砲':'直線射擊，傷害適中，適合入門',
-  '調味料噴射器':'扇形廣域彈幕，適合對付密集敵人',
-  '冷凍光線':'冰結光束，命中後凍結敵人',
-  '辣油火焰炮':'燃燒彈幕，讓敵人持續受傷',
-  '醬汁雷射':'高傷害穿透彈，可貫穿多個敵人',
- };
- const CAMP_MELEE_DESC = {
-  '初始鍋鏟':'短距揮砍，傷害穩定',
-  '鍋鏟劍':'攻速與傷害均衡的基礎近戰',
-  '擀麵棍':'重型棍棒，單次打擊高且可震退',
-  '菜刀':'高速連斬，適合近距離爆發',
-  '炒菜鍋':'圓弧揮擊，能打到較大範圍',
-  '砧板護盾':'格擋型武器，受擊減傷並縮短技能冷卻',
- };
- const CAMP_AMULET_DESC = {
-  '廚神護符':'攻擊力+15%',
-  '食安符':'最大血量+30',
-  '鮮度符':'持續回血效果提升',
-  '辛香符':'爆擊率+8%',
-  '溫度符':'受到傷害-10%',
-  '時令符':'金幣獲取+20%',
- };
- const CAMP_FORM_DESC = {
-  normal:'原始型態，可靠隊伍支援型。被動可與隊友共享並疊加。',
-  burger:'防禦型，受傷降低。技能偏向護盾與衝撞。',
-  chili:'進攻型，附加燃燒。技能偏向追蹤與火焰傷害。',
-  tofu:'生存型，定期回血。技能偏向護盾與治癒。',
-  noodle:'速度型，移動速度提高。技能偏向連射與散射。',
-  rice:'收益型，金幣獲取提高。技能偏向金幣彈與護罩。',
-  ramen:'續戰型，爆擊與回血兼具。技能偏向熱湯與爆炸。',
-  sushi:'敏捷型，速度與爆擊提高。技能偏向精準連擊。',
-  steak:'重攻型，攻擊與爆擊提高。技能偏向高傷衝擊。',
- };
+ const campAmulets = normalizeAmuletNames(campEquip.amulets).concat(['','','']).slice(0,3);
+ const CAMP_RANGED_DESC = Object.fromEntries(RANGED_POOL.map(w=>[w.name,w.desc]));
+ CAMP_RANGED_DESC['初始食材砲']='雙發直線食材彈，射速與傷害均衡。';
+ const CAMP_MELEE_DESC = Object.fromEntries(MELEE_POOL.map(w=>[w.name,w.desc]));
+ CAMP_MELEE_DESC['初始鍋鏟']='基礎揮擊，攻速、範圍與反彈能力均衡。';
+ const CAMP_AMULET_DESC = AMULET_DESC_MAP;
+ const CAMP_FORM_DESC = {normal:'原始型態，可靠隊伍支援型。被動可與隊友共享並疊加。'};
  const CAMP_FORM_ABILITIES = {
   normal:[
    {label:'被動技能',name:'MHP+10',desc:'全隊最大 HP +10，可與隊友共享並疊加。'},
@@ -9681,6 +9719,14 @@ if (selectedActivity === 'food_research') {
    {label:'大招',name:'亢奮',desc:'短時間提高整個隊伍的移動速度及攻擊速度至 2 倍。'},
   ],
  };
+ FOOD_RESEARCH_FORM_CATALOG.forEach(form=>{
+  CAMP_FORM_DESC[form.id]=`${FOOD_RESEARCH_RARITIES[form.rarity]?.label||''}型態 · ${form.passive}`;
+  CAMP_FORM_ABILITIES[form.id]=[
+   {label:'被動技能',name:form.passive,desc:form.passive},
+   {label:'小招',name:form.skill1,desc:'消耗 25 氣力施放'},
+   {label:'大招',name:form.skill2,desc:'消耗 40 氣力施放'},
+  ];
+ });
 
  const FACILITIES = [
   { id:'training',  emoji:'', label:'訓練所',   sub:'提升白白能力數值',   color:'#1f6feb' },
@@ -9727,9 +9773,7 @@ if (selectedActivity === 'food_research') {
    {/* White-white mascot area */}
    <div onClick={()=>setShowCharStatus(true)} className="flex items-center gap-3 px-3 py-2 shrink-0 active:scale-[.99]" style={{borderBottom:'1px solid rgba(251,191,36,.28)', background:'rgba(22,27,34,.86)', cursor:'pointer', backdropFilter:'blur(2px)'}}>
     <div className="w-10 h-10 rounded-xl flex items-center justify-center text-2xl flex-shrink-0" style={{background:'rgba(31,111,235,.15)', border:'2px solid rgba(31,111,235,.3)'}}>
-     {(campSave.equippedForm||'normal')==='normal'
-      ? <img src="assets/food-research/hero-normal-portrait.png" style={{width:'38px',height:'38px',objectFit:'contain'}} />
-      : campForm.emoji}
+     <img src={(campSave.equippedForm||'normal')==='normal' ? 'assets/food-research/hero-normal-portrait.png' : campForm.portrait} style={{width:'38px',height:'38px',objectFit:'contain',imageRendering:'pixelated'}} />
     </div>
     <div>
      <div className="font-black text-sm" style={{color:'#e6edf3'}}>白白</div>
@@ -9811,9 +9855,7 @@ if (selectedActivity === 'food_research') {
       <div className="flex gap-3">
        <div style={{width:'118px',flexShrink:0}}>
         <div style={{width:'118px',height:'118px',borderRadius:'14px',background:'radial-gradient(circle,#fdf8f0,#dbeafe)',border:'1px solid #58a6ff',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden'}}>
-         {(campSave.equippedForm||'normal')==='normal'
-          ? <img src="assets/food-research/hero-normal-portrait.png" style={{width:'112px',height:'112px',objectFit:'contain'}} />
-          : <div style={{fontSize:'54px'}}>{campForm.emoji}</div>}
+         <img src={(campSave.equippedForm||'normal')==='normal' ? 'assets/food-research/hero-normal-portrait.png' : campForm.portrait} style={{width:'112px',height:'112px',objectFit:'contain',imageRendering:'pixelated'}} />
         </div>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px',marginTop:'8px'}}>
          {TRAIN_STATS.map(s=>(
@@ -9871,7 +9913,7 @@ if (selectedActivity === 'food_research') {
 const bossName = config.bossName || '被感染的小雷神';
 const bossImgHtml = config.bossImg ? `<img src="${config.bossImg}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 50%; border: 4px solid #ef4444; background: white; box-shadow: 0 4px 10px -1px rgba(0, 0, 0, 0.2);" alt="Boss">` : `<div style="font-size:70px; line-height: 1; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));">👿</div>`;
 const bgImgHtml = config.bgImg ? `<div class="absolute inset-0 bg-cover bg-center opacity-30 z-0 pointer-events-none" style="background-image: url('${config.bgImg}');"></div>` : `<div class="absolute inset-0 bg-white z-0 pointer-events-none"></div>`;
- const activeQuestionBank = config.questionBankVersion === FOOD_RESEARCH_QUESTION_BANK_VERSION
+ const activeQuestionBank = config.questionBankVersion === FOOD_RESEARCH_QUESTION_BANK_VERSION && config.questions?.length
   ? (config.questions || [])
   : mergeFoodResearchQuestions(FOOD_RESEARCH_QUESTIONS, config.questions || []);
  const safeQuestions = activeQuestionBank.length > 0 
