@@ -119,14 +119,14 @@ if (needsReview.length) {
   lines.push('', '主管應確認：', ...needsReview.flatMap((item, index) => wrap(\`\${index + 1}.\${item}\`)));
 }
 
-return [{
+return {
   json: {
     linePayload: {
       to: 'Cf47f4ae2865992470b5dc0a7c3ff3170',
       messages: [{ type: 'text', text: lines.join('\\n') }]
     }
   }
-}];`;
+};`;
 
 const lineCredential = { httpHeaderAuth: { id: 'eqZPgNeJ2WPXRyVW', name: 'Header Auth account 2' } };
 const workflow = {
