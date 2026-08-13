@@ -108,11 +108,10 @@ const needsReview = Array.isArray(result.draftNeedsReview)
   ? result.draftNeedsReview.filter(Boolean)
   : [];
 const lines = [
-  \`【AI回覆初稿｜\${review.storeName}】\`,
+  \`【回覆初稿｜\${review.storeName}】\`,
   \`評論者：\${review.reviewer}\`,
   \`星等：\${review.stars || '-'}星\`,
   \`風險：\${result.riskLevel || 'medium'}\`,
-  '發布前須經主管確認',
   '────────────',
   ...wrap(draftReply)
 ];
@@ -182,7 +181,7 @@ const workflow = {
       credentials: { googlePalmApi: { id: 'ZpWaBKltRioEKUas', name: 'Google Gemini(PaLM) Api account' } }
     },
     {
-      parameters: { jsCode: formatCode }, id: '5a4de464-3874-48bb-92ce-95630589933a',
+      parameters: { mode: 'runOnceForEachItem', jsCode: formatCode }, id: '5a4de464-3874-48bb-92ce-95630589933a',
       name: '整理AI回覆初稿', type: 'n8n-nodes-base.code', typeVersion: 2, position: [760, 180]
     },
     {
