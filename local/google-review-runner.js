@@ -23,6 +23,17 @@ function appendLog(message) {
   fs.appendFileSync(path.join(logDir, 'google-review-runner.log'), `[${timestamp}] ${message}\n`, 'utf8');
 }
 
+async function captureReviewsWithRetry(maxAttempts = 3) {
+  let result;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    result = await checkGoogleReviewsWithScreenshots();
+    if (result.total > 0 || attempt === maxAttempts) return result;
+    appendLog(`Google 評論暫時擷取為 0 則，${attempt + 1}/${maxAttempts} 次重試`);
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+  }
+  return result;
+}
+
 function runStatePath(date) {
   fs.mkdirSync(runtimeDir, { recursive: true });
   return path.join(runtimeDir, `${date}.json`);
@@ -183,7 +194,7 @@ async function main() {
   process.env.GOOGLE_CHROME_PATH = config.chromePath;
   process.env.GOOGLE_REVIEW_PROFILE_DIR = config.chromeProfileDir;
   process.env.GOOGLE_REVIEW_HEADLESS = process.argv.includes('--show-browser') ? 'false' : 'true';
-  const result = await checkGoogleReviewsWithScreenshots();
+  const result = await captureReviewsWithRetry();
   appendLog(`${result.date} 擷取完成：${result.total} 則，三星以下 ${(result.negativeReviews || []).length} 則`);
   const negativeReviews = (result.negativeReviews || []).slice(0, 4);
   if (draftOnly) {
