@@ -259,7 +259,7 @@ async function fetchWithCookies(url, options, jar, redirectsLeft = 5) {
   return response;
 }
 
-async function loadNueipAttendanceBrowser(date, requestedDepartments = []) {
+async function loadNueipAttendanceBrowser(date, requestedDepartments = [], schedule = {}) {
   const chromiumModule = await import('@sparticuz/chromium');
   const puppeteerModule = await import('puppeteer-core');
   const chromium = chromiumModule.default || chromiumModule;
@@ -269,9 +269,9 @@ async function loadNueipAttendanceBrowser(date, requestedDepartments = []) {
   const password = readRequiredEnv('NUEIP_PASSWORD');
   const companyValue = String(process.env.NUEIP_COMPANY_VALUE || '15451').trim();
   const departmentValue = String(process.env.NUEIP_DEPARTMENT_VALUE || '15451_103016').trim();
-  const departmentValues = requestedDepartments.length > 0
+  let departmentValues = requestedDepartments.length > 0
     ? [...new Set(requestedDepartments)]
-    : [departmentValue];
+    : (schedule?.sheet_type === '外場／洗滌' ? [] : [departmentValue]);
   const browser = await puppeteer.launch({
     args: chromium.args,
     defaultViewport: chromium.defaultViewport,
@@ -296,6 +296,45 @@ async function loadNueipAttendanceBrowser(date, requestedDepartments = []) {
     stage = '等待登入完成';
     await page.waitForFunction(() => !location.pathname.startsWith('/login'), { timeout: 20000 });
     lastUrl = page.url();
+
+    if (departmentValues.length === 0) {
+      const discoveryQuery = new URLSearchParams({
+        work_status: '1',
+        FLayer: companyValue,
+        SLayer: departmentValue,
+        TLayer: `${departmentValue}_0`,
+        date_start: date,
+        date_end: date,
+        showByBelongDate: '1',
+        filterModify: '0'
+      });
+      stage = '讀取NUEIP部門選單';
+      await page.goto(`https://cloud.nueip.com/attendance_record?${discoveryQuery.toString()}`, {
+        waitUntil: 'networkidle2',
+        timeout: 30000
+      });
+      const availableDepartments = await page.evaluate(({ companyValue }) => {
+        const pattern = new RegExp(`^${companyValue}_[0-9]+$`);
+        return [...document.querySelectorAll('select option')]
+          .map((option) => ({ value: String(option.value || '').trim(), label: String(option.textContent || '').trim() }))
+          .filter((option) => pattern.test(option.value) && option.label);
+      }, { companyValue });
+      const roleMatches = availableDepartments.filter((option) => /外場|洗滌|洗碗/.test(option.label));
+      const branchKeyword = String(process.env.NUEIP_BRANCH_KEYWORD || '南港').trim();
+      const branchMatches = branchKeyword
+        ? roleMatches.filter((option) => option.label.includes(branchKeyword))
+        : [];
+      const selected = branchMatches.length > 0
+        ? branchMatches
+        : (roleMatches.length <= 2 ? roleMatches : []);
+      departmentValues = [...new Set(selected.map((option) => option.value))];
+      if (departmentValues.length === 0) {
+        const available = availableDepartments.slice(0, 12)
+          .map((option) => `${option.label}=${option.value}`)
+          .join(',');
+        throw new Error(`找不到NUEIP南港外場／洗滌部門；可用部門：${available || '無'}`);
+      }
+    }
 
     const selectValue = async (value) => page.evaluate((targetValue) => {
       const setValue = (element, value) => {
@@ -484,11 +523,19 @@ async function loadNueipAttendance(date, schedule = {}) {
   };
 
   const defaultResult = await fetchDepartment(departmentValue);
-  const departmentValues = resolveDepartmentValues(
-    schedule,
-    `${enterHtml}\n${defaultResult.html}`,
-    departmentValue
-  );
+  let departmentValues;
+  try {
+    departmentValues = resolveDepartmentValues(
+      schedule,
+      `${enterHtml}\n${defaultResult.html}`,
+      departmentValue
+    );
+  } catch (error) {
+    if (schedule?.sheet_type === '外場／洗滌' && /找不到NUEIP南港外場/.test(error.message)) {
+      return loadNueipAttendanceBrowser(date, [], schedule);
+    }
+    throw error;
+  }
   const combinedAttendance = [];
   for (const selectedDepartment of departmentValues) {
     const result = selectedDepartment === departmentValue
@@ -497,7 +544,7 @@ async function loadNueipAttendance(date, schedule = {}) {
     combinedAttendance.push(...result.attendance);
   }
   if (combinedAttendance.length === 0) {
-    return loadNueipAttendanceBrowser(date, departmentValues);
+    return loadNueipAttendanceBrowser(date, departmentValues, schedule);
   }
   return uniqueAttendance(combinedAttendance);
 }
