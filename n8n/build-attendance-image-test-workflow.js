@@ -24,6 +24,30 @@ const webhook = {
 const recognition = cloneNode('辨識下班條');
 const normalize = cloneNode('整理辨識結果');
 const compare = cloneNode('NUEIP每日出勤比對');
+normalize.parameters.jsCode = normalize.parameters.jsCode.replace(
+  "if (!schedule.date || !Array.isArray(schedule.employees)) throw new Error('下班條缺少日期或員工資料');",
+  `if (!schedule.date || !Array.isArray(schedule.employees)) throw new Error('下班條缺少日期或員工資料');
+
+const normalizeAttendanceDate = (value) => {
+  const rawDate = String(value || '').trim().replace(/[.]/g, '/').replace(/-/g, '/');
+  const match = rawDate.match(/^(\\d{2,4})\\/(\\d{1,2})\\/(\\d{1,2})$/);
+  if (!match) throw new Error('無法辨識下班條日期：' + rawDate);
+  let year = Number(match[1]);
+  if (year < 1911) {
+    const currentYear = new Date().getFullYear();
+    const currentRocYear = currentYear - 1911;
+    year = Math.abs(year - currentRocYear) <= 2 ? currentYear : year + 1911;
+  }
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) {
+    throw new Error('下班條日期無效：' + rawDate);
+  }
+  return [year, String(month).padStart(2, '0'), String(day).padStart(2, '0')].join('-');
+};
+schedule.date = normalizeAttendanceDate(schedule.date);`
+);
 recognition.position = [240, 0];
 normalize.position = [480, 0];
 compare.position = [720, 0];
