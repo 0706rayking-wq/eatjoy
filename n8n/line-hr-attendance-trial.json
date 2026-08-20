@@ -140,7 +140,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { to: $('僅處理下班條照片').first().json.event.source.groupId, messages: $json.lineMessages.slice(0, 5).map(text => ({ type: 'text', text })) } }}",
+        "jsonBody": "{{ (() => { const isFrontWash = $('整理辨識結果').first().json.sheet_type === '外場／洗滌'; const lineMessages = ($json.lineMessages || []).slice(0, 5).map(text => isFrontWash ? String(text).replace('店別：南港內場', '店別：南港外場／洗滌') : String(text)); return { to: $('僅處理下班條照片').first().json.event.source.groupId, messages: lineMessages.map(text => ({ type: 'text', text })) }; })() }}",
         "options": {}
       },
       "id": "03e1b8e4-c8ed-4ccb-8de0-31f4c925b78b",

@@ -5,8 +5,13 @@ const workflow = require('./line-hr-attendance-trial.json');
 
 const recognitionNode = workflow.nodes.find((node) => node.name === '辨識下班條');
 const normalizeNode = workflow.nodes.find((node) => node.name === '整理辨識結果');
+const lineResponseNode = workflow.nodes.find((node) => node.name === '回傳LINE人事群');
 assert.ok(recognitionNode);
 assert.ok(normalizeNode);
+assert.ok(lineResponseNode);
+assert.match(lineResponseNode.parameters.jsonBody, /^\{\{/);
+assert.doesNotMatch(lineResponseNode.parameters.jsonBody, /^=/);
+assert.match(lineResponseNode.parameters.jsonBody, /南港外場／洗滌/);
 assert.match(recognitionNode.parameters.text, /上班, 下班, 上班, 下班/);
 assert.match(recognitionNode.parameters.text, /上班1, 下班1, 上班2, 下班2/);
 assert.match(recognitionNode.parameters.text, /上班3, 下班3/);
