@@ -5,8 +5,43 @@ const {
   formatLineMessages,
   normalizeDate,
   parseAttendanceHtml,
+  parseSelectOptions,
+  resolveDepartmentValues,
+  uniqueAttendance,
   wrapLine
 } = require('./hr-attendance-compare')._test;
+
+const departmentHtml = `
+<select id="SLayer" name="SLayer">
+  <option value="15451_103016">南港內場</option>
+  <option value="15451_103017">南港外場</option>
+  <option value="15451_103018">南港洗滌</option>
+  <option value="15451_203017">台中外場</option>
+</select>`;
+assert.deepEqual(parseSelectOptions(departmentHtml, 'SLayer').map((option) => option.value), [
+  '15451_103016',
+  '15451_103017',
+  '15451_103018',
+  '15451_203017'
+]);
+assert.deepEqual(resolveDepartmentValues(
+  { sheet_type: '內場' },
+  departmentHtml,
+  '15451_103016',
+  {}
+), ['15451_103016']);
+assert.deepEqual(resolveDepartmentValues(
+  { sheet_type: '外場／洗滌' },
+  departmentHtml,
+  '15451_103016',
+  {}
+), ['15451_103017', '15451_103018']);
+assert.deepEqual(resolveDepartmentValues(
+  { sheet_type: '外場／洗滌' },
+  '',
+  '15451_103016',
+  { NUEIP_FRONT_WASH_DEPARTMENT_VALUES: '15451_9, 15451_10,15451_9' }
+), ['15451_9', '15451_10']);
 
 const html = `
 <table><tbody>
@@ -56,6 +91,7 @@ const attendance = parseAttendanceHtml(html);
 assert.equal(attendance.length, 4);
 assert.equal(attendance[0].name, '謝采穎');
 assert.deepEqual(attendance[2].clockOuts, ['14:02', '20:50']);
+assert.equal(uniqueAttendance([attendance[0], attendance[0], attendance[1]]).length, 2);
 
 const positionalHtml = `
 <table><tbody><tr>

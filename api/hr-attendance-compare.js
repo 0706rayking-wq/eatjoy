@@ -139,6 +139,52 @@ function parseAttendanceHtml(html) {
   return rows;
 }
 
+function parseSelectOptions(html, selectName) {
+  const selectPattern = new RegExp(
+    `<select\\b[^>]*(?:name|id)=["']${escapeRegExp(selectName)}["'][^>]*>([\\s\\S]*?)<\\/select>`,
+    'i'
+  );
+  const selectHtml = String(html || '').match(selectPattern)?.[1] || '';
+  return [...selectHtml.matchAll(/<option\b[^>]*value=["']([^"']+)["'][^>]*>([\s\S]*?)<\/option>/gi)]
+    .map((match) => ({ value: decodeHtml(match[1]).trim(), label: htmlText(match[2]) }))
+    .filter((option) => option.value && option.label);
+}
+
+function uniqueAttendance(records) {
+  const seen = new Set();
+  return records.filter((record) => {
+    const key = `${record.employeeNumber}|${record.date}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function resolveDepartmentValues(schedule, html, defaultDepartment, environment = process.env) {
+  if (schedule?.sheet_type !== '外場／洗滌') return [defaultDepartment];
+
+  const configured = String(environment.NUEIP_FRONT_WASH_DEPARTMENT_VALUES || '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (configured.length > 0) return [...new Set(configured)];
+
+  const options = parseSelectOptions(html, 'SLayer');
+  const roleMatches = options.filter((option) => /外場|洗滌|洗碗/.test(option.label));
+  const branchKeyword = String(environment.NUEIP_BRANCH_KEYWORD || '南港').trim();
+  const branchMatches = branchKeyword
+    ? roleMatches.filter((option) => option.label.includes(branchKeyword))
+    : [];
+  const selected = branchMatches.length > 0
+    ? branchMatches
+    : (roleMatches.length <= 2 ? roleMatches : []);
+
+  if (selected.length === 0) {
+    throw new Error('找不到NUEIP南港外場／洗滌部門，請設定NUEIP_FRONT_WASH_DEPARTMENT_VALUES');
+  }
+  return [...new Set(selected.map((option) => option.value))];
+}
+
 function splitSetCookie(headerValue) {
   if (!headerValue) return [];
   return String(headerValue).split(/,(?=\s*[^;,=\s]+=[^;,]*)/g);
@@ -197,7 +243,7 @@ async function fetchWithCookies(url, options, jar, redirectsLeft = 5) {
   return response;
 }
 
-async function loadNueipAttendanceBrowser(date) {
+async function loadNueipAttendanceBrowser(date, requestedDepartments = []) {
   const chromiumModule = await import('@sparticuz/chromium');
   const puppeteerModule = await import('puppeteer-core');
   const chromium = chromiumModule.default || chromiumModule;
@@ -207,6 +253,9 @@ async function loadNueipAttendanceBrowser(date) {
   const password = readRequiredEnv('NUEIP_PASSWORD');
   const companyValue = String(process.env.NUEIP_COMPANY_VALUE || '15451').trim();
   const departmentValue = String(process.env.NUEIP_DEPARTMENT_VALUE || '15451_103016').trim();
+  const departmentValues = requestedDepartments.length > 0
+    ? [...new Set(requestedDepartments)]
+    : [departmentValue];
   const browser = await puppeteer.launch({
     args: chromium.args,
     defaultViewport: chromium.defaultViewport,
@@ -232,25 +281,6 @@ async function loadNueipAttendanceBrowser(date) {
     await page.waitForFunction(() => !location.pathname.startsWith('/login'), { timeout: 20000 });
     lastUrl = page.url();
 
-    const query = new URLSearchParams({
-      work_status: '1',
-      FLayer: companyValue,
-      SLayer: departmentValue,
-      TLayer: `${departmentValue}_0`,
-      date_start: date,
-      date_end: date,
-      showByBelongDate: '1',
-      filterModify: '0'
-    });
-    stage = '開啟出勤紀錄';
-    await page.goto(`https://cloud.nueip.com/attendance_record?${query.toString()}`, {
-      waitUntil: 'networkidle2',
-      timeout: 30000
-    });
-    if (page.url().includes('portal.nueip.com/login')) {
-      throw new Error('NUEIP cloud工作階段建立失敗');
-    }
-    lastUrl = page.url();
     const selectValue = async (value) => page.evaluate((targetValue) => {
       const setValue = (element, value) => {
         if (!element) throw new Error(`找不到選項 ${value}`);
@@ -271,45 +301,64 @@ async function loadNueipAttendanceBrowser(date) {
       value
     );
 
-    stage = '設定公司';
-    await waitForOption(companyValue);
-    if (await selectValue(companyValue)) {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+    const combinedAttendance = [];
+    for (const selectedDepartment of departmentValues) {
+      const query = new URLSearchParams({
+        work_status: '1',
+        FLayer: companyValue,
+        SLayer: selectedDepartment,
+        TLayer: `${selectedDepartment}_0`,
+        date_start: date,
+        date_end: date,
+        showByBelongDate: '1',
+        filterModify: '0'
+      });
+      stage = `開啟部門出勤紀錄(${selectedDepartment})`;
+      await page.goto(`https://cloud.nueip.com/attendance_record?${query.toString()}`, {
+        waitUntil: 'networkidle2',
+        timeout: 30000
+      });
+      if (page.url().includes('portal.nueip.com/login')) {
+        throw new Error('NUEIP cloud工作階段建立失敗');
+      }
+      lastUrl = page.url();
+
+      stage = '設定公司';
+      await waitForOption(companyValue);
+      if (await selectValue(companyValue)) await new Promise((resolve) => setTimeout(resolve, 1500));
+      stage = `等待部門選單(${selectedDepartment})`;
+      await waitForOption(selectedDepartment);
+      if (await selectValue(selectedDepartment)) await new Promise((resolve) => setTimeout(resolve, 1500));
+      const employeeValue = `${selectedDepartment}_0`;
+      stage = `等待全部員工選項(${selectedDepartment})`;
+      await waitForOption(employeeValue);
+      await selectValue(employeeValue);
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      stage = `設定日期並查詢(${selectedDepartment})`;
+      await page.evaluate(({ date }) => {
+        const setValue = (element, value) => {
+          if (!element) throw new Error(`找不到欄位 ${value}`);
+          element.value = value;
+          element.dispatchEvent(new Event('input', { bubbles: true }));
+          element.dispatchEvent(new Event('change', { bubbles: true }));
+        };
+        setValue(document.querySelector('[name="date_start"]'), date);
+        setValue(document.querySelector('[name="date_end"]'), date);
+        const queryButton = [...document.querySelectorAll('button, input[type="submit"]')]
+          .find((element) => (element.textContent || element.value || '').trim() === '查詢');
+        if (!queryButton) throw new Error('找不到查詢按鈕');
+        queryButton.click();
+      }, { date });
+      stage = `等待部門出勤表格(${selectedDepartment})`;
+      await page.waitForFunction(
+        () => document.querySelectorAll('table tbody tr, [role="row"]').length >= 1,
+        { timeout: 25000 }
+      );
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      combinedAttendance.push(...parseAttendanceHtml(await page.content()));
     }
-    stage = '等待部門選單';
-    await waitForOption(departmentValue);
-    if (await selectValue(departmentValue)) {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-    }
-    const employeeValue = `${departmentValue}_0`;
-    stage = '等待全部員工選項';
-    await waitForOption(employeeValue);
-    await selectValue(employeeValue);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    stage = '設定日期並查詢';
-    await page.evaluate(({ date }) => {
-      const setValue = (element, value) => {
-        if (!element) throw new Error(`找不到欄位 ${value}`);
-        element.value = value;
-        element.dispatchEvent(new Event('input', { bubbles: true }));
-        element.dispatchEvent(new Event('change', { bubbles: true }));
-      };
-      setValue(document.querySelector('[name="date_start"]'), date);
-      setValue(document.querySelector('[name="date_end"]'), date);
-      const queryButton = [...document.querySelectorAll('button, input[type="submit"]')]
-        .find((element) => (element.textContent || element.value || '').trim() === '查詢');
-      if (!queryButton) throw new Error('找不到查詢按鈕');
-      queryButton.click();
-    }, { date });
-    stage = '等待部門出勤表格';
-    await page.waitForFunction(
-      () => document.querySelectorAll('table tbody tr, [role="row"]').length >= 10,
-      { timeout: 25000 }
-    );
-    const html = await page.content();
-    const attendance = parseAttendanceHtml(html);
-    if (attendance.length === 0) throw new Error('NUEIP瀏覽器讀取為0筆');
-    return attendance;
+    if (combinedAttendance.length === 0) throw new Error('NUEIP瀏覽器讀取為0筆');
+    return uniqueAttendance(combinedAttendance);
   } catch (error) {
     const safeLocation = lastUrl ? new URL(lastUrl).pathname : '';
     throw new Error(`NUEIP瀏覽器${stage}失敗[${safeLocation}]：${error.message}`);
@@ -318,7 +367,7 @@ async function loadNueipAttendanceBrowser(date) {
   }
 }
 
-async function loadNueipAttendance(date) {
+async function loadNueipAttendance(date, schedule = {}) {
   const companyCode = readRequiredEnv('NUEIP_COMPANY_CODE');
   const employeeId = readRequiredEnv('NUEIP_EMPLOYEE_ID');
   const password = readRequiredEnv('NUEIP_PASSWORD');
@@ -369,16 +418,6 @@ async function loadNueipAttendance(date) {
     throw new Error('NUEIP login failed');
   }
 
-  const query = new URLSearchParams({
-    work_status: '1',
-    FLayer: companyValue,
-    SLayer: departmentValue,
-    TLayer: `${departmentValue}_0`,
-    date_start: date,
-    date_end: date,
-    showByBelongDate: '1',
-    filterModify: '0'
-  });
   const enterResponse = await fetchWithCookies(
     'https://cloud.nueip.com/attendance_record',
     {
@@ -395,30 +434,56 @@ async function loadNueipAttendance(date) {
     },
     jar
   );
-  await enterResponse.text();
+  const enterHtml = await enterResponse.text();
 
-  const attendanceResponse = await fetchWithCookies(
-    `https://cloud.nueip.com/attendance_record?${query.toString()}`,
-    {
-      method: 'GET',
-      headers: {
-        'Accept': 'text/html,application/xhtml+xml',
-        'Referer': 'https://cloud.nueip.com/attendance_record',
-        'User-Agent': NUEIP_USER_AGENT,
-        'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8'
-      }
-    },
-    jar
+  const fetchDepartment = async (selectedDepartment) => {
+    const query = new URLSearchParams({
+      work_status: '1',
+      FLayer: companyValue,
+      SLayer: selectedDepartment,
+      TLayer: `${selectedDepartment}_0`,
+      date_start: date,
+      date_end: date,
+      showByBelongDate: '1',
+      filterModify: '0'
+    });
+    const attendanceResponse = await fetchWithCookies(
+      `https://cloud.nueip.com/attendance_record?${query.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          'Accept': 'text/html,application/xhtml+xml',
+          'Referer': 'https://cloud.nueip.com/attendance_record',
+          'User-Agent': NUEIP_USER_AGENT,
+          'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8'
+        }
+      },
+      jar
+    );
+    const html = await attendanceResponse.text();
+    if (!attendanceResponse.ok || !html.includes('出勤紀錄')) {
+      throw new Error('Unable to read NUEIP attendance records');
+    }
+    return { html, attendance: parseAttendanceHtml(html) };
+  };
+
+  const defaultResult = await fetchDepartment(departmentValue);
+  const departmentValues = resolveDepartmentValues(
+    schedule,
+    `${enterHtml}\n${defaultResult.html}`,
+    departmentValue
   );
-  const html = await attendanceResponse.text();
-  if (!attendanceResponse.ok || !html.includes('出勤紀錄')) {
-    throw new Error('Unable to read NUEIP attendance records');
+  const combinedAttendance = [];
+  for (const selectedDepartment of departmentValues) {
+    const result = selectedDepartment === departmentValue
+      ? defaultResult
+      : await fetchDepartment(selectedDepartment);
+    combinedAttendance.push(...result.attendance);
   }
-  const attendance = parseAttendanceHtml(html);
-  if (attendance.length === 0) {
-    return loadNueipAttendanceBrowser(date);
+  if (combinedAttendance.length === 0) {
+    return loadNueipAttendanceBrowser(date, departmentValues);
   }
-  return attendance;
+  return uniqueAttendance(combinedAttendance);
 }
 
 function normalizeName(value) {
@@ -691,7 +756,7 @@ async function handler(request, response) {
     }
     const schedule = request.body && typeof request.body === 'object' ? request.body : {};
     const date = normalizeDate(schedule.date);
-    const attendance = await loadNueipAttendance(date);
+    const attendance = await loadNueipAttendance(date, schedule);
     const excludedNames = String(process.env.NUEIP_EXCLUDED_NAMES || '黃遠志')
       .split(',')
       .map((name) => name.trim())
@@ -724,6 +789,9 @@ module.exports._test = {
   normalizeDate,
   normalizeName,
   parseAttendanceHtml,
+  parseSelectOptions,
+  resolveDepartmentValues,
   timeToSeconds,
+  uniqueAttendance,
   wrapLine
 };
