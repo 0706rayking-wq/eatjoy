@@ -4,6 +4,7 @@ const {
   compareAttendance,
   formatLineMessages,
   normalizeDate,
+  parseAllOptions,
   parseAttendanceHtml,
   parseSelectOptions,
   resolveDepartmentValues,
@@ -24,6 +25,7 @@ assert.deepEqual(parseSelectOptions(departmentHtml, 'SLayer').map((option) => op
   '15451_103018',
   '15451_203017'
 ]);
+assert.equal(parseAllOptions(departmentHtml).length, 4);
 assert.deepEqual(resolveDepartmentValues(
   { sheet_type: '內場' },
   departmentHtml,

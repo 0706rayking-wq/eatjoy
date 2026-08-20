@@ -150,6 +150,12 @@ function parseSelectOptions(html, selectName) {
     .filter((option) => option.value && option.label);
 }
 
+function parseAllOptions(html) {
+  return [...String(html || '').matchAll(/<option\b[^>]*value=["']([^"']+)["'][^>]*>([\s\S]*?)<\/option>/gi)]
+    .map((match) => ({ value: decodeHtml(match[1]).trim(), label: htmlText(match[2]) }))
+    .filter((option) => option.value && option.label);
+}
+
 function uniqueAttendance(records) {
   const seen = new Set();
   return records.filter((record) => {
@@ -169,7 +175,14 @@ function resolveDepartmentValues(schedule, html, defaultDepartment, environment 
     .filter(Boolean);
   if (configured.length > 0) return [...new Set(configured)];
 
-  const options = parseSelectOptions(html, 'SLayer');
+  const companyPrefix = String(defaultDepartment || '').split('_')[0];
+  const selectOptions = parseSelectOptions(html, 'SLayer');
+  const options = selectOptions.length > 0
+    ? selectOptions
+    : parseAllOptions(html).filter((option) => {
+      if (!companyPrefix) return false;
+      return new RegExp(`^${escapeRegExp(companyPrefix)}_[0-9]+$`).test(option.value);
+    });
   const roleMatches = options.filter((option) => /外場|洗滌|洗碗/.test(option.label));
   const branchKeyword = String(environment.NUEIP_BRANCH_KEYWORD || '南港').trim();
   const branchMatches = branchKeyword
@@ -180,7 +193,10 @@ function resolveDepartmentValues(schedule, html, defaultDepartment, environment 
     : (roleMatches.length <= 2 ? roleMatches : []);
 
   if (selected.length === 0) {
-    throw new Error('找不到NUEIP南港外場／洗滌部門，請設定NUEIP_FRONT_WASH_DEPARTMENT_VALUES');
+    const available = options.slice(0, 12)
+      .map((option) => `${option.label}=${option.value}`)
+      .join(',');
+    throw new Error(`找不到NUEIP南港外場／洗滌部門；可用部門：${available || '無'}；請設定NUEIP_FRONT_WASH_DEPARTMENT_VALUES`);
   }
   return [...new Set(selected.map((option) => option.value))];
 }
@@ -788,6 +804,7 @@ module.exports._test = {
   formatLineMessages,
   normalizeDate,
   normalizeName,
+  parseAllOptions,
   parseAttendanceHtml,
   parseSelectOptions,
   resolveDepartmentValues,
