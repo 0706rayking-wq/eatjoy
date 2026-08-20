@@ -12,7 +12,10 @@
       "name": "LINE人事事件入口",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
-      "position": [0, 0],
+      "position": [
+        0,
+        0
+      ],
       "webhookId": "53ab7f9f-0870-4c55-bf72-195fa0dcf551",
       "credentials": {
         "httpHeaderAuth": {
@@ -29,7 +32,10 @@
       "name": "僅處理下班條照片",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [224, 0]
+      "position": [
+        224,
+        0
+      ]
     },
     {
       "parameters": {
@@ -48,7 +54,10 @@
       "name": "下載LINE照片",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [448, 0],
+      "position": [
+        448,
+        0
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "eqZPgNeJ2WPXRyVW",
@@ -65,7 +74,7 @@
           "value": "models/gemini-3.6-flash",
           "mode": "list"
         },
-        "text": "You are classifying and reading a Taiwanese restaurant handwritten work shift / attendance sheet. Return valid JSON ONLY, with no markdown, code fences, or prose.\n\nUse exactly this structure:\n{\n  \"is_attendance_sheet\": boolean,\n  \"header_sequence\": string[],\n  \"date\": string | null,\n  \"employees\": [\n    {\n      \"name\": string | null,\n      \"shifts\": [{\"start\": string | null, \"end\": string | null}],\n      \"off_or_unclear\": boolean,\n      \"needs_review\": boolean,\n      \"review_reason\": string | null\n    }\n  ],\n  \"warnings\": string[],\n  \"confidence\": number\n}\n\nMandatory classification gate:\n1. Set is_attendance_sheet=true ONLY when one visible printed table header row contains four consecutive work-time labels in this exact order: 上班, 下班, 上班, 下班.\n2. Copy those four visible labels verbatim into header_sequence. Do not infer them from handwritten times, employee rows, another document, or the expected template.\n3. If any label is missing, unclear, out of order, not consecutive in the same header row, or only inferred, set is_attendance_sheet=false, header_sequence to only the labels actually visible, date=null, employees=[], and stop.\n4. A title such as 下班條, a date, names, a grid, or handwritten times is never sufficient without the exact four-label header sequence.\n\nExtraction rules when and only when is_attendance_sheet=true:\n1. Read EVERY printed employee row in visual order. Never omit a row because it has a slash, blank times, changed day off, or unclear handwriting.\n2. Preserve printed Chinese names exactly. Never substitute a similar-looking character. If a name cannot be read confidently, use null and explain its row/location.\n3. A slash, 改休, 休, or blank schedule means shifts=[] and off_or_unclear=true.\n4. Convert readable times to 24-hour HH:mm. Examples: 930=>09:30, 15=>15:00, 2030=>20:30, 2145=>21:45.\n5. Each pair of columns is one shift. Do not combine split shifts.\n6. Set needs_review=true when the name, date, time, or mark is uncertain.\n7. Never invent missing values. Use null.\n8. confidence must be between 0 and 1.",
+        "text": "You are classifying and reading a Taiwanese restaurant handwritten work shift / attendance sheet. Return valid JSON ONLY, with no markdown, code fences, or prose.\n\nUse exactly this structure:\n{\n  \"is_attendance_sheet\": boolean,\n  \"sheet_type\": \"內場\" | \"外場／洗滌\" | \"未知\",\n  \"departments\": string[],\n  \"header_sequence\": string[],\n  \"date\": string | null,\n  \"employees\": [\n    {\n      \"name\": string | null,\n      \"department\": \"內場\" | \"外場\" | \"洗滌\" | null,\n      \"shifts\": [{\"start\": string | null, \"end\": string | null}],\n      \"off_or_unclear\": boolean,\n      \"needs_review\": boolean,\n      \"review_reason\": string | null\n    }\n  ],\n  \"warnings\": string[],\n  \"confidence\": number\n}\n\nMandatory classification gate:\n1. Set is_attendance_sheet=true ONLY when one visible printed table header row contains one of these consecutive work-time sequences:\n   - 內場: 上班, 下班, 上班, 下班\n   - 外場／洗滌: 上班1, 下班1, 上班2, 下班2\n   - Three-shift variant: 上班1, 下班1, 上班2, 下班2, 上班3, 下班3\n2. Copy one complete visible sequence verbatim into header_sequence. Full-width digits such as １, ２, ３ are acceptable as the same printed numbers.\n3. Do not infer headers from handwritten times, employee rows, another document, or the expected template.\n4. If no complete allowed sequence is clearly visible, set is_attendance_sheet=false, header_sequence to only the labels actually visible, date=null, employees=[], and stop.\n5. A title, date, names, grid, or handwritten times is never sufficient without one allowed printed header sequence.\n\nExtraction rules when and only when is_attendance_sheet=true:\n1. Read EVERY printed employee row across every repeated 姓名 block, in visual order. Never omit a row because it has a slash, blank times, changed day off, or unclear handwriting.\n2. Set sheet_type=內場 for the unnumbered header. Set sheet_type=外場／洗滌 for the numbered header. Record visible section labels such as 外場 or 洗滌 in departments and on each employee when clear; otherwise use null and add a warning.\n3. Preserve printed Chinese names exactly. Never substitute a similar-looking character. If a name cannot be read confidently, use null and explain its row/location.\n4. A slash, 改休, 休, or blank schedule means shifts=[] and off_or_unclear=true.\n5. Convert readable times to 24-hour HH:mm. Examples: 930=>09:30, 15=>15:00, 2030=>20:30, 2145=>21:45.\n6. Each numbered 上班/下班 pair is one shift. Preserve one, two, or three complete shifts in chronological order. Never merge split shifts.\n7. If a cell contains overwritten, stacked, crossed-out, or multiple possible times, use the clearly final uncrossed value only. If the final value or pairing is uncertain, keep null where needed and set needs_review=true with a precise reason. Never invent a third shift.\n8. Set needs_review=true when the name, department, date, time, correction, or start/end pairing is uncertain.\n9. confidence must be between 0 and 1.",
         "inputType": "binary",
         "options": {}
       },
@@ -73,7 +82,10 @@
       "name": "辨識下班條",
       "type": "@n8n/n8n-nodes-langchain.googleGemini",
       "typeVersion": 1.2,
-      "position": [672, 0],
+      "position": [
+        672,
+        0
+      ],
       "credentials": {
         "googlePalmApi": {
           "id": "ZpWaBKltRioEKUas",
@@ -83,13 +95,16 @@
     },
     {
       "parameters": {
-        "jsCode": "const candidates = [\n  $json.text,\n  $json.content?.parts?.map((part) => part?.text).filter(Boolean).join('\\n'),\n  $json.content?.text,\n  $json.response?.text,\n  $json.output\n];\nlet raw = candidates.find((value) => typeof value === 'string' && value.trim());\nif (!raw && typeof $json.content === 'string') raw = $json.content;\nif (!raw) throw new Error('Gemini回傳缺少文字內容');\nlet cleaned = raw.replace(/^\\uFEFF/, '').replace(/^```(?:json)?\\s*/i, '').replace(/```\\s*$/i, '').trim();\nconst firstBrace = cleaned.indexOf('{');\nconst lastBrace = cleaned.lastIndexOf('}');\nif (firstBrace >= 0 && lastBrace > firstBrace) cleaned = cleaned.slice(firstBrace, lastBrace + 1);\nlet schedule;\ntry { schedule = JSON.parse(cleaned); } catch (error) { throw new Error('Gemini回傳不是有效JSON'); }\nif (typeof schedule === 'string') schedule = JSON.parse(schedule);\nconst headers = Array.isArray(schedule.header_sequence)\n  ? schedule.header_sequence.map((value) => String(value || '').replace(/\\s+/g, ''))\n  : [];\nconst requiredHeaders = ['上班', '下班', '上班', '下班'];\nconst hasRequiredHeaderSequence = headers.some((_, index) =>\n  requiredHeaders.every((header, offset) => headers[index + offset] === header)\n);\nif (schedule.is_attendance_sheet !== true || !hasRequiredHeaderSequence) return [];\nif (!schedule.date || !Array.isArray(schedule.employees)) throw new Error('下班條缺少日期或員工資料');\nreturn [{ json: schedule }];"
+        "jsCode": "const candidates = [\n  $json.text,\n  $json.content?.parts?.map((part) => part?.text).filter(Boolean).join('\\n'),\n  $json.content?.text,\n  $json.response?.text,\n  $json.output\n];\nlet raw = candidates.find((value) => typeof value === 'string' && value.trim());\nif (!raw && typeof $json.content === 'string') raw = $json.content;\nif (!raw) throw new Error('Gemini回傳缺少文字內容');\nlet cleaned = raw.replace(/^\\uFEFF/, '').replace(/^\\x60\\x60\\x60(?:json)?\\s*/i, '').replace(/\\x60\\x60\\x60\\s*$/i, '').trim();\nconst firstBrace = cleaned.indexOf('{');\nconst lastBrace = cleaned.lastIndexOf('}');\nif (firstBrace >= 0 && lastBrace > firstBrace) cleaned = cleaned.slice(firstBrace, lastBrace + 1);\nlet schedule;\ntry { schedule = JSON.parse(cleaned); } catch (error) { throw new Error('Gemini回傳不是有效JSON'); }\nif (typeof schedule === 'string') schedule = JSON.parse(schedule);\n\nconst fullWidthDigits = { '１': '1', '２': '2', '３': '3' };\nconst normalizeHeader = (value) => String(value || '')\n  .replace(/[１２３]/g, (digit) => fullWidthDigits[digit])\n  .replace(/\\s+/g, '');\nconst headers = Array.isArray(schedule.header_sequence)\n  ? schedule.header_sequence.map(normalizeHeader)\n  : [];\nconst allowedHeaderSequences = [\n  ['上班', '下班', '上班', '下班'],\n  ['上班1', '下班1', '上班2', '下班2'],\n  ['上班1', '下班1', '上班2', '下班2', '上班3', '下班3']\n];\nconst hasAllowedHeaderSequence = allowedHeaderSequences.some((requiredHeaders) =>\n  headers.some((_, index) =>\n    requiredHeaders.every((header, offset) => headers[index + offset] === header)\n  )\n);\nif (schedule.is_attendance_sheet !== true || !hasAllowedHeaderSequence) return [];\nif (!schedule.date || !Array.isArray(schedule.employees)) throw new Error('下班條缺少日期或員工資料');\n\nschedule.sheet_type = ['內場', '外場／洗滌'].includes(schedule.sheet_type)\n  ? schedule.sheet_type\n  : (headers.some((header) => /[123]$/.test(header)) ? '外場／洗滌' : '內場');\nschedule.departments = Array.isArray(schedule.departments)\n  ? [...new Set(schedule.departments.map((value) => String(value || '').trim()).filter(Boolean))]\n  : [];\nschedule.employees = schedule.employees.map((employee) => ({\n  ...employee,\n  shifts: Array.isArray(employee?.shifts) ? employee.shifts.slice(0, 3) : []\n}));\nreturn [{ json: schedule }];"
       },
       "id": "7d7ed12e-c595-414c-894b-a73c21b28d03",
       "name": "整理辨識結果",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [896, 0]
+      "position": [
+        896,
+        0
+      ]
     },
     {
       "parameters": {
@@ -106,7 +121,10 @@
       "name": "NUEIP每日出勤比對",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [1120, 0],
+      "position": [
+        1120,
+        0
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "3MgQHeI5cuvePCWR",
@@ -129,7 +147,10 @@
       "name": "回傳LINE人事群",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
-      "position": [1344, 0],
+      "position": [
+        1344,
+        0
+      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "eqZPgNeJ2WPXRyVW",
@@ -141,22 +162,70 @@
   "pinData": {},
   "connections": {
     "LINE人事事件入口": {
-      "main": [[{"node": "僅處理下班條照片", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "僅處理下班條照片",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "僅處理下班條照片": {
-      "main": [[{"node": "下載LINE照片", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "下載LINE照片",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "下載LINE照片": {
-      "main": [[{"node": "辨識下班條", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "辨識下班條",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "辨識下班條": {
-      "main": [[{"node": "整理辨識結果", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "整理辨識結果",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "整理辨識結果": {
-      "main": [[{"node": "NUEIP每日出勤比對", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "NUEIP每日出勤比對",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     },
     "NUEIP每日出勤比對": {
-      "main": [[{"node": "回傳LINE人事群", "type": "main", "index": 0}]]
+      "main": [
+        [
+          {
+            "node": "回傳LINE人事群",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,

@@ -112,6 +112,32 @@ for (const line of messages.join('\n').split('\n')) {
   assert.ok(Array.from(line).length <= 28, `line exceeds 28 characters: ${line}`);
 }
 
+const frontWashMessages = formatLineMessages('2026-08-15', { issues: [], normalCount: 1, offMatchedCount: 0 }, {
+  sheet_type: '外場／洗滌'
+});
+assert.equal(frontWashMessages.join('\n').includes('店別：南港外場／洗滌'), true);
+
+const threeShiftAttendance = [{
+  employeeNumber: 'E900',
+  name: '測試外場',
+  schedule: '出勤日',
+  status: '',
+  clockIns: ['09:00', '12:00', '17:00'],
+  clockOuts: ['11:00', '14:00', '22:00']
+}];
+const threeShiftComparison = compareAttendance({
+  employees: [{
+    name: '測試外場',
+    shifts: [
+      { start: '09:00', end: '11:00' },
+      { start: '12:00', end: '14:00' },
+      { start: '17:00', end: '22:00' }
+    ]
+  }]
+}, threeShiftAttendance, []);
+assert.equal(threeShiftComparison.issues.length, 0);
+assert.equal(threeShiftComparison.normalCount, 1);
+
 assert.equal(normalizeDate('8/6', new Date('2026-08-07T00:00:00+08:00')), '2026-08-06');
 assert.deepEqual(wrapLine('123456', 3), ['123', '456']);
 

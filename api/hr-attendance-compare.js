@@ -612,11 +612,17 @@ function wrapLine(line, limit = MAX_LINE_CHARS) {
   return result.length ? result : [''];
 }
 
-function formatLineMessages(date, comparison) {
+function formatLineMessages(date, comparison, schedule = {}) {
   const displayDate = String(date).replace(/^\d{4}-/, '').replace('-', '/');
+  const sheetType = String(schedule.sheet_type || '').trim();
+  const departmentLabel = sheetType === '外場／洗滌'
+    ? '南港外場／洗滌'
+    : sheetType === '內場'
+      ? '南港內場'
+      : '南港內場';
   const lines = [
     `【${displayDate} 下班條比對】`,
-    '店別：南港內場',
+    `店別：${departmentLabel}`,
     `異常：${comparison.issues.length}項`,
     '────────'
   ];
@@ -691,7 +697,7 @@ async function handler(request, response) {
       .map((name) => name.trim())
       .filter(Boolean);
     const comparison = compareAttendance(schedule, attendance, excludedNames);
-    const lineMessages = formatLineMessages(date, comparison);
+    const lineMessages = formatLineMessages(date, comparison, schedule);
     const lineMessageObjects = lineMessages.map((text) => ({ type: 'text', text })).slice(0, 5);
     return response.status(200).json({
       status: 'ok',
