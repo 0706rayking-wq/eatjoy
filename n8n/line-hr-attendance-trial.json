@@ -166,11 +166,11 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { action: 'sync_explanations', mode: 'preview', normalRecords: $json.normalRecords || [] } }}",
+        "jsonBody": "={{ { action: 'sync_explanations', mode: 'commit', normalRecords: $json.normalRecords || [] } }}",
         "options": {}
       },
       "id": "0db27fc6-e747-4cc9-a8fc-4c8c91b24dda",
-      "name": "預覽正常人員說明寫入",
+      "name": "寫入正常人員NUEIP說明",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
@@ -251,7 +251,7 @@
             "index": 0
           },
           {
-            "node": "預覽正常人員說明寫入",
+            "node": "寫入正常人員NUEIP說明",
             "type": "main",
             "index": 0
           }
