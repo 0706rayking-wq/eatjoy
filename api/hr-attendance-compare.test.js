@@ -141,6 +141,15 @@ assert.equal(comparison.issues.some((issue) => issue.type === 'late' && issue.na
 assert.equal(comparison.issues.some((issue) => issue.type === 'early' && issue.name === '陳玉清福'), true);
 assert.equal(comparison.issues.some((issue) => issue.type === 'rest_day_work' && issue.name === '劉軒菱'), true);
 assert.equal(comparison.issues.some((issue) => issue.name === '黃遠志'), false);
+assert.deepEqual(comparison.normalRecords, [{
+  employeeNumber: '703043',
+  name: '謝采穎',
+  date: '2026-08-06',
+  clockEntries: [
+    { time: '17:55:14', type: '上班' },
+    { time: '21:58:47', type: '下班' }
+  ]
+}]);
 
 const messages = formatLineMessages('2026-08-06', comparison);
 assert.ok(messages.length >= 1);
@@ -175,6 +184,14 @@ const threeShiftComparison = compareAttendance({
 }, threeShiftAttendance, []);
 assert.equal(threeShiftComparison.issues.length, 0);
 assert.equal(threeShiftComparison.normalCount, 1);
+assert.deepEqual(threeShiftComparison.normalRecords[0].clockEntries, [
+  { time: '09:00', type: '上班' },
+  { time: '11:00', type: '下班' },
+  { time: '12:00', type: '上班' },
+  { time: '14:00', type: '下班' },
+  { time: '17:00', type: '上班' },
+  { time: '22:00', type: '下班' }
+]);
 
 assert.equal(normalizeDate('8/6', new Date('2026-08-07T00:00:00+08:00')), '2026-08-06');
 assert.deepEqual(wrapLine('123456', 3), ['123', '456']);
@@ -189,6 +206,12 @@ const adjustedComparison = compareAttendance({
   employees: [{ name: '測試員工', shifts: [{ start: '09:30', end: '15:00' }] }]
 }, [adjustedAndPhysical]);
 assert.equal(adjustedComparison.issues.some((issue) => issue.type === 'nueip_status'), false);
+
+const flaggedComparison = compareAttendance({
+  employees: [{ name: '測試員工', shifts: [{ start: '09:30', end: '15:02' }] }]
+}, [{ ...adjustedAndPhysical, status: '打卡異常' }]);
+assert.equal(flaggedComparison.normalCount, 0);
+assert.equal(flaggedComparison.normalRecords.length, 0);
 
 const unclearComparison = compareAttendance({
   employees: [{

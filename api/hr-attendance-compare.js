@@ -69,25 +69,37 @@ function minuteTime(value) {
 function parsePunchTimes(cell) {
   const physical = [];
   const adjusted = [];
+  const physicalRaw = [];
+  const adjustedRaw = [];
   const spanPattern = /<span\b([^>]*)>(\d{1,2}:\d{2}:\d{2})<\/span>/gi;
   let match;
 
   while ((match = spanPattern.exec(String(cell || ''))) !== null) {
     const attributes = match[1];
-    const time = minuteTime(match[2]);
-    if (/color_yellow/i.test(attributes)) adjusted.push(time);
-    else physical.push(time);
+    const rawTime = match[2];
+    const time = minuteTime(rawTime);
+    if (/color_yellow/i.test(attributes)) {
+      adjusted.push(time);
+      adjustedRaw.push(rawTime);
+    } else {
+      physical.push(time);
+      physicalRaw.push(rawTime);
+    }
   }
 
   // Older/simple NUEIP HTML and unit-test fixtures may omit colour classes.
   if (physical.length === 0 && adjusted.length === 0) {
-    physical.push(...((String(cell || '').match(/\b\d{2}:\d{2}:\d{2}\b/g) || []).map(minuteTime)));
+    const rawTimes = String(cell || '').match(/\b\d{2}:\d{2}:\d{2}\b/g) || [];
+    physicalRaw.push(...rawTimes);
+    physical.push(...rawTimes.map(minuteTime));
   }
 
   const unique = (values) => [...new Set(values)];
   return {
     actual: unique(physical.length > 0 ? physical : adjusted),
-    adjusted: unique(adjusted)
+    actualRaw: unique(physicalRaw.length > 0 ? physicalRaw : adjustedRaw),
+    adjusted: unique(adjusted),
+    adjustedRaw: unique(adjustedRaw)
   };
 }
 
@@ -130,6 +142,8 @@ function parseAttendanceHtml(html) {
       scheduledRange,
       clockIns,
       clockOuts,
+      rawClockIns: clockInPunches.actualRaw,
+      rawClockOuts: clockOutPunches.actualRaw,
       adjustedClockIns: clockInPunches.adjusted,
       adjustedClockOuts: clockOutPunches.adjusted,
       status
@@ -623,8 +637,10 @@ function compareAttendance(schedule, attendance, excludedNames = ['黃遠志']) 
   const matchedRecords = new Set();
   let normalCount = 0;
   let offMatchedCount = 0;
+  const normalRecords = [];
 
   for (const employee of Array.isArray(schedule.employees) ? schedule.employees : []) {
+    const employeeIssueStart = issues.length;
     const { record, ambiguous } = matchAttendance(employee.name, usableAttendance);
     if (ambiguous) {
       issues.push({ type: 'name_ambiguous', name: employee.name || '姓名不清', detail: '姓名符合多位員工' });
@@ -715,7 +731,25 @@ function compareAttendance(schedule, attendance, excludedNames = ['黃遠志']) 
       });
     }
 
-    if (!timeIssue && !isRestDay) normalCount += 1;
+    if (!timeIssue && !isRestDay && issues.length === employeeIssueStart) {
+      normalCount += 1;
+      const rawClockIns = record.rawClockIns?.length ? record.rawClockIns : record.clockIns;
+      const rawClockOuts = record.rawClockOuts?.length ? record.rawClockOuts : record.clockOuts;
+      const clockEntries = [
+        ...rawClockIns.map((time) => ({ time, type: '上班' })),
+        ...rawClockOuts.map((time) => ({ time, type: '下班' }))
+      ].sort((left, right) => {
+        const leftSeconds = timeToSeconds(left.time);
+        const rightSeconds = timeToSeconds(right.time);
+        return (leftSeconds ?? Number.MAX_SAFE_INTEGER) - (rightSeconds ?? Number.MAX_SAFE_INTEGER);
+      });
+      normalRecords.push({
+        employeeNumber: record.employeeNumber,
+        name: record.name,
+        date: record.date || schedule.date || '',
+        clockEntries
+      });
+    }
   }
 
   for (const record of usableAttendance) {
@@ -728,7 +762,7 @@ function compareAttendance(schedule, attendance, excludedNames = ['黃遠志']) 
     });
   }
 
-  return { issues, normalCount, offMatchedCount };
+  return { issues, normalCount, offMatchedCount, normalRecords };
 }
 
 function wrapLine(line, limit = MAX_LINE_CHARS) {

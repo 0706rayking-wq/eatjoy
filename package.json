@@ -2,7 +2,7 @@
   "name": "eatjoy",
   "private": true,
   "scripts": {
-    "test": "node api/line-webhook.test.js && node api/hr-attendance-compare.test.js && node api/google-review-lib.test.js && node api/google-review-report.test.js && node api/little-thunder-assistant-core.test.js && node n8n/line-hr-attendance-trial.test.js"
+    "test": "node api/line-webhook.test.js && node api/hr-attendance-compare.test.js && node api/hr-attendance-explanation-sync.test.js && node api/google-review-lib.test.js && node api/google-review-report.test.js && node api/little-thunder-assistant-core.test.js && node n8n/line-hr-attendance-trial.test.js"
   },
   "engines": {
     "node": ">=20"

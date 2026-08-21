@@ -157,6 +157,32 @@
           "name": "Header Auth account 2"
         }
       }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://eatjoy-git-agent-line-hr-webhook-relay-0706rayking-wqs-projects.vercel.app/api/hr-attendance-explanation-sync",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { mode: 'preview', normalRecords: $json.normalRecords || [] } }}",
+        "options": {}
+      },
+      "id": "0db27fc6-e747-4cc9-a8fc-4c8c91b24dda",
+      "name": "預覽正常人員說明寫入",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1344,
+        224
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3MgQHeI5cuvePCWR",
+          "name": "Header Auth account"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -221,6 +247,11 @@
         [
           {
             "node": "回傳LINE人事群",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "預覽正常人員說明寫入",
             "type": "main",
             "index": 0
           }
