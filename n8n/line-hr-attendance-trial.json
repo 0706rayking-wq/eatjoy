@@ -161,12 +161,12 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://eatjoy-git-agent-line-hr-webhook-relay-0706rayking-wqs-projects.vercel.app/api/hr-attendance-explanation-sync",
+        "url": "https://eatjoy-git-agent-line-hr-webhook-relay-0706rayking-wqs-projects.vercel.app/api/hr-attendance-compare",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { mode: 'preview', normalRecords: $json.normalRecords || [] } }}",
+        "jsonBody": "={{ { action: 'sync_explanations', mode: 'preview', normalRecords: $json.normalRecords || [] } }}",
         "options": {}
       },
       "id": "0db27fc6-e747-4cc9-a8fc-4c8c91b24dda",

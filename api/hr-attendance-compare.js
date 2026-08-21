@@ -1,4 +1,5 @@
 const crypto = require('node:crypto');
+const explanationSyncHandler = require('../lib/hr-attendance-explanation-sync');
 
 const NUEIP_HOST_SUFFIX = '.nueip.com';
 const MAX_LINE_CHARS = 28;
@@ -843,6 +844,9 @@ function normalizeDate(value, now = new Date()) {
 }
 
 async function handler(request, response) {
+  if (request.body?.action === 'sync_explanations') {
+    return explanationSyncHandler(request, response);
+  }
   if (request.method !== 'POST') {
     response.setHeader('Allow', 'POST');
     return response.status(405).json({ status: 'error', message: 'Method not allowed' });

@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { normalizeRecords } = require('./hr-attendance-explanation-sync')._test;
+const { normalizeRecords } = require('../lib/hr-attendance-explanation-sync')._test;
 
 assert.deepEqual(normalizeRecords([{
   employeeNumber: '403003',
