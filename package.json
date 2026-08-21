@@ -1,0 +1,14 @@
+{
+  "name": "eatjoy",
+  "private": true,
+  "scripts": {
+    "test": "node api/line-webhook.test.js && node api/hr-attendance-compare.test.js && node tests/hr-attendance-explanation-sync.test.js && node tests/hr-schedule-planner.test.js && node api/google-review-lib.test.js && node api/google-review-report.test.js && node api/little-thunder-assistant-core.test.js && node n8n/line-hr-attendance-trial.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@sparticuz/chromium": "149.0.0",
+    "puppeteer-core": "25.5.0"
+  }
+}

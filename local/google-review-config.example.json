@@ -1,0 +1,9 @@
+{
+  "storeName": "南港店",
+  "googleReviewUrl": "https://www.google.com/maps/place//data=!4m4!3m3!1s0x3442addb0e0a1d19:0x8cecf79e345ec750!9m1!1b1?hl=zh-TW",
+  "chromePath": "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+  "chromeProfileDir": "C:\\EatjoyReviewBot\\ChromeProfile",
+  "repository": "0706rayking-wq/eatjoy",
+  "n8nWebhookUrl": "PASTE_N8N_PRODUCTION_WEBHOOK_URL_HERE",
+  "n8nWebhookSecret": "CREATE_A_RANDOM_SECRET_HERE"
+}
