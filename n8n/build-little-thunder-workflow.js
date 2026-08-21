@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
 const source = fs.readFileSync(path.join(root, 'api', 'little-thunder-assistant-core.js'), 'utf8');
-const core = source.match(/\/\/ N8N_CORE_START\n([\s\S]*?)\/\/ N8N_CORE_END/)[1].trim();
+const core = source.match(/\/\/ N8N_CORE_START\r?\n([\s\S]*?)\/\/ N8N_CORE_END/)[1].trim();
 
 const wrapper = `
 ${core}
@@ -34,7 +34,7 @@ if (Array.isArray(eventInput.body?.events)) {
     // A normal group conversation must never become a task merely because the
     // AI can understand it. The wake word has to exist in the original text.
     if (!rawText.includes('小雷神')) continue;
-    const safetyCommand = /刪除|確認|取消/.test(rawText);
+    const safetyCommand = /刪除|清除|確認|取消/.test(rawText);
     const privacyDisabledCommand = /生日|特休/.test(rawText);
     const helpCommand = /可以做什麼|能做什麼|可用指令|功能|怎麼用|如何使用/.test(rawText);
     const reminderListCommand = /提醒清單|待提醒(?:的)?(?:任務|事項|紀錄|記錄)|(?:檢視|查看|顯示|列出).*(?:提醒|待辦)|(?:目前|現在).*(?:提醒|待辦)/.test(rawText);
@@ -93,7 +93,7 @@ const extractorPrompt = `你是LINE人事助理「小雷神」的語意理解層
 一次多筆資料時，每筆各占一行並保留姓名、日期、週期與事項。
 
 安全規則：
-1. 原文含「刪除」「確認」或「取消」時，canonicalText 必須逐字等於原文，intent 填 safety_command，絕不可改寫、補字或代替確認。
+1. 原文含「刪除」「清除」「確認」或「取消」時，canonicalText 必須逐字等於原文，intent 填 safety_command，絕不可改寫、補字或代替確認。
 2. 原文含「生日」或「特休」時，canonicalText 必須逐字等於原文，intent 填 privacy_disabled；不得改寫成備忘錄或其他任務。
 3. 不得猜測姓名、日期、設備、保養週期或提醒天數。
 4. 必要資料不足時，needsClarification=true，clarificationQuestion 只問一個簡短問題；canonicalText 保留原意。

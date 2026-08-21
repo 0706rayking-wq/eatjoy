@@ -303,6 +303,42 @@ function buildReminderList(state) {
   ].join('\n');
 }
 
+function memoClearCommandPattern(action) {
+  return new RegExp(`^(?:請)?(?:幫我)?${action}(?:目前|現在)?(?:所有|全部)(?:的)?(?:備忘錄|備忘|備忘清單|備忘錄清單)$`);
+}
+
+function buildMemoClearRequest(state, now) {
+  ensureState(state);
+  if (!state.memos.length) {
+    state.pendingMemoClear = null;
+    return [
+      '【小雷神｜目前沒有備忘錄】',
+      '沒有資料需要清除'
+    ].join('\n');
+  }
+
+  const ids = state.memos.map((memo, index) => {
+    memo.id ||= `memo-${now.getTime()}-${index}`;
+    return memo.id;
+  });
+  state.pendingMemoClear = { ids, requestedAt: now.getTime() };
+
+  const items = state.memos.flatMap((memo, index) => {
+    const date = memo.remindDate ? `${displayMd(memo.remindDate)}提醒｜` : '';
+    return wrapMessageLine(`${index + 1}.${date}${memo.text || '未命名備忘'}`);
+  });
+  return [
+    '【小雷神｜清除備忘錄待確認】',
+    `即將清除：${ids.length}筆`,
+    ...items,
+    '確認請完整輸入：',
+    '小雷神，確認清除所有備忘錄',
+    '10分鐘內未確認將自動失效',
+    '取消請輸入：',
+    '小雷神，取消清除所有備忘錄'
+  ].join('\n');
+}
+
 function parseAssistantCommand(rawText, state, now = new Date()) {
   ensureState(state);
   const text = normalizeText(rawText);
@@ -311,6 +347,42 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
   let match;
 
   if (/生日|特休/.test(command)) return privacyDisabledReply();
+
+  if (memoClearCommandPattern('取消(?:清除|刪除)').test(command)) {
+    const existed = Boolean(state.pendingMemoClear);
+    state.pendingMemoClear = null;
+    return existed
+      ? ['【小雷神｜已取消清除備忘錄】', '所有備忘錄均已保留'].join('\n')
+      : ['【小雷神｜沒有待確認的清除要求】'].join('\n');
+  }
+
+  if (memoClearCommandPattern('確認(?:清除|刪除)').test(command)) {
+    const pending = state.pendingMemoClear;
+    const isValid = pending && now.getTime() - pending.requestedAt <= 10 * 60 * 1000;
+    if (!isValid) {
+      state.pendingMemoClear = null;
+      return [
+        '【小雷神｜無法清除備忘錄】',
+        '沒有有效的待確認要求',
+        '請重新提出清除要求'
+      ].join('\n');
+    }
+    const targetIds = new Set(pending.ids);
+    const before = state.memos.length;
+    state.memos = state.memos.filter((memo) => !targetIds.has(memo.id));
+    const removed = before - state.memos.length;
+    state.pendingMemoClear = null;
+    return [
+      '【小雷神｜清除備忘錄完成】',
+      `已清除：${removed}筆`,
+      `保留：${state.memos.length}筆`,
+      '還有什麼我能協助你的嗎？'
+    ].join('\n');
+  }
+
+  if (memoClearCommandPattern('(?:清除|刪除|刪掉|移除)').test(command)) {
+    return buildMemoClearRequest(state, now);
+  }
 
   const reminderListIntent = /提醒清單|待提醒(?:的)?(?:任務|事項|紀錄|記錄)|(?:檢視|查看|顯示|列出).*(?:提醒|待辦)|(?:目前|現在).*(?:提醒|待辦)/.test(command);
   if (reminderListIntent) return buildReminderList(state);
@@ -556,6 +628,7 @@ function parseAssistantCommand(rawText, state, now = new Date()) {
     '再次確認後才會執行',
     '指令：刪除姓名的所有紀錄',
     '批量：批量刪除以下人員＋姓名清單',
+    '備忘：清除所有備忘錄',
     '',
     '5.【檢視目前提醒清單】',
     '查看所有已紀錄且待提醒的任務',
