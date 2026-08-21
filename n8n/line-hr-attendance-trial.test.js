@@ -17,13 +17,17 @@ assert.ok(scheduleSplitNode);
 assert.ok(scheduleCommitNode);
 assert.match(explanationPreviewNode.parameters.jsonBody, /mode: 'commit'/);
 assert.match(explanationPreviewNode.parameters.jsonBody, /normalRecords/);
-assert.match(scheduleSplitNode.parameters.jsCode, /updated.*unchanged/);
+assert.match(scheduleSplitNode.parameters.jsCode, /NUEIP每日出勤比對/);
+assert.match(scheduleSplitNode.parameters.jsCode, /normalRecords/);
 assert.match(scheduleCommitNode.parameters.jsonBody, /sync_schedule/);
 assert.match(scheduleCommitNode.parameters.jsonBody, /mode: 'commit'/);
 assert.equal(workflow.connections['寫入正常人員NUEIP說明'].main[0][0].node, '逐一處理正常人員班表');
 assert.equal(workflow.connections['逐一處理正常人員班表'].main[0][0].node, '寫入正常人員NUEIP班表');
-assert.match(lineResponseNode.parameters.jsonBody, /^\{\{/);
-assert.doesNotMatch(lineResponseNode.parameters.jsonBody, /^=/);
+assert.deepEqual(
+  workflow.connections['NUEIP每日出勤比對'].main[0].map((connection) => connection.node),
+  ['回傳LINE人事群', '寫入正常人員NUEIP說明']
+);
+assert.match(lineResponseNode.parameters.jsonBody, /^=\{\{/);
 assert.match(lineResponseNode.parameters.jsonBody, /南港外場／洗滌/);
 assert.match(recognitionNode.parameters.text, /上班, 下班, 上班, 下班/);
 assert.match(recognitionNode.parameters.text, /上班1, 下班1, 上班2, 下班2/);
