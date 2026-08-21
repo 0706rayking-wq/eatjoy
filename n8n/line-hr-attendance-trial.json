@@ -122,7 +122,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://proeatjoy.vercel.app/api/hr-attendance-compare",
+        "url": "https://eatjoy-2c2lef3nw-0706rayking-wqs-projects.vercel.app/api/hr-attendance-compare",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
@@ -174,7 +174,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://proeatjoy.vercel.app/api/hr-attendance-compare",
+        "url": "https://eatjoy-2c2lef3nw-0706rayking-wqs-projects.vercel.app/api/hr-attendance-compare",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
@@ -200,7 +200,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://proeatjoy.vercel.app/api/hr-attendance-compare",
+        "url": "https://eatjoy-2c2lef3nw-0706rayking-wqs-projects.vercel.app/api/hr-attendance-compare",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
