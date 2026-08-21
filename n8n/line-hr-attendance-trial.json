@@ -183,6 +183,32 @@
           "name": "Header Auth account"
         }
       }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://eatjoy-git-agent-line-hr-webhook-relay-0706rayking-wqs-projects.vercel.app/api/hr-attendance-compare",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { action: 'preview_schedule', mode: 'preview', normalRecords: ($json.results || []).filter(item => ['updated', 'unchanged'].includes(item.status)) } }}",
+        "options": {}
+      },
+      "id": "be4f0c51-5147-482e-8aac-8a06788e7510",
+      "name": "預覽NUEIP快速排班",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1584,
+        224
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3MgQHeI5cuvePCWR",
+          "name": "Header Auth account"
+        }
+      }
     }
   ],
   "pinData": {},
@@ -252,6 +278,17 @@
           },
           {
             "node": "寫入正常人員NUEIP說明",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "寫入正常人員NUEIP說明": {
+      "main": [
+        [
+          {
+            "node": "預覽NUEIP快速排班",
             "type": "main",
             "index": 0
           }

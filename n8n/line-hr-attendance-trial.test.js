@@ -7,12 +7,17 @@ const recognitionNode = workflow.nodes.find((node) => node.name === '辨識下�
 const normalizeNode = workflow.nodes.find((node) => node.name === '整理辨識結果');
 const lineResponseNode = workflow.nodes.find((node) => node.name === '回傳LINE人事群');
 const explanationPreviewNode = workflow.nodes.find((node) => node.name === '寫入正常人員NUEIP說明');
+const schedulePreviewNode = workflow.nodes.find((node) => node.name === '預覽NUEIP快速排班');
 assert.ok(recognitionNode);
 assert.ok(normalizeNode);
 assert.ok(lineResponseNode);
 assert.ok(explanationPreviewNode);
+assert.ok(schedulePreviewNode);
 assert.match(explanationPreviewNode.parameters.jsonBody, /mode: 'commit'/);
 assert.match(explanationPreviewNode.parameters.jsonBody, /normalRecords/);
+assert.match(schedulePreviewNode.parameters.jsonBody, /preview_schedule/);
+assert.match(schedulePreviewNode.parameters.jsonBody, /updated.*unchanged/);
+assert.equal(workflow.connections['寫入正常人員NUEIP說明'].main[0][0].node, '預覽NUEIP快速排班');
 assert.match(lineResponseNode.parameters.jsonBody, /^\{\{/);
 assert.doesNotMatch(lineResponseNode.parameters.jsonBody, /^=/);
 assert.match(lineResponseNode.parameters.jsonBody, /南港外場／洗滌/);

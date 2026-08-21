@@ -145,6 +145,8 @@ assert.deepEqual(comparison.normalRecords, [{
   employeeNumber: '703043',
   name: '謝采穎',
   date: '2026-08-06',
+  department: '',
+  scheduledShifts: [{ start: '18:00', end: '21:45' }],
   clockEntries: [
     { time: '17:55:14', type: '上班' },
     { time: '21:58:47', type: '下班' }

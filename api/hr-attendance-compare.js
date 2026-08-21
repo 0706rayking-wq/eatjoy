@@ -748,6 +748,8 @@ function compareAttendance(schedule, attendance, excludedNames = ['黃遠志']) 
         employeeNumber: record.employeeNumber,
         name: record.name,
         date: record.date || schedule.date || '',
+        department: employee.department || schedule.sheet_type || '',
+        scheduledShifts: shifts.map((shift) => ({ start: minuteTime(shift.start), end: minuteTime(shift.end) })),
         clockEntries
       });
     }
@@ -844,7 +846,7 @@ function normalizeDate(value, now = new Date()) {
 }
 
 async function handler(request, response) {
-  if (request.body?.action === 'sync_explanations') {
+  if (['sync_explanations', 'preview_schedule'].includes(request.body?.action)) {
     return explanationSyncHandler(request, response);
   }
   if (request.method !== 'POST') {
