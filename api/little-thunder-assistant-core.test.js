@@ -150,6 +150,44 @@ parseAssistantCommand('小雷神，下個月10號要開月大會，請提前十�
 assert.match(buildDueMemos(memoState, new Date('2026-08-31T09:00:00+08:00')), /開月大會/);
 assert.equal(buildDueMemos(memoState, new Date('2026-08-31T09:01:00+08:00')), null);
 
+const memoClearState = {
+  memos: [
+    { id: 'clear-1', eventDate: '2026-09-01', remindDate: '2026-08-25', text: '統計請假名單', sent: false },
+    { id: 'clear-2', eventDate: '2026-09-10', remindDate: '2026-09-03', text: '準備月大會', sent: false }
+  ]
+};
+const memoClearRequest = parseAssistantCommand('小雷神，清除目前所有備忘清單', memoClearState, now);
+assert.match(memoClearRequest, /清除備忘錄待確認/);
+assert.match(memoClearRequest, /即將清除：2筆/);
+assert.match(memoClearRequest, /統計請假名單/);
+assert.match(memoClearRequest, /準備月大會/);
+assert.equal(memoClearState.memos.length, 2);
+memoClearState.memos.push({ id: 'new-after-request', eventDate: '2026-09-20', remindDate: '2026-09-10', text: '確認後新增', sent: false });
+const memoClearResult = parseAssistantCommand(
+  '小雷神，確認清除所有備忘錄',
+  memoClearState,
+  new Date(now.getTime() + 5 * 60000)
+);
+assert.match(memoClearResult, /已清除：2筆/);
+assert.match(memoClearResult, /保留：1筆/);
+assert.deepEqual(memoClearState.memos.map((memo) => memo.id), ['new-after-request']);
+
+const expiredMemoClearState = {
+  memos: [{ id: 'expired-clear', eventDate: '2026-09-01', remindDate: '2026-08-25', text: '不應刪除', sent: false }]
+};
+parseAssistantCommand('小雷神，刪除全部備忘錄', expiredMemoClearState, now);
+assert.match(
+  parseAssistantCommand('小雷神，確認刪除全部備忘錄', expiredMemoClearState, new Date(now.getTime() + 11 * 60000)),
+  /無法清除備忘錄/
+);
+assert.equal(expiredMemoClearState.memos.length, 1);
+
+parseAssistantCommand('小雷神，清除所有備忘錄', expiredMemoClearState, now);
+assert.match(parseAssistantCommand('小雷神，取消清除所有備忘錄', expiredMemoClearState, now), /已取消清除備忘錄/);
+assert.equal(expiredMemoClearState.memos.length, 1);
+
+assert.match(parseAssistantCommand('小雷神，清除所有備忘錄', {}, now), /目前沒有備忘錄/);
+
 assert.match(parseAssistantCommand('小雷神，幫我刪除王小明的所有紀錄', state, now), /請再次確認/);
 assert.notEqual(state.people.王小明, undefined);
 assert.match(parseAssistantCommand('小雷神，確認刪除王小明的所有紀錄', state, new Date(now.getTime() + 5 * 60000)), /刪除完成/);
