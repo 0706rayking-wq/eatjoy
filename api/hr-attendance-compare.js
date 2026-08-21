@@ -876,7 +876,7 @@ function normalizeDate(value, now = new Date()) {
 }
 
 async function handler(request, response) {
-  if (['sync_explanations', 'preview_schedule'].includes(request.body?.action)) {
+  if (['sync_explanations', 'preview_schedule', 'sync_schedule'].includes(request.body?.action)) {
     return explanationSyncHandler(request, response);
   }
   if (request.method !== 'POST') {

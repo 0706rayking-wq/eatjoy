@@ -108,7 +108,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const records = ($json.results || []).filter((item) => ['updated', 'unchanged'].includes(item.status));\nreturn records.map((record) => ({ json: record }));"
+        "jsCode": "const input = $('NUEIP每日出勤比對').first().json;\nconst records = Array.isArray(input.normalRecords) ? input.normalRecords : [];\nreturn records.map((record) => ({ json: record }));"
       },
       "id": "10a4cc86-5e1d-4277-a476-6c4ef4bcedfd",
       "name": "逐一處理正常人員班表",
@@ -122,7 +122,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://eatjoy-2c2lef3nw-0706rayking-wqs-projects.vercel.app/api/hr-attendance-compare",
+        "url": "https://eatjoy-git-agent-line-hr-webhook-relay-0706rayking-wqs-projects.vercel.app/api/hr-attendance-compare",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
@@ -153,7 +153,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "{{ (() => { const isFrontWash = $('整理辨識結果').first().json.sheet_type === '外場／洗滌'; const lineMessages = ($json.lineMessages || []).slice(0, 5).map(text => isFrontWash ? String(text).replace('店別：南港內場', '店別：南港外場／洗滌') : String(text)); return { to: $('僅處理下班條照片').first().json.event.source.groupId, messages: lineMessages.map(text => ({ type: 'text', text })) }; })() }}",
+        "jsonBody": "={{ (() => { const isFrontWash = $('整理辨識結果').first().json.sheet_type === '外場／洗滌'; const lineMessages = ($json.lineMessages || []).slice(0, 5).map(text => isFrontWash ? String(text).replace('店別：南港內場', '店別：南港外場／洗滌') : String(text)); return { to: $('僅處理下班條照片').first().json.event.source.groupId, messages: lineMessages.map(text => ({ type: 'text', text })) }; })() }}",
         "options": {}
       },
       "id": "03e1b8e4-c8ed-4ccb-8de0-31f4c925b78b",
@@ -174,7 +174,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://eatjoy-2c2lef3nw-0706rayking-wqs-projects.vercel.app/api/hr-attendance-compare",
+        "url": "https://eatjoy-git-agent-line-hr-webhook-relay-0706rayking-wqs-projects.vercel.app/api/hr-attendance-compare",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
@@ -200,7 +200,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://eatjoy-2c2lef3nw-0706rayking-wqs-projects.vercel.app/api/hr-attendance-compare",
+        "url": "https://eatjoy-git-agent-line-hr-webhook-relay-0706rayking-wqs-projects.vercel.app/api/hr-attendance-compare",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
@@ -294,6 +294,17 @@
             "type": "main",
             "index": 0
           }
+      ]
+    ]
+  },
+    "逐一處理正常人員班表": {
+      "main": [
+        [
+          {
+            "node": "寫入正常人員NUEIP班表",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -302,17 +313,6 @@
         [
           {
             "node": "逐一處理正常人員班表",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "逐一處理正常人員班表": {
-      "main": [
-        [
-          {
-            "node": "寫入正常人員NUEIP班表",
             "type": "main",
             "index": 0
           }
