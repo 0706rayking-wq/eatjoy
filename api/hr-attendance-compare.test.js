@@ -195,6 +195,22 @@ assert.deepEqual(threeShiftComparison.normalRecords[0].clockEntries, [
   { time: '22:00', type: '下班' }
 ]);
 
+const duplicateNameComparison = compareAttendance({
+  employees: [{ name: '阮氏情', shifts: [{ start: '09:30', end: '15:30' }] }]
+}, [
+  {
+    employeeNumber: '702079', name: '阮氏情', department: '南港三井Lalaport外場',
+    schedule: '出勤日', status: '', clockIns: ['16:52'], clockOuts: ['17:28']
+  },
+  {
+    employeeNumber: '703099', name: '阮氏情', department: '南港三井Lalaport內場',
+    schedule: '出勤日', status: '', clockIns: ['09:21'], clockOuts: ['15:34']
+  }
+], []);
+assert.equal(duplicateNameComparison.issues.some((issue) => issue.type === 'name_ambiguous'), false);
+assert.equal(duplicateNameComparison.normalRecords[0].employeeNumber, '703099');
+assert.equal(duplicateNameComparison.normalRecords[0].department, '南港三井Lalaport內場');
+
 assert.equal(normalizeDate('8/6', new Date('2026-08-07T00:00:00+08:00')), '2026-08-06');
 assert.deepEqual(wrapLine('123456', 3), ['123', '456']);
 

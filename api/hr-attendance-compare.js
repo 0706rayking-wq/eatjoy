@@ -122,6 +122,8 @@ function parseAttendanceHtml(html) {
     const employeeCell = readCell('員工', 3);
     const nameMatch = employeeCell.match(/class=["'][^"']*user-popover[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
     const name = htmlText(nameMatch?.[1] || employeeCell).replace(/^.*?(?=[\p{Script=Han}]{2,})/u, '');
+    const employeeContext = htmlText(employeeCell);
+    const department = employeeContext.match(/南港三井Lalaport(?:內場|外場)/)?.[0] || '';
     const dateCell = readCell('日期', 4);
     const date = dateCell.match(/\d{4}-\d{2}-\d{2}/)?.[0] || '';
     const scheduleCell = readCell('表定時間', 5);
@@ -138,6 +140,7 @@ function parseAttendanceHtml(html) {
     rows.push({
       employeeNumber,
       name,
+      department,
       date,
       schedule,
       scheduledRange,
@@ -568,11 +571,38 @@ function normalizeName(value) {
   return String(value || '').replace(/[^\p{Script=Han}A-Za-z0-9]/gu, '');
 }
 
-function matchAttendance(name, attendance) {
-  const target = normalizeName(name);
+function attendanceCandidateScore(employee, record) {
+  const shifts = Array.isArray(employee?.shifts) ? employee.shifts : [];
+  if (shifts.length === 0) return null;
+  if (record.clockIns.length !== shifts.length || record.clockOuts.length !== shifts.length) return null;
+  const starts = shifts.map((shift) => timeToSeconds(shift?.start));
+  const ends = shifts.map((shift) => timeToSeconds(shift?.end));
+  const actualStarts = record.clockIns.map(timeToSeconds);
+  const actualEnds = record.clockOuts.map(timeToSeconds);
+  if ([...starts, ...ends, ...actualStarts, ...actualEnds].some((value) => value === null)) return null;
+  for (let index = 0; index < ends.length; index += 1) {
+    const difference = actualEnds[index] - ends[index];
+    if (difference <= -EARLY_SECONDS || difference > LATE_SECONDS) return null;
+  }
+  return starts.reduce((total, start, index) => total + Math.abs(actualStarts[index] - start), 0)
+    + ends.reduce((total, end, index) => total + Math.abs(actualEnds[index] - end), 0);
+}
+
+function matchAttendance(employee, attendance) {
+  const target = normalizeName(employee?.name);
   if (!target) return { record: null, ambiguous: false };
   const exact = attendance.filter((record) => normalizeName(record.name) === target);
   if (exact.length === 1) return { record: exact[0], ambiguous: false };
+  if (exact.length > 1) {
+    const scored = exact
+      .map((record) => ({ record, score: attendanceCandidateScore(employee, record) }))
+      .filter((item) => item.score !== null)
+      .sort((left, right) => left.score - right.score);
+    if (scored.length === 1 || (scored.length > 1 && scored[0].score < scored[1].score)) {
+      return { record: scored[0].record, ambiguous: false };
+    }
+    return { record: null, ambiguous: true };
+  }
   const suffix = attendance.filter((record) => {
     const official = normalizeName(record.name);
     return official.endsWith(target) || target.endsWith(official);
@@ -642,7 +672,7 @@ function compareAttendance(schedule, attendance, excludedNames = ['黃遠志']) 
 
   for (const employee of Array.isArray(schedule.employees) ? schedule.employees : []) {
     const employeeIssueStart = issues.length;
-    const { record, ambiguous } = matchAttendance(employee.name, usableAttendance);
+    const { record, ambiguous } = matchAttendance(employee, usableAttendance);
     if (ambiguous) {
       issues.push({ type: 'name_ambiguous', name: employee.name || '姓名不清', detail: '姓名符合多位員工' });
       continue;
@@ -748,7 +778,7 @@ function compareAttendance(schedule, attendance, excludedNames = ['黃遠志']) 
         employeeNumber: record.employeeNumber,
         name: record.name,
         date: record.date || schedule.date || '',
-        department: employee.department || schedule.sheet_type || '',
+        department: record.department || employee.department || schedule.sheet_type || '',
         scheduledShifts: shifts.map((shift) => ({ start: minuteTime(shift.start), end: minuteTime(shift.end) })),
         clockEntries
       });

@@ -20,5 +20,8 @@ assert.deepEqual(plans[0].selectedShifts.map((shift) => shift.value), ['A', 'C']
 
 assert.equal(planSchedule([{ scheduledShifts: [{ start: '09:30', end: null }] }], options)[0].status, 'manual');
 assert.equal(planSchedule([{ scheduledShifts: [{ start: '10:00', end: '15:00' }] }], options)[0].status, 'manual');
+assert.equal(planSchedule([{
+  scheduledShifts: [{ start: '09:30', end: '15:00' }]
+}], [...options, { value: 'A2', label: '早班(09:30~15:00)' }])[0].status, 'ready');
 
 console.log('hr-schedule-planner tests passed');
