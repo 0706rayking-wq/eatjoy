@@ -4,6 +4,7 @@ const {
   explanationDepartmentValues,
   normalizeRecords,
   scheduleDepartment,
+  weekdayForDate,
   weekIndexForDate
 } = require('../lib/hr-attendance-explanation-sync')._test;
 
@@ -31,6 +32,7 @@ assert.throws(() => normalizeRecords([{
 assert.equal(scheduleDepartment({ department: '南港三井Lalaport外場' }), '南港三井Lalaport外場');
 assert.equal(scheduleDepartment({ department: '南港三井Lalaport內場' }), '南港三井Lalaport內場');
 assert.throws(() => scheduleDepartment({ name: '測試員工', department: '未知' }), /無法判斷/);
+assert.equal(weekdayForDate('2026-08-21'), 5);
 assert.equal(weekIndexForDate('2026-08-21'), 3);
 assert.deepEqual(explanationDepartmentValues(
   { department: '南港三井Lalaport內場' },
