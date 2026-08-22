@@ -1,5 +1,11 @@
 const assert = require('node:assert/strict');
-const { normalizeRecords, scheduleDepartment, weekIndexForDate } = require('../lib/hr-attendance-explanation-sync')._test;
+const {
+  attendanceRowSelectors,
+  explanationDepartmentValues,
+  normalizeRecords,
+  scheduleDepartment,
+  weekIndexForDate
+} = require('../lib/hr-attendance-explanation-sync')._test;
 
 assert.deepEqual(normalizeRecords([{
   employeeNumber: '403003',
@@ -26,5 +32,16 @@ assert.equal(scheduleDepartment({ department: '南港三井Lalaport外場' }), '
 assert.equal(scheduleDepartment({ department: '南港三井Lalaport內場' }), '南港三井Lalaport內場');
 assert.throws(() => scheduleDepartment({ name: '測試員工', department: '未知' }), /無法判斷/);
 assert.equal(weekIndexForDate('2026-08-21'), 3);
+assert.deepEqual(explanationDepartmentValues(
+  { department: '南港三井Lalaport內場' },
+  '15451',
+  {}
+), ['15451_103016', '15451_0']);
+assert.deepEqual(explanationDepartmentValues(
+  { department: '南港三井Lalaport外場' },
+  '15451',
+  { NUEIP_FRONT_WASH_DEPARTMENT_VALUES: '15451_103017,15451_103018' }
+), ['15451_103017', '15451_103018', '15451_0']);
+assert.match(attendanceRowSelectors().modify, /data-th\*="修改"/);
 
 console.log('hr-attendance-explanation-sync tests passed');
