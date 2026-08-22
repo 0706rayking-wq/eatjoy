@@ -16,11 +16,13 @@ assert.ok(explanationPreviewNode);
 assert.ok(scheduleSplitNode);
 assert.ok(scheduleCommitNode);
 assert.match(explanationPreviewNode.parameters.jsonBody, /mode: 'commit'/);
-assert.match(explanationPreviewNode.parameters.jsonBody, /normalRecords/);
-assert.match(scheduleSplitNode.parameters.jsCode, /NUEIP每日出勤比對/);
+assert.match(explanationPreviewNode.parameters.jsonBody, /normalRecords: \$json\.normalRecords/);
+assert.match(scheduleSplitNode.parameters.jsCode, /\$input\.first/);
 assert.match(scheduleSplitNode.parameters.jsCode, /normalRecords/);
+assert.match(scheduleSplitNode.parameters.jsCode, /updated.*unchanged/);
 assert.match(scheduleCommitNode.parameters.jsonBody, /sync_schedule/);
 assert.match(scheduleCommitNode.parameters.jsonBody, /mode: 'commit'/);
+assert.match(scheduleCommitNode.parameters.jsonBody, /normalRecords: \$json\.normalRecords/);
 assert.equal(workflow.connections['寫入正常人員NUEIP說明'].main[0][0].node, '逐一處理正常人員班表');
 assert.equal(workflow.connections['逐一處理正常人員班表'].main[0][0].node, '寫入正常人員NUEIP班表');
 assert.deepEqual(
