@@ -24,4 +24,13 @@ assert.equal(planSchedule([{
   scheduledShifts: [{ start: '09:30', end: '15:00' }]
 }], [...options, { value: 'A2', label: '早班(09:30~15:00)' }])[0].status, 'ready');
 
+const tiedFinal = planSchedule([{
+  scheduledShifts: [{ start: '16:00', end: '21:45' }]
+}], [
+  { value: 'L1', label: '晚班(16:00~21:30)' },
+  { value: 'L2', label: '晚班(16:00~22:00)' }
+])[0];
+assert.equal(tiedFinal.status, 'ready');
+assert.equal(tiedFinal.selectedShifts[0].value, 'L1');
+
 console.log('hr-schedule-planner tests passed');
