@@ -1,7 +1,7 @@
 {
   "functions": {
     "api/hr-attendance-compare.js": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "api/google-review-check.js": {
       "maxDuration": 60

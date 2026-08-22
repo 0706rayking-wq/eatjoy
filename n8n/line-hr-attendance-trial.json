@@ -108,7 +108,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $('NUEIP每日出勤比對').first().json;\nconst records = Array.isArray(input.normalRecords) ? input.normalRecords : [];\nreturn records.map((record) => ({ json: record }));"
+        "jsCode": "const input = $input.first().json;\nconst results = Array.isArray(input.results) ? input.results : [];\nconst normalRecords = results.filter((record) => ['updated', 'unchanged'].includes(record.status));\nreturn [{ json: { normalRecords } }];"
       },
       "id": "10a4cc86-5e1d-4277-a476-6c4ef4bcedfd",
       "name": "逐一處理正常人員班表",
@@ -205,7 +205,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { action: 'sync_schedule', mode: 'commit', normalRecords: [$json] } }}",
+        "jsonBody": "={{ { action: 'sync_schedule', mode: 'commit', normalRecords: $json.normalRecords || [] } }}",
         "options": {}
       },
       "id": "be4f0c51-5147-482e-8aac-8a06788e7510",
