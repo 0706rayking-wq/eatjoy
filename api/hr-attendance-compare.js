@@ -5,7 +5,7 @@ const NUEIP_HOST_SUFFIX = '.nueip.com';
 const MAX_LINE_CHARS = 28;
 const MAX_LINE_MESSAGE_CHARS = 4500;
 const EARLY_SECONDS = 2 * 60;
-const LATE_SECONDS = 13 * 60;
+const LATE_SECONDS = 15 * 60;
 const NUEIP_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
 
 function readRequiredEnv(name) {
@@ -582,7 +582,7 @@ function attendanceCandidateScore(employee, record) {
   if ([...starts, ...ends, ...actualStarts, ...actualEnds].some((value) => value === null)) return null;
   for (let index = 0; index < ends.length; index += 1) {
     const difference = actualEnds[index] - ends[index];
-    if (difference <= -EARLY_SECONDS || difference > LATE_SECONDS) return null;
+    if (difference <= -EARLY_SECONDS || difference >= LATE_SECONDS) return null;
   }
   return starts.reduce((total, start, index) => total + Math.abs(actualStarts[index] - start), 0)
     + ends.reduce((total, end, index) => total + Math.abs(actualEnds[index] - end), 0);
@@ -739,7 +739,7 @@ function compareAttendance(schedule, attendance, excludedNames = ['黃遠志']) 
           detail: `早退${formatDuration(pair.differenceSeconds)}`
         });
         timeIssue = true;
-      } else if (pair.differenceSeconds > LATE_SECONDS) {
+      } else if (pair.differenceSeconds >= LATE_SECONDS) {
         issues.push({
           type: 'late',
           name: record.name,

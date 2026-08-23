@@ -214,11 +214,25 @@ assert.equal(duplicateNameComparison.normalRecords[0].department, '南港三井L
 assert.equal(normalizeDate('8/6', new Date('2026-08-07T00:00:00+08:00')), '2026-08-06');
 assert.deepEqual(wrapLine('123456', 3), ['123', '456']);
 
-const exactlyThirteenMinutes = alignClockOuts(['21:45'], ['21:58:59']);
-assert.equal(exactlyThirteenMinutes.pairs[0].differenceSeconds, 13 * 60);
-assert.equal(exactlyThirteenMinutes.pairs[0].actual, '21:58');
-const moreThanThirteenMinutes = alignClockOuts(['21:45'], ['21:59:01']);
-assert.equal(moreThanThirteenMinutes.pairs[0].differenceSeconds, 14 * 60);
+const fourteenMinutesLate = alignClockOuts(['21:00'], ['21:14:59']);
+assert.equal(fourteenMinutesLate.pairs[0].differenceSeconds, 14 * 60);
+assert.equal(fourteenMinutesLate.pairs[0].actual, '21:14');
+
+const fourteenMinuteComparison = compareAttendance({
+  employees: [{ name: '測試員工', shifts: [{ start: '17:00', end: '21:00' }] }]
+}, [{
+  employeeNumber: 'T001', name: '測試員工', department: '南港三井Lalaport內場',
+  schedule: '出勤日', status: '', clockIns: ['16:55'], clockOuts: ['21:14']
+}]);
+assert.equal(fourteenMinuteComparison.issues.some((issue) => issue.type === 'late'), false);
+
+const fifteenMinuteComparison = compareAttendance({
+  employees: [{ name: '測試員工', shifts: [{ start: '17:00', end: '21:00' }] }]
+}, [{
+  employeeNumber: 'T001', name: '測試員工', department: '南港三井Lalaport內場',
+  schedule: '出勤日', status: '', clockIns: ['16:55'], clockOuts: ['21:15']
+}]);
+assert.equal(fifteenMinuteComparison.issues.some((issue) => issue.type === 'late'), true);
 
 const adjustedComparison = compareAttendance({
   employees: [{ name: '測試員工', shifts: [{ start: '09:30', end: '15:00' }] }]
