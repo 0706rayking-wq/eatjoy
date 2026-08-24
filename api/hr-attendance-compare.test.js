@@ -200,6 +200,31 @@ const frontWashMessages = formatLineMessages('2026-08-15', { issues: [], normalC
 });
 assert.equal(frontWashMessages.join('\n').includes('店別：南港外場／洗滌'), true);
 
+const silentComparison = {
+  issues: [
+    { type: 'late', name: '羽婕', detail: '晚打卡15分鐘' },
+    { type: 'early', name: '其他員工', detail: '早退2分鐘' }
+  ],
+  normalCount: 2,
+  offMatchedCount: 1,
+  offMatchedNames: ['靜妍'],
+  normalRecords: [
+    { name: '羽婕' },
+    { name: '其他正常員工' }
+  ]
+};
+const silentMessages = formatLineMessages(
+  '2026-08-24',
+  silentComparison,
+  { sheet_type: '外場／洗滌' },
+  ['羽婕', '靜妍']
+).join('\n');
+assert.equal(silentMessages.includes('羽婕'), false);
+assert.equal(silentMessages.includes('靜妍'), false);
+assert.equal(silentMessages.includes('異常：1項'), true);
+assert.equal(silentMessages.includes('下班正常：1人'), true);
+assert.equal(silentMessages.includes('休假相符：0人'), true);
+
 const threeShiftAttendance = [{
   employeeNumber: 'E900',
   name: '測試外場',

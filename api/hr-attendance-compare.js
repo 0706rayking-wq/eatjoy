@@ -717,6 +717,7 @@ function compareAttendance(schedule, attendance, excludedNames = ['黃遠志']) 
   const matchedRecords = new Set();
   let normalCount = 0;
   let offMatchedCount = 0;
+  const offMatchedNames = [];
   const normalRecords = [];
 
   for (const employee of Array.isArray(schedule.employees) ? schedule.employees : []) {
@@ -740,6 +741,7 @@ function compareAttendance(schedule, attendance, excludedNames = ['黃遠志']) 
     if (isOff) {
       if (isRestDay && record.clockIns.length === 0 && record.clockOuts.length === 0) {
         offMatchedCount += 1;
+        offMatchedNames.push(record.name);
       } else {
         issues.push({
           type: 'off_conflict',
@@ -844,7 +846,7 @@ function compareAttendance(schedule, attendance, excludedNames = ['黃遠志']) 
     });
   }
 
-  return { issues, normalCount, offMatchedCount, normalRecords };
+  return { issues, normalCount, offMatchedCount, offMatchedNames, normalRecords };
 }
 
 function wrapLine(line, limit = MAX_LINE_CHARS) {
@@ -856,8 +858,16 @@ function wrapLine(line, limit = MAX_LINE_CHARS) {
   return result.length ? result : [''];
 }
 
-function formatLineMessages(date, comparison, schedule = {}) {
+function formatLineMessages(date, comparison, schedule = {}, silentNames = []) {
   const displayDate = String(date).replace(/^\d{4}-/, '').replace('-', '/');
+  const silent = new Set(silentNames.map(normalizeName));
+  const visibleIssues = comparison.issues.filter((issue) => !silent.has(normalizeName(issue.name)));
+  const silentNormalCount = (comparison.normalRecords || [])
+    .filter((record) => silent.has(normalizeName(record.name))).length;
+  const silentOffCount = (comparison.offMatchedNames || [])
+    .filter((name) => silent.has(normalizeName(name))).length;
+  const visibleNormalCount = Math.max(0, comparison.normalCount - silentNormalCount);
+  const visibleOffMatchedCount = Math.max(0, comparison.offMatchedCount - silentOffCount);
   const sheetType = String(schedule.sheet_type || '').trim();
   const departmentLabel = sheetType === '外場／洗滌'
     ? '南港外場／洗滌'
@@ -867,11 +877,11 @@ function formatLineMessages(date, comparison, schedule = {}) {
   const lines = [
     `【${displayDate} 下班條比對】`,
     `店別：${departmentLabel}`,
-    `異常：${comparison.issues.length}項`,
+    `異常：${visibleIssues.length}項`,
     '────────'
   ];
 
-  comparison.issues.forEach((issue, index) => {
+  visibleIssues.forEach((issue, index) => {
     const labels = {
       early: '早退',
       late: '晚打卡',
@@ -892,8 +902,8 @@ function formatLineMessages(date, comparison, schedule = {}) {
   });
 
   lines.push('────────');
-  lines.push(`下班正常：${comparison.normalCount}人`);
-  lines.push(`休假相符：${comparison.offMatchedCount}人`);
+  lines.push(`下班正常：${visibleNormalCount}人`);
+  lines.push(`休假相符：${visibleOffMatchedCount}人`);
   lines.push('請主管回覆：');
   lines.push('確認＋姓名＋處理方式');
 
@@ -943,8 +953,12 @@ async function handler(request, response) {
       .split(',')
       .map((name) => name.trim())
       .filter(Boolean);
+    const silentLineNames = String(process.env.NUEIP_SILENT_LINE_NAMES || '羽婕,靜妍')
+      .split(',')
+      .map((name) => name.trim())
+      .filter(Boolean);
     const comparison = compareAttendance(schedule, attendance, excludedNames);
-    const lineMessages = formatLineMessages(date, comparison, schedule);
+    const lineMessages = formatLineMessages(date, comparison, schedule, silentLineNames);
     const lineMessageObjects = lineMessages.map((text) => ({ type: 'text', text })).slice(0, 5);
     return response.status(200).json({
       status: 'ok',
