@@ -419,8 +419,14 @@ async function loadNueipAttendanceBrowser(date, requestedDepartments = [], sched
         () => document.querySelectorAll('table tbody tr, [role="row"]').length >= 1,
         { timeout: 25000 }
       );
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      combinedAttendance.push(...parseAttendanceHtml(await page.content()));
+      let bestAttendance = [];
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const candidate = uniqueAttendance(parseAttendanceHtml(await page.content()));
+        if (candidate.length > bestAttendance.length) bestAttendance = candidate;
+        if (assessAttendanceSource(schedule, candidate).complete) break;
+      }
+      combinedAttendance.push(...bestAttendance);
     }
     if (combinedAttendance.length === 0) throw new Error('NUEIP瀏覽器讀取為0筆');
     return uniqueAttendance(combinedAttendance);
@@ -542,7 +548,17 @@ async function loadNueipAttendance(date, schedule = {}) {
     );
   } catch (error) {
     if (schedule?.sheet_type === '外場／洗滌' && /找不到NUEIP南港外場/.test(error.message)) {
-      return loadNueipAttendanceBrowser(date, [], schedule);
+      const browserAttendance = uniqueAttendance(
+        await loadNueipAttendanceBrowser(date, [], schedule)
+      );
+      const browserHealth = assessAttendanceSource(schedule, browserAttendance);
+      if (!browserHealth.complete) {
+        throw new Error(
+          `NUEIP資料不完整：下班條${browserHealth.scheduleCount}人，`
+          + `NUEIP${browserHealth.attendanceCount}筆，姓名配對${browserHealth.matchedCount}人`
+        );
+      }
+      return browserAttendance;
     }
     throw error;
   }
