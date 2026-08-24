@@ -1,5 +1,6 @@
 const assert = require('node:assert/strict');
 const {
+  assessAttendanceSource,
   alignClockOuts,
   compareAttendance,
   formatLineMessages,
@@ -152,6 +153,39 @@ assert.deepEqual(comparison.normalRecords, [{
     { time: '21:58:47', type: '下班' }
   ]
 }]);
+
+const incompleteSchedule = {
+  employees: Array.from({ length: 26 }, (_, index) => ({
+    name: `測試員工${index + 1}`,
+    shifts: [{ start: '09:30', end: '15:00' }]
+  }))
+};
+const oneUnrelatedAttendance = [{
+  employeeNumber: 'ONLY-1',
+  name: '無關員工',
+  schedule: '出勤日',
+  status: '',
+  clockIns: ['09:30'],
+  clockOuts: ['15:00']
+}];
+assert.deepEqual(assessAttendanceSource(incompleteSchedule, oneUnrelatedAttendance), {
+  complete: false,
+  scheduleCount: 26,
+  attendanceCount: 1,
+  matchedCount: 0,
+  minimumAttendanceCount: 13,
+  minimumMatchedCount: 6
+});
+
+const completeAttendance = incompleteSchedule.employees.map((employee, index) => ({
+  employeeNumber: `E${index + 1}`,
+  name: employee.name,
+  schedule: '出勤日',
+  status: '',
+  clockIns: ['09:30'],
+  clockOuts: ['15:00']
+}));
+assert.equal(assessAttendanceSource(incompleteSchedule, completeAttendance).complete, true);
 
 const messages = formatLineMessages('2026-08-06', comparison);
 assert.ok(messages.length >= 1);

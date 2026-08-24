@@ -561,10 +561,24 @@ async function loadNueipAttendance(date, schedule = {}) {
       : await fetchDepartment(selectedDepartment);
     combinedAttendance.push(...result.attendance);
   }
-  if (combinedAttendance.length === 0) {
-    return loadNueipAttendanceBrowser(date, departmentValues, schedule);
+  const primaryAttendance = uniqueAttendance(combinedAttendance);
+  const primaryHealth = assessAttendanceSource(schedule, primaryAttendance);
+  if (primaryHealth.complete) return primaryAttendance;
+
+  // NUEIP sometimes returns a syntactically valid page containing only one or
+  // a few employee rows. Treat that as an incomplete source, not as evidence
+  // that every other employee is missing from NUEIP.
+  const browserAttendance = uniqueAttendance(
+    await loadNueipAttendanceBrowser(date, departmentValues, schedule)
+  );
+  const browserHealth = assessAttendanceSource(schedule, browserAttendance);
+  if (!browserHealth.complete) {
+    throw new Error(
+      `NUEIP資料不完整：下班條${browserHealth.scheduleCount}人，`
+      + `NUEIP${browserHealth.attendanceCount}筆，姓名配對${browserHealth.matchedCount}人`
+    );
   }
-  return uniqueAttendance(combinedAttendance);
+  return browserAttendance;
 }
 
 function normalizeName(value) {
@@ -608,6 +622,33 @@ function matchAttendance(employee, attendance) {
     return official.endsWith(target) || target.endsWith(official);
   });
   return { record: suffix.length === 1 ? suffix[0] : null, ambiguous: suffix.length > 1 };
+}
+
+function assessAttendanceSource(schedule, attendance) {
+  const employees = (Array.isArray(schedule?.employees) ? schedule.employees : [])
+    .filter((employee) => normalizeName(employee?.name));
+  const records = Array.isArray(attendance) ? attendance : [];
+  const scheduleCount = employees.length;
+  const attendanceCount = records.length;
+  const matchedCount = employees.reduce((count, employee) => {
+    const match = matchAttendance(employee, records);
+    return count + (match.record && !match.ambiguous ? 1 : 0);
+  }, 0);
+
+  if (scheduleCount === 0) {
+    return { complete: false, scheduleCount, attendanceCount, matchedCount };
+  }
+
+  const minimumAttendanceCount = Math.max(1, Math.ceil(scheduleCount * 0.5));
+  const minimumMatchedCount = Math.max(1, Math.ceil(scheduleCount * 0.2));
+  return {
+    complete: attendanceCount >= minimumAttendanceCount && matchedCount >= minimumMatchedCount,
+    scheduleCount,
+    attendanceCount,
+    matchedCount,
+    minimumAttendanceCount,
+    minimumMatchedCount
+  };
 }
 
 function timeToSeconds(value) {
@@ -916,6 +957,7 @@ async function handler(request, response) {
 
 module.exports = handler;
 module.exports._test = {
+  assessAttendanceSource,
   alignClockOuts,
   compareAttendance,
   formatLineMessages,
