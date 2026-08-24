@@ -1111,7 +1111,8 @@
 <body class="pb-12">
     <div id="root"></div>
     <div id="notify-root" style="position:fixed;top:80px;left:0;right:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none;padding:0 16px;isolation:isolate;"></div>
-    <script src="food-research-question-bank.js"></script>
+<script src="food-research-question-bank.js"></script>
+<script src="food-research-question-bank-expansion.js"></script>
 <script src="food-research-forms.js?v=8"></script>
     <script src="food-research-weapons.js?v=8"></script>
     <script src="food-research-amulets.js?v=2"></script>
@@ -1133,7 +1134,7 @@ window._gameJsReady = false;
 </script>
     <script type="text/babel" data-presets="env,react" data-cache="false">
     const { useState, useEffect, useCallback, useMemo, useRef } = React;
-    const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-04-570';
+const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
     const FOOD_RESEARCH_FORM_CATALOG = window.FOOD_RESEARCH_FORMS || [];
     const FOOD_RESEARCH_FORM_MAP = window.FOOD_RESEARCH_FORM_MAP || {};
     const FOOD_RESEARCH_RARITIES = window.FOOD_RESEARCH_RARITIES || {};
@@ -1147,6 +1148,39 @@ window._gameJsReady = false;
       seen.add(key);
       return true;
      });
+    };
+    const getFoodResearchQuestionParts = (item) => Array.isArray(item)
+     ? {q:item[0], opts:item.slice(1,5), ans:Number(item[5]) || 0}
+     : {q:item?.q, opts:[item?.a,item?.b,item?.c,item?.d], ans:Number(item?.ansIdx) || 0};
+    const isFoodResearchQuestionLengthSafe = (item) => {
+     const question = getFoodResearchQuestionParts(item);
+     if (!question.q || question.opts.length !== 4 || question.opts.some(option => !option)) return false;
+     const lengths = question.opts.map(option => Array.from(String(option)).length);
+     const maxLength = Math.max(...lengths);
+     return lengths[question.ans] < maxLength || lengths.filter(length => length === maxLength).length > 1;
+    };
+    const getLengthSafeFoodResearchQuestions = (bank) => {
+     const valid = (bank || []).filter(item => {
+      const question = getFoodResearchQuestionParts(item);
+      return question.q && question.opts.length === 4 && question.opts.every(Boolean);
+     });
+     const safe = valid.filter(isFoodResearchQuestionLengthSafe);
+     return safe.length >= 50 ? safe : valid;
+    };
+    const shuffleFoodResearchQuestion = (question, stableKey='', answerSlot=null) => {
+     const opts = [...(question.opts || [])];
+     const order = opts.map((_,index)=>index);
+     let seed = Array.from(String(stableKey || question.q || '')).reduce((sum,char)=>(sum * 31 + char.charCodeAt(0)) >>> 0, 2166136261);
+     for (let i=order.length-1;i>0;i--) {
+      seed = (Math.imul(seed,1664525) + 1013904223) >>> 0;
+      const j = seed % (i+1);
+      [order[i],order[j]] = [order[j],order[i]];
+     }
+     const currentAnswerIndex = order.indexOf(Number(question.ans)||0);
+     if (Number.isInteger(answerSlot) && answerSlot >= 0 && answerSlot < order.length && currentAnswerIndex !== answerSlot) {
+      [order[currentAnswerIndex],order[answerSlot]] = [order[answerSlot],order[currentAnswerIndex]];
+     }
+     return {...question, opts:order.map(index=>opts[index]), ans:order.indexOf(Number(question.ans)||0)};
     };
 
     const appIdGlobal = 'kitchen-v16';
@@ -7713,6 +7747,9 @@ const [leaderboard, setLeaderboard] = useState([]);
 const [showLeaderboard, setShowLeaderboard] = useState(false);
 const [leaderboardTab, setLeaderboardTab] = useState('scores');
 const [frRankTab, setFrRankTab] = useState('kitchen');
+const [foodResearchRankings, setFoodResearchRankings] = useState([]);
+const [foodResearchRankLoading, setFoodResearchRankLoading] = useState(false);
+const [foodResearchRankError, setFoodResearchRankError] = useState('');
 const [frPhase, setFrPhase] = useState('camp');
 const [showCharStatus, setShowCharStatus] = useState(false);
 const [partnerStatusTarget, setPartnerStatusTarget] = useState(null);
@@ -7740,11 +7777,22 @@ const [frStartMapIdx, setFrStartMapIdx] = useState('random');
 const rivalDataRef = useRef('[]');
 const chosenPartnersRef = useRef([]);
 const foodResearchHTMLRef = useRef('');
-const [puzzleState, setPuzzleState] = useState({placed:{}, done:false});
 const [dailyQuizAnswer, setDailyQuizAnswer] = useState(null);
 const [questRevision, setQuestRevision] = useState(0);
 const dailyQuizLockRef = useRef(false);
+const departureInProgressRef = useRef(false);
+const expeditionRunRef = useRef({ id:'', startedAt:0 });
 const [activeAmuletTab, setActiveAmuletTab] = useState(0);
+
+const getFoodResearchSeasonId = () => {
+ const parts = new Intl.DateTimeFormat('en-CA', {
+  timeZone:'Asia/Taipei', year:'numeric', month:'2-digit'
+ }).formatToParts(new Date());
+ const year = parts.find(part => part.type === 'year')?.value || String(new Date().getFullYear());
+ const month = parts.find(part => part.type === 'month')?.value || String(new Date().getMonth()+1).padStart(2,'0');
+ return `${year}-${month}`;
+};
+const foodResearchSeasonId = getFoodResearchSeasonId();
 
 const defaultActivities = [
  { id: 'snake', title: '靈蛇識食', subtitle: '淨化小食怪', img: null, isOpen: config?.isOpen || false },
@@ -7753,9 +7801,10 @@ const defaultActivities = [
  { id: 'gathering', title: '饗聚一堂', subtitle: '員餐與茶點', img: null, isOpen: false }
 ];
 const activities = config?.activities || defaultActivities;
-const foodResearchQuestionBank = config?.questionBankVersion === FOOD_RESEARCH_QUESTION_BANK_VERSION && config?.questions?.length
+const rawFoodResearchQuestionBank = config?.questionBankVersion === FOOD_RESEARCH_QUESTION_BANK_VERSION && config?.questions?.length
  ? config.questions
  : mergeFoodResearchQuestions(FOOD_RESEARCH_QUESTIONS, config?.questions || []);
+const foodResearchQuestionBank = getLengthSafeFoodResearchQuestions(rawFoodResearchQuestionBank);
 const LEFTOVER_ITEMS = [
  { id:'cooked', label:'熟食剩食', desc:'讓可再運用的熟食剩食變成新料理', img:'assets/leftover/leftover-cooked-card.png' },
  { id:'rice', label:'隔夜飯', desc:'把隔夜飯翻轉成炒飯、米點或烘烤料理', img:'assets/leftover/leftover-rice-card.png' },
@@ -7785,6 +7834,24 @@ useEffect(() => {
   });
  return () => unsub();
 }, [currentBranch, getPublicPath]);
+
+useEffect(() => {
+ if (selectedActivity !== 'food_research') return;
+ setFoodResearchRankLoading(true);
+ setFoodResearchRankError('');
+ const unsub = db.collection(getPublicPath('food_research_rankings'))
+  .where('seasonId', '==', foodResearchSeasonId)
+  .onSnapshot(snap => {
+   setFoodResearchRankings(snap.docs.map(doc => ({ id:doc.id, ...doc.data() })));
+   setFoodResearchRankLoading(false);
+  }, error => {
+   console.error('讀取食研所排行榜失敗', error);
+   setFoodResearchRankings([]);
+   setFoodResearchRankError('排行榜讀取失敗，請確認網路後重試。');
+   setFoodResearchRankLoading(false);
+  });
+ return () => unsub();
+}, [selectedActivity, foodResearchSeasonId, getPublicPath]);
 
 
 useEffect(() => {
@@ -8341,6 +8408,77 @@ if (selectedActivity === 'food_research') {
   } catch {}
  };
 
+ const compareFoodResearchRanks = (a, b) => {
+  const scoreDiff = (Number(b?.score)||0) - (Number(a?.score)||0);
+  if (scoreDiff) return scoreDiff;
+  const stageDiff = (Number(b?.maxStage)||0) - (Number(a?.maxStage)||0);
+  if (stageDiff) return stageDiff;
+  const bossDiff = (Number(b?.bossKills)||0) - (Number(a?.bossKills)||0);
+  if (bossDiff) return bossDiff;
+  const aDuration = Number(a?.durationMs) > 0 ? Number(a.durationMs) : Number.MAX_SAFE_INTEGER;
+  const bDuration = Number(b?.durationMs) > 0 ? Number(b.durationMs) : Number.MAX_SAFE_INTEGER;
+  if (aDuration !== bDuration) return aDuration - bDuration;
+  return (Number(a?.achievedAt)||Number.MAX_SAFE_INTEGER) - (Number(b?.achievedAt)||Number.MAX_SAFE_INTEGER);
+ };
+ const isBetterFoodResearchRank = (candidate, existing) => !existing || compareFoodResearchRanks(candidate, existing) < 0;
+ const safeFoodResearchRankId = value => String(value || '').replace(/[\/.#$\[\]]/g, '_');
+ const syncFoodResearchRanking = async summary => {
+  const profile = allUsers.find(user => user.phone === currentUser?.phone) || currentUser || {};
+  if (!currentUser?.phone || isSuperAdmin || profile.status !== 'approved') return;
+  const branches = Array.isArray(profile.branch) ? profile.branch : [profile.branch || currentBranch];
+  if (!currentBranch || !branches.includes(currentBranch)) return;
+  const role = normalizeRole(profile.role);
+  const department = role.includes('外場') ? 'service' : role.includes('內場') ? 'kitchen' : '';
+  if (!department) return;
+  const score = Math.round(Number(summary?.score) || 0);
+  const maxStage = Math.max(1, Math.min(22, Math.round(Number(summary?.stage) || 1)));
+  const bossKills = Math.max(0, Math.min(22, Math.round(Number(summary?.bossKills) || 0)));
+  const durationMs = Math.max(1000, Math.min(24*60*60*1000, Math.round(Number(summary?.durationMs) || 0)));
+  if (score <= 0 || score > 10000000) return;
+  const now = Date.now();
+  const candidate = {
+   seasonId:foodResearchSeasonId,
+   phone:currentUser.phone,
+   name:profile.name || currentUser.name || '未命名員工',
+   branch:currentBranch,
+   role,
+   department,
+   score,
+   maxStage,
+   bossKills,
+   durationMs,
+   completed:!!summary?.completed,
+   runId:String(summary?.runId || ''),
+   achievedAt:now,
+   updatedAt:now,
+   scoreVersion:'fr-score-v1'
+  };
+  const docId = [foodResearchSeasonId, currentUser.phone, currentBranch].map(safeFoodResearchRankId).join('__');
+  const ref = db.collection(getPublicPath('food_research_rankings')).doc(docId);
+  await db.runTransaction(async tx => {
+   const snap = await tx.get(ref);
+   const existing = snap.exists ? snap.data() : null;
+   if (isBetterFoodResearchRank(candidate, existing)) {
+    tx.set(ref, candidate, { merge:true });
+   } else {
+    tx.set(ref, {
+     name:candidate.name, role, department, branch:currentBranch,
+     updatedAt:now, scoreVersion:'fr-score-v1'
+    }, { merge:true });
+   }
+  });
+ };
+ const deleteFoodResearchRanking = async record => {
+  if (!isSuperAdmin || !record?.id) return;
+  if (!window.confirm(`確定移除「${record.name || '此員工'}」本賽季的排行榜成績？`)) return;
+  try {
+   await db.collection(getPublicPath('food_research_rankings')).doc(record.id).delete();
+  } catch (error) {
+   console.error('移除食研所排行榜成績失敗', error);
+   window.alert('移除失敗，請確認網路後再試。');
+  }
+ };
+
  const save = loadSave();
  if (Number(save.amuletSchemaVersion || 0) < Number(window.FOOD_RESEARCH_AMULET_SCHEMA_VERSION || 2)) {
   writeSave({
@@ -8414,13 +8552,13 @@ if (selectedActivity === 'food_research') {
   imageRendering:'pixelated', overflow:'hidden',
  });
  const normalizeDailyKnowledgeQuestion = (item, index) => {
-  if (Array.isArray(item)) return { key:`legacy:${index}:${item[0]}`, q:item[0], opts:item.slice(1,5), ans:Number(item[5]) || 0 };
-  return {
+  const normalized = Array.isArray(item) ? { key:`legacy:${index}:${item[0]}`, q:item[0], opts:item.slice(1,5), ans:Number(item[5]) || 0 } : {
    key:item.id !== undefined ? `id:${item.id}` : `q:${item.q}`,
    q:item.q,
    opts:[item.a,item.b,item.c,item.d],
    ans:Number(item.ansIdx) || 0
   };
+  return shuffleFoodResearchQuestion(normalized, normalized.key, index % 4);
  };
  const dailyKnowledgeQuestions = foodResearchQuestionBank.map(normalizeDailyKnowledgeQuestion).filter(item => item.q && item.opts.length === 4 && item.opts.every(Boolean));
  const dailyKnowledgeMap = new Map(dailyKnowledgeQuestions.map(item => [item.key, item]));
@@ -8441,13 +8579,27 @@ if (selectedActivity === 'food_research') {
   if (quests && quests.date === today) {
    const tasks = [...(quests.tasks || [])];
    let migratedToday = false;
-   if (tasks[1]?.type !== 'puzzle') {
-    tasks[1] = { type:'puzzle', desc:'完成食材部位拼圖', target:1, progress:0, reward:25, done:false };
+   if (tasks[0]?.type !== 'battle' || tasks[0]?.target !== 100 || tasks[0]?.reward !== 150) {
+    tasks[0] = { type:'battle', desc:'擊倒 100 隻小怪', target:100, progress:Math.min(100,tasks[0]?.progress||0), reward:150, done:false };
+    migratedToday = true;
+   }
+   if (tasks[1]?.type !== 'expedition' || tasks[1]?.target !== 3 || tasks[1]?.reward !== 90) {
+    tasks[1] = { type:'expedition', desc:'完成 3 次出征', target:3, progress:0, reward:90, done:false };
     migratedToday = true;
    }
    const knowledgeTask = quests.tasks?.[2];
-   if (knowledgeTask?.type !== 'knowledge' || knowledgeTask.questionKeys?.length !== 10) {
-    tasks[2] = makeDailyKnowledgeTask();
+   if (knowledgeTask?.type !== 'knowledge' || knowledgeTask.questionKeys?.length !== 10 || !knowledgeTask.questionKeys.every(key=>dailyKnowledgeMap.has(key))) {
+    const replacement = makeDailyKnowledgeTask();
+    const answered = Math.max(0, Math.min(10, Number(knowledgeTask?.current) || 0));
+    tasks[2] = {
+     ...replacement,
+     current:answered,
+     progress:answered,
+     correct:Math.max(0, Math.min(answered, Number(knowledgeTask?.correct) || 0)),
+     completed:answered >= 10,
+     reward:answered >= 10 ? Math.max(0, Math.min(answered, Number(knowledgeTask?.correct) || 0)) * replacement.rewardPerCorrect : 0,
+     done:!!knowledgeTask?.done
+    };
     migratedToday = true;
    }
    if (!migratedToday) return quests;
@@ -8458,8 +8610,8 @@ if (selectedActivity === 'food_research') {
   const newQ = {
    date: today,
    tasks: [
-     { type:'battle', desc:'擊倒 10 隻小怪', target:10, progress:0, reward:30, done:false },
-     { type:'puzzle', desc:'完成食材部位拼圖', target:1, progress:0, reward:25, done:false },
+     { type:'battle', desc:'擊倒 100 隻小怪', target:100, progress:0, reward:150, done:false },
+     { type:'expedition', desc:'完成 3 次出征', target:3, progress:0, reward:90, done:false },
     makeDailyKnowledgeTask(),
    ]
   };
@@ -8532,9 +8684,11 @@ if (selectedActivity === 'food_research') {
  const rebuildPercent = rebuildFacilityProgress.percent;
  const rebuildComplete = rebuildFacilityProgress.complete;
  const rebuildFacility = REBUILD_FACILITY_META[selectedRebuildFacility] || REBUILD_FACILITY_META.training;
- const normalizeRebuildQuestion = (item) => {
-  if (Array.isArray(item)) return { q: item[0], opts: [item[1], item[2], item[3], item[4]], ans: Number(item[5] || 0) };
-  return { q: item?.q || '食品安全重建題', opts: [item?.a, item?.b, item?.c, item?.d].filter(Boolean), ans: Number(item?.ansIdx || item?.ans || 0) };
+ const normalizeRebuildQuestion = (item, index) => {
+  const normalized = Array.isArray(item)
+   ? { q:item[0], opts:[item[1],item[2],item[3],item[4]], ans:Number(item[5] || 0) }
+   : { q:item?.q || '食品安全重建題', opts:[item?.a,item?.b,item?.c,item?.d].filter(Boolean), ans:Number(item?.ansIdx || item?.ans || 0) };
+  return shuffleFoodResearchQuestion(normalized, `rebuild:${index}:${normalized.q}`, index % 4);
  };
  const fallbackRebuildQuestions = [
   {q:'發現吐司有一小塊發霉，正確處理方式是？',opts:['切掉發霉處繼續吃','煮熟再吃','整包直接丟棄','放冷凍殺菌'],ans:2},
@@ -8544,7 +8698,7 @@ if (selectedActivity === 'food_research') {
   {q:'「FIFO」在廚房管理中代表？',opts:['先進先出','先進後出','高溫保存','每日報廢'],ans:0},
  ];
  const pickRebuildQuestion = () => {
-  const source = (config.questions && config.questions.length > 0 ? config.questions : fallbackRebuildQuestions).map(normalizeRebuildQuestion).filter(q => q.q && q.opts.length >= 4);
+  const source = (foodResearchQuestionBank.length > 0 ? foodResearchQuestionBank : fallbackRebuildQuestions).map(normalizeRebuildQuestion).filter(q => q.q && q.opts.length >= 4);
   return source[Math.floor(Math.random() * source.length)] || fallbackRebuildQuestions[0];
  };
  const startRebuildQuiz = (facilityId) => {
@@ -8853,6 +9007,127 @@ if (selectedActivity === 'food_research') {
   </div>
  );
 
+ const DEFAULT_PARTNER_SAVE = {
+  training:{atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0},
+  equip:{ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']},
+  equippedForm:'normal'
+ };
+ const PARTNER_FORMS = {normal:{name:'原味型',emoji:'🍙'},...FOOD_RESEARCH_FORM_MAP};
+ const PARTNER_RANGED_DESC = Object.fromEntries(RANGED_POOL.map(w=>[w.name,w.desc]));
+ PARTNER_RANGED_DESC['初始食材砲']='雙發直線食材彈，射速與傷害均衡。';
+ const PARTNER_MELEE_DESC = Object.fromEntries(MELEE_POOL.map(w=>[w.name,w.desc]));
+ PARTNER_MELEE_DESC['初始鍋鏟']='基礎揮擊，攻速、範圍與反彈能力均衡。';
+ const PARTNER_AMULET_DESC = AMULET_DESC_MAP;
+ const PARTNER_FORM_DESC = {normal:'原始型態，可靠隊伍支援型。被動可與隊友共享並疊加。'};
+ const PARTNER_FORM_ABILITIES = {
+  normal:[
+   {label:'被動技能',name:'MHP+10',desc:'全隊最大 HP +10，可與隊友共享並疊加。'},
+   {label:'小招',name:'舔傷口',desc:'回復目前角色 HP 5。'},
+   {label:'大招',name:'亢奮',desc:'短時間提高整個隊伍的移動速度及攻擊速度至 2 倍。'},
+  ],
+ };
+ FOOD_RESEARCH_FORM_CATALOG.forEach(form=>{
+  PARTNER_FORM_DESC[form.id]=`${FOOD_RESEARCH_RARITIES[form.rarity]?.label||''}型態 · ${form.passive}`;
+  PARTNER_FORM_ABILITIES[form.id]=[
+   {label:'被動技能',name:form.passive,desc:form.passive},
+   {label:'小招',name:form.skill1,desc:'消耗 25 氣力施放'},
+   {label:'大招',name:form.skill2,desc:'消耗 40 氣力施放'},
+  ];
+ });
+ const normalizePartnerSave = (raw={}) => ({
+  training:raw.training || DEFAULT_PARTNER_SAVE.training,
+  equip:raw.equip || DEFAULT_PARTNER_SAVE.equip,
+  equippedForm:raw.equippedForm || 'normal'
+ });
+ const PartnerThumb = ({save,size=48}) => {
+  const s = normalizePartnerSave(save);
+  const form = PARTNER_FORMS[s.equippedForm] || PARTNER_FORMS.normal;
+  return (
+   <div style={{width:size,height:size,borderRadius:'12px',background:'radial-gradient(circle,#fdf8f0,#dbeafe)',border:'1px solid #30363d',display:'flex',alignItems:'center',justifyContent:'center',overflow:'hidden',flexShrink:0}}>
+    <img alt={`${form.name}縮圖`} src={s.equippedForm === 'normal' ? 'assets/food-research/hero-normal-portrait.png' : form.portrait} style={{width:size-4,height:size-4,objectFit:'contain',imageRendering:'pixelated'}} />
+   </div>
+  );
+ };
+ const openPartnerStatus = async (user, event) => {
+  if (event?.stopPropagation) event.stopPropagation();
+  if (!user?.phone) return;
+  setPartnerStatusTarget({user,save:normalizePartnerSave(user.gameSave || {}),loading:true});
+  try {
+   const snap = await db.collection(getPublicPath('users')).doc(user.phone).get();
+   const data = snap && snap.exists ? snap.data() : {};
+   setPartnerStatusTarget(prev => String(prev?.user?.phone) === String(user.phone)
+    ? {user:{...user,...data},save:normalizePartnerSave(data.gameSave || user.gameSave || {}),loading:false}
+    : prev);
+  } catch (error) {
+   setPartnerStatusTarget(prev => String(prev?.user?.phone) === String(user.phone) ? {...prev,loading:false} : prev);
+  }
+ };
+ const renderPartnerStatusModal = () => {
+  if (!partnerStatusTarget) return null;
+  const ps = normalizePartnerSave(partnerStatusTarget.save || {});
+  const pf = PARTNER_FORMS[ps.equippedForm] || PARTNER_FORMS.normal;
+  const pt = ps.training || DEFAULT_PARTNER_SAVE.training;
+  const pe = ps.equip || DEFAULT_PARTNER_SAVE.equip;
+  const pa = Array.isArray(pe.amulets) ? [...pe.amulets,'','',''].slice(0,3) : ['','',''];
+  return (
+   <div className="fixed inset-0 z-[12000] flex items-center justify-center p-4" style={{background:'rgba(0,0,0,.62)',backdropFilter:'blur(5px)'}} onClick={()=>setPartnerStatusTarget(null)}>
+    <div onClick={event=>event.stopPropagation()} style={{width:'100%',maxWidth:'360px',maxHeight:'90vh',overflowY:'auto',background:'#0d1117',border:'1px solid #30363d',borderRadius:'18px',padding:'16px',boxShadow:'0 18px 48px rgba(0,0,0,.45)'}}>
+     <div className="flex items-start justify-between mb-3">
+      <div>
+       <div className="text-[11px] font-black" style={{color:'#58a6ff'}}>玩家狀態{partnerStatusTarget.loading?' · 更新中':''}</div>
+       <div className="text-xl font-black" style={{color:'#e6edf3'}}>{partnerStatusTarget.user?.name || '玩家'}</div>
+      </div>
+      <button title="關閉" onClick={()=>setPartnerStatusTarget(null)} style={{background:'rgba(255,255,255,.06)',border:'1px solid #30363d',borderRadius:'10px',color:'#8b949e',fontWeight:900,padding:'5px 9px'}}>✕</button>
+     </div>
+     <div className="flex gap-3">
+      <div style={{width:'118px',flexShrink:0}}>
+       <PartnerThumb save={ps} size={118} />
+       <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'5px',marginTop:'8px'}}>
+        {TRAIN_STATS.map(stat=>(
+         <div key={stat.key} style={{background:'#161b22',border:'1px solid #21262d',borderRadius:'8px',padding:'4px 5px'}}>
+          <div className="text-[8px]" style={{color:'#8b949e',lineHeight:'1.2'}}>{stat.label}</div>
+          <div className="text-[11px] font-black" style={{color:'#58a6ff'}}>Lv {pt[stat.key]||0}</div>
+         </div>
+        ))}
+       </div>
+      </div>
+      <div className="flex-1">
+       <div className="text-[10px] font-bold" style={{color:'#8b949e'}}>目前型態</div>
+       <div className="text-sm font-black mb-2" style={{color:'#e6edf3'}}>{pf.emoji} {pf.name}</div>
+       <div className="text-[10px] mb-2" style={{color:'#8b949e',lineHeight:'1.5'}}>{PARTNER_FORM_DESC[ps.equippedForm]||'型態能力尚未解鎖說明'}</div>
+       {(PARTNER_FORM_ABILITIES[ps.equippedForm]||[]).length>0 && <div style={{display:'grid',gap:'4px',marginBottom:'8px'}}>
+        {PARTNER_FORM_ABILITIES[ps.equippedForm].map(ability=>(
+         <div key={ability.label} style={{background:'rgba(88,166,255,.08)',border:'1px solid #1f6feb',borderRadius:'8px',padding:'5px 6px'}}>
+          <div className="text-[9px] font-black" style={{color:'#58a6ff'}}>{ability.label} · {ability.name}</div>
+          <div className="text-[9px]" style={{color:'#8b949e',lineHeight:'1.45',marginTop:'2px'}}>{ability.desc}</div>
+         </div>
+        ))}
+       </div>}
+      </div>
+     </div>
+     <div className="mt-3" style={{display:'grid',gap:'7px'}}>
+      <div style={{background:'#161b22',border:'1px solid #21262d',borderRadius:'10px',padding:'8px'}}>
+       <div className="text-[10px] font-bold" style={{color:'#8b949e'}}>遠程武器</div>
+       <div className="text-sm font-black" style={{color:'#58a6ff'}}>{pe.ranged||'初始食材砲'}</div>
+       <div className="text-[10px]" style={{color:'#6e7681',marginTop:'3px',lineHeight:'1.5'}}>{PARTNER_RANGED_DESC[pe.ranged||'初始食材砲']||'遠距離自動射擊武器'}</div>
+      </div>
+      <div style={{background:'#161b22',border:'1px solid #21262d',borderRadius:'10px',padding:'8px'}}>
+       <div className="text-[10px] font-bold" style={{color:'#8b949e'}}>近戰武器</div>
+       <div className="text-sm font-black" style={{color:'#f0883e'}}>{pe.melee||'初始鍋鏟'}</div>
+       <div className="text-[10px]" style={{color:'#6e7681',marginTop:'3px',lineHeight:'1.5'}}>{PARTNER_MELEE_DESC[pe.melee||'初始鍋鏟']||'近距離揮擊武器'}</div>
+      </div>
+      <div style={{background:'#161b22',border:'1px solid #21262d',borderRadius:'10px',padding:'8px'}}>
+       <div className="text-[10px] font-bold mb-1" style={{color:'#8b949e'}}>護符</div>
+       <div className="grid gap-1">
+        {pa.map((amulet,index)=><div key={index} style={{fontSize:'11px',fontWeight:900,color:amulet?'#d2a8ff':'#6e7681',border:'1px solid '+(amulet?'#8b5cf6':'#30363d'),borderRadius:'8px',padding:'5px 7px',background:amulet?'rgba(139,92,246,.15)':'transparent'}}>{amulet||`空欄 ${index+1}`}<div style={{fontSize:'9px',fontWeight:400,color:'#6e7681',marginTop:'2px'}}>{amulet?(PARTNER_AMULET_DESC[amulet]||'特殊護符效果'):'尚未裝備護符'}</div></div>)}
+       </div>
+      </div>
+     </div>
+    </div>
+   </div>
+  );
+ };
+
 
  if (frPhase === 'rebuild') {
   return (
@@ -8938,38 +9213,126 @@ if (selectedActivity === 'food_research') {
   if (frPhase === 'leaderboard') {
    const rankSave = loadSave();
    const rankTabs = [
-    {id:'kitchen', label:'本店內場排行', icon:'🍳', hint:'採用單次遠征最高分'},
-    {id:'service', label:'本店外場排行', icon:'🍽️', hint:'採用單次遠征最高分'},
-    {id:'all', label:'全台分店總排行', icon:'👑', hint:'採用單次遠征最高分'},
-  ];
-  const activeRank = rankTabs.find(t => t.id === frRankTab) || rankTabs[0];
-  return (
-   <div className="fixed inset-0 z-[10000] flex flex-col" style={{background:'#0d1117'}}>
-    <NavBar title="🏆 營地排行榜" onBack={()=>setFrPhase('camp')} />
-    <div className="flex-1 overflow-y-auto p-4 space-y-4">
+    {id:'kitchen', label:'本店內場', icon:'🍳'},
+    {id:'service', label:'本店外場', icon:'🍽️'},
+    {id:'all', label:'全台總排行', icon:'👑'},
+   ];
+   const activeRank = rankTabs.find(t => t.id === frRankTab) || rankTabs[0];
+   const seasonParts = foodResearchSeasonId.split('-');
+   const seasonLabel = `${seasonParts[0]} 年 ${Number(seasonParts[1])} 月賽季`;
+   const approvedUserMap = new Map(
+    allUsers.filter(user => user.status === 'approved' && user.phone)
+     .map(user => [String(user.phone), user])
+   );
+   const eligibleRankings = foodResearchRankings.map(record => {
+    const profile = approvedUserMap.get(String(record.phone || ''));
+    if (!profile) return null;
+    const branches = (Array.isArray(profile.branch) ? profile.branch : [profile.branch]).filter(Boolean);
+    if (!branches.includes(record.branch)) return null;
+    const role = normalizeRole(profile.role);
+    const department = role.includes('外場') ? 'service' : role.includes('內場') ? 'kitchen' : '';
+    if (!department) return null;
+    return {...record, user:profile, gameSave:profile.gameSave || {}, name:profile.name || record.name || '未命名員工', role, department};
+   }).filter(Boolean);
+   let visibleRankings;
+   if (frRankTab === 'all') {
+    const bestByPhone = new Map();
+    eligibleRankings.forEach(record => {
+     const phone = String(record.phone || '');
+     const previous = bestByPhone.get(phone);
+     if (!previous || compareFoodResearchRanks(record, previous) < 0) bestByPhone.set(phone, record);
+    });
+    visibleRankings = [...bestByPhone.values()];
+   } else {
+    visibleRankings = eligibleRankings.filter(record => record.branch === currentBranch && record.department === frRankTab);
+   }
+   visibleRankings.sort(compareFoodResearchRanks);
+   const currentPhone = String(currentUser?.phone || '');
+   const myRankIndex = visibleRankings.findIndex(record => String(record.phone || '') === currentPhone);
+   const myRanking = myRankIndex >= 0 ? visibleRankings[myRankIndex] : null;
+   const topRankings = visibleRankings.slice(0, 50);
+   const formatRunDuration = value => {
+    const totalSeconds = Math.max(0, Math.round((Number(value) || 0) / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${String(seconds).padStart(2,'0')}`;
+   };
+   const renderRankRow = (record, index, compact=false) => {
+    const rankingNumber = index + 1;
+    const isMine = String(record.phone || '') === currentPhone;
+    const rankMark = rankingNumber === 1 ? '🥇' : rankingNumber === 2 ? '🥈' : rankingNumber === 3 ? '🥉' : rankingNumber;
+    return (
+     <div key={record.id || `${record.phone}_${record.branch}`} role="button" tabIndex="0" onClick={event=>openPartnerStatus(record.user,event)} onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();openPartnerStatus(record.user,event);}}} style={{display:'grid',gridTemplateColumns:'38px 36px minmax(0,1fr) auto',gap:'8px',alignItems:'center',padding:compact?'10px':'12px 9px',borderBottom:compact?'none':'1px solid #30363d',background:isMine?'rgba(31,111,235,.16)':'transparent',borderRadius:compact?'10px':'0',cursor:'pointer',outline:'none'}}>
+      <div style={{fontSize:rankingNumber<=3?'22px':'13px', color:'#8b949e', fontWeight:900, textAlign:'center'}}>{rankMark}</div>
+      <PartnerThumb save={record.gameSave || {}} size={36} />
+      <div style={{minWidth:0}}>
+       <div style={{display:'flex', gap:'6px', alignItems:'center', minWidth:0}}>
+        <span style={{color:'#e6edf3', fontWeight:900, fontSize:'13px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{record.name}</span>
+        {isMine && <span style={{flex:'0 0 auto', color:'#58a6ff', fontSize:'9px', fontWeight:900}}>我</span>}
+       </div>
+       <div style={{color:'#8b949e', fontSize:'9px', marginTop:'3px', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>
+        {record.branch} · {record.role} · 第 {Number(record.maxStage||1)} 關 · {formatRunDuration(record.durationMs)}
+       </div>
+      </div>
+      <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
+       <div style={{textAlign:'right'}}>
+        <div style={{color:'#fbbf24', fontWeight:900, fontSize:'15px'}}>{Number(record.score||0).toLocaleString()}</div>
+        <div style={{color:'#8b949e', fontSize:'8px'}}>最高分</div>
+       </div>
+       {isSuperAdmin && <button title="刪除成績" onClick={event=>{event.stopPropagation();deleteFoodResearchRanking(record);}} style={{width:'28px',height:'28px',borderRadius:'8px',border:'1px solid #5c2430',background:'#2d151b',color:'#ff7b72',fontWeight:900}}>×</button>}
+      </div>
+     </div>
+    );
+   };
+   return (
+    <div className="fixed inset-0 z-[10000] flex flex-col" style={{background:'#0d1117'}}>
+     <NavBar title="🏆 營地排行榜" onBack={()=>setFrPhase('camp')} />
+     <div className="flex-1 overflow-y-auto p-4 space-y-4">
      <div style={{...cardStyle, textAlign:'center'}}>
-      <div style={{fontSize:'38px', marginBottom:'6px'}}>{activeRank.icon}</div>
-      <div style={{color:'#e6edf3', fontWeight:900, fontSize:'18px'}}>{activeRank.label}</div>
+      <div style={{display:'inline-flex',alignItems:'center',gap:'6px',padding:'5px 10px',borderRadius:'999px',border:'1px solid #30363d',background:'#0d1117',color:'#8b949e',fontSize:'10px',fontWeight:900}}>{seasonLabel}</div>
+      <div style={{color:'#e6edf3', fontWeight:900, fontSize:'18px', marginTop:'10px'}}>{activeRank.icon} {activeRank.label}</div>
+      <div style={{color:'#8b949e',fontSize:'10px',marginTop:'4px'}}>每月自動開啟新賽季，只計單次遠征最高分</div>
        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginTop:'12px'}}>
         <div style={{background:'#0d1117',border:'1px solid #30363d',borderRadius:'10px',padding:'10px'}}><div style={{fontSize:'10px',color:'#8b949e'}}>最近成績</div><div style={{fontSize:'18px',color:'#58a6ff',fontWeight:900}}>{Number(rankSave.lastScore||0).toLocaleString()}</div></div>
-        <div style={{background:'#0d1117',border:'1px solid #30363d',borderRadius:'10px',padding:'10px'}}><div style={{fontSize:'10px',color:'#8b949e'}}>個人最高</div><div style={{fontSize:'18px',color:'#fbbf24',fontWeight:900}}>{Number(rankSave.bestScore||0).toLocaleString()}</div></div>
+        <div style={{background:'#0d1117',border:'1px solid #30363d',borderRadius:'10px',padding:'10px'}}><div style={{fontSize:'10px',color:'#8b949e'}}>歷史最高</div><div style={{fontSize:'18px',color:'#fbbf24',fontWeight:900}}>{Number(rankSave.bestScore||0).toLocaleString()}</div></div>
        </div>
      </div>
-     <div style={{display:'grid', gridTemplateColumns:'1fr', gap:'8px'}}>
+     <div style={{display:'grid', gridTemplateColumns:'repeat(3,minmax(0,1fr))', gap:'6px'}}>
       {rankTabs.map(tab => (
-       <button key={tab.id} onClick={()=>setFrRankTab(tab.id)} style={{display:'flex', alignItems:'center', gap:'10px', padding:'13px', borderRadius:'14px', border:'1px solid '+(frRankTab===tab.id?'#fbbf24':'#30363d'), background:frRankTab===tab.id?'rgba(251,191,36,.16)':'#161b22', color:'#e6edf3', fontWeight:900, textAlign:'left'}}>
-        <span style={{fontSize:'22px'}}>{tab.icon}</span>
-        <span style={{flex:1}}>
-         <span style={{display:'block', fontSize:'13px'}}>{tab.label}</span>
-         <span style={{display:'block', fontSize:'10px', color:'#8b949e', marginTop:'2px'}}>{tab.hint}</span>
-        </span>
+       <button key={tab.id} onClick={()=>setFrRankTab(tab.id)} style={{minHeight:'54px', padding:'8px 5px', borderRadius:'10px', border:'1px solid '+(frRankTab===tab.id?'#fbbf24':'#30363d'), background:frRankTab===tab.id?'rgba(251,191,36,.16)':'#161b22', color:frRankTab===tab.id?'#fbbf24':'#c9d1d9', fontWeight:900, fontSize:'10px'}}>
+        <span style={{display:'block',fontSize:'17px',marginBottom:'2px'}}>{tab.icon}</span>{tab.label}
        </button>
       ))}
      </div>
+     <div style={{...cardStyle, padding:0, overflow:'hidden'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px',borderBottom:'1px solid #30363d'}}>
+       <div style={{color:'#e6edf3',fontSize:'12px',fontWeight:900}}>{activeRank.label}</div>
+       <div style={{color:'#8b949e',fontSize:'9px'}}>{visibleRankings.length} 人參賽</div>
+      </div>
+      {foodResearchRankLoading ? (
+       <div style={{padding:'34px 14px',textAlign:'center',color:'#8b949e',fontSize:'11px'}}>排行榜讀取中...</div>
+      ) : foodResearchRankError ? (
+       <div style={{padding:'34px 14px',textAlign:'center',color:'#ff7b72',fontSize:'11px'}}>{foodResearchRankError}</div>
+      ) : topRankings.length === 0 ? (
+       <div style={{padding:'34px 14px',textAlign:'center'}}>
+        <div style={{fontSize:'28px',marginBottom:'8px'}}>🏁</div>
+        <div style={{color:'#c9d1d9',fontSize:'12px',fontWeight:900}}>本月還沒有成績</div>
+        <div style={{color:'#8b949e',fontSize:'9px',marginTop:'5px'}}>完成下一次遠征並返回營地後，就會登上排行榜。</div>
+       </div>
+      ) : topRankings.map((record,index)=>renderRankRow(record,index))}
+     </div>
+     {myRanking && myRankIndex >= 50 && (
+      <div style={{...cardStyle,padding:'8px'}}>
+       <div style={{color:'#58a6ff',fontSize:'10px',fontWeight:900,padding:'2px 8px 7px'}}>我的名次</div>
+       {renderRankRow(myRanking,myRankIndex,true)}
+      </div>
+     )}
       <div style={{...cardStyle, color:'#c9d1d9', fontWeight:800, fontSize:'11px', lineHeight:'1.9'}}>
        <div style={{color:'#fbbf24',fontWeight:900,fontSize:'13px',marginBottom:'5px'}}>計分規則</div>
-       小兵依類型與關卡獲得 100 至 483 分；BOSS、入侵者及通關另有獎勵。每關依完成速度加分，無傷再獲額外加分；制霸第 22 關可獲得 5,000 分。
+       小兵、BOSS、入侵者與通關皆會計分；每關依完成速度加分，無傷另有獎勵，制霸第 22 關再獲 5,000 分。<br/>
+       同分時依序比較最高關卡、擊破 BOSS 數、遠征耗時與達成時間。每位員工每月只保留最高成績。
       </div>
+     {renderPartnerStatusModal()}
     </div>
    </div>
   );
@@ -9080,16 +9443,6 @@ if (selectedActivity === 'food_research') {
  }
 
  if (frPhase === 'quests') {
-
-  const puzzleParts = [
-   {id:'shoulder', label:'肩胛肉', emoji:'🥩', correct:'A'},
-   {id:'rib',      label:'肋條肉', emoji:'🥩', correct:'B'},
-   {id:'chest',    label:'胸腹肉', emoji:'🥩', correct:'C'},
-   {id:'loin',     label:'腰脊肉', emoji:'🥩', correct:'D'},
-  ];
-  const puzzleSlots = ['A','B','C','D'];
-  const puzzleCorrect = puzzleParts.every(p => puzzleState.placed[p.id] === p.correct);
-
   const dailyKnowledgeTask = todayQuests.tasks[2];
   const dailyKnowledgeSet = (dailyKnowledgeTask.questionKeys || []).map((key,index) => dailyKnowledgeMap.get(key) || dailyKnowledgeQuestions[index]).filter(Boolean);
   const dailyKnowledgeCurrent = dailyKnowledgeSet[Math.min(dailyKnowledgeTask.current || 0, 9)] || null;
@@ -9148,45 +9501,26 @@ if (selectedActivity === 'food_research') {
      ) : todayQuests.tasks[0].progress >= todayQuests.tasks[0].target ? (
       <button onClick={()=>claimQuest(0)} style={btnGold}>領取獎勵 +{todayQuests.tasks[0].reward}💰</button>
      ) : (
-      <div style={{fontSize:'11px', color:'#8b949e'}}>出征擊敗敵人後回來領獎勵</div>
+      <div style={{fontSize:'11px', color:'#8b949e'}}>出征擊倒小怪後回來領取獎勵</div>
      )}
      </div>
 
-     {/* Task 2: Puzzle */}
+     {/* Task 2: Expeditions */}
      <div style={cardStyle}>
-     <div style={sectionTitle}>🧩 食材拼圖</div>
-     <div style={{color:'#e6edf3', fontWeight:900, fontSize:'12px', marginBottom:'10px'}}>將牛肉部位名稱拖曳到正確位置</div>
-     <div style={{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px', marginBottom:'10px'}}>
-      {puzzleSlots.map(slot => {
-       const placed = Object.entries(puzzleState.placed).find(([,v])=>v===slot);
-       const part = placed ? puzzleParts.find(p=>p.id===placed[0]) : null;
-       return (
-        <div key={slot} onClick={()=>{
-         if(placed) {
-          const np = {...puzzleState.placed};
-          delete np[placed[0]];
-          setPuzzleState(s=>({...s, placed:np}));
-         }
-        }} style={{border:'2px dashed '+(part?'#1f6feb':'#30363d'), borderRadius:'10px', padding:'10px', textAlign:'center', minHeight:'50px', display:'flex', alignItems:'center', justifyContent:'center', background:part?'rgba(31,111,235,.15)':'transparent', cursor:part?'pointer':'default'}}>
-         {part ? <span style={{fontWeight:900, fontSize:'11px', color:'#58a6ff'}}>{part.label}</span> : <span style={{fontSize:'11px', color:'#30363d', fontWeight:700}}>{slot}</span>}
-        </div>
-       );
-      })}
-     </div>
-     <div style={{display:'flex', flexWrap:'wrap', gap:'6px', marginBottom:'10px'}}>
-      {puzzleParts.filter(p=>!puzzleState.placed[p.id]).map(p=>(
-       <button key={p.id} onClick={()=>{
-        const empty = puzzleSlots.find(s=>!Object.values(puzzleState.placed).includes(s));
-        if(empty) setPuzzleState(st=>({...st, placed:{...st.placed,[p.id]:empty}}));
-       }} style={{padding:'6px 10px', borderRadius:'8px', border:'1px solid #388bfd', background:'rgba(56,139,253,.15)', color:'#58a6ff', fontSize:'11px', fontWeight:900, cursor:'pointer'}}>{p.label}</button>
-      ))}
+     <div style={sectionTitle}>🚪 出征任務</div>
+     <div style={{color:'#e6edf3', fontWeight:900, fontSize:'13px', marginBottom:'6px'}}>{todayQuests.tasks[1].desc}</div>
+     <div style={{display:'flex', alignItems:'center', gap:'8px', marginBottom:'10px'}}>
+      <div style={{flex:1, height:'6px', background:'#21262d', borderRadius:'3px', overflow:'hidden'}}>
+       <div style={{height:'100%', background:'#10b981', borderRadius:'3px', width:Math.min(100,(todayQuests.tasks[1].progress/todayQuests.tasks[1].target)*100)+'%'}}/>
+      </div>
+      <span style={{fontSize:'11px', color:'#8b949e', fontWeight:700}}>{todayQuests.tasks[1].progress}/{todayQuests.tasks[1].target}</span>
      </div>
      {todayQuests.tasks[1].done ? (
       <div style={{color:'#3fb950', fontWeight:900, fontSize:'12px'}}>✅ 已完成 +{todayQuests.tasks[1].reward}💰</div>
-     ) : puzzleCorrect ? (
-      <button onClick={()=>claimQuest(1)} style={btnGold}>拼圖正確！領取 +{todayQuests.tasks[1].reward}💰</button>
+     ) : todayQuests.tasks[1].progress >= todayQuests.tasks[1].target ? (
+      <button onClick={()=>claimQuest(1)} style={btnGold}>領取獎勵 +{todayQuests.tasks[1].reward}💰</button>
      ) : (
-      <div style={{fontSize:'11px', color:'#8b949e'}}>提示：A=肩胛、B=肋條、C=胸腹、D=腰脊</div>
+      <div style={{fontSize:'11px', color:'#8b949e'}}>每次從營地開始一場新出征即累計 1 次</div>
      )}
      </div>
 
@@ -9470,12 +9804,6 @@ if (selectedActivity === 'food_research') {
  }
 
   if (frPhase === 'partner_select') {
-   const DEFAULT_PARTNER_SAVE = {
-    training:{atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0},
-    equip:{ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']},
-    equippedForm:'normal'
-   };
-   const PARTNER_FORMS = {normal:{name:'原味型',emoji:'🍙'},...FOOD_RESEARCH_FORM_MAP};
    const FR_MAP_OPTIONS = [
     {id:'random',name:'隨機地圖',text:'每次出征隨機'},
     {id:0,name:"甜蜜遊樂園",text:"爆米花轟炸"},
@@ -9614,6 +9942,12 @@ if (selectedActivity === 'food_research') {
     });
    };
    const handleDeparture = async () => {
+    if (departureInProgressRef.current) return;
+    departureInProgressRef.current = true;
+    expeditionRunRef.current = {
+     id:`${currentUser?.phone || 'guest'}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
+     startedAt:Date.now()
+    };
     const selectedPartners = chosenPartners.slice(0,2);
     chosenPartnersRef.current = [];
     rivalDataRef.current = '[]';
@@ -9675,8 +10009,19 @@ if (selectedActivity === 'food_research') {
     rivalDataRef.current = JSON.stringify(rd);
     };
     await fetchRivals();
+    const latestSave = loadSave();
+    const latestQuests = latestSave.quests;
+    if (latestQuests?.date === new Date().toDateString()) {
+     const tasks = [...(latestQuests.tasks || [])];
+     const expeditionTask = tasks[1];
+     if (expeditionTask?.type === 'expedition' && !expeditionTask.done) {
+      tasks[1] = {...expeditionTask, progress:Math.min(expeditionTask.target, (expeditionTask.progress||0)+1)};
+      writeSave({quests:{...latestQuests,tasks}});
+     }
+    }
     foodResearchHTMLRef.current='';
     setFrPhase('game');
+    setTimeout(()=>{departureInProgressRef.current=false;},500);
    };
   return (
    <div className="fixed inset-0 z-[10000] flex flex-col" style={campBg}>
@@ -9766,16 +10111,16 @@ if (selectedActivity === 'food_research') {
   quests: s2.quests||null,
   playerName: currentUser?.name || (isSuperAdmin ? '主廚' : '玩家'),
   playerPhone: playerPhone,
+  runId: expeditionRunRef.current.id || `${playerPhone}_${Date.now()}`,
+  runStartedAt: expeditionRunRef.current.startedAt || Date.now(),
   savedStageKey: savedStageKey,
   isSuperAdmin: !!isSuperAdmin,
    startMapIdx: isSuperAdmin && frStartMapIdx !== 'random' ? Number(frStartMapIdx) : null,
   });
-  const configuredRevivalQuestions = config.questionBankVersion === FOOD_RESEARCH_QUESTION_BANK_VERSION && config.questions?.length
-   ? (config.questions || [])
-   : mergeFoodResearchQuestions(FOOD_RESEARCH_QUESTIONS, config.questions || []);
-  const revivalQuestionData = JSON.stringify(configuredRevivalQuestions.map(item => {
-   if (Array.isArray(item)) return { q:item[0], opts:item.slice(1,5), ans:Number(item[5]) || 0 };
-   return { q:item.q, opts:[item.a,item.b,item.c,item.d], ans:Number(item.ansIdx) || 0 };
+  const configuredRevivalQuestions = foodResearchQuestionBank;
+  const revivalQuestionData = JSON.stringify(configuredRevivalQuestions.map((item,index) => {
+   const normalized = getFoodResearchQuestionParts(item);
+   return shuffleFoodResearchQuestion(normalized, `revival:${index}:${normalized.q}`, index % 4);
   }).filter(item => item.q && item.opts.length === 4 && item.opts.every(Boolean)));
   const balancedGameBody = window.FOOD_RESEARCH_APPLY_BALANCE_PATCH ? window.FOOD_RESEARCH_APPLY_BALANCE_PATCH(GAME_JS_BODY) : GAME_JS_BODY;
   const gameBodyWithImportedRevivalQuestions = (window.FOOD_RESEARCH_APPLY_AMULET_PATCH ? window.FOOD_RESEARCH_APPLY_AMULET_PATCH(balancedGameBody) : balancedGameBody).replace(
@@ -9847,6 +10192,16 @@ if (selectedActivity === 'food_research') {
         bestScore: Math.max(Number(cur.bestScore)||0, finalScore),
         runScore: msg.data.completed ? 0 : finalScore
        });
+       if (finalScore > 0) {
+        syncFoodResearchRanking({
+         score:finalScore,
+         stage:msg.data.stage,
+         bossKills:msg.data.bossKills,
+         durationMs:msg.data.durationMs,
+         completed:msg.data.completed,
+         runId:msg.data.runId
+        }).catch(error => console.error('同步食研所排行榜失敗', error));
+       }
       window.removeEventListener('message', handler);
       foodResearchHTMLRef.current='';
       setFrPhase('camp');
