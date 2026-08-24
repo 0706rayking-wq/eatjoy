@@ -38,7 +38,7 @@ assert.deepEqual(resolveDepartmentValues(
   departmentHtml,
   '15451_103016',
   {}
-), ['15451_103017', '15451_103018']);
+), ['15451_103017']);
 assert.deepEqual(resolveDepartmentValues(
   { sheet_type: '外場／洗滌' },
   '',

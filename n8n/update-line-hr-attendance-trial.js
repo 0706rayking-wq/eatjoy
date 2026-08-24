@@ -88,14 +88,22 @@ const hasAllowedHeaderSequence = allowedHeaderSequences.some((requiredHeaders) =
 if (schedule.is_attendance_sheet !== true || !hasAllowedHeaderSequence) return [];
 if (!schedule.date || !Array.isArray(schedule.employees)) throw new Error('下班條缺少日期或員工資料');
 
-schedule.sheet_type = ['內場', '外場／洗滌'].includes(schedule.sheet_type)
-  ? schedule.sheet_type
-  : (headers.some((header) => /[123]$/.test(header)) ? '外場／洗滌' : '內場');
 schedule.departments = Array.isArray(schedule.departments)
   ? [...new Set(schedule.departments.map((value) => String(value || '').trim()).filter(Boolean))]
   : [];
+const hasFrontDepartment = schedule.departments.some((value) => value.includes('外場'));
+const hasKitchenDepartment = schedule.departments.some((value) => value.includes('內場'));
+const isUnsupportedDepartmentSheet = !hasFrontDepartment && !hasKitchenDepartment &&
+  schedule.departments.some((value) => /行政|洗滌|洗碗/.test(value));
+if (isUnsupportedDepartmentSheet) return [];
+schedule.sheet_type = hasFrontDepartment
+  ? '外場／洗滌'
+  : (['內場', '外場／洗滌'].includes(schedule.sheet_type)
+    ? schedule.sheet_type
+    : (headers.some((header) => /[123]$/.test(header)) ? '外場／洗滌' : '內場'));
 schedule.employees = schedule.employees.map((employee) => ({
   ...employee,
+  department: hasFrontDepartment && !employee?.department ? '外場' : employee?.department,
   shifts: Array.isArray(employee?.shifts) ? employee.shifts.slice(0, 3) : []
 }));
 return [{ json: schedule }];`;
@@ -109,6 +117,6 @@ if (!recognitionNode || !normalizeNode || !lineResponseNode) {
 
 recognitionNode.parameters.text = recognitionPrompt;
 normalizeNode.parameters.jsCode = normalizeCode;
-lineResponseNode.parameters.jsonBody = `{{ (() => { const isFrontWash = $('整理辨識結果').first().json.sheet_type === '外場／洗滌'; const lineMessages = ($json.lineMessages || []).slice(0, 5).map(text => isFrontWash ? String(text).replace('店別：南港內場', '店別：南港外場／洗滌') : String(text)); return { to: $('僅處理下班條照片').first().json.event.source.groupId, messages: lineMessages.map(text => ({ type: 'text', text })) }; })() }}`;
+lineResponseNode.parameters.jsonBody = `={{ (() => { const isFrontWash = $('整理辨識結果').first().json.sheet_type === '外場／洗滌'; const lineMessages = ($json.lineMessages || []).slice(0, 5).map(text => isFrontWash ? String(text).replace('店別：南港內場', '店別：南港外場／洗滌') : String(text)); return { to: $('僅處理下班條照片').first().json.event.source.groupId, messages: lineMessages.map(text => ({ type: 'text', text })) }; })() }}`;
 fs.writeFileSync(workflowPath, `${JSON.stringify(workflow, null, 2)}\n`, 'utf8');
 console.log(workflowPath);

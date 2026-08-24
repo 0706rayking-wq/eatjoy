@@ -61,6 +61,30 @@ const acceptedFrontWash = normalize({
 assert.equal(acceptedFrontWash.length, 1);
 assert.equal(acceptedFrontWash[0].json.sheet_type, '外場／洗滌');
 
+const acceptedFrontSameFormat = normalize({
+  text: JSON.stringify({
+    ...baseSchedule,
+    is_attendance_sheet: true,
+    sheet_type: '內場',
+    departments: ['外場'],
+    header_sequence: ['上班', '下班', '上班', '下班']
+  })
+});
+assert.equal(acceptedFrontSameFormat.length, 1);
+assert.equal(acceptedFrontSameFormat[0].json.sheet_type, '外場／洗滌');
+assert.equal(acceptedFrontSameFormat[0].json.employees[0].department, '外場');
+
+const skippedAdminWash = normalize({
+  text: JSON.stringify({
+    ...baseSchedule,
+    is_attendance_sheet: true,
+    sheet_type: '內場',
+    departments: ['行政', '洗滌'],
+    header_sequence: ['上班', '下班', '上班', '下班']
+  })
+});
+assert.deepEqual(skippedAdminWash, []);
+
 const acceptedThreeShifts = normalize({
   text: JSON.stringify({
     ...baseSchedule,

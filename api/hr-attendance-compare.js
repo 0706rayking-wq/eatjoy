@@ -1,5 +1,6 @@
 const crypto = require('node:crypto');
 const explanationSyncHandler = require('../lib/hr-attendance-explanation-sync');
+const { launchBrowser } = require('../lib/browserbase-browser');
 
 const NUEIP_HOST_SUFFIX = '.nueip.com';
 const MAX_LINE_CHARS = 28;
@@ -201,7 +202,7 @@ function resolveDepartmentValues(schedule, html, defaultDepartment, environment 
       if (!companyPrefix) return false;
       return new RegExp(`^${escapeRegExp(companyPrefix)}_[0-9]+$`).test(option.value);
     });
-  const roleMatches = options.filter((option) => /外場|洗滌|洗碗/.test(option.label));
+  const roleMatches = options.filter((option) => /外場/.test(option.label));
   const branchKeyword = String(environment.NUEIP_BRANCH_KEYWORD || '南港').trim();
   const branchMatches = branchKeyword
     ? roleMatches.filter((option) => option.label.includes(branchKeyword))
@@ -214,7 +215,7 @@ function resolveDepartmentValues(schedule, html, defaultDepartment, environment 
     const available = options.slice(0, 12)
       .map((option) => `${option.label}=${option.value}`)
       .join(',');
-    throw new Error(`找不到NUEIP南港外場／洗滌部門；可用部門：${available || '無'}；請設定NUEIP_FRONT_WASH_DEPARTMENT_VALUES`);
+    throw new Error(`找不到NUEIP南港外場部門；可用部門：${available || '無'}；請設定NUEIP_FRONT_WASH_DEPARTMENT_VALUES`);
   }
   return [...new Set(selected.map((option) => option.value))];
 }
@@ -278,10 +279,6 @@ async function fetchWithCookies(url, options, jar, redirectsLeft = 5) {
 }
 
 async function loadNueipAttendanceBrowser(date, requestedDepartments = [], schedule = {}) {
-  const chromiumModule = await import('@sparticuz/chromium');
-  const puppeteerModule = await import('puppeteer-core');
-  const chromium = chromiumModule.default || chromiumModule;
-  const puppeteer = puppeteerModule.default || puppeteerModule;
   const companyCode = readRequiredEnv('NUEIP_COMPANY_CODE');
   const employeeId = readRequiredEnv('NUEIP_EMPLOYEE_ID');
   const password = readRequiredEnv('NUEIP_PASSWORD');
@@ -290,12 +287,7 @@ async function loadNueipAttendanceBrowser(date, requestedDepartments = [], sched
   let departmentValues = requestedDepartments.length > 0
     ? [...new Set(requestedDepartments)]
     : (schedule?.sheet_type === '外場／洗滌' ? [] : [departmentValue]);
-  const browser = await puppeteer.launch({
-    args: chromium.args,
-    defaultViewport: chromium.defaultViewport,
-    executablePath: await chromium.executablePath(),
-    headless: chromium.headless
-  });
+  const browser = await launchBrowser();
 
   let stage = '開啟登入頁';
   let lastUrl = '';
@@ -337,7 +329,7 @@ async function loadNueipAttendanceBrowser(date, requestedDepartments = [], sched
           .map((option) => ({ value: String(option.value || '').trim(), label: String(option.textContent || '').trim() }))
           .filter((option) => pattern.test(option.value) && option.label);
       }, { companyValue });
-      const roleMatches = availableDepartments.filter((option) => /外場|洗滌|洗碗/.test(option.label));
+      const roleMatches = availableDepartments.filter((option) => /外場/.test(option.label));
       const branchKeyword = String(process.env.NUEIP_BRANCH_KEYWORD || '南港').trim();
       const branchMatches = branchKeyword
         ? roleMatches.filter((option) => option.label.includes(branchKeyword))
@@ -350,7 +342,7 @@ async function loadNueipAttendanceBrowser(date, requestedDepartments = [], sched
         const available = availableDepartments.slice(0, 12)
           .map((option) => `${option.label}=${option.value}`)
           .join(',');
-        throw new Error(`找不到NUEIP南港外場／洗滌部門；可用部門：${available || '無'}`);
+        throw new Error(`找不到NUEIP南港外場部門；可用部門：${available || '無'}`);
       }
     }
 
