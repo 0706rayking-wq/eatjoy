@@ -104,14 +104,14 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
       .replace('const stamBonus=(tr.stam||0)*10;', 'const stamBonus=(tr.stam||0)*FR_BALANCE.training.staminaPerLevel;')
       .replace('const STAM_REGEN=0.0005*(1+(tr.stamRegen||0)*.1);', 'const STAM_REGEN=(FR_BALANCE.stamina.regenPerSecond/1000)*(1+(tr.stamRegen||0)*FR_BALANCE.stamina.regenPerTrainingLevel);')
       .replace('const DODGE_COST=30;', 'const DODGE_COST=FR_BALANCE.stamina.dodgeCost;')
-      .replace('let gold=0,score=0,stage=1,gameRunning=false,stageCleared=false;', 'let gold=0,score=Number(SAVE.runScore||0),stage=1,gameRunning=false,stageCleared=false;')
+      .replace('let gold=0,score=0,stage=1,gameRunning=false,stageCleared=false;', "let gold=0,score=Number(SAVE.runScore||0),stage=1,gameRunning=false,stageCleared=false;let frBossDefeatedCount=0;const frRunStartedAt=Number(SAVE.runStartedAt||Date.now());const frRunId=String(SAVE.runId||'');")
       .replace('const goldChance=.5;', 'const goldChance=frEnemyCoinChance(this.type);')
       .replace('const earn=1+Math.floor(Math.random()*3);', 'const earn=frEnemyCoinAmount(this.type);')
       .replace("addText('+100💰'", "addText('+'+frBossCoinReward(stage)+'💰'")
       .replace('score+=this.scoreVal;gold+=100;updateHUD();reportBossKill();', 'score+=this.scoreVal;gold+=frBossCoinReward(stage);updateHUD();reportBossKill();')
       .replace('gold+=30;updateHUD();', 'const rivalGold=frRivalCoinReward(stage);gold+=rivalGold;score+=frRivalScore(stage);updateHUD();')
       .replace("addText('🎉全數擊敗！+30🪙'", "addText('🎉全數擊敗！+'+frRivalCoinReward(stage)+'🪙'")
-      .replace("function goBackToCamp(){window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold},'*');}", "function goBackToCamp(){window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold,score,stage,completed:!!window.frRunComplete},'*');}")
+      .replace("function goBackToCamp(){window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold},'*');}", "function goBackToCamp(){window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold,score,stage,bossKills:frBossDefeatedCount,durationMs:Math.max(1000,Date.now()-frRunStartedAt),runId:frRunId,completed:!!window.frRunComplete},'*');}")
       .replace('currentBgIdx=Math.floor(Math.random()*BG_THEMES.length);', 'currentBgIdx=frMapForStage(stage);')
       .replace(/currentBgIdx = pickInitialBgIdx\(\);/g, "currentBgIdx = SAVE.startMapIdx!=null ? pickInitialBgIdx() : frMapForStage(stage);")
       .replace('const spd=player.speed*(currentWeapon===\'melee\'?1.1:1)*(normalFrenzyTimer>0?2:1);', "const statusMove=(window.frSlowUntil&&performance.now()<window.frSlowUntil)?FR_BALANCE.combat.slowMultiplier:1;const spd=player.speed*(currentWeapon==='melee'?1.1:1)*(normalFrenzyTimer>0?2:1)*statusMove;")
@@ -187,6 +187,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
   const wasAlive=!this._defeated&&this.hp>0,debuff=window.frAttackDownUntil&&performance.now()<window.frAttackDownUntil?FR_BALANCE.combat.attackDownMultiplier:1;
   const result=frBalancedBossDamage.call(this,amount*debuff,isQa);
   if(wasAlive&&this._defeated){
+   frBossDefeatedCount++;
    const elapsed=Math.max(0,(performance.now()-frStageStartedAt)/1000),clear=frStageClearScore(stage);
    const target=48+stage*2.5,time=Math.max(0,Math.round(FR_BALANCE.scoring.timeBonusMax-Math.max(0,elapsed-target)*FR_BALANCE.scoring.timeBonusLossPerSecond));
    const flawless=frStageHpDamage<=0?FR_BALANCE.scoring.flawlessBase+stage*FR_BALANCE.scoring.flawlessPerStage:0;
