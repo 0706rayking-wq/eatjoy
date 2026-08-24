@@ -248,6 +248,53 @@ const aliasSilentMessage = formatLineMessages(
 assert.equal(aliasSilentMessage.includes('王瀞妍'), false);
 assert.equal(aliasSilentMessage.includes('下班正常：0人'), true);
 
+const emptyScheduleOffComparison = compareAttendance({
+  employees: [{ name: '余嘉浩', shifts: [], off_or_unclear: true }]
+}, [{
+  employeeNumber: 'F002',
+  name: '余嘉浩',
+  department: '南港三井Lalaport外場',
+  date: '2026-08-24',
+  schedule: '',
+  status: '',
+  clockIns: [],
+  clockOuts: []
+}], []);
+assert.equal(emptyScheduleOffComparison.issues.length, 0);
+assert.equal(emptyScheduleOffComparison.offMatchedCount, 1);
+assert.deepEqual(emptyScheduleOffComparison.offMatchedNames, ['余嘉浩']);
+
+const outsideNameAliasComparison = compareAttendance({
+  employees: [
+    { name: '宇濛', shifts: [{ start: '11:00', end: '17:00' }] },
+    { name: '淩薇', shifts: [], off_or_unclear: true }
+  ]
+}, [
+  {
+    employeeNumber: 'F003',
+    name: '謝宇濠',
+    department: '南港三井Lalaport外場',
+    date: '2026-08-24',
+    schedule: '出勤日',
+    status: '',
+    clockIns: ['10:55'],
+    clockOuts: ['17:05']
+  },
+  {
+    employeeNumber: 'F004',
+    name: '凌薇',
+    department: '南港三井Lalaport外場',
+    date: '2026-08-24',
+    schedule: '',
+    status: '',
+    clockIns: [],
+    clockOuts: []
+  }
+], []);
+assert.equal(outsideNameAliasComparison.issues.length, 0);
+assert.equal(outsideNameAliasComparison.normalRecords[0].name, '謝宇濠');
+assert.equal(outsideNameAliasComparison.offMatchedCount, 1);
+
 const threeShiftAttendance = [{
   employeeNumber: 'E900',
   name: '測試外場',

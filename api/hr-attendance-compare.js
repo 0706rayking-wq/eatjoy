@@ -592,7 +592,9 @@ async function loadNueipAttendance(date, schedule = {}) {
 function normalizeName(value) {
   return String(value || '')
     .replace(/[^\p{Script=Han}A-Za-z0-9]/gu, '')
-    .replace(/瀞/g, '靜');
+    .replace(/瀞/g, '靜')
+    .replace(/濛/g, '濠')
+    .replace(/淩/g, '凌');
 }
 
 function isSilentLineName(value, silentNames) {
@@ -750,9 +752,11 @@ function compareAttendance(schedule, attendance, excludedNames = ['黃遠志']) 
     const expectedEnds = shifts.map((shift) => shift && shift.end).filter(Boolean);
     const isOff = expectedEnds.length === 0;
     const isRestDay = /休息日|例假日|休假/.test(record.schedule);
+    const hasPunches = record.clockIns.length > 0 || record.clockOuts.length > 0;
+    const hasNoScheduledShift = !String(record.schedule || '').trim();
 
     if (isOff) {
-      if (isRestDay && record.clockIns.length === 0 && record.clockOuts.length === 0) {
+      if ((isRestDay || hasNoScheduledShift) && !hasPunches) {
         offMatchedCount += 1;
         offMatchedNames.push(record.name);
       } else {
