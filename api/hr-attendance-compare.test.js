@@ -225,6 +225,29 @@ assert.equal(silentMessages.includes('異常：1項'), true);
 assert.equal(silentMessages.includes('下班正常：1人'), true);
 assert.equal(silentMessages.includes('休假相符：0人'), true);
 
+const nameAliasComparison = compareAttendance({
+  employees: [{ name: '靜妍', shifts: [{ start: '09:30', end: '15:00' }] }]
+}, [{
+  employeeNumber: 'F001',
+  name: '王瀞妍',
+  department: '南港三井Lalaport外場',
+  date: '2026-08-24',
+  schedule: '出勤日',
+  status: '',
+  clockIns: ['09:25'],
+  clockOuts: ['15:05']
+}], []);
+assert.equal(nameAliasComparison.issues.length, 0);
+assert.equal(nameAliasComparison.normalRecords[0].name, '王瀞妍');
+const aliasSilentMessage = formatLineMessages(
+  '2026-08-24',
+  nameAliasComparison,
+  { sheet_type: '外場／洗滌' },
+  ['靜妍']
+).join('\n');
+assert.equal(aliasSilentMessage.includes('王瀞妍'), false);
+assert.equal(aliasSilentMessage.includes('下班正常：0人'), true);
+
 const threeShiftAttendance = [{
   employeeNumber: 'E900',
   name: '測試外場',

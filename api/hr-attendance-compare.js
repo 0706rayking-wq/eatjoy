@@ -590,7 +590,20 @@ async function loadNueipAttendance(date, schedule = {}) {
 }
 
 function normalizeName(value) {
-  return String(value || '').replace(/[^\p{Script=Han}A-Za-z0-9]/gu, '');
+  return String(value || '')
+    .replace(/[^\p{Script=Han}A-Za-z0-9]/gu, '')
+    .replace(/瀞/g, '靜');
+}
+
+function isSilentLineName(value, silentNames) {
+  const candidate = normalizeName(value);
+  if (!candidate) return false;
+  return silentNames.some((silentName) => {
+    const silent = normalizeName(silentName);
+    return Boolean(silent) && (
+      candidate === silent || candidate.endsWith(silent) || silent.endsWith(candidate)
+    );
+  });
 }
 
 function attendanceCandidateScore(employee, record) {
@@ -860,12 +873,11 @@ function wrapLine(line, limit = MAX_LINE_CHARS) {
 
 function formatLineMessages(date, comparison, schedule = {}, silentNames = []) {
   const displayDate = String(date).replace(/^\d{4}-/, '').replace('-', '/');
-  const silent = new Set(silentNames.map(normalizeName));
-  const visibleIssues = comparison.issues.filter((issue) => !silent.has(normalizeName(issue.name)));
+  const visibleIssues = comparison.issues.filter((issue) => !isSilentLineName(issue.name, silentNames));
   const silentNormalCount = (comparison.normalRecords || [])
-    .filter((record) => silent.has(normalizeName(record.name))).length;
+    .filter((record) => isSilentLineName(record.name, silentNames)).length;
   const silentOffCount = (comparison.offMatchedNames || [])
-    .filter((name) => silent.has(normalizeName(name))).length;
+    .filter((name) => isSilentLineName(name, silentNames)).length;
   const visibleNormalCount = Math.max(0, comparison.normalCount - silentNormalCount);
   const visibleOffMatchedCount = Math.max(0, comparison.offMatchedCount - silentOffCount);
   const sheetType = String(schedule.sheet_type || '').trim();
