@@ -384,4 +384,30 @@ const unclearComparison = compareAttendance({
 assert.equal(unclearComparison.issues.some((issue) => issue.type === 'schedule_review'), true);
 assert.equal(unclearComparison.issues.some((issue) => issue.type === 'nueip_status'), false);
 
+const redLateComparison = compareAttendance({
+  employees: [{
+    name: '測試員工',
+    shifts: [{ start: '09:30', end: '15:00' }],
+    late_marked: true,
+    needs_review: false
+  }]
+}, [{ ...adjustedAndPhysical, status: '' }]);
+assert.equal(redLateComparison.issues.some((issue) => issue.type === 'paper_late'), true);
+assert.equal(redLateComparison.issues.some((issue) => issue.type === 'schedule_review'), false);
+
+const changedOffComparison = compareAttendance({
+  employees: [{
+    name: '測試員工',
+    shifts: [],
+    off_or_unclear: true,
+    changed_to_off: true,
+    needs_review: false
+  }]
+}, [{
+  employeeNumber: 'T001', name: '測試員工', department: '南港三井Lalaport內場',
+  schedule: '', status: '', clockIns: [], clockOuts: []
+}]);
+assert.equal(changedOffComparison.offMatchedCount, 1);
+assert.equal(changedOffComparison.issues.some((issue) => issue.type === 'schedule_review'), false);
+
 console.log('hr-attendance-compare tests passed');

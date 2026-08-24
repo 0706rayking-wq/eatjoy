@@ -21,6 +21,8 @@ Use exactly this structure:
       "department": "內場" | "外場" | "洗滌" | null,
       "shifts": [{"start": string | null, "end": string | null}],
       "off_or_unclear": boolean,
+      "late_marked": boolean,
+      "changed_to_off": boolean,
       "needs_review": boolean,
       "review_reason": string | null
     }
@@ -43,12 +45,17 @@ Extraction rules when and only when is_attendance_sheet=true:
 1. Read EVERY printed employee row across every repeated 姓名 block, in visual order. Never omit a row because it has a slash, blank times, changed day off, or unclear handwriting.
 2. Set sheet_type=內場 for the unnumbered header. Set sheet_type=外場／洗滌 for the numbered header. Record visible section labels such as 外場 or 洗滌 in departments and on each employee when clear; otherwise use null and add a warning.
 3. Preserve printed Chinese names exactly. Never substitute a similar-looking character. If a name cannot be read confidently, use null and explain its row/location.
-4. A slash, 改休, 休, or blank schedule means shifts=[] and off_or_unclear=true.
-5. Convert readable times to 24-hour HH:mm. Examples: 930=>09:30, 15=>15:00, 2030=>20:30, 2145=>21:45.
-6. Each numbered 上班/下班 pair is one shift. Preserve one, two, or three complete shifts in chronological order. Never merge split shifts.
-7. If a cell contains overwritten, stacked, crossed-out, or multiple possible times, use the clearly final uncrossed value only. If the final value or pairing is uncertain, keep null where needed and set needs_review=true with a precise reason. Never invent a third shift.
-8. Set needs_review=true when the name, department, date, time, correction, or start/end pairing is uncertain.
-9. confidence must be between 0 and 1.`;
+4. Red handwritten annotations have fixed meanings and are not uncertainty by themselves:
+   - 紅筆「遲」means the employee was late. Set late_marked=true, preserve every readable shift time, and do NOT set needs_review merely because of this annotation.
+   - 紅筆「改休」means the employee changed to a day off. Set changed_to_off=true, shifts=[], off_or_unclear=true, and do NOT set needs_review merely because of this annotation.
+   - For all other rows set late_marked=false and changed_to_off=false.
+5. A slash, 休, or blank schedule means shifts=[] and off_or_unclear=true.
+6. Convert readable times to 24-hour HH:mm. Examples: 930=>09:30, 15=>15:00, 2030=>20:30, 2145=>21:45.
+7. Each numbered 上班/下班 pair is one shift. Preserve one, two, or three complete shifts in chronological order. Never merge split shifts.
+8. A clear start and end time may be written across non-adjacent time columns. If their chronological pairing is still unambiguous, keep the complete shift and set needs_review=false; column placement alone is not a review reason.
+9. If a cell contains overwritten, stacked, crossed-out, or multiple possible times, use the clearly final uncrossed value only. If the final value or pairing is genuinely uncertain, keep null where needed and set needs_review=true with a precise reason. Never invent a third shift.
+10. Set needs_review=true only when the name, department, date, time, correction, or start/end pairing is genuinely uncertain after applying the fixed red-annotation rules above.
+11. confidence must be between 0 and 1.`;
 
 const normalizeCode = `const candidates = [
   $json.text,
@@ -101,11 +108,27 @@ schedule.sheet_type = hasFrontDepartment
   : (['內場', '外場／洗滌'].includes(schedule.sheet_type)
     ? schedule.sheet_type
     : (headers.some((header) => /[123]$/.test(header)) ? '外場／洗滌' : '內場'));
-schedule.employees = schedule.employees.map((employee) => ({
-  ...employee,
-  department: hasFrontDepartment && !employee?.department ? '外場' : employee?.department,
-  shifts: Array.isArray(employee?.shifts) ? employee.shifts.slice(0, 3) : []
-}));
+schedule.employees = schedule.employees.map((employee) => {
+  const reviewReason = String(employee?.review_reason || '').trim();
+  const shifts = Array.isArray(employee?.shifts) ? employee.shifts.slice(0, 3) : [];
+  const hasCompleteShift = shifts.length > 0 && shifts.every((shift) => shift?.start && shift?.end);
+  const lateMarked = employee?.late_marked === true || /(?:紅筆|marked).*?(?:遲|late)|(?:遲|late).*?(?:紅筆|red)/i.test(reviewReason);
+  const changedToOff = employee?.changed_to_off === true || /改休|changed?\s+to\s+(?:a\s+)?day\s+off/i.test(reviewReason);
+  const hasGenuineUncertainty = /不清|難辨|無法|unclear|illegible|ambiguous|uncertain|cannot|can't|overwrit|crossed|multiple possible/i.test(reviewReason);
+  const annotationOnlyReview = !hasGenuineUncertainty && (lateMarked || changedToOff);
+  return {
+    ...employee,
+    department: hasFrontDepartment && !employee?.department ? '外場' : employee?.department,
+    shifts: changedToOff ? [] : shifts,
+    off_or_unclear: changedToOff ? true : employee?.off_or_unclear === true,
+    late_marked: lateMarked,
+    changed_to_off: changedToOff,
+    needs_review: annotationOnlyReview && (changedToOff || hasCompleteShift)
+      ? false
+      : employee?.needs_review === true,
+    review_reason: annotationOnlyReview ? null : (employee?.review_reason || null)
+  };
+});
 return [{ json: schedule }];`;
 
 const recognitionNode = workflow.nodes.find((node) => node.name === '辨識下班條');

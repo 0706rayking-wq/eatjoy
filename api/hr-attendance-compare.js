@@ -780,6 +780,13 @@ function compareAttendance(schedule, attendance, excludedNames = ['黃遠志']) 
     }
 
     const alignment = alignClockOuts(expectedEnds, record.clockOuts);
+    if (employee.late_marked === true && !/遲到/.test(record.status)) {
+      issues.push({
+        type: 'paper_late',
+        name: record.name,
+        detail: '下班條紅筆註記：遲到'
+      });
+    }
     if (employee.needs_review) {
       issues.push({
         type: 'schedule_review',
@@ -908,7 +915,8 @@ function formatLineMessages(date, comparison, schedule = {}, silentNames = []) {
       nueip_only: '下班條漏列',
       missing_nueip: '名冊不符',
       name_ambiguous: '姓名不明',
-      schedule_review: '班表待確認'
+      schedule_review: '班表待確認',
+      paper_late: '遲到註記'
     };
     lines.push(`${index + 1}.${issue.name}｜${labels[issue.type] || '需確認'}`);
     if (issue.expected) lines.push(`下班條：${issue.expected}`);
