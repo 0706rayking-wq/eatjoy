@@ -1367,6 +1367,8 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
      return data.businessDate || getInspectionBusinessDate(data.archivedAt || data.timestamp || data.resetAt || Date.now());
     };
 
+    const getInspectionPhotoDocId = (businessDate, docKey) => `${businessDate}__${docKey}`;
+
     const cleanupInspectionPhotoStorage = async ({ branch, retainDays = 7, mode = 'manual', actor = {} }) => {
      const cutoffBusinessDate = getInspectionCleanupCutoffDate(retainDays);
      const targets = [
@@ -5955,7 +5957,10 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
    const [pointHistoryLoading, setPointHistoryLoading] = useState({});
    const [pointHistoryErrors, setPointHistoryErrors] = useState({});
    const [historyPreview, setHistoryPreview] = useState(null);
+   const [dailyPhotosServerReady, setDailyPhotosServerReady] = useState(false);
    const autoSubmitKeyRef = useRef('');
+   const integrityWarningKeyRef = useRef('');
+   const integrityRepairKeyRef = useRef('');
    const inspectionBusinessDate = getInspectionBusinessDate();
 
    const historyDates = useMemo(() => {
@@ -6014,24 +6019,34 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
    };
 
   useEffect(() => {
-    const unsubscribe = db.collection(getPublicPath(`daily_photos_${currentBranch}`)).onSnapshot(snapshot => {
+    setDailyPhotosServerReady(false);
+    const unsubscribe = db.collection(getPublicPath(`daily_photos_${currentBranch}`))
+     .where('businessDate', '==', inspectionBusinessDate)
+     .onSnapshot({ includeMetadataChanges: true }, snapshot => {
      const allPhotos = {}; 
      snapshot.forEach(doc => { 
        const data = doc.data(); 
        const photoBusinessDate = data.businessDate || getInspectionBusinessDate(data.timestamp || Date.now());
        if (photoBusinessDate !== inspectionBusinessDate || data.status === 'reset_archived') return;
-       allPhotos[`${data.zoneId}_${data.itemIdx}`] = {
+       const photoKey = `${data.zoneId}_${data.itemIdx}`;
+       const current = allPhotos[photoKey];
+       if (current && Number(current.timestamp || 0) > Number(data.timestamp || 0)) return;
+       allPhotos[photoKey] = {
          photo: data.photo,
          uploaderName: data.uploaderName || '未知',
          uploaderPhone: data.uploaderPhone || '',
          timestamp: data.timestamp || null,
          compressedBytes: data.compressedBytes || 0,
          fileName: data.fileName || '',
-         businessDate: photoBusinessDate
+         businessDate: photoBusinessDate,
+         serverConfirmed: !snapshot.metadata.fromCache && !doc.metadata.hasPendingWrites,
+         sourceDocId: doc.id
        }; 
       });
      setDailyPhotos(allPhotos);
+     if (!snapshot.metadata.fromCache) setDailyPhotosServerReady(true);
      }, () => {
+      setDailyPhotosServerReady(false);
       triggerNotify("巡視照讀取失敗，請檢查網路後重新整理", "error");
      });
     return () => unsubscribe();
@@ -6087,10 +6102,38 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
        fileSize: file.size || 0,
        compressedBytes
       };
-      const ref = db.collection(getPublicPath(`daily_photos_${currentBranch}`)).doc(docKey);
-      await ref.set(photoData);
-      const verifySnap = await ref.get();
-      if (!verifySnap.exists || !verifySnap.data()?.photo) throw new Error('upload-verify-failed');
+      const photoDocId = getInspectionPhotoDocId(businessDate, docKey);
+      const ref = db.collection(getPublicPath(`daily_photos_${currentBranch}`)).doc(photoDocId);
+      const archiveRef = db.collection(getPublicPath(`daily_photo_archive_${currentBranch}`)).doc(photoDocId);
+      const auditRef = db.collection(getPublicPath(`daily_photo_audit_${currentBranch}`)).doc();
+      const batch = db.batch();
+      batch.set(ref, { ...photoData, docKey });
+      batch.set(archiveRef, { ...photoData, docKey, archivedAt: now });
+      batch.set(auditRef, {
+       zoneId: photoData.zoneId,
+       zoneName: photoData.zoneName,
+       itemIdx: idx,
+       docKey,
+       photoDocId,
+       uploaderName: photoData.uploaderName,
+       uploaderPhone: photoData.uploaderPhone,
+       fileName: photoData.fileName,
+       fileSize: photoData.fileSize,
+       compressedBytes,
+       businessDate,
+       status: 'uploaded',
+       timestamp: now
+      });
+      await batch.commit();
+      const [verifySnap, archiveVerifySnap] = await Promise.all([
+       ref.get({ source: 'server' }),
+       archiveRef.get({ source: 'server' })
+      ]);
+      const verifiedPhoto = verifySnap.exists ? (verifySnap.data() || {}) : {};
+      const verifiedArchive = archiveVerifySnap.exists ? (archiveVerifySnap.data() || {}) : {};
+      if (!verifiedPhoto.photo || !verifiedArchive.photo || verifiedPhoto.businessDate !== businessDate || verifiedArchive.businessDate !== businessDate) {
+       throw new Error('upload-verify-failed');
+      }
       setDailyPhotos(prev => ({
        ...prev,
        [docKey]: {
@@ -6100,32 +6143,19 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
         timestamp: now,
         compressedBytes,
         fileName: photoData.fileName,
-        businessDate
+        businessDate,
+        serverConfirmed: true,
+        sourceDocId: photoDocId
        }
       }));
-      db.collection(getPublicPath(`daily_photo_audit_${currentBranch}`)).add({
-       zoneId: photoData.zoneId,
-       zoneName: photoData.zoneName,
-       itemIdx: idx,
-       docKey,
-       uploaderName: photoData.uploaderName,
-       uploaderPhone: photoData.uploaderPhone,
-       fileName: photoData.fileName,
-       fileSize: photoData.fileSize,
-       compressedBytes,
-       businessDate,
-       status: 'uploaded',
-       timestamp: now
-      }).catch(err => console.warn("寫入巡視照稽核紀錄失敗", err));
-      db.collection(getPublicPath(`daily_photo_archive_${currentBranch}`)).add({
-       ...photoData,
-       docKey,
-       archivedAt: now
-      }).catch(err => console.warn("寫入巡視照歸檔失敗", err));
-      triggerNotify("實拍照已寫入並確認", "success");
+      triggerNotify("實拍照與七日歸檔皆已寫入確認", "success");
      } catch (err) {
       console.error("巡視照上傳失敗", err);
-      const msg = err?.message === 'image-too-large' ? '照片仍過大，請改用相機低解析度或截圖後重傳。' : '照片上傳失敗，請確認網路後重傳。';
+      const msg = err?.message === 'image-too-large'
+       ? '照片仍過大，請改用相機低解析度或截圖後重傳。'
+       : err?.message === 'upload-verify-failed'
+       ? '照片未能從伺服器讀回確認，請保持畫面開啟並重新上傳。'
+       : '照片上傳失敗，請確認網路後重傳。';
       setPhotoErrors(prev => ({...prev, [docKey]: msg}));
       triggerNotify(msg, "error");
       db.collection(getPublicPath(`daily_photo_audit_${currentBranch}`)).add({
@@ -6153,8 +6183,11 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
     const currentStandards = standards[activeZone.id] || [];
     if (currentStandards.length === 0) return true;
     const hasUploading = Object.values(uploadingPhotoKeys).some(Boolean);
-    return !hasUploading && currentStandards.every((_, i) => !!dailyPhotos[`${activeZone.id}_${i}`]?.photo);
-  }, [activeZone, standards, dailyPhotos, uploadingPhotoKeys]);
+    return dailyPhotosServerReady && !hasUploading && currentStandards.every((_, i) => {
+     const photo = dailyPhotos[`${activeZone.id}_${i}`];
+     return !!photo?.photo && photo.serverConfirmed === true;
+    });
+  }, [activeZone, standards, dailyPhotos, uploadingPhotoKeys, dailyPhotosServerReady]);
 
   const activeZonePhotoSignature = useMemo(() => {
     if (!activeZone) return '';
@@ -6163,6 +6196,66 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
   }, [activeZone, standards, dailyPhotos]);
 
   const hasUploadingPhotos = Object.values(uploadingPhotoKeys).some(Boolean);
+
+  const verifiedCompletedZones = useMemo(() => {
+   if (!dailyPhotosServerReady) return [];
+   return branchZones.filter(zone => {
+    if (!completedZones.includes(zone.id)) return false;
+    const zoneStandards = standards[zone.id] || [];
+    return zoneStandards.every((_, i) => {
+     const photo = dailyPhotos[`${zone.id}_${i}`];
+     return !!photo?.photo && photo.serverConfirmed === true;
+    });
+   }).map(zone => zone.id);
+  }, [branchZones, completedZones, standards, dailyPhotos, dailyPhotosServerReady]);
+
+  useEffect(() => {
+   if (!dailyPhotosServerReady || !completedZones.length) return;
+   const invalidZones = completedZones.filter(zoneId => {
+    const zoneStandards = standards[zoneId] || [];
+    if (!zoneStandards.length) return false;
+    return !zoneStandards.every((_, i) => {
+     const photo = dailyPhotos[`${zoneId}_${i}`];
+     return !!photo?.photo && photo.serverConfirmed === true;
+    });
+   });
+   if (!invalidZones.length) return;
+   const repairKey = `${inspectionBusinessDate}_${currentBranch}_${invalidZones.slice().sort().join('|')}`;
+   if (integrityRepairKeyRef.current === repairKey) return;
+   integrityRepairKeyRef.current = repairKey;
+   const repairProgress = async () => {
+    try {
+     const progressRef = db.doc(getPublicPath(`system/progress_${currentBranch}`));
+     await db.runTransaction(async transaction => {
+      const snap = await transaction.get(progressRef);
+      if (!snap.exists) return;
+      const data = snap.data() || {};
+      if (data.businessDate !== inspectionBusinessDate) return;
+      transaction.set(progressRef, {
+       integrityInvalidZones: [...new Set([...(data.integrityInvalidZones || []), ...invalidZones])],
+       integrityRepairedAt: Date.now(),
+       integrityRepairedZones: invalidZones,
+       integrityReason: 'completed-without-server-confirmed-photos'
+      }, { merge: true });
+     });
+     await db.collection(getPublicPath(`daily_photo_integrity_${currentBranch}`)).add({
+      branch: currentBranch,
+      businessDate: inspectionBusinessDate,
+      invalidZones,
+      status: 'completion-flagged-invalid',
+      reason: 'completed-without-server-confirmed-photos',
+      detectedByPhone: currentUser?.phone || '',
+      detectedByName: currentUser?.name || '系統',
+      timestamp: Date.now()
+     });
+     triggerNotify(`偵測到 ${invalidZones.length} 個完成紀錄缺少伺服器照片，已標示為待補傳`, "error");
+    } catch (error) {
+     console.error("修正巡視完成紀錄失敗", error);
+     integrityRepairKeyRef.current = '';
+    }
+   };
+   repairProgress();
+  }, [dailyPhotosServerReady, completedZones, standards, dailyPhotos, inspectionBusinessDate, currentBranch]);
 
   const handleSubmit = async () => {
     if (!activeZone || loading) return;
@@ -6174,8 +6267,16 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
     try {
      const currentStandards = standards[activeZone.id] || [];
      const photoCol = db.collection(getPublicPath(`daily_photos_${currentBranch}`));
-     const checks = await Promise.all(currentStandards.map((_, i) => photoCol.doc(`${activeZone.id}_${i}`).get()));
-     const missing = checks.map((snap, i) => {
+     const checkedPhotos = await Promise.all(currentStandards.map(async (_, i) => {
+      const docKey = `${activeZone.id}_${i}`;
+      const currentRef = photoCol.doc(getInspectionPhotoDocId(inspectionBusinessDate, docKey));
+      const currentSnap = await currentRef.get({ source: 'server' });
+      if (currentSnap.exists) return { snap: currentSnap, ref: currentRef, docKey };
+      const legacyRef = photoCol.doc(docKey);
+      const legacySnap = await legacyRef.get({ source: 'server' });
+      return { snap: legacySnap, ref: legacyRef, docKey };
+     }));
+     const missing = checkedPhotos.map(({ snap }, i) => {
       const data = snap.exists ? (snap.data() || {}) : {};
       const photoBusinessDate = data.businessDate || getInspectionBusinessDate(data.timestamp || Date.now());
       return (!snap.exists || !data.photo || data.status === 'reset_archived' || photoBusinessDate !== inspectionBusinessDate) ? i + 1 : null;
@@ -6187,18 +6288,40 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
      }
       if (!completedZones.includes(activeZone.id)) {
       const progressRef = db.doc(getPublicPath(`system/progress_${currentBranch}`));
-      await progressRef.set({ 
-         completedZones: firebase.firestore.FieldValue.arrayUnion(activeZone.id),
-         businessDate: inspectionBusinessDate,
-         updatedAt: Date.now()
+      const submissionRef = db.collection(getPublicPath(`daily_photo_submissions_${currentBranch}`)).doc(getInspectionPhotoDocId(inspectionBusinessDate, activeZone.id));
+      const latestCompleted = await db.runTransaction(async transaction => {
+       const progressSnap = await transaction.get(progressRef);
+       const progressData = progressSnap.exists ? (progressSnap.data() || {}) : {};
+       const sameBusinessDate = progressData.businessDate === inspectionBusinessDate;
+       const completed = sameBusinessDate ? [...new Set(progressData.completedZones || [])] : [];
+       const integrityInvalidZones = sameBusinessDate ? (progressData.integrityInvalidZones || []).filter(zoneId => zoneId !== activeZone.id) : [];
+       if (!completed.includes(activeZone.id)) completed.push(activeZone.id);
+       transaction.set(progressRef, {
+        completedZones: completed,
+        integrityInvalidZones,
+        businessDate: inspectionBusinessDate,
+        updatedAt: Date.now(),
+        verificationMode: 'server-confirmed-photos'
        }, { merge: true });
+       transaction.set(submissionRef, {
+        zoneId: activeZone.id,
+        zoneName: activeZone.name || activeZone.label || activeZone.id,
+        submitterName: currentUser?.name || '未知',
+        submitterPhone: currentUser?.phone || '',
+        photoKeys: checkedPhotos.map(item => item.docKey),
+        photoDocIds: checkedPhotos.map(item => item.ref.id),
+        photoCount: currentStandards.length,
+        businessDate: inspectionBusinessDate,
+        verificationMode: 'server-confirmed-photos',
+        timestamp: Date.now()
+       }, { merge: true });
+       return completed.filter(zoneId => !integrityInvalidZones.includes(zoneId));
+      });
          await db.doc(getPublicPath(`system/cron_${currentBranch}`)).set({
           lastReset: inspectionBusinessDate,
           lastResetSyncedBy: 'inspection-submit',
           lastResetSyncedAt: Date.now()
          }, { merge: true }).catch(() => {});
-         const snap = await progressRef.get();
-         const latestCompleted = snap.exists ? [...new Set(snap.data().completedZones || [])] : [];
          if (latestCompleted.length >= branchZones.length && branchZones.length > 0) {
           const cronRef = db.doc(getPublicPath(`system/cron_${currentBranch}`));
           const shouldSendCompletionAlert = await db.runTransaction(async transaction => {
@@ -6217,16 +6340,6 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
           }
          }
       }
-      db.collection(getPublicPath(`daily_photo_submissions_${currentBranch}`)).add({
-       zoneId: activeZone.id,
-       zoneName: activeZone.name || activeZone.label || activeZone.id,
-       submitterName: currentUser?.name || '未知',
-       submitterPhone: currentUser?.phone || '',
-       photoKeys: currentStandards.map((_, i) => `${activeZone.id}_${i}`),
-       photoCount: currentStandards.length,
-       businessDate: inspectionBusinessDate,
-       timestamp: Date.now()
-      }).catch(err => console.warn("寫入巡視提交紀錄失敗", err));
       setLoading(false); 
       setIsSubmitted(true); 
       triggerNotify("善後巡視已自動完成", "success");
@@ -6241,8 +6354,17 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
 
   useEffect(() => {
     if (!activeZone) return;
-    if (completedZones.includes(activeZone.id)) {
+    if (completedZones.includes(activeZone.id) && isAllUploaded) {
      setIsSubmitted(true);
+     return;
+    }
+    if (completedZones.includes(activeZone.id) && dailyPhotosServerReady && !isAllUploaded) {
+     setIsSubmitted(false);
+     const warningKey = `${inspectionBusinessDate}_${currentBranch}_${activeZone.id}`;
+     if (integrityWarningKeyRef.current !== warningKey) {
+      integrityWarningKeyRef.current = warningKey;
+      triggerNotify("此崗位有完成紀錄，但伺服器照片不齊，請重新上傳缺少的照片", "error");
+     }
      return;
     }
     if (!isAllUploaded || hasUploadingPhotos || loading || isSubmitted) return;
@@ -6251,7 +6373,7 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
     if (autoSubmitKeyRef.current === submitKey) return;
     autoSubmitKeyRef.current = submitKey;
     handleSubmit();
-  }, [activeZone?.id, completedZones, isAllUploaded, hasUploadingPhotos, loading, isSubmitted, inspectionBusinessDate, currentBranch, activeZonePhotoSignature]);
+  }, [activeZone?.id, completedZones, isAllUploaded, hasUploadingPhotos, loading, isSubmitted, inspectionBusinessDate, currentBranch, activeZonePhotoSignature, dailyPhotosServerReady]);
 
   const handleResetAll = async () => {
     if (!window.confirm("確定要手動重置今天的巡視進度嗎？\n照片會從今日畫面移除，但會保留稽核紀錄以便日後查詢。")) return;
@@ -6259,7 +6381,9 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
     try {
      const resetAt = Date.now();
      const resetBatchId = `${currentBranch}_${inspectionBusinessDate}_${resetAt}`;
-     const photosRef = await db.collection(getPublicPath(`daily_photos_${currentBranch}`)).get();
+     const photosRef = await db.collection(getPublicPath(`daily_photos_${currentBranch}`))
+      .where('businessDate', '==', inspectionBusinessDate)
+      .get({ source: 'server' });
      const batch = db.batch();
      let archivedCount = 0;
      photosRef.forEach(d => {
@@ -6278,7 +6402,8 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
      });
      await batch.commit();
      await db.doc(getPublicPath(`system/progress_${currentBranch}`)).set({
-      completedZones: [],
+     completedZones: [],
+      integrityInvalidZones: [],
       businessDate: inspectionBusinessDate,
       resetAt,
       resetMode: 'manual',
@@ -6325,7 +6450,11 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
 
   if(activeZone) {
    const activeStandards = standards[activeZone.id] || [];
-   const activeUploadedCount = activeStandards.filter((_, i) => !!dailyPhotos[`${activeZone.id}_${i}`]?.photo).length;
+   const activeUploadedCount = activeStandards.filter((_, i) => {
+    const photo = dailyPhotos[`${activeZone.id}_${i}`];
+    return !!photo?.photo && photo.serverConfirmed === true;
+   }).length;
+   const hasIntegrityMismatch = dailyPhotosServerReady && completedZones.includes(activeZone.id) && !isAllUploaded;
    const activeProgress = activeStandards.length > 0 ? Math.round((activeUploadedCount / activeStandards.length) * 100) : 100;
    return (
     <div className="inspection-page operations-page p-4 space-y-5 page-enter pb-24 text-left font-bold">
@@ -6335,7 +6464,7 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
        <div className="min-w-0">
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">區站巡視完成度</p>
         <h3 className="text-xl font-black text-slate-800 leading-tight">{activeUploadedCount} / {activeStandards.length || 0} 張實拍照</h3>
-        <p className="text-[10px] font-black text-slate-400 mt-2">{isSubmitted ? '此崗位已完成' : '照片全部上傳後會自動完成此崗位'}</p>
+        <p className={`text-[10px] font-black mt-2 ${hasIntegrityMismatch ? 'text-red-500' : 'text-slate-400'}`}>{isSubmitted ? '此崗位已完成' : hasIntegrityMismatch ? '完成紀錄異常：伺服器照片不齊，請補傳' : '照片全部上傳後會自動完成此崗位'}</p>
        </div>
        <div className="inspection-progress-ring shrink-0" style={{"--progress": `${activeProgress}%`}}>
         <span className="text-[11px] font-black text-brand-red">{activeProgress}%</span>
@@ -6459,8 +6588,8 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
     <div className="inspection-page operations-page p-4 space-y-4 page-enter pb-20 text-left font-bold">
      <BackButton onClick={onBack} title="巡視崗位清單" />
      <div className="inspection-summary-card bg-brand-red p-7 rounded-[2rem] text-white shadow-lg flex justify-between items-center mb-2">
-      <div className="relative z-[1]"><p className="text-[10px] font-black uppercase opacity-70 mb-1 leading-none tracking-widest">巡視進度 ({INSPECTION_RESET_LABEL}切換營業日)</p><p className="text-3xl font-black mt-2 font-bold">{completedZones.length} / {branchZones.length || 1}</p></div>
-      <div className="relative z-[1] w-14 h-14 rounded-full border-4 border-white/20 flex items-center justify-center font-bold text-xs">{branchZones.length > 0 ? Math.round((completedZones.length/branchZones.length)*100) : 0}%</div>
+      <div className="relative z-[1]"><p className="text-[10px] font-black uppercase opacity-70 mb-1 leading-none tracking-widest">巡視進度 ({INSPECTION_RESET_LABEL}切換營業日)</p><p className="text-3xl font-black mt-2 font-bold">{verifiedCompletedZones.length} / {branchZones.length || 1}</p></div>
+      <div className="relative z-[1] w-14 h-14 rounded-full border-4 border-white/20 flex items-center justify-center font-bold text-xs">{branchZones.length > 0 ? Math.round((verifiedCompletedZones.length/branchZones.length)*100) : 0}%</div>
      </div>
      <div className="inspection-day-note rounded-2xl px-4 py-3 text-[10px] font-black leading-relaxed flex items-start gap-2 shadow-sm">
       <span className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center" style={{background:'rgba(159,18,57,.09)',color:'#be123c'}}><Icon name="calendar-days" size={13}/></span>
@@ -6485,7 +6614,9 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
      {branchZones.length === 0 && <p className="text-center text-slate-400 py-10 text-xs">此分店尚未設定任何區站，請至後台設定。</p>}
      <div className="grid grid-cols-1 gap-3">
       {branchZones.map(z => {
-        const isCompleted = completedZones.includes(z.id);
+        const hasCompletionRecord = completedZones.includes(z.id);
+        const isCompleted = verifiedCompletedZones.includes(z.id);
+        const hasMismatch = dailyPhotosServerReady && hasCompletionRecord && !isCompleted;
         return (
          <div 
            key={z.id} 
@@ -6500,7 +6631,7 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
             <span className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${isCompleted ? 'bg-emerald-100 text-emerald-600' : 'section-item-icon text-brand-red'}`}><Icon name={isCompleted ? "check-circle" : "camera"} size={22} /></span>
             <div className="min-w-0">
              <span className={`text-sm font-black leading-tight block truncate ${isCompleted ? 'text-emerald-700' : 'text-slate-800'}`}>{z.name}</span>
-             <span className="text-[10px] font-black text-slate-400 mt-1 block">{isCompleted ? '今日巡視已完成' : '等待上傳實拍照'}</span>
+             <span className={`text-[10px] font-black mt-1 block ${hasMismatch ? 'text-red-500' : 'text-slate-400'}`}>{isCompleted ? '今日巡視已完成' : hasMismatch ? '完成紀錄異常，照片不齊' : dailyPhotosServerReady ? '等待上傳實拍照' : '正在向伺服器核對照片'}</span>
             </div>
            </div>
            {isCompleted ? (
@@ -12834,6 +12965,7 @@ return (
             if (!hasCurrentDayProgress) {
              await progressRef.set({
               completedZones: [],
+              integrityInvalidZones: [],
               businessDate: targetResetStr,
               resetAt,
               resetMode: 'auto'
@@ -12858,7 +12990,10 @@ return (
             const progSnap = await db.doc(getPublicPath(`system/progress_${branch}`)).get();
             const progData = progSnap.exists ? (progSnap.data() || {}) : {};
             const progBusinessDate = progData.businessDate || getInspectionBusinessDate(progData.updatedAt || progData.resetAt || Date.now());
-            const completed = progBusinessDate === targetAlertStr ? [...new Set(progData.completedZones || [])] : [];
+            const invalidZones = progData.integrityInvalidZones || [];
+            const completed = progBusinessDate === targetAlertStr
+             ? [...new Set(progData.completedZones || [])].filter(zoneId => !invalidZones.includes(zoneId))
+             : [];
             const zoneSnap = await db.doc(getPublicPath(`config/zones_${branch}`)).get();
             const zones = zoneSnap.exists ? (zoneSnap.data().zones || []) : DEFAULT_ZONES;
             const latestCronSnap = await cronRef.get();
@@ -12963,24 +13098,6 @@ return (
      }, [user, currentUser]);
 
      useEffect(() => {
-      const handleVisibility = () => {
-        if (document.hidden) {
-         db.disableNetwork().catch(() => {});
-        } else {
-         db.enableNetwork().catch(() => {});
-        }
-      };
-      document.addEventListener('visibilitychange', handleVisibility);
-      window.addEventListener('pagehide', () => db.disableNetwork().catch(() => {}));
-      window.addEventListener('pageshow', (e) => {
-        if (e.persisted) db.enableNetwork().catch(() => {});
-      });
-      return () => {
-        document.removeEventListener('visibilitychange', handleVisibility);
-      };
-     }, []);
-
-     useEffect(() => {
       if(!user || !currentBranch) return;
       const errH = () => {};
       
@@ -12988,7 +13105,9 @@ return (
       const subProg = db.doc(getPublicPath(`system/progress_${currentBranch}`)).onSnapshot(d => {
         const progressData = d.exists ? (d.data() || {}) : {};
         const progressDate = progressData.businessDate || getInspectionBusinessDate(progressData.updatedAt || progressData.resetAt || Date.now());
-        setCompletedZones(progressDate === getInspectionBusinessDate() ? (progressData.completedZones || []) : []);
+        const invalidZones = progressData.integrityInvalidZones || [];
+        const verifiedCompleted = (progressData.completedZones || []).filter(zoneId => !invalidZones.includes(zoneId));
+        setCompletedZones(progressDate === getInspectionBusinessDate() ? verifiedCompleted : []);
       }, errH);
       const subStd = db.collection(getPublicPath(`standards_${currentBranch}`)).onSnapshot(s => { const m = {}; s.forEach(doc => { const d = doc.data(); if (!m[d.zoneId]) m[d.zoneId] = []; m[d.zoneId].push({...d, id: doc.id}); }); setStandards(m); }, errH);
       const subTicker = db.doc(getPublicPath(`ticker/branch_${currentBranch}`)).onSnapshot(d => { setTickerText(d.exists ? d.data().text || '' : ''); }, errH);
