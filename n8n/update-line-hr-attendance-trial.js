@@ -11,14 +11,14 @@ const recognitionPrompt = `You are classifying and reading a Taiwanese restauran
 Use exactly this structure:
 {
   "is_attendance_sheet": boolean,
-  "sheet_type": "內場" | "外場／洗滌" | "未知",
+  "sheet_type": "內場" | "外場／洗滌" | "行政／洗滌" | "未知",
   "departments": string[],
   "header_sequence": string[],
   "date": string | null,
   "employees": [
     {
       "name": string | null,
-      "department": "內場" | "外場" | "洗滌" | null,
+      "department": "內場" | "外場" | "行政" | "洗滌" | null,
       "shifts": [{"start": string | null, "end": string | null}],
       "off_or_unclear": boolean,
       "late_marked": boolean,
@@ -43,7 +43,12 @@ Mandatory classification gate:
 
 Extraction rules when and only when is_attendance_sheet=true:
 1. Read EVERY printed employee row across every repeated 姓名 block, in visual order. Never omit a row because it has a slash, blank times, changed day off, or unclear handwriting.
-2. Set sheet_type=內場 for the unnumbered header. Set sheet_type=外場／洗滌 for the numbered header. Record visible section labels such as 外場 or 洗滌 in departments and on each employee when clear; otherwise use null and add a warning.
+2. Determine the sheet and employee departments from visible titles and section stickers:
+   - Set sheet_type=行政／洗滌 when the title or stickers show 行政 and/or 洗滌.
+   - Set sheet_type=外場／洗滌 for an 外場 sheet, including an unnumbered 上班/下班 header.
+   - Otherwise set sheet_type=內場 for the unnumbered header.
+   - A small sticker reading 行政 or 洗滌 is a section marker, not an employee name. It applies to the employee rows after it until the next section sticker. Set each employee.department to that section.
+   - Record every visible section label in departments. If a row's section truly cannot be determined, use null and add a warning.
 3. Preserve printed Chinese names exactly. Never substitute a similar-looking character. If a name cannot be read confidently, use null and explain its row/location.
 4. Red handwritten annotations have fixed meanings and are not uncertainty by themselves:
    - 紅筆「遲」means the employee was late. Set late_marked=true, preserve every readable shift time, and do NOT set needs_review merely because of this annotation.
@@ -100,12 +105,13 @@ schedule.departments = Array.isArray(schedule.departments)
   : [];
 const hasFrontDepartment = schedule.departments.some((value) => value.includes('外場'));
 const hasKitchenDepartment = schedule.departments.some((value) => value.includes('內場'));
-const isUnsupportedDepartmentSheet = !hasFrontDepartment && !hasKitchenDepartment &&
-  schedule.departments.some((value) => /行政|洗滌|洗碗/.test(value));
-if (isUnsupportedDepartmentSheet) return [];
-schedule.sheet_type = hasFrontDepartment
+const hasAdminDepartment = schedule.departments.some((value) => value.includes('行政'));
+const hasWashDepartment = schedule.departments.some((value) => /洗滌|洗碗/.test(value));
+schedule.sheet_type = hasAdminDepartment || hasWashDepartment
+  ? '行政／洗滌'
+  : hasFrontDepartment
   ? '外場／洗滌'
-  : (['內場', '外場／洗滌'].includes(schedule.sheet_type)
+  : (['內場', '外場／洗滌', '行政／洗滌'].includes(schedule.sheet_type)
     ? schedule.sheet_type
     : (headers.some((header) => /[123]$/.test(header)) ? '外場／洗滌' : '內場'));
 schedule.employees = schedule.employees.map((employee) => {
@@ -118,7 +124,10 @@ schedule.employees = schedule.employees.map((employee) => {
   const annotationOnlyReview = !hasGenuineUncertainty && (lateMarked || changedToOff);
   return {
     ...employee,
-    department: hasFrontDepartment && !employee?.department ? '外場' : employee?.department,
+    department: employee?.department
+      || (hasFrontDepartment ? '外場' : null)
+      || (hasAdminDepartment && !hasWashDepartment ? '行政' : null)
+      || (hasWashDepartment && !hasAdminDepartment ? '洗滌' : null),
     shifts: changedToOff ? [] : shifts,
     off_or_unclear: changedToOff ? true : employee?.off_or_unclear === true,
     late_marked: lateMarked,

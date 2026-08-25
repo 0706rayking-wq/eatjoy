@@ -31,6 +31,8 @@ assert.throws(() => normalizeRecords([{
 
 assert.equal(scheduleDepartment({ department: '南港三井Lalaport外場' }), '南港三井Lalaport外場');
 assert.equal(scheduleDepartment({ department: '南港三井Lalaport內場' }), '南港三井Lalaport內場');
+assert.equal(scheduleDepartment({ department: '行政' }), '饗麻饗辣南港三井Lalaport');
+assert.equal(scheduleDepartment({ department: '南港洗滌' }), '南港洗滌');
 assert.throws(() => scheduleDepartment({ name: '測試員工', department: '未知' }), /無法判斷/);
 assert.equal(weekdayForDate('2026-08-21'), 5);
 assert.equal(weekIndexForDate('2026-08-21'), 3);
@@ -44,6 +46,11 @@ assert.deepEqual(explanationDepartmentValues(
   '15451',
   { NUEIP_FRONT_WASH_DEPARTMENT_VALUES: '15451_103017,15451_103018' }
 ), ['15451_103017', '15451_103018', '15451_0']);
+assert.deepEqual(explanationDepartmentValues(
+  { department: '行政' },
+  '15451',
+  { NUEIP_ADMIN_WASH_DEPARTMENT_VALUES: '15451_103018,15451_103019' }
+), ['15451_103018', '15451_103019', '15451_0']);
 assert.match(attendanceRowSelectors().modify, /data-th\*="修改"/);
 
 console.log('hr-attendance-explanation-sync tests passed');

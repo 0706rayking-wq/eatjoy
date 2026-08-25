@@ -124,7 +124,7 @@ function parseAttendanceHtml(html) {
     const nameMatch = employeeCell.match(/class=["'][^"']*user-popover[^"']*["'][^>]*>([\s\S]*?)<\/div>/i);
     const name = htmlText(nameMatch?.[1] || employeeCell).replace(/^.*?(?=[\p{Script=Han}]{2,})/u, '');
     const employeeContext = htmlText(employeeCell);
-    const department = employeeContext.match(/南港三井Lalaport(?:內場|外場)/)?.[0] || '';
+    const department = employeeContext.match(/(?:饗麻饗辣)?南港(?:三井)?Lalaport(?:內場|外場|行政|洗滌|洗碗)?|南港(?:行政|洗滌|洗碗)/)?.[0] || '';
     const dateCell = readCell('日期', 4);
     const date = dateCell.match(/\d{4}-\d{2}-\d{2}/)?.[0] || '';
     const scheduleCell = readCell('表定時間', 5);
@@ -185,14 +185,67 @@ function uniqueAttendance(records) {
   });
 }
 
-function resolveDepartmentValues(schedule, html, defaultDepartment, environment = process.env) {
-  if (schedule?.sheet_type !== '外場／洗滌') return [defaultDepartment];
+function departmentRole(value) {
+  const text = String(value || '');
+  if (/行政/.test(text)) return '行政';
+  if (/洗滌|洗碗/.test(text)) return '洗滌';
+  if (/外場/.test(text)) return '外場';
+  if (/內場/.test(text)) return '內場';
+  return '';
+}
 
-  const configured = String(environment.NUEIP_FRONT_WASH_DEPARTMENT_VALUES || '')
+function scheduleDepartmentRoles(schedule) {
+  const roles = new Set();
+  for (const value of [
+    ...(Array.isArray(schedule?.departments) ? schedule.departments : []),
+    ...(Array.isArray(schedule?.employees) ? schedule.employees.map((employee) => employee?.department) : [])
+  ]) {
+    const role = departmentRole(value);
+    if (role) roles.add(role);
+  }
+  if (roles.size === 0 && schedule?.sheet_type === '外場／洗滌') roles.add('外場');
+  if (roles.size === 0 && schedule?.sheet_type === '行政／洗滌') {
+    roles.add('行政');
+    roles.add('洗滌');
+  }
+  return [...roles];
+}
+
+function chooseDepartmentOptions(schedule, options, defaultDepartment, environment = process.env) {
+  const sheetType = String(schedule?.sheet_type || '');
+  if (!['外場／洗滌', '行政／洗滌'].includes(sheetType)) {
+    return options.filter((option) => option.value === defaultDepartment);
+  }
+
+  const configuredName = sheetType === '行政／洗滌'
+    ? 'NUEIP_ADMIN_WASH_DEPARTMENT_VALUES'
+    : 'NUEIP_FRONT_WASH_DEPARTMENT_VALUES';
+  const configured = String(environment[configuredName] || '')
     .split(',')
     .map((value) => value.trim())
     .filter(Boolean);
-  if (configured.length > 0) return [...new Set(configured)];
+  if (configured.length > 0) {
+    return [...new Set(configured)].map((value) => ({ value, label: value }));
+  }
+
+  const branchKeyword = String(environment.NUEIP_BRANCH_KEYWORD || '南港').trim();
+  const branchOptions = branchKeyword
+    ? options.filter((option) => option.label.includes(branchKeyword))
+    : options;
+  const roles = scheduleDepartmentRoles(schedule);
+  const selected = [];
+  for (const role of roles) {
+    let matches = branchOptions.filter((option) => departmentRole(option.label) === role);
+    if (role === '行政' && matches.length === 0) {
+      matches = branchOptions.filter((option) => !/內場|外場|洗滌|洗碗/.test(option.label));
+    }
+    selected.push(...matches);
+  }
+  return [...new Map(selected.map((option) => [option.value, option])).values()];
+}
+
+function resolveDepartmentValues(schedule, html, defaultDepartment, environment = process.env) {
+  if (!['外場／洗滌', '行政／洗滌'].includes(schedule?.sheet_type)) return [defaultDepartment];
 
   const companyPrefix = String(defaultDepartment || '').split('_')[0];
   const selectOptions = parseSelectOptions(html, 'SLayer');
@@ -202,20 +255,14 @@ function resolveDepartmentValues(schedule, html, defaultDepartment, environment 
       if (!companyPrefix) return false;
       return new RegExp(`^${escapeRegExp(companyPrefix)}_[0-9]+$`).test(option.value);
     });
-  const roleMatches = options.filter((option) => /外場/.test(option.label));
-  const branchKeyword = String(environment.NUEIP_BRANCH_KEYWORD || '南港').trim();
-  const branchMatches = branchKeyword
-    ? roleMatches.filter((option) => option.label.includes(branchKeyword))
-    : [];
-  const selected = branchMatches.length > 0
-    ? branchMatches
-    : (roleMatches.length <= 2 ? roleMatches : []);
+  const selected = chooseDepartmentOptions(schedule, options, defaultDepartment, environment);
 
   if (selected.length === 0) {
     const available = options.slice(0, 12)
       .map((option) => `${option.label}=${option.value}`)
       .join(',');
-    throw new Error(`找不到NUEIP南港外場部門；可用部門：${available || '無'}；請設定NUEIP_FRONT_WASH_DEPARTMENT_VALUES`);
+    const target = schedule?.sheet_type === '行政／洗滌' ? '行政／洗滌' : '外場';
+    throw new Error(`找不到NUEIP南港${target}部門；可用部門：${available || '無'}；請設定對應部門環境變數`);
   }
   return [...new Set(selected.map((option) => option.value))];
 }
@@ -286,7 +333,7 @@ async function loadNueipAttendanceBrowser(date, requestedDepartments = [], sched
   const departmentValue = String(process.env.NUEIP_DEPARTMENT_VALUE || '15451_103016').trim();
   let departmentValues = requestedDepartments.length > 0
     ? [...new Set(requestedDepartments)]
-    : (schedule?.sheet_type === '外場／洗滌' ? [] : [departmentValue]);
+    : (['外場／洗滌', '行政／洗滌'].includes(schedule?.sheet_type) ? [] : [departmentValue]);
   const browser = await launchBrowser();
 
   let stage = '開啟登入頁';
@@ -329,20 +376,14 @@ async function loadNueipAttendanceBrowser(date, requestedDepartments = [], sched
           .map((option) => ({ value: String(option.value || '').trim(), label: String(option.textContent || '').trim() }))
           .filter((option) => pattern.test(option.value) && option.label);
       }, { companyValue });
-      const roleMatches = availableDepartments.filter((option) => /外場/.test(option.label));
-      const branchKeyword = String(process.env.NUEIP_BRANCH_KEYWORD || '南港').trim();
-      const branchMatches = branchKeyword
-        ? roleMatches.filter((option) => option.label.includes(branchKeyword))
-        : [];
-      const selected = branchMatches.length > 0
-        ? branchMatches
-        : (roleMatches.length <= 2 ? roleMatches : []);
+      const selected = chooseDepartmentOptions(schedule, availableDepartments, departmentValue);
       departmentValues = [...new Set(selected.map((option) => option.value))];
       if (departmentValues.length === 0) {
         const available = availableDepartments.slice(0, 12)
           .map((option) => `${option.label}=${option.value}`)
           .join(',');
-        throw new Error(`找不到NUEIP南港外場部門；可用部門：${available || '無'}`);
+        const target = schedule?.sheet_type === '行政／洗滌' ? '行政／洗滌' : '外場';
+        throw new Error(`找不到NUEIP南港${target}部門；可用部門：${available || '無'}`);
       }
     }
 
@@ -547,7 +588,7 @@ async function loadNueipAttendance(date, schedule = {}) {
       departmentValue
     );
   } catch (error) {
-    if (schedule?.sheet_type === '外場／洗滌' && /找不到NUEIP南港外場/.test(error.message)) {
+    if (['外場／洗滌', '行政／洗滌'].includes(schedule?.sheet_type) && /找不到NUEIP南港/.test(error.message)) {
       const browserAttendance = uniqueAttendance(
         await loadNueipAttendanceBrowser(date, [], schedule)
       );
@@ -628,7 +669,12 @@ function attendanceCandidateScore(employee, record) {
 function matchAttendance(employee, attendance) {
   const target = normalizeName(employee?.name);
   if (!target) return { record: null, ambiguous: false };
-  const exact = attendance.filter((record) => normalizeName(record.name) === target);
+  const exactAll = attendance.filter((record) => normalizeName(record.name) === target);
+  const targetDepartment = departmentRole(employee?.department);
+  const exactDepartment = targetDepartment
+    ? exactAll.filter((record) => departmentRole(record.department) === targetDepartment)
+    : [];
+  const exact = exactDepartment.length > 0 ? exactDepartment : exactAll;
   if (exact.length === 1) return { record: exact[0], ambiguous: false };
   if (exact.length > 1) {
     const scored = exact
@@ -640,10 +686,14 @@ function matchAttendance(employee, attendance) {
     }
     return { record: null, ambiguous: true };
   }
-  const suffix = attendance.filter((record) => {
+  const suffixAll = attendance.filter((record) => {
     const official = normalizeName(record.name);
     return official.endsWith(target) || target.endsWith(official);
   });
+  const suffixDepartment = targetDepartment
+    ? suffixAll.filter((record) => departmentRole(record.department) === targetDepartment)
+    : [];
+  const suffix = suffixDepartment.length > 0 ? suffixDepartment : suffixAll;
   return { record: suffix.length === 1 ? suffix[0] : null, ambiguous: suffix.length > 1 };
 }
 
@@ -853,7 +903,7 @@ function compareAttendance(schedule, attendance, excludedNames = ['黃遠志']) 
         employeeNumber: record.employeeNumber,
         name: record.name,
         date: record.date || schedule.date || '',
-        department: record.department || employee.department || schedule.sheet_type || '',
+        department: employee.department || record.department || schedule.sheet_type || '',
         scheduledShifts: shifts.map((shift) => ({ start: minuteTime(shift.start), end: minuteTime(shift.end) })),
         clockEntries
       });
@@ -894,6 +944,8 @@ function formatLineMessages(date, comparison, schedule = {}, silentNames = []) {
   const sheetType = String(schedule.sheet_type || '').trim();
   const departmentLabel = sheetType === '外場／洗滌'
     ? '南港外場／洗滌'
+    : sheetType === '行政／洗滌'
+      ? '南港行政／洗滌'
     : sheetType === '內場'
       ? '南港內場'
       : '南港內場';

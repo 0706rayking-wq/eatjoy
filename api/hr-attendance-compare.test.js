@@ -45,6 +45,16 @@ assert.deepEqual(resolveDepartmentValues(
   '15451_103016',
   { NUEIP_FRONT_WASH_DEPARTMENT_VALUES: '15451_9, 15451_10,15451_9' }
 ), ['15451_9', '15451_10']);
+assert.deepEqual(resolveDepartmentValues(
+  {
+    sheet_type: '行政／洗滌',
+    departments: ['行政', '洗滌'],
+    employees: [{ department: '行政' }, { department: '洗滌' }]
+  },
+  departmentHtml.replace('</select>', '<option value="15451_103019">南港行政</option></select>'),
+  '15451_103016',
+  {}
+).sort(), ['15451_103018', '15451_103019']);
 
 const html = `
 <table><tbody>
