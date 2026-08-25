@@ -1113,13 +1113,13 @@
     <div id="notify-root" style="position:fixed;top:80px;left:0;right:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none;padding:0 16px;isolation:isolate;"></div>
 <script src="food-research-question-bank.js"></script>
 <script src="food-research-question-bank-expansion.js"></script>
-<script src="food-research-forms.js?v=8"></script>
-    <script src="food-research-weapons.js?v=8"></script>
+<script src="food-research-forms.js?v=9"></script>
+<script src="food-research-weapons.js?v=11"></script>
     <script src="food-research-amulets.js?v=2"></script>
-    <script src="food-research-bosses.js?v=10"></script>
+    <script src="food-research-bosses.js?v=11"></script>
     <script src="food-research-ui.js?v=5"></script>
-    <script src="food-research-balance.js?v=2"></script>
-    <script src="food-research-audio.js?v=3"></script>
+    <script src="food-research-balance.js?v=3"></script>
+      <script src="food-research-audio.js?v=4"></script>
 
     <script>
 // 動態載入 game.js，載完設 window._gameJsReady = true
@@ -9271,10 +9271,10 @@ if (selectedActivity === 'food_research') {
  };
  FOOD_RESEARCH_FORM_CATALOG.forEach(form=>{
   PARTNER_FORM_DESC[form.id]=`${FOOD_RESEARCH_RARITIES[form.rarity]?.label||''}型態 · ${form.passive}`;
-  PARTNER_FORM_ABILITIES[form.id]=[
-   {label:'被動技能',name:form.passive,desc:form.passive},
-   {label:'小招',name:form.skill1,desc:'消耗 25 氣力施放'},
-   {label:'大招',name:form.skill2,desc:'消耗 40 氣力施放'},
+   PARTNER_FORM_ABILITIES[form.id]=[
+    {label:'被動技能',name:form.passive,desc:form.passive},
+    {label:'小招',name:form.skill1,desc:`${form.skill1Desc}｜氣力 ${form.skill1Cost}｜冷卻 ${form.skill1Cooldown} 秒`},
+    {label:'大招',name:form.skill2,desc:`${form.skill2Desc}｜氣力 ${form.skill2Cost}｜冷卻 ${form.skill2Cooldown} 秒`},
   ];
  });
  const normalizePartnerSave = (raw={}) => ({
@@ -9957,6 +9957,16 @@ if (selectedActivity === 'food_research') {
   RANGED_DESC['初始食材砲']='雙發直線食材彈，射速與傷害均衡。';
   const MELEE_DESC = Object.fromEntries(MELEE_POOL.map(w=>[w.name,w.desc]));
   MELEE_DESC['初始鍋鏟']='基礎揮擊，攻速、範圍與反彈能力均衡。';
+  const MELEE_DEF = Object.fromEntries(MELEE_POOL.map(w=>[w.name,w]));
+  MELEE_DEF['初始鍋鏟']={...(MELEE_POOL[0]||{}),name:'初始鍋鏟'};
+  const meleeMeta = (name) => {
+   const w=MELEE_DEF[name]||{};
+   const type={arc:'橫斬',thrust:'突刺',slam:'重擊',dual:'雙段突刺',ring:'旋轉',chain:'鎖鏈',triple:'三段斬'}[w.shape]||'揮擊';
+   const speed=(w.cooldown||32)<=27?'快速':(w.cooldown||32)>=48?'緩慢':'中速';
+   const reach=(w.range||90)<=85?'近距離':(w.range||90)>=130?'長距離':'中距離';
+   const guard=[w.reflect?'反彈普通彈':'',w.cut?'斬除普通彈':''].filter(Boolean).join(' / ')||'無擋彈';
+   return [type,speed,reach,guard];
+  };
   const AMULET_DESC = AMULET_DESC_MAP;
   const FORM_DESC = {normal:'被動：MHP+10（可共享、可疊加）｜小招：舔傷口｜大招：亢奮'};
   FOOD_RESEARCH_FORM_CATALOG.forEach(form=>{FORM_DESC[form.id]=`被動：${form.passive}｜小招：${form.skill1}｜大招：${form.skill2}`;});
@@ -9978,12 +9988,16 @@ if (selectedActivity === 'food_research') {
      </div>
      </div>
      {/* Melee */}
-     <div style={cardStyle}>
-     <div style={sectionTitle}>🗡️ 近戰武器</div>
-     <div style={{display:'flex', flexDirection:'column', gap:'6px'}}>
+      <div style={cardStyle}>
+      <div style={sectionTitle}>🗡️ 近戰武器</div>
+      <div style={{fontSize:'10px',color:'#8b949e',lineHeight:1.55,margin:'-2px 0 9px'}}>明亮的有效揮擊軌跡會處理碰到的全部普通子彈；大型彈幕與特殊攻擊仍需迴避。</div>
+      <div style={{display:'flex', flexDirection:'column', gap:'6px'}}>
       {(ws2.melee||['初始鍋鏟']).map(w=>(
       <div key={w} onClick={()=>setEq('melee',w)} style={{padding:'8px 12px', borderRadius:'9px', border:'2px solid '+(eq2.melee===w?'#f0883e':'#30363d'), background:eq2.melee===w?'rgba(240,136,62,.15)':'transparent', cursor:'pointer'}}>
        <div style={{fontSize:'12px', fontWeight:900, color:eq2.melee===w?'#ffa657':'#8b949e'}}>{eq2.melee===w?'✓ ':''}{w}</div>
+       <div style={{display:'flex',flexWrap:'wrap',gap:'4px',marginTop:'5px'}}>
+        {meleeMeta(w).map((tag,idx)=><span key={idx} style={{fontSize:'9px',fontWeight:900,color:idx===3?'#fbbf24':'#c9d1d9',background:idx===3?'rgba(251,191,36,.1)':'rgba(255,255,255,.055)',border:'1px solid '+(idx===3?'rgba(251,191,36,.35)':'#30363d'),borderRadius:'4px',padding:'2px 5px'}}>{tag}</span>)}
+       </div>
        <div style={{fontSize:'10px', color:'#6e7681', marginTop:'3px'}}>{MELEE_DESC[w]||'點擊裝備此武器'}</div>
       </div>
       ))}
@@ -10078,8 +10092,8 @@ if (selectedActivity === 'food_research') {
     PARTNER_FORM_DESC[form.id]=`${FOOD_RESEARCH_RARITIES[form.rarity]?.label||''}型態 · ${form.passive}`;
     PARTNER_FORM_ABILITIES[form.id]=[
      {label:'被動技能',name:form.passive,desc:form.passive},
-     {label:'小招',name:form.skill1,desc:'消耗 25 氣力施放'},
-     {label:'大招',name:form.skill2,desc:'消耗 40 氣力施放'},
+     {label:'小招',name:form.skill1,desc:`${form.skill1Desc}｜氣力 ${form.skill1Cost}｜冷卻 ${form.skill1Cooldown} 秒`},
+     {label:'大招',name:form.skill2,desc:`${form.skill2Desc}｜氣力 ${form.skill2Cost}｜冷卻 ${form.skill2Cooldown} 秒`},
     ];
    });
    const normalizePartnerSave = (raw={}) => ({
@@ -10551,8 +10565,8 @@ if (selectedActivity === 'food_research') {
   CAMP_FORM_DESC[form.id]=`${FOOD_RESEARCH_RARITIES[form.rarity]?.label||''}型態 · ${form.passive}`;
   CAMP_FORM_ABILITIES[form.id]=[
    {label:'被動技能',name:form.passive,desc:form.passive},
-   {label:'小招',name:form.skill1,desc:'消耗 25 氣力施放'},
-   {label:'大招',name:form.skill2,desc:'消耗 40 氣力施放'},
+   {label:'小招',name:form.skill1,desc:`${form.skill1Desc}｜氣力 ${form.skill1Cost}｜冷卻 ${form.skill1Cooldown} 秒`},
+   {label:'大招',name:form.skill2,desc:`${form.skill2Desc}｜氣力 ${form.skill2Cost}｜冷卻 ${form.skill2Cooldown} 秒`},
   ];
  });
 
