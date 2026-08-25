@@ -334,6 +334,34 @@ assert.deepEqual(threeShiftComparison.normalRecords[0].clockEntries, [
   { time: '22:00', type: '下班' }
 ]);
 
+const threeShiftMiscolumnComparison = compareAttendance({
+  employees: [{
+    name: '孫煒俊',
+    shifts: [
+      { start: '10:00', end: '14:00' },
+      { start: '14:30', end: '16:00' },
+      { start: '16:30', end: '20:00' }
+    ]
+  }]
+}, [{
+  employeeNumber: 'E901',
+  name: '孫煒俊',
+  schedule: '出勤日',
+  status: '',
+  clockIns: ['10:00', '14:30', '16:00'],
+  clockOuts: ['14:00', '16:36', '20:00']
+}], []);
+assert.equal(threeShiftMiscolumnComparison.issues.length, 0);
+assert.equal(threeShiftMiscolumnComparison.normalCount, 1);
+assert.deepEqual(threeShiftMiscolumnComparison.normalRecords[0].clockEntries, [
+  { time: '10:00', type: '上班' },
+  { time: '14:00', type: '下班' },
+  { time: '14:30', type: '上班' },
+  { time: '16:00', type: '下班' },
+  { time: '16:36', type: '上班' },
+  { time: '20:00', type: '下班' }
+]);
+
 const duplicateNameComparison = compareAttendance({
   employees: [{ name: '阮氏情', shifts: [{ start: '09:30', end: '15:30' }] }]
 }, [

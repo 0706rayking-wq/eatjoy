@@ -652,11 +652,12 @@ function isSilentLineName(value, silentNames) {
 function attendanceCandidateScore(employee, record) {
   const shifts = Array.isArray(employee?.shifts) ? employee.shifts : [];
   if (shifts.length === 0) return null;
-  if (record.clockIns.length !== shifts.length || record.clockOuts.length !== shifts.length) return null;
+  const effectivePunches = effectivePunchPairs(record, shifts);
+  if (effectivePunches.clockIns.length !== shifts.length || effectivePunches.clockOuts.length !== shifts.length) return null;
   const starts = shifts.map((shift) => timeToSeconds(shift?.start));
   const ends = shifts.map((shift) => timeToSeconds(shift?.end));
-  const actualStarts = record.clockIns.map(timeToSeconds);
-  const actualEnds = record.clockOuts.map(timeToSeconds);
+  const actualStarts = effectivePunches.clockIns.map(timeToSeconds);
+  const actualEnds = effectivePunches.clockOuts.map(timeToSeconds);
   if ([...starts, ...ends, ...actualStarts, ...actualEnds].some((value) => value === null)) return null;
   for (let index = 0; index < ends.length; index += 1) {
     const difference = actualEnds[index] - ends[index];
@@ -775,6 +776,44 @@ function alignClockOuts(expectedEnds, actualOuts) {
   return { pairs, extraClockOuts: unused.map((entry) => entry.value) };
 }
 
+function effectivePunchPairs(record, shifts) {
+  const clockIns = Array.isArray(record?.clockIns) ? record.clockIns.map(minuteTime) : [];
+  const clockOuts = Array.isArray(record?.clockOuts) ? record.clockOuts.map(minuteTime) : [];
+  if (!Array.isArray(shifts) || shifts.length !== 3) return { clockIns, clockOuts };
+
+  // NUEIP can render a six-punch day with one middle punch under the opposite
+  // column. For a confirmed three-shift paper schedule, rebuild the three
+  // pairs from all six chronological punches instead of trusting the columns.
+  const punches = [...new Set([...clockIns, ...clockOuts])]
+    .map((time) => ({ time, seconds: timeToSeconds(time) }))
+    .filter((entry) => entry.seconds !== null)
+    .sort((left, right) => left.seconds - right.seconds);
+  if (punches.length !== shifts.length * 2) return { clockIns, clockOuts };
+
+  return {
+    clockIns: punches.filter((_, index) => index % 2 === 0).map((entry) => entry.time),
+    clockOuts: punches.filter((_, index) => index % 2 === 1).map((entry) => entry.time)
+  };
+}
+
+function effectiveClockEntries(record, shifts) {
+  const rawClockIns = record.rawClockIns?.length ? record.rawClockIns : record.clockIns;
+  const rawClockOuts = record.rawClockOuts?.length ? record.rawClockOuts : record.clockOuts;
+  const defaultEntries = [
+    ...rawClockIns.map((time) => ({ time, type: '上班' })),
+    ...rawClockOuts.map((time) => ({ time, type: '下班' }))
+  ].sort((left, right) => {
+    const leftSeconds = timeToSeconds(left.time);
+    const rightSeconds = timeToSeconds(right.time);
+    return (leftSeconds ?? Number.MAX_SAFE_INTEGER) - (rightSeconds ?? Number.MAX_SAFE_INTEGER);
+  });
+  if (!Array.isArray(shifts) || shifts.length !== 3 || defaultEntries.length !== 6) return defaultEntries;
+  return defaultEntries.map((entry, index) => ({
+    time: entry.time,
+    type: index % 2 === 0 ? '上班' : '下班'
+  }));
+}
+
 function compareAttendance(schedule, attendance, excludedNames = ['黃遠志']) {
   const excluded = new Set(excludedNames.map(normalizeName));
   const usableAttendance = attendance.filter((record) => !excluded.has(normalizeName(record.name)));
@@ -829,7 +868,8 @@ function compareAttendance(schedule, attendance, excludedNames = ['黃遠志']) 
       });
     }
 
-    const alignment = alignClockOuts(expectedEnds, record.clockOuts);
+    const effectivePunches = effectivePunchPairs(record, shifts);
+    const alignment = alignClockOuts(expectedEnds, effectivePunches.clockOuts);
     if (employee.late_marked === true && !/遲到/.test(record.status)) {
       issues.push({
         type: 'paper_late',
@@ -889,16 +929,7 @@ function compareAttendance(schedule, attendance, excludedNames = ['黃遠志']) 
 
     if (!timeIssue && !isRestDay && issues.length === employeeIssueStart) {
       normalCount += 1;
-      const rawClockIns = record.rawClockIns?.length ? record.rawClockIns : record.clockIns;
-      const rawClockOuts = record.rawClockOuts?.length ? record.rawClockOuts : record.clockOuts;
-      const clockEntries = [
-        ...rawClockIns.map((time) => ({ time, type: '上班' })),
-        ...rawClockOuts.map((time) => ({ time, type: '下班' }))
-      ].sort((left, right) => {
-        const leftSeconds = timeToSeconds(left.time);
-        const rightSeconds = timeToSeconds(right.time);
-        return (leftSeconds ?? Number.MAX_SAFE_INTEGER) - (rightSeconds ?? Number.MAX_SAFE_INTEGER);
-      });
+      const clockEntries = effectiveClockEntries(record, shifts);
       normalRecords.push({
         employeeNumber: record.employeeNumber,
         name: record.name,

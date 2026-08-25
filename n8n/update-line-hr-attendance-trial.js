@@ -49,7 +49,7 @@ Extraction rules when and only when is_attendance_sheet=true:
    - Otherwise set sheet_type=內場 for the unnumbered header.
    - A small sticker reading 行政 or 洗滌 is a section marker, not an employee name. It applies to the employee rows after it until the next section sticker. Set each employee.department to that section.
    - Record every visible section label in departments. If a row's section truly cannot be determined, use null and add a warning.
-3. Preserve printed Chinese names exactly. Never substitute a similar-looking character. If a name cannot be read confidently, use null and explain its row/location.
+3. Preserve printed Chinese names exactly. Never substitute a similar-looking character. In particular, distinguish 羿 from 翠 and 蕙 from 慧. If a name cannot be read confidently, use null and explain its row/location.
 4. Red handwritten annotations have fixed meanings and are not uncertainty by themselves:
    - 紅筆「遲」means the employee was late. Set late_marked=true, preserve every readable shift time, and do NOT set needs_review merely because of this annotation.
    - 紅筆「改休」means the employee changed to a day off. Set changed_to_off=true, shifts=[], off_or_unclear=true, and do NOT set needs_review merely because of this annotation.
@@ -58,9 +58,11 @@ Extraction rules when and only when is_attendance_sheet=true:
 6. Convert readable times to 24-hour HH:mm. Examples: 930=>09:30, 15=>15:00, 2030=>20:30, 2145=>21:45.
 7. Each numbered 上班/下班 pair is one shift. Preserve one, two, or three complete shifts in chronological order. Never merge split shifts.
 8. A clear start and end time may be written across non-adjacent time columns. If their chronological pairing is still unambiguous, keep the complete shift and set needs_review=false; column placement alone is not a review reason.
-9. If a cell contains overwritten, stacked, crossed-out, or multiple possible times, use the clearly final uncrossed value only. If the final value or pairing is genuinely uncertain, keep null where needed and set needs_review=true with a precise reason. Never invent a third shift.
-10. Set needs_review=true only when the name, department, date, time, correction, or start/end pairing is genuinely uncertain after applying the fixed red-annotation rules above.
-11. confidence must be between 0 and 1.`;
+9. An unnumbered four-column sheet may squeeze six handwritten times into those four cells by stacking two times in a cell. When exactly six chronological times are clear, sort them chronologically and return three pairs: time1-time2, time3-time4, time5-time6. Example: 10, 14, 14:30, 16, 16:30, 20 => 10:00-14:00, 14:30-16:00, 16:30-20:00. Do not treat the fifth time as the second shift's clock-out.
+10. Distinguish similar handwritten hour digits such as 17 from 19 by inspecting the original strokes; never change 17:45 to 19:45 merely from context.
+11. If a cell contains overwritten, stacked, crossed-out, or multiple possible times, use the clearly final uncrossed value only. If the final value or pairing is genuinely uncertain, keep null where needed and set needs_review=true with a precise reason. Never invent a third shift unless six clear chronological times are visible.
+12. Set needs_review=true only when the name, department, date, time, correction, or start/end pairing is genuinely uncertain after applying the fixed red-annotation rules above.
+13. confidence must be between 0 and 1.`;
 
 const normalizeCode = `const candidates = [
   $json.text,
