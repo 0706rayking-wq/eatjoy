@@ -146,7 +146,7 @@ const recognitionNode = workflow.nodes.find((node) => node.name === '辨識下�
 const normalizeNode = workflow.nodes.find((node) => node.name === '整理辨識結果');
 const lineResponseNode = workflow.nodes.find((node) => node.name === '回傳LINE人事群');
 const explanationNode = workflow.nodes.find((node) =>
-  ['寫入正常人員NUEIP說明', '寫入當日部門全部打卡說明'].includes(node.name)
+  ['寫入正常人員NUEIP說明', '寫入當日部門全部打卡說明', '準備相符人員班表'].includes(node.name)
 );
 const scheduleSplitNode = workflow.nodes.find((node) => node.name === '逐一處理正常人員班表');
 if (!recognitionNode || !normalizeNode || !lineResponseNode || !explanationNode || !scheduleSplitNode) {
@@ -156,31 +156,33 @@ if (!recognitionNode || !normalizeNode || !lineResponseNode || !explanationNode 
 recognitionNode.parameters.text = recognitionPrompt;
 normalizeNode.parameters.jsCode = normalizeCode;
 lineResponseNode.parameters.jsonBody = `={{ (() => { const isFrontWash = $('整理辨識結果').first().json.sheet_type === '外場／洗滌'; const lineMessages = ($json.lineMessages || []).slice(0, 5).map(text => isFrontWash ? String(text).replace('店別：南港內場', '店別：南港外場／洗滌') : String(text)); return { to: $('僅處理下班條照片').first().json.event.source.groupId, messages: lineMessages.map(text => ({ type: 'text', text })) }; })() }}`;
-explanationNode.name = '寫入當日部門全部打卡說明';
-explanationNode.position = [1120, 0];
-explanationNode.parameters.jsonBody = `={{ { action: 'sync_department_explanations', mode: 'commit', schedule: $json } }}`;
+explanationNode.name = '準備相符人員班表';
+explanationNode.position = [1344, 224];
+explanationNode.parameters.jsonBody = `={{ { action: 'prepare_schedule_records', normalRecords: $json.normalRecords || [] } }}`;
 const comparisonNode = workflow.nodes.find((node) => node.name === 'NUEIP每日出勤比對');
-comparisonNode.position = [1344, 0];
-lineResponseNode.position = [1568, -112];
-scheduleSplitNode.position = [1568, 112];
+comparisonNode.position = [1120, 0];
+lineResponseNode.position = [1344, 0];
+scheduleSplitNode.position = [1584, 224];
 scheduleSplitNode.parameters.jsCode = `const input = $input.first().json;
-const normalRecords = Array.isArray(input.normalRecords) ? input.normalRecords : [];
+const results = Array.isArray(input.results) ? input.results : [];
+const normalRecords = results.filter((record) => ['updated', 'unchanged'].includes(record.status));
 return [{ json: { normalRecords } }];`;
 const scheduleCommitNode = workflow.nodes.find((node) => node.name === '寫入正常人員NUEIP班表');
-scheduleCommitNode.position = [1792, 112];
+scheduleCommitNode.position = [1808, 224];
 
 workflow.connections['整理辨識結果'] = {
-  main: [[{ node: '寫入當日部門全部打卡說明', type: 'main', index: 0 }]]
-};
-workflow.connections['寫入當日部門全部打卡說明'] = {
   main: [[{ node: 'NUEIP每日出勤比對', type: 'main', index: 0 }]]
 };
 workflow.connections['NUEIP每日出勤比對'] = {
   main: [[
     { node: '回傳LINE人事群', type: 'main', index: 0 },
-    { node: '逐一處理正常人員班表', type: 'main', index: 0 }
+    { node: '準備相符人員班表', type: 'main', index: 0 }
   ]]
 };
+workflow.connections['準備相符人員班表'] = {
+  main: [[{ node: '逐一處理正常人員班表', type: 'main', index: 0 }]]
+};
 delete workflow.connections['寫入正常人員NUEIP說明'];
+delete workflow.connections['寫入當日部門全部打卡說明'];
 fs.writeFileSync(workflowPath, `${JSON.stringify(workflow, null, 2)}\n`, 'utf8');
 console.log(workflowPath);

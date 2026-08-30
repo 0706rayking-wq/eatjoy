@@ -108,15 +108,15 @@
     },
     {
       "parameters": {
-        "jsCode": "const input = $input.first().json;\nconst normalRecords = Array.isArray(input.normalRecords) ? input.normalRecords : [];\nreturn [{ json: { normalRecords } }];"
+        "jsCode": "const input = $input.first().json;\nconst results = Array.isArray(input.results) ? input.results : [];\nconst normalRecords = results.filter((record) => ['updated', 'unchanged'].includes(record.status));\nreturn [{ json: { normalRecords } }];"
       },
       "id": "10a4cc86-5e1d-4277-a476-6c4ef4bcedfd",
       "name": "逐一處理正常人員班表",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1568,
-        112
+        1584,
+        224
       ]
     },
     {
@@ -135,7 +135,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1344,
+        1120,
         0
       ],
       "credentials": {
@@ -161,8 +161,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1568,
-        -112
+        1344,
+        0
       ],
       "credentials": {
         "httpHeaderAuth": {
@@ -179,16 +179,16 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { action: 'sync_department_explanations', mode: 'commit', schedule: $json } }}",
+        "jsonBody": "={{ { action: 'prepare_schedule_records', normalRecords: $json.normalRecords || [] } }}",
         "options": {}
       },
       "id": "0db27fc6-e747-4cc9-a8fc-4c8c91b24dda",
-      "name": "寫入當日部門全部打卡說明",
+      "name": "準備相符人員班表",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1120,
-        0
+        1344,
+        224
       ],
       "credentials": {
         "httpHeaderAuth": {
@@ -213,8 +213,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.4,
       "position": [
-        1792,
-        112
+        1808,
+        224
       ],
       "credentials": {
         "httpHeaderAuth": {
@@ -274,7 +274,7 @@
       "main": [
         [
           {
-            "node": "寫入當日部門全部打卡說明",
+            "node": "NUEIP每日出勤比對",
             "type": "main",
             "index": 0
           }
@@ -290,7 +290,7 @@
             "index": 0
           },
           {
-            "node": "逐一處理正常人員班表",
+            "node": "準備相符人員班表",
             "type": "main",
             "index": 0
           }
@@ -308,11 +308,11 @@
         ]
       ]
     },
-    "寫入當日部門全部打卡說明": {
+    "準備相符人員班表": {
       "main": [
         [
           {
-            "node": "NUEIP每日出勤比對",
+            "node": "逐一處理正常人員班表",
             "type": "main",
             "index": 0
           }

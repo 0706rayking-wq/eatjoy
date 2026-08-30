@@ -1113,11 +1113,27 @@ async function handler(request, response) {
         }
       });
     }
+    if (request.body?.action === 'prepare_schedule_records') {
+      const normalRecords = Array.isArray(request.body?.normalRecords) ? request.body.normalRecords : [];
+      return response.status(200).json({
+        status: 'ok',
+        results: normalRecords.map((record) => ({ ...record, status: 'unchanged' }))
+      });
+    }
     const schedule = request.body && typeof request.body === 'object' ? request.body : {};
     const date = normalizeDate(schedule.date);
     const attendance = Array.isArray(schedule.attendanceSnapshot)
       ? schedule.attendanceSnapshot
       : await loadNueipAttendance(date, schedule);
+    const departmentRecords = departmentExplanationRecords(schedule, attendance, date);
+    const explanationSync = await explanationSyncHandler.syncExplanationRecords(departmentRecords, 'commit');
+    if (explanationSync.failed > 0) {
+      return response.status(502).json({
+        status: 'error',
+        message: `NUEIP打卡說明有${explanationSync.failed}筆寫入失敗，已停止後續比對`,
+        explanationSync
+      });
+    }
     const excludedNames = String(process.env.NUEIP_EXCLUDED_NAMES || '黃遠志')
       .split(',')
       .map((name) => name.trim())
@@ -1133,6 +1149,12 @@ async function handler(request, response) {
       status: 'ok',
       date,
       attendanceCount: attendance.length,
+      explanationSync: {
+        status: explanationSync.status,
+        updated: explanationSync.updated || 0,
+        unchanged: explanationSync.unchanged || 0,
+        failed: explanationSync.failed || 0
+      },
       ...comparison,
       lineMessages,
       lineMessageObjects

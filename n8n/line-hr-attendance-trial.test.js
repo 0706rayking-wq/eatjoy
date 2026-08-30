@@ -6,7 +6,7 @@ const workflow = require('./line-hr-attendance-trial.json');
 const recognitionNode = workflow.nodes.find((node) => node.name === '辨識下班條');
 const normalizeNode = workflow.nodes.find((node) => node.name === '整理辨識結果');
 const lineResponseNode = workflow.nodes.find((node) => node.name === '回傳LINE人事群');
-const explanationPreviewNode = workflow.nodes.find((node) => node.name === '寫入當日部門全部打卡說明');
+const explanationPreviewNode = workflow.nodes.find((node) => node.name === '準備相符人員班表');
 const scheduleSplitNode = workflow.nodes.find((node) => node.name === '逐一處理正常人員班表');
 const scheduleCommitNode = workflow.nodes.find((node) => node.name === '寫入正常人員NUEIP班表');
 assert.ok(recognitionNode);
@@ -15,21 +15,20 @@ assert.ok(lineResponseNode);
 assert.ok(explanationPreviewNode);
 assert.ok(scheduleSplitNode);
 assert.ok(scheduleCommitNode);
-assert.match(explanationPreviewNode.parameters.jsonBody, /mode: 'commit'/);
-assert.match(explanationPreviewNode.parameters.jsonBody, /sync_department_explanations/);
-assert.match(explanationPreviewNode.parameters.jsonBody, /schedule: \$json/);
+assert.match(explanationPreviewNode.parameters.jsonBody, /prepare_schedule_records/);
+assert.match(explanationPreviewNode.parameters.jsonBody, /normalRecords: \$json\.normalRecords/);
 assert.match(scheduleSplitNode.parameters.jsCode, /\$input\.first/);
 assert.match(scheduleSplitNode.parameters.jsCode, /normalRecords/);
-assert.doesNotMatch(scheduleSplitNode.parameters.jsCode, /updated.*unchanged/);
+assert.match(scheduleSplitNode.parameters.jsCode, /updated.*unchanged/);
 assert.match(scheduleCommitNode.parameters.jsonBody, /sync_schedule/);
 assert.match(scheduleCommitNode.parameters.jsonBody, /mode: 'commit'/);
 assert.match(scheduleCommitNode.parameters.jsonBody, /normalRecords: \$json\.normalRecords/);
-assert.equal(workflow.connections['整理辨識結果'].main[0][0].node, '寫入當日部門全部打卡說明');
-assert.equal(workflow.connections['寫入當日部門全部打卡說明'].main[0][0].node, 'NUEIP每日出勤比對');
+assert.equal(workflow.connections['整理辨識結果'].main[0][0].node, 'NUEIP每日出勤比對');
 assert.deepEqual(
   workflow.connections['NUEIP每日出勤比對'].main[0].map((connection) => connection.node),
-  ['回傳LINE人事群', '逐一處理正常人員班表']
+  ['回傳LINE人事群', '準備相符人員班表']
 );
+assert.equal(workflow.connections['準備相符人員班表'].main[0][0].node, '逐一處理正常人員班表');
 assert.equal(workflow.connections['逐一處理正常人員班表'].main[0][0].node, '寫入正常人員NUEIP班表');
 assert.match(lineResponseNode.parameters.jsonBody, /^=\{\{/);
 assert.match(lineResponseNode.parameters.jsonBody, /南港外場／洗滌/);
