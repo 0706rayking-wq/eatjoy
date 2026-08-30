@@ -814,6 +814,36 @@ function effectiveClockEntries(record, shifts) {
   }));
 }
 
+function departmentExplanationRecords(schedule, attendance, date) {
+  return (Array.isArray(attendance) ? attendance : []).flatMap((record) => {
+    const rawClockIns = record?.rawClockIns?.length ? record.rawClockIns : (record?.clockIns || []);
+    const rawClockOuts = record?.rawClockOuts?.length ? record.rawClockOuts : (record?.clockOuts || []);
+    const punchCount = rawClockIns.length + rawClockOuts.length;
+    if (punchCount === 0) return [];
+
+    const recordName = normalizeName(record?.name);
+    const paperEmployee = (Array.isArray(schedule?.employees) ? schedule.employees : [])
+      .find((employee) => {
+        const paperName = normalizeName(employee?.name);
+        return Boolean(paperName) && (
+          paperName === recordName || paperName.endsWith(recordName) || recordName.endsWith(paperName)
+        );
+      });
+    const syntheticShifts = punchCount === 6 ? [{}, {}, {}] : [];
+    const clockEntries = effectiveClockEntries(record, syntheticShifts);
+    if (clockEntries.length === 0) return [];
+
+    return [{
+      employeeNumber: record.employeeNumber,
+      name: record.name,
+      date: record.date || date,
+      department: paperEmployee?.department || record.department || schedule?.sheet_type || '',
+      scheduledShifts: [],
+      clockEntries
+    }];
+  });
+}
+
 function compareAttendance(schedule, attendance, excludedNames = ['黃遠志']) {
   const excluded = new Set(excludedNames.map(normalizeName));
   const usableAttendance = attendance.filter((record) => !excluded.has(normalizeName(record.name)));
@@ -1053,9 +1083,41 @@ async function handler(request, response) {
     if (!authorize(request)) {
       return response.status(401).json({ status: 'error', message: 'Unauthorized' });
     }
+    if (request.body?.action === 'sync_department_explanations') {
+      const schedule = request.body?.schedule && typeof request.body.schedule === 'object'
+        ? request.body.schedule
+        : {};
+      const date = normalizeDate(schedule.date);
+      const attendance = await loadNueipAttendance(date, schedule);
+      const records = departmentExplanationRecords(schedule, attendance, date);
+      const explanationSync = await explanationSyncHandler.syncExplanationRecords(
+        records,
+        request.body?.mode === 'preview' ? 'preview' : 'commit'
+      );
+      if (explanationSync.failed > 0) {
+        return response.status(502).json({
+          status: 'error',
+          message: `NUEIP打卡說明有${explanationSync.failed}筆寫入失敗，已停止後續比對`,
+          explanationSync
+        });
+      }
+      return response.status(200).json({
+        ...schedule,
+        date,
+        attendanceSnapshot: attendance,
+        explanationSync: {
+          status: explanationSync.status,
+          updated: explanationSync.updated || 0,
+          unchanged: explanationSync.unchanged || 0,
+          failed: explanationSync.failed || 0
+        }
+      });
+    }
     const schedule = request.body && typeof request.body === 'object' ? request.body : {};
     const date = normalizeDate(schedule.date);
-    const attendance = await loadNueipAttendance(date, schedule);
+    const attendance = Array.isArray(schedule.attendanceSnapshot)
+      ? schedule.attendanceSnapshot
+      : await loadNueipAttendance(date, schedule);
     const excludedNames = String(process.env.NUEIP_EXCLUDED_NAMES || '黃遠志')
       .split(',')
       .map((name) => name.trim())
@@ -1089,6 +1151,7 @@ module.exports._test = {
   assessAttendanceSource,
   alignClockOuts,
   compareAttendance,
+  departmentExplanationRecords,
   formatLineMessages,
   normalizeDate,
   normalizeName,

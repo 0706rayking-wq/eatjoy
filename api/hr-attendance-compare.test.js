@@ -3,6 +3,7 @@ const {
   assessAttendanceSource,
   alignClockOuts,
   compareAttendance,
+  departmentExplanationRecords,
   formatLineMessages,
   normalizeDate,
   parseAllOptions,
@@ -12,6 +13,40 @@ const {
   uniqueAttendance,
   wrapLine
 } = require('./hr-attendance-compare')._test;
+
+const departmentRecords = departmentExplanationRecords({
+  sheet_type: '外場／洗滌',
+  employees: [{ name: '煒俊', department: '外場' }]
+}, [{
+  employeeNumber: 'E900',
+  name: '孫煒俊',
+  date: '2026-08-25',
+  department: '',
+  rawClockIns: ['11:00:08', '13:00:03', '16:30:05'],
+  rawClockOuts: ['12:30:04', '16:00:01', '20:00:09']
+}, {
+  employeeNumber: 'E901',
+  name: '休假員工',
+  date: '2026-08-25',
+  department: '外場',
+  rawClockIns: [],
+  rawClockOuts: []
+}], '2026-08-25');
+assert.deepEqual(departmentRecords, [{
+  employeeNumber: 'E900',
+  name: '孫煒俊',
+  date: '2026-08-25',
+  department: '外場',
+  scheduledShifts: [],
+  clockEntries: [
+    { time: '11:00:08', type: '上班' },
+    { time: '12:30:04', type: '下班' },
+    { time: '13:00:03', type: '上班' },
+    { time: '16:00:01', type: '下班' },
+    { time: '16:30:05', type: '上班' },
+    { time: '20:00:09', type: '下班' }
+  ]
+}]);
 
 const departmentHtml = `
 <select id="SLayer" name="SLayer">
