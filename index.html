@@ -6058,10 +6058,10 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
      const InspectionPage = ({ onBack, standards, completedZones, triggerNotify, branchZones, currentBranch, getPublicPath, currentUser, isManager, isSuperAdmin }) => {
    const [activeZone, setActiveZone] = useState(null);
    const [dailyPhotos, setDailyPhotos] = useState({});
-   const [loading, setLoading] = useState(false);
    const [isSubmitted, setIsSubmitted] = useState(false);
    const [isResetting, setIsResetting] = useState(false);
    const [isCleaningPhotos, setIsCleaningPhotos] = useState(false);
+   const [isReconcilingProgress, setIsReconcilingProgress] = useState(false);
    const [uploadingPhotoKeys, setUploadingPhotoKeys] = useState({});
    const [photoErrors, setPhotoErrors] = useState({});
    const [pointHistoryIndexes, setPointHistoryIndexes] = useState({});
@@ -6070,9 +6070,10 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
    const [pointHistoryErrors, setPointHistoryErrors] = useState({});
    const [historyPreview, setHistoryPreview] = useState(null);
    const [dailyPhotosServerReady, setDailyPhotosServerReady] = useState(false);
-   const autoSubmitKeyRef = useRef('');
-   const integrityWarningKeyRef = useRef('');
-   const integrityRepairKeyRef = useRef('');
+   const reconciliationRunningRef = useRef(false);
+   const queuedReconciliationRef = useRef(null);
+   const reconciliationTimerRef = useRef(null);
+   const integrityCheckTimerRef = useRef(null);
    const inspectionBusinessDate = getInspectionBusinessDate();
 
    const historyDates = useMemo(() => {
@@ -6130,39 +6131,210 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
     loadPointHistory(photoKey, itemIdx, nextIndex);
    };
 
+  const isValidInspectionPhoto = useCallback((snap) => {
+   if (!snap?.exists) return false;
+   const data = snap.data() || {};
+   const photoBusinessDate = data.businessDate || getInspectionBusinessDate(data.timestamp || Date.now());
+   return !!data.photo && data.status !== 'reset_archived' && photoBusinessDate === inspectionBusinessDate;
+  }, [inspectionBusinessDate]);
+
+  const reconcileInspectionProgress = useCallback(async (serverPhotos, options = {}) => {
+   if (!branchZones.length) return null;
+   if (reconciliationRunningRef.current) {
+    queuedReconciliationRef.current = { serverPhotos, options };
+    return null;
+   }
+
+   reconciliationRunningRef.current = true;
+   setIsReconcilingProgress(true);
+   try {
+    const eligibleZones = branchZones.filter(zone => (standards[zone.id] || []).length > 0);
+    const serverReadyZoneIds = eligibleZones.filter(zone => {
+     const zoneStandards = standards[zone.id] || [];
+     return zoneStandards.every((_, itemIdx) => {
+      const photo = serverPhotos[`${zone.id}_${itemIdx}`];
+      return !!photo?.photo && photo.serverConfirmed === true;
+     });
+    }).map(zone => zone.id);
+
+    const progressRef = db.doc(getPublicPath(`system/progress_${currentBranch}`));
+    const photoCol = db.collection(getPublicPath(`daily_photos_${currentBranch}`));
+    const archiveCol = db.collection(getPublicPath(`daily_photo_archive_${currentBranch}`));
+    const submissionCol = db.collection(getPublicPath(`daily_photo_submissions_${currentBranch}`));
+    const result = await db.runTransaction(async transaction => {
+     const progressSnap = await transaction.get(progressRef);
+     const progressData = progressSnap.exists ? (progressSnap.data() || {}) : {};
+     const sameBusinessDate = progressData.businessDate === inspectionBusinessDate;
+     const eligibleZoneSet = new Set(eligibleZones.map(zone => zone.id));
+     const completed = sameBusinessDate
+      ? [...new Set(progressData.completedZones || [])].filter(zoneId => eligibleZoneSet.has(zoneId))
+      : [];
+     const invalidZones = sameBusinessDate
+      ? [...new Set(progressData.integrityInvalidZones || [])].filter(zoneId => eligibleZoneSet.has(zoneId))
+      : [];
+     const candidateZoneIds = serverReadyZoneIds.filter(zoneId => !completed.includes(zoneId) || invalidZones.includes(zoneId));
+     const verificationChecks = [];
+
+     candidateZoneIds.forEach(zoneId => {
+      const zoneStandards = standards[zoneId] || [];
+      zoneStandards.forEach((_, itemIdx) => {
+       const docKey = `${zoneId}_${itemIdx}`;
+       const photoDocId = getInspectionPhotoDocId(inspectionBusinessDate, docKey);
+       verificationChecks.push({
+        zoneId,
+        itemIdx,
+        docKey,
+        refs: [
+         photoCol.doc(photoDocId),
+         photoCol.doc(docKey),
+         archiveCol.doc(photoDocId),
+         archiveCol.doc(docKey)
+        ]
+       });
+      });
+     });
+
+     const verificationSnaps = await Promise.all(
+      verificationChecks.flatMap(check => check.refs.map(ref => transaction.get(ref)))
+     );
+     const verifiedZoneMap = Object.fromEntries(candidateZoneIds.map(zoneId => [zoneId, true]));
+     let snapCursor = 0;
+     verificationChecks.forEach(check => {
+      const currentDaily = verificationSnaps[snapCursor++];
+      const legacyDaily = verificationSnaps[snapCursor++];
+      const currentArchive = verificationSnaps[snapCursor++];
+      const legacyArchive = verificationSnaps[snapCursor++];
+      const dailyOk = isValidInspectionPhoto(currentDaily) || isValidInspectionPhoto(legacyDaily);
+      const archiveOk = isValidInspectionPhoto(currentArchive) || isValidInspectionPhoto(legacyArchive);
+      if (!dailyOk || !archiveOk) verifiedZoneMap[check.zoneId] = false;
+     });
+
+     const verifiedAdditions = candidateZoneIds.filter(zoneId => verifiedZoneMap[zoneId]);
+     const nextCompleted = [...new Set([...completed, ...verifiedAdditions])];
+     const nextInvalidZones = invalidZones.filter(zoneId => !verifiedAdditions.includes(zoneId));
+     const newlyCompleted = verifiedAdditions.filter(zoneId => !completed.includes(zoneId));
+     const completedChanged = nextCompleted.slice().sort().join('|') !== completed.slice().sort().join('|');
+     const invalidChanged = nextInvalidZones.slice().sort().join('|') !== invalidZones.slice().sort().join('|');
+
+     if (!sameBusinessDate || completedChanged || invalidChanged) {
+      transaction.set(progressRef, {
+       completedZones: nextCompleted,
+       integrityInvalidZones: nextInvalidZones,
+       businessDate: inspectionBusinessDate,
+       updatedAt: Date.now(),
+       verificationMode: 'server-reconciled-all-zones',
+       lastReconciledAt: Date.now()
+      }, { merge: true });
+     }
+
+     newlyCompleted.forEach(zoneId => {
+      const zone = eligibleZones.find(item => item.id === zoneId) || { id: zoneId, name: zoneId };
+      const zoneStandards = standards[zoneId] || [];
+      const photoKeys = zoneStandards.map((_, itemIdx) => `${zoneId}_${itemIdx}`);
+      transaction.set(submissionCol.doc(getInspectionPhotoDocId(inspectionBusinessDate, zoneId)), {
+       zoneId,
+       zoneName: zone.name || zone.label || zoneId,
+       submitterName: currentUser?.name || '系統自動核對',
+       submitterPhone: currentUser?.phone || '',
+       photoKeys,
+       photoDocIds: photoKeys.map(docKey => getInspectionPhotoDocId(inspectionBusinessDate, docKey)),
+       photoCount: zoneStandards.length,
+       businessDate: inspectionBusinessDate,
+       verificationMode: 'server-reconciled-all-zones',
+       timestamp: Date.now()
+      }, { merge: true });
+     });
+
+     return {
+      newlyCompleted,
+      verifiedCompleted: nextCompleted.filter(zoneId => !nextInvalidZones.includes(zoneId))
+     };
+    });
+
+    if (options.notify && result.newlyCompleted.length) {
+     triggerNotify("照片與七日歸檔已確認，崗位已自動完成", "success");
+    }
+
+    if (result.verifiedCompleted.length >= branchZones.length && branchZones.length > 0) {
+     const cronRef = db.doc(getPublicPath(`system/cron_${currentBranch}`));
+     const shouldSendCompletionAlert = await db.runTransaction(async transaction => {
+      const cronSnap = await transaction.get(cronRef);
+      const cronData = cronSnap.exists ? (cronSnap.data() || {}) : {};
+      if (cronData.lastCompletionAlert === inspectionBusinessDate) return false;
+      transaction.set(cronRef, {
+       lastCompletionAlert: inspectionBusinessDate,
+       lastCompletionSyncedBy: 'inspection-reconcile',
+       lastCompletionSyncedAt: Date.now()
+      }, { merge: true });
+      return true;
+     });
+     if (shouldSendCompletionAlert) {
+      triggerLineAlert("COMPLETION", { branch: currentBranch, time: new Date().toLocaleTimeString() });
+     }
+    }
+
+    return result;
+   } catch (error) {
+    console.error("自動核對巡視進度失敗", error);
+    if (options.notify) triggerNotify("照片已上傳，但進度核對失敗；系統會自動重試", "error");
+    return null;
+   } finally {
+    reconciliationRunningRef.current = false;
+    setIsReconcilingProgress(false);
+    const queued = queuedReconciliationRef.current;
+    queuedReconciliationRef.current = null;
+    if (queued) {
+     setTimeout(() => reconcileInspectionProgress(queued.serverPhotos, queued.options), 0);
+    }
+   }
+  }, [branchZones, standards, currentBranch, getPublicPath, inspectionBusinessDate, currentUser, isValidInspectionPhoto, triggerNotify]);
+
+  const scheduleProgressReconciliation = useCallback((serverPhotos, delay = 350) => {
+   if (reconciliationTimerRef.current) clearTimeout(reconciliationTimerRef.current);
+   reconciliationTimerRef.current = setTimeout(() => {
+    reconciliationTimerRef.current = null;
+    reconcileInspectionProgress(serverPhotos);
+   }, delay);
+  }, [reconcileInspectionProgress]);
+
   useEffect(() => {
     setDailyPhotosServerReady(false);
     const unsubscribe = db.collection(getPublicPath(`daily_photos_${currentBranch}`))
      .where('businessDate', '==', inspectionBusinessDate)
      .onSnapshot({ includeMetadataChanges: true }, snapshot => {
-     const allPhotos = {}; 
-     snapshot.forEach(doc => { 
-       const data = doc.data(); 
+      if (snapshot.metadata.fromCache || snapshot.metadata.hasPendingWrites) return;
+      const allPhotos = {};
+      snapshot.forEach(doc => {
+       const data = doc.data();
        const photoBusinessDate = data.businessDate || getInspectionBusinessDate(data.timestamp || Date.now());
        if (photoBusinessDate !== inspectionBusinessDate || data.status === 'reset_archived') return;
        const photoKey = `${data.zoneId}_${data.itemIdx}`;
        const current = allPhotos[photoKey];
        if (current && Number(current.timestamp || 0) > Number(data.timestamp || 0)) return;
        allPhotos[photoKey] = {
-         photo: data.photo,
-         uploaderName: data.uploaderName || '未知',
-         uploaderPhone: data.uploaderPhone || '',
-         timestamp: data.timestamp || null,
-         compressedBytes: data.compressedBytes || 0,
-         fileName: data.fileName || '',
-         businessDate: photoBusinessDate,
-         serverConfirmed: !snapshot.metadata.fromCache && !doc.metadata.hasPendingWrites,
-         sourceDocId: doc.id
-       }; 
+        photo: data.photo,
+        uploaderName: data.uploaderName || '未知',
+        uploaderPhone: data.uploaderPhone || '',
+        timestamp: data.timestamp || null,
+        compressedBytes: data.compressedBytes || 0,
+        fileName: data.fileName || '',
+        businessDate: photoBusinessDate,
+        serverConfirmed: true,
+        sourceDocId: doc.id
+       };
       });
-     setDailyPhotos(allPhotos);
-     if (!snapshot.metadata.fromCache) setDailyPhotosServerReady(true);
+      setDailyPhotos(allPhotos);
+      setDailyPhotosServerReady(true);
+      scheduleProgressReconciliation(allPhotos);
      }, () => {
       setDailyPhotosServerReady(false);
       triggerNotify("巡視照讀取失敗，請檢查網路後重新整理", "error");
      });
-    return () => unsubscribe();
-  }, [currentBranch, getPublicPath, inspectionBusinessDate]);
+    return () => {
+     unsubscribe();
+     if (reconciliationTimerRef.current) clearTimeout(reconciliationTimerRef.current);
+    };
+  }, [currentBranch, getPublicPath, inspectionBusinessDate, scheduleProgressReconciliation, triggerNotify]);
 
   useEffect(() => {
    setPointHistoryIndexes({});
@@ -6170,8 +6342,7 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
    setPointHistoryLoading({});
    setPointHistoryErrors({});
    setHistoryPreview(null);
-   autoSubmitKeyRef.current = '';
-  }, [currentBranch, activeZone?.id]);
+   }, [currentBranch, activeZone?.id]);
 
    const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
     const r = new FileReader();
@@ -6246,21 +6417,23 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
       if (!verifiedPhoto.photo || !verifiedArchive.photo || verifiedPhoto.businessDate !== businessDate || verifiedArchive.businessDate !== businessDate) {
        throw new Error('upload-verify-failed');
       }
-      setDailyPhotos(prev => ({
-       ...prev,
-       [docKey]: {
-        photo: compressed,
-        uploaderName: photoData.uploaderName,
-        uploaderPhone: photoData.uploaderPhone,
-        timestamp: now,
-        compressedBytes,
-        fileName: photoData.fileName,
-        businessDate,
-        serverConfirmed: true,
-        sourceDocId: photoDocId
-       }
-      }));
-      triggerNotify("實拍照與七日歸檔皆已寫入確認", "success");
+      const confirmedPhoto = {
+       photo: compressed,
+       uploaderName: photoData.uploaderName,
+       uploaderPhone: photoData.uploaderPhone,
+       timestamp: now,
+       compressedBytes,
+       fileName: photoData.fileName,
+       businessDate,
+       serverConfirmed: true,
+       sourceDocId: photoDocId
+      };
+      const photosForReconciliation = { ...dailyPhotos, [docKey]: confirmedPhoto };
+      setDailyPhotos(photosForReconciliation);
+      const reconciliationResult = await reconcileInspectionProgress(photosForReconciliation, { notify: true });
+      if (!reconciliationResult?.newlyCompleted?.length) {
+       triggerNotify("實拍照與七日歸檔皆已寫入確認", "success");
+      }
      } catch (err) {
       console.error("巡視照上傳失敗", err);
       const msg = err?.message === 'image-too-large'
@@ -6301,191 +6474,114 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
     });
   }, [activeZone, standards, dailyPhotos, uploadingPhotoKeys, dailyPhotosServerReady]);
 
-  const activeZonePhotoSignature = useMemo(() => {
-    if (!activeZone) return '';
-    const currentStandards = standards[activeZone.id] || [];
-    return currentStandards.map((_, i) => dailyPhotos[`${activeZone.id}_${i}`]?.timestamp || '').join('|');
-  }, [activeZone, standards, dailyPhotos]);
-
   const hasUploadingPhotos = Object.values(uploadingPhotoKeys).some(Boolean);
 
   const verifiedCompletedZones = useMemo(() => {
-   if (!dailyPhotosServerReady) return [];
-   return branchZones.filter(zone => {
-    if (!completedZones.includes(zone.id)) return false;
-    const zoneStandards = standards[zone.id] || [];
-    return zoneStandards.every((_, i) => {
-     const photo = dailyPhotos[`${zone.id}_${i}`];
-     return !!photo?.photo && photo.serverConfirmed === true;
-    });
-   }).map(zone => zone.id);
-  }, [branchZones, completedZones, standards, dailyPhotos, dailyPhotosServerReady]);
+   return branchZones.filter(zone => completedZones.includes(zone.id)).map(zone => zone.id);
+  }, [branchZones, completedZones]);
 
-  useEffect(() => {
-   if (!dailyPhotosServerReady || !completedZones.length) return;
-   const invalidZones = completedZones.filter(zoneId => {
-    const zoneStandards = standards[zoneId] || [];
-    if (!zoneStandards.length) return false;
-    return !zoneStandards.every((_, i) => {
-     const photo = dailyPhotos[`${zoneId}_${i}`];
-     return !!photo?.photo && photo.serverConfirmed === true;
-    });
-   });
-   if (!invalidZones.length) return;
-   const repairKey = `${inspectionBusinessDate}_${currentBranch}_${invalidZones.slice().sort().join('|')}`;
-   if (integrityRepairKeyRef.current === repairKey) return;
-   integrityRepairKeyRef.current = repairKey;
-   const repairProgress = async () => {
-    try {
-     const progressRef = db.doc(getPublicPath(`system/progress_${currentBranch}`));
-     await db.runTransaction(async transaction => {
-      const snap = await transaction.get(progressRef);
-      if (!snap.exists) return;
-      const data = snap.data() || {};
-      if (data.businessDate !== inspectionBusinessDate) return;
-      transaction.set(progressRef, {
-       integrityInvalidZones: [...new Set([...(data.integrityInvalidZones || []), ...invalidZones])],
-       integrityRepairedAt: Date.now(),
-       integrityRepairedZones: invalidZones,
-       integrityReason: 'completed-without-server-confirmed-photos'
-      }, { merge: true });
+  const verifyCompletedZoneIntegrity = useCallback(async (suspectedZoneIds) => {
+   if (!suspectedZoneIds.length) return [];
+   try {
+    const progressRef = db.doc(getPublicPath(`system/progress_${currentBranch}`));
+    const photoCol = db.collection(getPublicPath(`daily_photos_${currentBranch}`));
+    const archiveCol = db.collection(getPublicPath(`daily_photo_archive_${currentBranch}`));
+    const confirmedInvalidZones = await db.runTransaction(async transaction => {
+     const progressSnap = await transaction.get(progressRef);
+     if (!progressSnap.exists) return [];
+     const progressData = progressSnap.data() || {};
+     if (progressData.businessDate !== inspectionBusinessDate) return [];
+     const recordedCompleted = [...new Set(progressData.completedZones || [])];
+     const candidates = suspectedZoneIds.filter(zoneId => recordedCompleted.includes(zoneId));
+     const verificationChecks = [];
+
+     candidates.forEach(zoneId => {
+      const zoneStandards = standards[zoneId] || [];
+      zoneStandards.forEach((_, itemIdx) => {
+       const docKey = `${zoneId}_${itemIdx}`;
+       const photoDocId = getInspectionPhotoDocId(inspectionBusinessDate, docKey);
+       verificationChecks.push({
+        zoneId,
+        refs: [
+         photoCol.doc(photoDocId),
+         photoCol.doc(docKey),
+         archiveCol.doc(photoDocId),
+         archiveCol.doc(docKey)
+        ]
+       });
+      });
      });
+
+     const verificationSnaps = await Promise.all(
+      verificationChecks.flatMap(check => check.refs.map(ref => transaction.get(ref)))
+     );
+     const validZoneMap = Object.fromEntries(candidates.map(zoneId => [zoneId, true]));
+     let snapCursor = 0;
+     verificationChecks.forEach(check => {
+      const currentDaily = verificationSnaps[snapCursor++];
+      const legacyDaily = verificationSnaps[snapCursor++];
+      const currentArchive = verificationSnaps[snapCursor++];
+      const legacyArchive = verificationSnaps[snapCursor++];
+      const dailyOk = isValidInspectionPhoto(currentDaily) || isValidInspectionPhoto(legacyDaily);
+      const archiveOk = isValidInspectionPhoto(currentArchive) || isValidInspectionPhoto(legacyArchive);
+      if (!dailyOk || !archiveOk) validZoneMap[check.zoneId] = false;
+     });
+
+     const invalidZones = candidates.filter(zoneId => validZoneMap[zoneId] === false);
+     if (!invalidZones.length) return [];
+     transaction.set(progressRef, {
+      integrityInvalidZones: [...new Set([...(progressData.integrityInvalidZones || []), ...invalidZones])],
+      integrityRepairedAt: Date.now(),
+      integrityRepairedZones: invalidZones,
+      integrityReason: 'transaction-confirmed-missing-daily-or-archive-photo'
+     }, { merge: true });
+     return invalidZones;
+    });
+
+    if (confirmedInvalidZones.length) {
      await db.collection(getPublicPath(`daily_photo_integrity_${currentBranch}`)).add({
       branch: currentBranch,
       businessDate: inspectionBusinessDate,
-      invalidZones,
+      invalidZones: confirmedInvalidZones,
       status: 'completion-flagged-invalid',
-      reason: 'completed-without-server-confirmed-photos',
+      reason: 'transaction-confirmed-missing-daily-or-archive-photo',
       detectedByPhone: currentUser?.phone || '',
       detectedByName: currentUser?.name || '系統',
       timestamp: Date.now()
      });
-     triggerNotify(`偵測到 ${invalidZones.length} 個完成紀錄缺少伺服器照片，已標示為待補傳`, "error");
-    } catch (error) {
-     console.error("修正巡視完成紀錄失敗", error);
-     integrityRepairKeyRef.current = '';
+     triggerNotify(`伺服器確認 ${confirmedInvalidZones.length} 個崗位照片不齊，已改回待補傳`, "error");
     }
-   };
-   repairProgress();
-  }, [dailyPhotosServerReady, completedZones, standards, dailyPhotos, inspectionBusinessDate, currentBranch]);
-
-  const handleSubmit = async () => {
-    if (!activeZone || loading) return;
-    if (hasUploadingPhotos) {
-     triggerNotify("照片仍在上傳確認中，請稍候", "info");
-     return;
-    }
-    setLoading(true);
-    try {
-     const currentStandards = standards[activeZone.id] || [];
-     const photoCol = db.collection(getPublicPath(`daily_photos_${currentBranch}`));
-     const checkedPhotos = await Promise.all(currentStandards.map(async (_, i) => {
-      const docKey = `${activeZone.id}_${i}`;
-      const currentRef = photoCol.doc(getInspectionPhotoDocId(inspectionBusinessDate, docKey));
-      const currentSnap = await currentRef.get({ source: 'server' });
-      if (currentSnap.exists) return { snap: currentSnap, ref: currentRef, docKey };
-      const legacyRef = photoCol.doc(docKey);
-      const legacySnap = await legacyRef.get({ source: 'server' });
-      return { snap: legacySnap, ref: legacyRef, docKey };
-     }));
-     const missing = checkedPhotos.map(({ snap }, i) => {
-      const data = snap.exists ? (snap.data() || {}) : {};
-      const photoBusinessDate = data.businessDate || getInspectionBusinessDate(data.timestamp || Date.now());
-      return (!snap.exists || !data.photo || data.status === 'reset_archived' || photoBusinessDate !== inspectionBusinessDate) ? i + 1 : null;
-     }).filter(Boolean);
-     if (missing.length) {
-      triggerNotify(`第 ${missing.join('、')} 張實拍照尚未成功寫入，請重傳後再提交`, "error");
-      setIsSubmitted(false);
-      return;
-     }
-      if (!completedZones.includes(activeZone.id)) {
-      const progressRef = db.doc(getPublicPath(`system/progress_${currentBranch}`));
-      const submissionRef = db.collection(getPublicPath(`daily_photo_submissions_${currentBranch}`)).doc(getInspectionPhotoDocId(inspectionBusinessDate, activeZone.id));
-      const latestCompleted = await db.runTransaction(async transaction => {
-       const progressSnap = await transaction.get(progressRef);
-       const progressData = progressSnap.exists ? (progressSnap.data() || {}) : {};
-       const sameBusinessDate = progressData.businessDate === inspectionBusinessDate;
-       const completed = sameBusinessDate ? [...new Set(progressData.completedZones || [])] : [];
-       const integrityInvalidZones = sameBusinessDate ? (progressData.integrityInvalidZones || []).filter(zoneId => zoneId !== activeZone.id) : [];
-       if (!completed.includes(activeZone.id)) completed.push(activeZone.id);
-       transaction.set(progressRef, {
-        completedZones: completed,
-        integrityInvalidZones,
-        businessDate: inspectionBusinessDate,
-        updatedAt: Date.now(),
-        verificationMode: 'server-confirmed-photos'
-       }, { merge: true });
-       transaction.set(submissionRef, {
-        zoneId: activeZone.id,
-        zoneName: activeZone.name || activeZone.label || activeZone.id,
-        submitterName: currentUser?.name || '未知',
-        submitterPhone: currentUser?.phone || '',
-        photoKeys: checkedPhotos.map(item => item.docKey),
-        photoDocIds: checkedPhotos.map(item => item.ref.id),
-        photoCount: currentStandards.length,
-        businessDate: inspectionBusinessDate,
-        verificationMode: 'server-confirmed-photos',
-        timestamp: Date.now()
-       }, { merge: true });
-       return completed.filter(zoneId => !integrityInvalidZones.includes(zoneId));
-      });
-         await db.doc(getPublicPath(`system/cron_${currentBranch}`)).set({
-          lastReset: inspectionBusinessDate,
-          lastResetSyncedBy: 'inspection-submit',
-          lastResetSyncedAt: Date.now()
-         }, { merge: true }).catch(() => {});
-         if (latestCompleted.length >= branchZones.length && branchZones.length > 0) {
-          const cronRef = db.doc(getPublicPath(`system/cron_${currentBranch}`));
-          const shouldSendCompletionAlert = await db.runTransaction(async transaction => {
-           const cronSnap = await transaction.get(cronRef);
-           const cronData = cronSnap.exists ? (cronSnap.data() || {}) : {};
-           if (cronData.lastCompletionAlert === inspectionBusinessDate) return false;
-           transaction.set(cronRef, {
-            lastCompletionAlert: inspectionBusinessDate,
-            lastCompletionSyncedBy: 'inspection-complete',
-            lastCompletionSyncedAt: Date.now()
-           }, { merge: true });
-           return true;
-          });
-          if (shouldSendCompletionAlert) {
-           triggerLineAlert("COMPLETION", { branch: currentBranch, time: new Date().toLocaleTimeString() });
-          }
-         }
-      }
-      setLoading(false); 
-      setIsSubmitted(true); 
-      triggerNotify("善後巡視已自動完成", "success");
-    } catch (e) {
-     console.error("更新巡視進度失敗", e);
-     triggerNotify("自動完成失敗，請檢查網路後重傳任一張照片再試", "error");
-     setIsSubmitted(false);
-    } finally {
-     setLoading(false);
-    }
-   };
+    return confirmedInvalidZones;
+   } catch (error) {
+    console.error("核對巡視完成紀錄失敗", error);
+    return [];
+   }
+  }, [currentBranch, getPublicPath, inspectionBusinessDate, standards, currentUser, isValidInspectionPhoto, triggerNotify]);
 
   useEffect(() => {
-    if (!activeZone) return;
-    if (completedZones.includes(activeZone.id) && isAllUploaded) {
-     setIsSubmitted(true);
-     return;
-    }
-    if (completedZones.includes(activeZone.id) && dailyPhotosServerReady && !isAllUploaded) {
-     setIsSubmitted(false);
-     const warningKey = `${inspectionBusinessDate}_${currentBranch}_${activeZone.id}`;
-     if (integrityWarningKeyRef.current !== warningKey) {
-      integrityWarningKeyRef.current = warningKey;
-      triggerNotify("此崗位有完成紀錄，但伺服器照片不齊，請重新上傳缺少的照片", "error");
-     }
-     return;
-    }
-    if (!isAllUploaded || hasUploadingPhotos || loading || isSubmitted) return;
-    const currentStandards = standards[activeZone.id] || [];
-    const submitKey = `${inspectionBusinessDate}_${currentBranch}_${activeZone.id}_${currentStandards.length}_${activeZonePhotoSignature}`;
-    if (autoSubmitKeyRef.current === submitKey) return;
-    autoSubmitKeyRef.current = submitKey;
-    handleSubmit();
-  }, [activeZone?.id, completedZones, isAllUploaded, hasUploadingPhotos, loading, isSubmitted, inspectionBusinessDate, currentBranch, activeZonePhotoSignature, dailyPhotosServerReady]);
+   if (integrityCheckTimerRef.current) clearTimeout(integrityCheckTimerRef.current);
+   if (!dailyPhotosServerReady || !completedZones.length) return;
+   const suspectedZoneIds = completedZones.filter(zoneId => {
+    const zoneStandards = standards[zoneId] || [];
+    if (!zoneStandards.length) return false;
+    return !zoneStandards.every((_, itemIdx) => {
+     const photo = dailyPhotos[`${zoneId}_${itemIdx}`];
+     return !!photo?.photo && photo.serverConfirmed === true;
+    });
+   });
+   if (!suspectedZoneIds.length) return;
+   integrityCheckTimerRef.current = setTimeout(() => {
+    integrityCheckTimerRef.current = null;
+    verifyCompletedZoneIntegrity(suspectedZoneIds);
+   }, 1800);
+   return () => {
+    if (integrityCheckTimerRef.current) clearTimeout(integrityCheckTimerRef.current);
+   };
+  }, [dailyPhotosServerReady, completedZones, standards, dailyPhotos, verifyCompletedZoneIntegrity]);
+
+  useEffect(() => {
+   setIsSubmitted(!!activeZone && completedZones.includes(activeZone.id));
+  }, [activeZone?.id, completedZones]);
 
   const handleResetAll = async () => {
     if (!window.confirm("確定要手動重置今天的巡視進度嗎？\n照片會從今日畫面移除，但會保留稽核紀錄以便日後查詢。")) return;
@@ -6566,7 +6662,7 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
     const photo = dailyPhotos[`${activeZone.id}_${i}`];
     return !!photo?.photo && photo.serverConfirmed === true;
    }).length;
-   const hasIntegrityMismatch = dailyPhotosServerReady && completedZones.includes(activeZone.id) && !isAllUploaded;
+   const isVerifyingIntegrity = dailyPhotosServerReady && completedZones.includes(activeZone.id) && !isAllUploaded;
    const activeProgress = activeStandards.length > 0 ? Math.round((activeUploadedCount / activeStandards.length) * 100) : 100;
    return (
     <div className="inspection-page operations-page p-4 space-y-5 page-enter pb-24 text-left font-bold">
@@ -6576,7 +6672,7 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
        <div className="min-w-0">
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">區站巡視完成度</p>
         <h3 className="text-xl font-black text-slate-800 leading-tight">{activeUploadedCount} / {activeStandards.length || 0} 張實拍照</h3>
-        <p className={`text-[10px] font-black mt-2 ${hasIntegrityMismatch ? 'text-red-500' : 'text-slate-400'}`}>{isSubmitted ? '此崗位已完成' : hasIntegrityMismatch ? '完成紀錄異常：伺服器照片不齊，請補傳' : '照片全部上傳後會自動完成此崗位'}</p>
+        <p className={`text-[10px] font-black mt-2 ${isVerifyingIntegrity ? 'text-amber-600' : 'text-slate-400'}`}>{isSubmitted ? (isVerifyingIntegrity ? '照片同步中，完成進度會保留至伺服器核對結束' : '此崗位已完成') : '照片全部上傳後會自動完成此崗位'}</p>
        </div>
        <div className="inspection-progress-ring shrink-0" style={{"--progress": `${activeProgress}%`}}>
         <span className="text-[11px] font-black text-brand-red">{activeProgress}%</span>
@@ -6673,7 +6769,7 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
        <div className="space-y-3">
          {!isAllUploaded && !hasUploadingPhotos && <div className="p-4 rounded-2xl bg-red-50 text-red-500 font-black text-center text-[10px] animate-pulse"><Icon name="alert-circle" size={12} /> 請完成所有善後巡視照上傳，照片齊全後會自動完成此崗位</div>}
          {hasUploadingPhotos && <div className="p-4 rounded-2xl bg-amber-50 text-amber-600 font-black text-center text-[10px] animate-pulse"><Icon name="loader-2" size={12} className="animate-spin" /> 照片仍在寫入確認，請不要離開頁面</div>}
-         {isAllUploaded && !hasUploadingPhotos && <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-700 font-black text-center text-[10px]"><Icon name={loading ? "loader-2" : "check-circle-2"} size={14} className={loading ? "animate-spin" : ""} /> {loading ? "照片已齊全，正在自動完成此崗位..." : "照片已齊全，系統會自動完成此崗位"}</div>}
+         {isAllUploaded && !hasUploadingPhotos && <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-700 font-black text-center text-[10px]"><Icon name={isReconcilingProgress ? "loader-2" : "check-circle-2"} size={14} className={isReconcilingProgress ? "animate-spin" : ""} /> {isReconcilingProgress ? "照片已齊全，正在向伺服器核對進度..." : "照片已齊全，系統會自動完成此崗位"}</div>}
        </div>
      ) : <div className="p-8 rounded-[3rem] bg-emerald-50 text-emerald-700 text-center font-black">提交完成 ✅</div>}
      {historyPreview && (
