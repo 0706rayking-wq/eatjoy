@@ -1,4 +1,8 @@
 const crypto = require('node:crypto');
+const {
+  hasBrowserbaseConfig,
+  launchBrowser: launchAutomationBrowser
+} = require('../lib/browserbase-browser');
 
 const DEFAULT_REVIEW_URL =
   'https://www.google.com/maps/place//data=!4m4!3m3!1s0x3442addb0e0a1d19:0x8cecf79e345ec750!9m1!1b1?hl=zh-TW';
@@ -22,15 +26,12 @@ async function launchBrowser(viewport = { width: 1280, height: 1600 }) {
       args: ['--lang=zh-TW', '--disable-notifications']
     });
   }
-  const chromiumModule = await import('@sparticuz/chromium');
-  const puppeteerModule = await import('puppeteer-core');
-  const chromium = chromiumModule.default || chromiumModule;
-  const puppeteer = puppeteerModule.default || puppeteerModule;
-  return puppeteer.launch({
-    args: chromium.args,
-    defaultViewport: viewport,
-    executablePath: await chromium.executablePath(),
-    headless: chromium.headless
+  if (!hasBrowserbaseConfig(process.env)) {
+    throw new Error('Browserbase is not configured for Google review patrol');
+  }
+  return launchAutomationBrowser(process.env, globalThis.fetch, {
+    viewport,
+    workflow: 'google-review-patrol'
   });
 }
 

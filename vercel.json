@@ -4,13 +4,13 @@
       "maxDuration": 300
     },
     "api/google-review-check.js": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "api/google-review-report.js": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "api/google-review-image.js": {
-      "maxDuration": 60
+      "maxDuration": 300
     }
   }
 }

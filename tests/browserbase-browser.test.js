@@ -32,5 +32,18 @@ assert.deepEqual(buildSessionPayload(environment), {
   },
   userMetadata: { workflow: 'nueip-hr-automation' }
 });
+assert.deepEqual(buildSessionPayload(environment, {
+  viewport: { width: 1280, height: 1800 },
+  workflow: 'google-review-patrol'
+}), {
+  projectId: 'project-id',
+  browserSettings: {
+    timeout: 900,
+    region: 'ap-southeast-1',
+    viewport: { width: 1280, height: 1800 },
+    context: { id: 'context-id', persist: true }
+  },
+  userMetadata: { workflow: 'google-review-patrol' }
+});
 
 console.log('browserbase browser tests passed');
