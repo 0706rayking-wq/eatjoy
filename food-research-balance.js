@@ -6,10 +6,10 @@
       cycleLength: 11,
       finalMap: 10,
       activeEnemyCaps: [
-        { stage: 1, cap: 8 },
-        { stage: 5, cap: 10 },
-        { stage: 12, cap: 12 },
-        { stage: 18, cap: 14 },
+        { stage: 1, cap: 6 },
+        { stage: 5, cap: 8 },
+        { stage: 12, cap: 9 },
+        { stage: 18, cap: 10 },
       ],
       curvePoints: [
         { stage: 1, enemyHp: 1.00, enemyDamage: 1.00, enemySpeed: 1.00, bossHp: 1.00, bossDamage: 1.00, waves: 6, min: 2, max: 3 },
@@ -78,6 +78,8 @@
 
   const runtimePrelude = String.raw`
 const FR_BALANCE=${JSON.stringify(balance)};
+const FR_MOBILE_PERF=(window.matchMedia&&window.matchMedia('(pointer: coarse)').matches)||Math.min(window.innerWidth||9999,window.innerHeight||9999)<=520;
+const FR_PERF={enemyBulletCap:FR_MOBILE_PERF?90:110,particleCap:FR_MOBILE_PERF?90:120,textCap:FR_MOBILE_PERF?20:25};
 function frBalanceCurve(stage){
  const points=FR_BALANCE.progression.curvePoints,s=Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Number(stage)||1));
  let left=points[0],right=points[points.length-1];
@@ -113,11 +115,16 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
       .replace('let gold=0,score=0,stage=1,gameRunning=false,stageCleared=false;', "let gold=0,score=Number(SAVE.runScore||0),stage=1,gameRunning=false,stageCleared=false;let frBossDefeatedCount=0;const frRunStartedAt=Number(SAVE.runStartedAt||Date.now());const frRunId=String(SAVE.runId||'');")
       .replace('const goldChance=.5;', 'const goldChance=frEnemyCoinChance(this.type);')
       .replace('const earn=1+Math.floor(Math.random()*3);', 'const earn=frEnemyCoinAmount(this.type);')
+      .replace('if(particles.length>200)particles.length=200;', 'if(particles.length>FR_PERF.particleCap)particles.splice(0,particles.length-FR_PERF.particleCap);')
+      .replace('if(eBullets.length>120)eBullets.length=120;', 'if(eBullets.length>FR_PERF.enemyBulletCap)eBullets.length=FR_PERF.enemyBulletCap;')
+      .replace('if(texts.length>25)texts.length=25;', 'if(texts.length>FR_PERF.textCap)texts.splice(0,texts.length-FR_PERF.textCap);')
+      .replace("function reportKill(){window.parent.postMessage({type:'FR_QUEST_KILL'},'*');}", "let frPendingQuestKills=0,frQuestKillTimer=0;function frFlushQuestKills(sync){if(frQuestKillTimer){clearTimeout(frQuestKillTimer);frQuestKillTimer=0;}if(!frPendingQuestKills&&!sync)return;const count=frPendingQuestKills;frPendingQuestKills=0;window.parent.postMessage({type:'FR_QUEST_KILL',count:count,flush:!!sync},'*');}function reportKill(){frPendingQuestKills++;if(frPendingQuestKills>=10)frFlushQuestKills(false);else if(!frQuestKillTimer)frQuestKillTimer=setTimeout(function(){frFlushQuestKills(false);},2500);}")
+      .replace("function reportBossKill(){window.parent.postMessage({type:'FR_BOSS_KILLED',gold},'*');}", "function reportBossKill(){frFlushQuestKills(true);window.parent.postMessage({type:'FR_BOSS_KILLED',gold},'*');}")
       .replace("addText('+100💰'", "addText('+'+frBossCoinReward(stage)+'💰'")
       .replace('score+=this.scoreVal;gold+=100;updateHUD();reportBossKill();', 'score+=this.scoreVal;gold+=frBossCoinReward(stage);updateHUD();reportBossKill();')
       .replace('gold+=30;updateHUD();', 'const rivalGold=frRivalCoinReward(stage);gold+=rivalGold;score+=frRivalScore(stage);updateHUD();')
       .replace("addText('🎉全數擊敗！+30🪙'", "addText('🎉全數擊敗！+'+frRivalCoinReward(stage)+'🪙'")
-      .replace("function goBackToCamp(){window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold},'*');}", "function goBackToCamp(){window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold,score,stage,bossKills:frBossDefeatedCount,durationMs:Math.max(1000,Date.now()-frRunStartedAt),runId:frRunId,completed:!!window.frRunComplete},'*');}")
+      .replace("function goBackToCamp(){window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold},'*');}", "function goBackToCamp(){frFlushQuestKills(true);window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold,score,stage,bossKills:frBossDefeatedCount,durationMs:Math.max(1000,Date.now()-frRunStartedAt),runId:frRunId,completed:!!window.frRunComplete},'*');}")
       .replace('currentBgIdx=Math.floor(Math.random()*BG_THEMES.length);', 'currentBgIdx=frMapForStage(stage);')
       .replace(/currentBgIdx = pickInitialBgIdx\(\);/g, "currentBgIdx = SAVE.startMapIdx!=null ? pickInitialBgIdx() : frMapForStage(stage);")
       .replace('const spd=player.speed*(currentWeapon===\'melee\'?1.1:1)*(normalFrenzyTimer>0?2:1);', "const statusMove=(window.frSlowUntil&&performance.now()<window.frSlowUntil)?FR_BALANCE.combat.slowMultiplier:1;const spd=player.speed*(currentWeapon==='melee'?1.1:1)*(normalFrenzyTimer>0?2:1)*statusMove;")
@@ -144,6 +151,36 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
   window.FOOD_RESEARCH_BALANCE_PATCH = String.raw`
 ;(function(){
  let frStageStartedAt=performance.now(),frStageHpDamage=0;
+ const frBgCache=document.createElement('canvas'),frBgCtx=frBgCache.getContext('2d');
+ let frBgCacheKey='';
+
+ function frPrepareStageAssets(){
+  const theme=BG_THEMES[currentBgIdx];
+  Object.keys(BG_MAP_IMAGES).forEach(function(src){
+   if(!theme||src!==theme.map){const img=BG_MAP_IMAGES[src];if(img){img.onload=null;img.onerror=null;if(img.removeAttribute)img.removeAttribute('src');}delete BG_MAP_IMAGES[src];}
+  });
+  if(typeof frPreloadBossesForMap==='function')frPreloadBossesForMap(currentBgIdx);
+  frBgCacheKey='';
+ }
+
+ const frBaseDrawBg=drawBg;
+ drawBg=function(){
+  const theme=BG_THEMES[currentBgIdx],img=getBgMapImage(theme);
+  if(!img||!img.complete||!img.naturalWidth||CW<=0||CH<=0){frBaseDrawBg();return;}
+  mapCameraY+=(mapCameraTargetY-mapCameraY)*.035;
+  if(Math.abs(mapCameraY-mapCameraTargetY)<.002)mapCameraY=mapCameraTargetY;
+  const cameraStep=Math.round(mapCameraY*100),key=currentBgIdx+':'+CW+'x'+CH+':'+cameraStep+':'+img.naturalWidth+'x'+img.naturalHeight;
+  if(frBgCacheKey!==key){
+   frBgCacheKey=key;
+   if(frBgCache.width!==CW||frBgCache.height!==CH){frBgCache.width=CW;frBgCache.height=CH;}
+   frBgCtx.setTransform(1,0,0,1,0,0);frBgCtx.clearRect(0,0,CW,CH);
+   const gradient=frBgCtx.createLinearGradient(0,0,0,CH);gradient.addColorStop(0,theme.g1);gradient.addColorStop(1,theme.g2);frBgCtx.fillStyle=gradient;frBgCtx.fillRect(0,0,CW,CH);
+   frBgCtx.imageSmoothingEnabled=false;
+   const scale=Math.max(CW/img.naturalWidth,CH/img.naturalHeight),dw=img.naturalWidth*scale,dh=img.naturalHeight*scale,dx=(CW-dw)/2,overflow=Math.max(0,dh-CH),dy=-overflow*(cameraStep/100);
+   frBgCtx.drawImage(img,dx,dy,dw,dh);frBgCtx.fillStyle='rgba(255,246,240,.16)';frBgCtx.fillRect(0,0,CW,CH);
+  }
+  ctx.drawImage(frBgCache,0,0);
+ };
 
  const FrBalancedEnemyBase=Enemy;
  Enemy=class extends FrBalancedEnemyBase{
@@ -170,7 +207,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
 
  const frBalancedBuildStage=buildStage;
  buildStage=function(s,keepPlayerPos){
-  frBalancedBuildStage(s,keepPlayerPos);frStageStartedAt=performance.now();frStageHpDamage=0;
+  frBalancedBuildStage(s,keepPlayerPos);frPrepareStageAssets();frStageStartedAt=performance.now();frStageHpDamage=0;
   window.frSlowUntil=0;window.frAttackDownUntil=0;window.frPoisonUntil=0;window.frBossStatusCooldown={};player.poisoned=false;player.poisonTick=0;player.burnTimer=0;player.frozenTimer=0;
   const c=frBalanceCurve(s);
   if(currentBgIdx===FR_BALANCE.progression.finalMap){spawnQueue=[];stageInitSpawnLen=0;bossIntroTimer=1;mapCameraTargetY=0;return;}
@@ -186,7 +223,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
  function frEnemyActiveCap(s){
   let cap=8;
   FR_BALANCE.progression.activeEnemyCaps.forEach(function(point){if(s>=point.stage)cap=point.cap;});
-  if(performance.now()<frAdaptiveSpawnLimitUntil)cap=Math.max(6,cap-2);
+  if(performance.now()<frAdaptiveSpawnLimitUntil)cap=Math.max(4,cap-2);
   return cap;
  }
  let frSpawnerLastAt=performance.now(),frSlowFrameStreak=0,frAdaptiveSpawnLimitUntil=0;
@@ -205,7 +242,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
    if(changed)spawnQueue.sort(function(a,b){return a.frame-b.frame;});
   }
   frBalancedTickSpawner();
-  if(particles.length>140)particles.splice(0,particles.length-140);
+  if(particles.length>FR_PERF.particleCap)particles.splice(0,particles.length-FR_PERF.particleCap);
  };
 
  const frBalancedHurtPlayer=hurtPlayer;
@@ -239,6 +276,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
   if(player.poisoned)labels.push(['中毒','#84cc16']);
   if(labels.length){ctx.save();ctx.textAlign='center';ctx.font='900 10px sans-serif';labels.forEach(function(item,i){ctx.fillStyle=item[1];ctx.fillText(item[0],player.x,player.y-48-i*12);});ctx.restore();}
  };
+ window.addEventListener('pagehide',function(){if(typeof frFlushQuestKills==='function')frFlushQuestKills(true);});
 })();
 `;
 })();

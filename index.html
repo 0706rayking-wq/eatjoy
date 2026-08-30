@@ -8738,12 +8738,12 @@ if (selectedActivity === 'food_research') {
   }
   return foodResearchResetAt ? {...makeFreshFoodResearchSave(foodResearchResetAt), updatedAt: Date.now()} : {};
  };
- const writeSave = (data) => {
+ const writeSave = (data, options = {}) => {
   try {
    const baseSave = loadSave();
    const merged = {...baseSave, ...data, resetAt: foodResearchResetAt || baseSave.resetAt || 0, updatedAt: Date.now()};
    cacheFoodResearchSave(merged);
-   syncFoodResearchSave(merged);
+   if (options.sync !== false) syncFoodResearchSave(merged);
   } catch {}
  };
 
@@ -10594,8 +10594,14 @@ if (selectedActivity === 'food_research') {
      }
      if (msg.data.type === 'FR_GOLD_UPDATE') { /* 本場金幣回營時統一結算 */ }
      if (msg.data.type === 'FR_QUEST_KILL') {
+      const killCount = Math.max(0, Math.min(50, Number(msg.data.count)||0));
       const s2 = loadSave(); const q2 = s2.quests;
-      if (q2 && !q2.tasks[0].done) { q2.tasks[0].progress = Math.min(q2.tasks[0].target, (q2.tasks[0].progress||0)+1); writeSave({ quests: q2 }); }
+      if (q2 && !q2.tasks[0].done && killCount > 0) {
+       q2.tasks[0].progress = Math.min(q2.tasks[0].target, (q2.tasks[0].progress||0)+killCount);
+       writeSave({ quests: q2 }, { sync: msg.data.flush === true });
+      } else if (msg.data.flush === true) {
+       syncFoodResearchSave(s2);
+      }
      }
      if (msg.data.type === 'FR_PENALTY_RETURN') {
       // 需求4：遺失本場金幣 + 移除裝備武器/護符（從擁有清單也刪除）

@@ -83,8 +83,15 @@
  function defFor(type){const fallback=type==='ranged'?'初始食材砲':'初始鍋鏟';return weaponMap[(SAVE.equip||{})[type]||fallback]||weaponMap[fallback];}
  const rarityRank={normal:0,rare:1,noble:2,top:3};
  const weaponFx=[];
- const frMeleeImgs=Array.from({length:21},function(_,i){const img=new Image();img.src='assets/food-research/weapons/melee/'+String(i+1).padStart(2,'0')+'.png?v=4';return img;});
- const frRangedImgs=Array.from({length:21},function(_,i){const img=new Image();img.src='assets/food-research/weapons/ranged-expedition/'+String(i+1).padStart(2,'0')+'.png?v=4';return img;});
+ const frWeaponImgs={melee:{},ranged:{}};
+ function frWeaponImg(type,index){
+  const cache=frWeaponImgs[type],key=String(index);
+  if(cache[key])return cache[key];
+  const img=new Image();img.decoding='async';
+  const folder=type==='melee'?'melee':'ranged-expedition';
+  img.src='assets/food-research/weapons/'+folder+'/'+String(Number(index)+1).padStart(2,'0')+'.png?v=4';
+  cache[key]=img;return img;
+ }
  let frRangedKick=0;
  function drawWeaponImage(img,size,yOffset){
   if(!img.complete||!img.naturalWidth)return false;
@@ -101,7 +108,7 @@
   ctx.rotate(shake+(jDx||0)*.025);
   ctx.globalAlpha=player.alpha==null?1:player.alpha;
   ctx.imageSmoothingEnabled=true;
-  drawWeaponImage(frRangedImgs[def.icon],58+rank*2,0);
+  drawWeaponImage(frWeaponImg('ranged',def.icon),58+rank*2,0);
   ctx.restore();
   frRangedKick*=.68;
   if(frRangedKick<.025)frRangedKick=0;
@@ -125,7 +132,7 @@
   if(currentWeapon!=='melee'||!def)return;
   ctx.save();ctx.translate(player.x-18,player.y-3);ctx.rotate(-.55);
   ctx.globalAlpha=(player.alpha==null?1:player.alpha)*.9;
-  drawWeaponImage(frMeleeImgs[def.icon],55+(rarityRank[def.rarity]||0),0);
+  drawWeaponImage(frWeaponImg('melee',def.icon),55+(rarityRank[def.rarity]||0),0);
   ctx.restore();
  }
  function drawActiveMeleeWeapon(anim){
@@ -134,7 +141,7 @@
   ctx.save();ctx.translate(player.x+m.x,player.y+m.y);ctx.rotate(m.rot);
   ctx.globalAlpha=Math.max(.35,1-p*.2);ctx.imageSmoothingEnabled=true;
   const size=m.size+rank*2;
-  drawWeaponImage(frMeleeImgs[def.icon],size,-size*.32);
+  drawWeaponImage(frWeaponImg('melee',def.icon),size,-size*.32);
   ctx.restore();
  }
  function pushWeaponFx(kind,x,y,color,size,life,rarity,pattern){

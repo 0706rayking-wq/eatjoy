@@ -32,19 +32,28 @@
 const FR_BOSS_CATALOG = ${JSON.stringify(bossCatalog)};
 const FR_BOSS_BY_MAP = FR_BOSS_CATALOG.reduce(function(out,item){(out[item.map]||(out[item.map]=[])).push(item);return out;},{});
 const FR_BOSS_IMAGES = {};
-FR_BOSS_CATALOG.forEach(function(item){
-  const img=new Image();
-  img.src='assets/food-research/bosses/'+item.sprite+'?v=1';
-  FR_BOSS_IMAGES[item.id]=img;
-});
 const FR_THUNDER_IMAGES={};
-[
-  ['phase1','little-thunder-god-phase1-spritesheet.png'],
-  ['phase2','little-thunder-god-phase2-spritesheet.png'],
-  ['phase3','little-thunder-god-phase3-spritesheet.png'],
-  ['transition12','little-thunder-god-transition-1-to-2-spritesheet.png'],
-  ['transition23','little-thunder-god-transition-2-to-3-spritesheet.png']
-].forEach(function(entry){const img=new Image();img.src='assets/food-research/bosses/'+entry[1]+'?v=2';FR_THUNDER_IMAGES[entry[0]]=img;});
+const FR_THUNDER_SOURCES={
+  phase1:'little-thunder-god-phase1-spritesheet.png',
+  phase2:'little-thunder-god-phase2-spritesheet.png',
+  phase3:'little-thunder-god-phase3-spritesheet.png',
+  transition12:'little-thunder-god-transition-1-to-2-spritesheet.png',
+  transition23:'little-thunder-god-transition-2-to-3-spritesheet.png'
+};
+function frLoadBossImage(cache,key,src,version){
+  if(cache[key])return cache[key];
+  const img=new Image();img.decoding='async';img.src='assets/food-research/bosses/'+src+version;cache[key]=img;return img;
+}
+function frBossImage(item){return item?frLoadBossImage(FR_BOSS_IMAGES,item.id,item.sprite,'?v=1'):null;}
+function frThunderImage(key){return FR_THUNDER_SOURCES[key]?frLoadBossImage(FR_THUNDER_IMAGES,key,FR_THUNDER_SOURCES[key],'?v=2'):null;}
+function frReleaseBossImage(img){if(!img)return;img.onload=null;img.onerror=null;if(img.removeAttribute)img.removeAttribute('src');}
+function frPreloadBossesForMap(mapIdx){
+  const pool=FR_BOSS_BY_MAP[mapIdx]||[];
+  const keep={};pool.forEach(function(item){keep[item.id]=true;frBossImage(item);});
+  Object.keys(FR_BOSS_IMAGES).forEach(function(id){if(!keep[id]){frReleaseBossImage(FR_BOSS_IMAGES[id]);delete FR_BOSS_IMAGES[id];}});
+  if(Number(mapIdx)===10)frThunderImage('phase1');
+  else Object.keys(FR_THUNDER_IMAGES).forEach(function(key){frReleaseBossImage(FR_THUNDER_IMAGES[key]);delete FR_THUNDER_IMAGES[key];});
+}
 
 function frBossShuffle(list){
   const out=list.slice();
@@ -307,6 +316,9 @@ function frThunderApplyPhase(b,phase,refill){
   b._frSkillBag=frBossShuffle(kit.skills);b._frNormalLabel=FR_BOSS_NORMAL_LABELS[kit.normal]||'雷擊';
   b._frAttackCd=phase===0?88:phase===1?74:60;b._frAttackCount=0;b._frBusyUntil=b.timer+45;b._frEvents=[];b._frWarnings=[];b._frDash=null;b._frTether=null;b._frArmorCounterUntil=0;
   if(refill){b.hp=b.maxHp;b.shield=b.maxShield;b.shieldBroken=false;b.shieldResetTimer=10*60;updateBossHp();updateBossShield();}
+  frThunderImage('phase'+(phase+1));
+  if(b._frFullEncounter&&phase===0){frThunderImage('transition12');frThunderImage('phase2');}
+  if(b._frFullEncounter&&phase===1){frThunderImage('transition23');frThunderImage('phase3');}
   const name=document.getElementById('bossName'),fill=document.getElementById('bossFill'),shieldBar=document.getElementById('bossShieldBar');if(name)name.textContent='⚡ 小雷神';
   if(fill)fill.style.background=phase===0?'linear-gradient(90deg,#8b5cf6,#c4b5fd)':phase===1?'linear-gradient(90deg,#0284c7,#7dd3fc)':'linear-gradient(90deg,#eab308,#fef08a)';
   if(shieldBar)shieldBar.style.background=phase===0?'linear-gradient(90deg,#c4b5fd,#8b5cf6)':phase===1?'linear-gradient(90deg,#7dd3fc,#0284c7)':'linear-gradient(90deg,#fef08a,#eab308)';
@@ -418,8 +430,8 @@ function frBossDrawCustom(b){
   if(b._frTether){ctx.save();ctx.strokeStyle='#f43f5e';ctx.lineWidth=5;ctx.setLineDash([9,5]);ctx.beginPath();ctx.moveTo(b.x,b.y);ctx.lineTo(player.x,player.y);ctx.stroke();ctx.restore();}
   ctx.save();ctx.translate(b.x,b.y);
   if(!b.shieldBroken&&b.shield>0){const sp=b.shield/b.maxShield;ctx.globalAlpha=.12+sp*.12;ctx.strokeStyle='#93c5fd';ctx.lineWidth=4+sp*3;ctx.beginPath();ctx.arc(0,0,b.r+18+Math.sin(Date.now()*.006)*4,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;}
-  let img=FR_BOSS_IMAGES[b._frDef.id],frame=0,sourceW=512,sourceH=768,drawX=-75,drawY=-110,drawW=150,drawH=225;
-  if(b._frFinal){sourceW=384;sourceH=384;drawX=-96;drawY=-96;drawW=192;drawH=192;if(b._frTransition){img=FR_THUNDER_IMAGES[b._frTransition.from===0?'transition12':'transition23'];frame=Math.min(5,Math.floor((b.timer-b._frTransition.start)/Math.max(1,b._frTransition.duration/6)));}else{img=FR_THUNDER_IMAGES['phase'+((b._frThunderPhase||0)+1)];frame=Math.floor(b.timer/7)%4;}}
+  let img=frBossImage(b._frDef),frame=0,sourceW=512,sourceH=768,drawX=-75,drawY=-110,drawW=150,drawH=225;
+  if(b._frFinal){sourceW=384;sourceH=384;drawX=-96;drawY=-96;drawW=192;drawH=192;if(b._frTransition){img=frThunderImage(b._frTransition.from===0?'transition12':'transition23');frame=Math.min(5,Math.floor((b.timer-b._frTransition.start)/Math.max(1,b._frTransition.duration/6)));}else{img=frThunderImage('phase'+((b._frThunderPhase||0)+1));frame=Math.floor(b.timer/7)%4;}}
   else frame=b.timer<b._frAnimUntil?Math.min(3,Math.floor((b.timer-b._frAnimStart)/6)):0;
   if(img&&img.complete&&img.naturalWidth){ctx.imageSmoothingEnabled=false;ctx.drawImage(img,frame*sourceW,0,sourceW,sourceH,drawX,drawY,drawW,drawH);}
   else{ctx.shadowBlur=14;ctx.shadowColor=b.color;ctx.fillStyle=b.color;ctx.beginPath();ctx.arc(0,0,52,0,Math.PI*2);ctx.fill();}
