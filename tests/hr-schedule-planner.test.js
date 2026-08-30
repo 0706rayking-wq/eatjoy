@@ -31,6 +31,15 @@ const tiedFinal = planSchedule([{
   { value: 'L2', label: '晚班(16:00~22:00)' }
 ])[0];
 assert.equal(tiedFinal.status, 'ready');
-assert.equal(tiedFinal.selectedShifts[0].value, 'L1');
+assert.equal(tiedFinal.selectedShifts[0].value, 'L2');
+
+const longestFinal = planSchedule([{
+  scheduledShifts: [{ start: '17:00', end: '21:00' }]
+}], [
+  { value: 'A', label: '晚班(17:00~21:00)' },
+  { value: 'B', label: '晚班(17:00~22:30)' }
+])[0];
+assert.equal(longestFinal.status, 'ready');
+assert.equal(longestFinal.selectedShifts[0].value, 'B');
 
 console.log('hr-schedule-planner tests passed');

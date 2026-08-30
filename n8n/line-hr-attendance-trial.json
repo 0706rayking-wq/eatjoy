@@ -179,7 +179,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { action: 'prepare_schedule_records', normalRecords: $json.normalRecords || [] } }}",
+        "jsonBody": "={{ JSON.stringify({ action: 'prepare_schedule_records', normalRecords: $json.normalRecords || [] }) }}",
         "options": {}
       },
       "id": "0db27fc6-e747-4cc9-a8fc-4c8c91b24dda",
@@ -205,7 +205,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ { action: 'sync_schedule', mode: 'commit', normalRecords: $json.normalRecords || [] } }}",
+        "jsonBody": "={{ JSON.stringify({ action: 'sync_schedule', mode: 'commit', normalRecords: $json.normalRecords || [] }) }}",
         "options": {}
       },
       "id": "be4f0c51-5147-482e-8aac-8a06788e7510",
