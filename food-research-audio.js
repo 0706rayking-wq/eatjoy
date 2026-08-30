@@ -48,14 +48,15 @@
   gain.gain.setValueAtTime(volume||.04,start);gain.gain.exponentialRampToValueAtTime(.0001,start+duration);
   source.connect(filter);filter.connect(gain);gain.connect(frMaster);source.start(start);source.stop(start+duration+.02);
  }
- function frSfx(name,force){
-  const now=performance.now(),limits={shot:95,melee:150,hit:65,coin:85,bossCast:320,ui:100};
+  function frSfx(name,force){
+   const now=performance.now(),limits={shot:95,melee:150,parry:70,hit:65,coin:85,bossCast:320,ui:100};
   if(!force&&now-(frLastSound[name]||0)<(limits[name]||35))return;
   frLastSound[name]=now;if(frMuted)return;frEnsureAudio();
   if(name==='ui')frTone(520,.055,'sine',.025,90);
   else if(name==='start'){frTone(220,.12,'triangle',.06,220);frTone(440,.16,'triangle',.055,220,.10);}
   else if(name==='shot'){frTone(720,.045,'square',.024,-280);frNoise(.028,.012,1900);}
-  else if(name==='melee'){frNoise(.11,.055,500);frTone(240,.10,'sawtooth',.038,-150);}
+   else if(name==='melee'){frNoise(.11,.055,500);frTone(240,.10,'sawtooth',.038,-150);}
+   else if(name==='parry'){frTone(980,.055,'square',.045,420);frTone(1460,.075,'sine',.035,-260,.025);frNoise(.035,.018,2400);}
   else if(name==='hit'){frTone(170,.045,'square',.022,-65);}
   else if(name==='hurt'){frNoise(.12,.07,250);frTone(145,.18,'sawtooth',.065,-70);if(navigator.vibrate)navigator.vibrate(24);}
   else if(name==='shield'){frTone(620,.13,'sine',.055,460);frTone(880,.16,'sine',.035,-180,.04);}

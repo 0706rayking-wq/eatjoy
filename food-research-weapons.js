@@ -34,30 +34,30 @@
   ];
 
   const melee = [
-    { id:'m01', name:'鍋鏟劍', rarity:'normal', icon:0, pattern:'basic', damage:1.00, cooldown:28, range:128, reflect:3, color:'#cbd5e1', desc:'攻速、範圍與反彈能力均衡。' },
-    { id:'m02', name:'擀麵棍', rarity:'normal', icon:1, pattern:'knock', damage:1.35, cooldown:36, range:132, reflect:2, color:'#d97706', desc:'重擊傷害高，會將敵人擊退。' },
-    { id:'m03', name:'菜刀', rarity:'normal', icon:2, pattern:'rapid', damage:.72, cooldown:16, range:112, reflect:2, color:'#e2e8f0', desc:'揮擊最快，適合持續貼身輸出。' },
-    { id:'m04', name:'炒菜鍋', rarity:'normal', icon:3, pattern:'circle', damage:.92, cooldown:31, range:150, reflect:5, color:'#94a3b8', fullCircle:true, desc:'大範圍圓弧揮擊，可反彈較多子彈。' },
-    { id:'m05', name:'砧板護盾', rarity:'normal', icon:4, pattern:'shield', damage:.72, cooldown:34, range:112, reflect:8, color:'#a16207', shield:6, desc:'攻擊時補充護盾，擅長反彈彈幕。' },
-    { id:'m06', name:'長柄湯勺', rarity:'normal', icon:5, pattern:'long', damage:1.05, cooldown:30, range:172, reflect:3, color:'#cbd5e1', desc:'最長的普通近戰攻擊距離。' },
-    { id:'m07', name:'雙齒烤肉夾', rarity:'normal', icon:6, pattern:'double', damage:.64, cooldown:20, range:122, reflect:3, color:'#f97316', hits:2, desc:'每次夾擊會快速造成兩段傷害。' },
-    { id:'m08', name:'打蛋器', rarity:'normal', icon:7, pattern:'whirl', damage:.60, cooldown:18, range:120, reflect:5, fullCircle:true, color:'#e2e8f0', desc:'環身高速旋轉，適合處理包圍。' },
+    { id:'m01', name:'鍋鏟劍', rarity:'normal', icon:0, pattern:'basic', shape:'arc', arc:100, damage:1.00, cooldown:32, range:90, reflect:1, guardRatio:.72, color:'#cbd5e1', desc:'均衡的前方橫斬；有效揮擊軌跡可反彈碰到的普通子彈。' },
+    { id:'m02', name:'擀麵棍', rarity:'normal', icon:1, pattern:'knock', shape:'slam', width:40, impact:38, damage:1.35, cooldown:54, range:90, reflect:0, knock:40, color:'#d97706', desc:'向前重砸並產生衝擊，造成高傷害與擊退，但不能處理子彈。' },
+    { id:'m03', name:'菜刀', rarity:'normal', icon:2, pattern:'rapid', shape:'arc', arc:60, damage:.72, cooldown:20, range:70, reflect:0, cut:1, guardRatio:.45, color:'#e2e8f0', desc:'快速的短距離斬擊；有效揮擊軌跡可斬除碰到的普通子彈。' },
+    { id:'m04', name:'炒菜鍋', rarity:'normal', icon:3, pattern:'circle', shape:'arc', arc:170, damage:.92, cooldown:50, range:105, reflect:1, guardRatio:.95, color:'#94a3b8', desc:'緩慢的大角度橫掃；有效揮擊軌跡可反彈碰到的普通子彈。' },
+    { id:'m05', name:'砧板護盾', rarity:'normal', icon:4, pattern:'shield', shape:'thrust', width:80, damage:.72, cooldown:54, range:70, reflect:1, cut:1, guardRatio:1, color:'#a16207', shield:4, desc:'以砧板向前盾擊，可處理軌跡內全部普通子彈；命中或成功擋彈時獲得護盾。' },
+    { id:'m06', name:'長柄湯勺', rarity:'normal', icon:5, pattern:'long', shape:'thrust', width:26, damage:1.05, cooldown:38, range:140, reflect:0, color:'#cbd5e1', desc:'向前方進行長距離突刺，能在較安全的位置攻擊，但不能處理子彈。' },
+    { id:'m07', name:'雙齒烤肉夾', rarity:'normal', icon:6, pattern:'double', shape:'dual', width:20, lane:14, damage:.64, cooldown:24, range:90, reflect:0, cut:1, guardRatio:.5, color:'#f97316', hits:2, desc:'向前發動兩段夾擊；有效突刺軌跡可斬除碰到的普通子彈。' },
+    { id:'m08', name:'打蛋器', rarity:'normal', icon:7, pattern:'whirl', shape:'ring', inner:32, damage:.60, cooldown:36, range:82, reflect:0, cut:1, guardRatio:.58, fullCircle:true, color:'#e2e8f0', desc:'貼身旋轉攻擊周圍敵人；有效旋轉軌跡可斬除碰到的普通子彈。' },
 
-    { id:'m09', name:'震肉鎚', rarity:'rare', icon:8, pattern:'stun', damage:1.62, cooldown:42, range:138, reflect:3, stun:70, color:'#94a3b8', desc:'重鎚會震暈範圍內的敵人。' },
-    { id:'m10', name:'鋸齒麵包刀', rarity:'rare', icon:9, pattern:'bleed', damage:1.12, cooldown:24, range:142, reflect:3, bleed:true, color:'#f59e0b', desc:'鋸齒斬擊造成後續撕裂傷害。' },
-    { id:'m11', name:'披薩滾刀', rarity:'rare', icon:10, pattern:'roll', damage:.82, cooldown:17, range:132, reflect:4, hits:2, color:'#fb923c', desc:'滾刀連斬兩次，攻擊節奏明快。' },
-    { id:'m12', name:'寒霜冰雕刀', rarity:'rare', icon:11, pattern:'freeze', damage:1.18, cooldown:27, range:145, reflect:4, freeze:130, color:'#60a5fa', desc:'寒霜揮擊會凍結命中的敵人。' },
-    { id:'m13', name:'烈焰鍋鏟', rarity:'rare', icon:12, pattern:'burn', damage:1.22, cooldown:25, range:145, reflect:4, burn:true, color:'#ef4444', desc:'烈焰斬附加持續灼燒傷害。' },
-    { id:'m14', name:'香腸鎖鏈', rarity:'rare', icon:13, pattern:'chain', damage:1.08, cooldown:29, range:190, reflect:3, pull:true, color:'#dc2626', desc:'超長鎖鏈會把遠處敵人拉近。' },
+    { id:'m09', name:'震肉鎚', rarity:'rare', icon:8, pattern:'stun', shape:'slam', width:46, impact:50, damage:1.62, cooldown:60, range:100, reflect:0, stun:70, color:'#94a3b8', desc:'向前重擊地面並產生震波，造成高傷害與暈眩，但不能處理子彈。' },
+    { id:'m10', name:'鋸齒麵包刀', rarity:'rare', icon:9, pattern:'bleed', shape:'arc', arc:70, damage:1.12, cooldown:26, range:100, reflect:0, cut:1, guardRatio:.55, bleed:true, color:'#f59e0b', desc:'快速拉鋸並造成撕裂；有效揮擊軌跡可斬除碰到的普通子彈。' },
+    { id:'m11', name:'披薩滾刀', rarity:'rare', icon:10, pattern:'roll', shape:'thrust', width:30, damage:.82, cooldown:24, range:115, reflect:0, cut:1, guardRatio:.5, hits:2, color:'#fb923c', desc:'滾刀向前推進並造成兩段切割；有效軌跡可斬除碰到的普通子彈。' },
+    { id:'m12', name:'寒霜冰雕刀', rarity:'rare', icon:11, pattern:'freeze', shape:'arc', arc:90, damage:1.18, cooldown:34, range:105, reflect:0, cut:1, guardRatio:.7, freeze:130, color:'#60a5fa', desc:'揮出寒霜斬擊並凍結敵人；有效軌跡可斬除碰到的普通子彈。' },
+    { id:'m13', name:'烈焰鍋鏟', rarity:'rare', icon:12, pattern:'burn', shape:'arc', arc:110, damage:1.22, cooldown:32, range:110, reflect:1, guardRatio:.72, burn:true, color:'#ef4444', desc:'橫掃前方並使敵人灼燒；有效揮擊軌跡可反彈碰到的普通子彈。' },
+    { id:'m14', name:'香腸鎖鏈', rarity:'rare', icon:13, pattern:'chain', shape:'chain', width:18, impact:32, damage:1.08, cooldown:38, range:155, reflect:0, pull:true, color:'#dc2626', desc:'甩出長距離鎖鏈，將命中的遠方敵人拉到身邊，但不能處理子彈。' },
 
-    { id:'m15', name:'磁吸炒鍋', rarity:'noble', icon:14, pattern:'magnet', damage:1.26, cooldown:27, range:170, reflect:10, pull:true, fullCircle:true, color:'#38bdf8', desc:'磁場牽引敵人並大幅反彈子彈。' },
-    { id:'m16', name:'雷切牛排刀', rarity:'noble', icon:15, pattern:'lightning', damage:1.48, cooldown:24, range:160, reflect:5, chain:true, color:'#fef08a', desc:'雷切命中後會連鎖電擊附近敵人。' },
-    { id:'m17', name:'黑蒜虛空刃', rarity:'noble', icon:16, pattern:'void', damage:1.55, cooldown:30, range:185, reflect:6, pull:true, fullCircle:true, color:'#7c3aed', desc:'虛空斬牽引四周敵人再造成重創。' },
-    { id:'m18', name:'八腕妖刀', rarity:'noble', icon:17, pattern:'octo', damage:.66, cooldown:20, range:158, reflect:6, hits:3, fullCircle:true, color:'#e879f9', desc:'八腕亂斬造成三段高速範圍傷害。' },
+    { id:'m15', name:'磁吸炒鍋', rarity:'noble', icon:14, pattern:'magnet', shape:'ring', inner:35, damage:1.35, cooldown:44, range:115, reflect:1, guardRatio:.95, pull:true, pullPower:1.15, fullCircle:true, color:'#38bdf8', desc:'加速旋轉並強力牽引周圍敵人；有效軌跡可反彈碰到的普通子彈。' },
+    { id:'m16', name:'雷切牛排刀', rarity:'noble', icon:15, pattern:'lightning', shape:'arc', arc:75, damage:1.55, cooldown:26, range:118, reflect:1, guardRatio:.68, chain:true, chainRange:120, chainDamage:.36, color:'#fef08a', desc:'高速雷電斜斬可在更大範圍連鎖敵人；有效揮擊軌跡可反彈普通子彈。' },
+    { id:'m17', name:'黑蒜虛空刃', rarity:'noble', icon:16, pattern:'void', shape:'arc', arc:140, damage:1.65, cooldown:40, range:130, reflect:0, cut:1, guardRatio:.9, pull:true, pullPower:1.18, color:'#7c3aed', desc:'更快速的大範圍虛空月牙會強力牽引敵人；有效軌跡可斬除普通子彈。' },
+    { id:'m18', name:'八腕妖刀', rarity:'noble', icon:17, pattern:'octo', shape:'triple', arc:70, damage:.72, cooldown:30, range:100, reflect:0, cut:1, guardRatio:.8, hits:3, color:'#e879f9', desc:'高速向左、中、右發動三段亂斬；三段有效軌跡都能斬除普通子彈。' },
 
-    { id:'m19', name:'炎龍廚神刀', rarity:'top', icon:18, pattern:'dragon', damage:1.75, cooldown:27, range:195, reflect:7, burn:true, fullCircle:true, color:'#f97316', desc:'炎龍巨斬覆蓋大範圍並持續灼燒。' },
-    { id:'m20', name:'萬象料理機械臂', rarity:'top', icon:19, pattern:'machine', damage:1.05, cooldown:20, range:174, reflect:8, hits:2, shield:4, color:'#38bdf8', desc:'高速雙擊、補盾並反彈彈幕。' },
-    { id:'m21', name:'白白神廚聖鍋', rarity:'top', icon:20, pattern:'holy', damage:1.55, cooldown:26, range:205, reflect:10, fullCircle:true, heal:2, shield:6, color:'#fde68a', desc:'全周聖鍋衝擊，反彈彈幕並回復生命。' },
+    { id:'m19', name:'炎龍廚神刀', rarity:'top', icon:18, pattern:'dragon', shape:'slam', width:58, impact:32, damage:1.95, cooldown:40, range:150, reflect:1, guardRatio:.92, burn:true, burnPower:1.25, color:'#f97316', desc:'快速劈出高傷害炎龍斬並強化灼燒路徑；有效軌跡可反彈普通子彈。' },
+    { id:'m20', name:'萬象料理機械臂', rarity:'top', icon:19, pattern:'machine', shape:'dual', width:38, lane:18, damage:1.15, cooldown:30, range:120, reflect:1, cut:1, guardRatio:.82, hits:2, shield:5, color:'#38bdf8', desc:'高速交替發動雙臂突擊，可處理軌跡內全部普通子彈；命中或擋彈時獲得 5 點護盾。' },
+    { id:'m21', name:'白白神廚聖鍋', rarity:'top', icon:20, pattern:'holy', shape:'ring', inner:0, damage:1.75, cooldown:45, range:125, reflect:1, cut:1, guardRatio:1, fullCircle:true, heal:3, shield:6, color:'#fde68a', desc:'更快速釋放全周聖光衝擊，可處理全部普通子彈；命中或擋彈時恢復 3 HP 並獲得 6 點護盾。' },
   ];
 
   const all = [...ranged, ...melee];
@@ -107,18 +107,18 @@
   if(frRangedKick<.025)frRangedKick=0;
  }
  function meleeMotion(def,p){
-  const thrust=['knock','stun','long','double'].includes(def.pattern);
-  const chain=def.pattern==='chain';
-  const spin=def.fullCircle||def.pattern==='circle'||def.pattern==='whirl'||def.pattern==='magnet';
+  const shape=def.shape||'arc';
+  const thrust=shape==='thrust'||shape==='slam'||shape==='dual';
   if(thrust){
    const drive=Math.sin(Math.min(1,p)*Math.PI);
-   return {x:0,y:-18-drive*48,rot:(def.pattern==='double'?.08:0),size:62};
+   return {x:0,y:-14-drive*Math.min(56,(def.range||90)*.42),rot:shape==='dual'?.06:0,size:62};
   }
-  if(chain){
+  if(shape==='chain'){
    const drive=Math.sin(Math.min(1,p)*Math.PI);
    return {x:drive*34,y:-10-drive*38,rot:-.72+drive*1.22,size:60};
   }
-  if(spin)return {x:0,y:-4,rot:-1.25+p*Math.PI*2,size:64};
+  if(shape==='ring')return {x:0,y:-4,rot:-1.25+p*Math.PI*2,size:64};
+  if(shape==='triple')return {x:0,y:-7,rot:-1.1+(Math.floor(p*3)%3)*1.1+(p*3%1)*.72,size:64};
   return {x:0,y:-7,rot:-1.02+p*2.04,size:64};
  }
  function drawIdleMeleeWeapon(def){
@@ -257,43 +257,128 @@
   else if(def.pattern==='star'){for(let i=-2;i<=2;i++)makeShot(def,up+i*.105,1,.68,1.08);}
   else {makeShot(def,up-.045);makeShot(def,up+.045);}
  }
+ function frPointSegmentDistance(px,py,x1,y1,x2,y2){
+  const vx=x2-x1,vy=y2-y1,wx=px-x1,wy=py-y1;
+  const len=vx*vx+vy*vy||1,t=Math.max(0,Math.min(1,(wx*vx+wy*vy)/len));
+  return Math.hypot(px-(x1+vx*t),py-(y1+vy*t));
+ }
+ function frSectorHit(side,forward,radius,range,arcDeg,centerDeg){
+  const dist=Math.hypot(side,forward),limit=(range||90)+radius;
+  if(dist>limit)return false;
+  const angle=Math.atan2(side,forward)*180/Math.PI;
+  const padding=dist>radius?Math.asin(Math.min(1,radius/dist))*180/Math.PI:90;
+  return Math.abs(angle-(centerDeg||0))<=(arcDeg||90)/2+padding;
+ }
+ function frMeleePointHit(def,x,y,radius){
+  const side=x-player.x,forward=player.y-y,r=Math.max(0,radius||0),shape=def.shape||'arc',range=def.range||90;
+  if(shape==='arc')return frSectorHit(side,forward,r,range,def.arc||90,0);
+  if(shape==='triple')return [-45,0,45].some(function(center){return frSectorHit(side,forward,r,range,def.arc||70,center);});
+  if(shape==='ring'){
+   const dist=Math.hypot(side,forward),inner=Math.max(0,def.inner||0);
+   return dist<=range+r&&dist>=Math.max(0,inner-r);
+  }
+  if(shape==='dual'){
+   const lane=def.lane||14,half=(def.width||24)/2+r;
+   return forward>=-r&&forward<=range+r&&(Math.abs(side-lane)<=half||Math.abs(side+lane)<=half);
+  }
+  if(shape==='chain'){
+   const shaft=frPointSegmentDistance(side,forward,0,0,0,range)<=(def.width||18)/2+r;
+   return shaft||Math.hypot(side,forward-range)<=(def.impact||28)+r;
+  }
+  if(shape==='slam'){
+   const shaft=frPointSegmentDistance(side,forward,0,8,0,range)<=(def.width||42)/2+r;
+   return shaft||Math.hypot(side,forward-range)<=(def.impact||36)+r;
+  }
+  const half=(def.width||30)/2+r;
+  return forward>=-r&&forward<=range+r&&Math.abs(side)<=half;
+ }
  function meleeTargetHit(def,t,extra){
-  const dx=t.x-player.x,dy=t.y-player.y,d=Math.hypot(dx,dy);
-  return d<(def.range||128)+(t.r||0)+(extra||0)&&(def.fullCircle||dy<60);
+  return frMeleePointHit(def,t.x,t.y,(t.r||0)+(extra||0));
  }
  function applyMeleeEffect(def,e,damage){
   const dx=e.x-player.x,dy=e.y-player.y,d=Math.hypot(dx,dy)||1;
   spawnImpact(def,e.x,e.y,'melee');
-  if(def.pattern==='knock'){e.x+=dx/d*30;e.y+=dy/d*30;}
-  if(def.pull){e.x-=dx/d*26;e.y-=dy/d*26;}
+  if(def.pattern==='knock'){const force=def.knock||30;e.x+=dx/d*force;e.y+=dy/d*force;}
+  if(def.pull){const pull=26*(def.pullPower||1);e.x-=dx/d*pull;e.y-=dy/d*pull;}
   if(def.freeze||def.stun)e.frozenTimer=Math.max(e.frozenTimer||0,def.freeze||def.stun||0);
-  if(def.burn||def.bleed)setTimeout(function(){if(e.hp>0)e.takeDamage(damage*.22);},500);
-  if(def.chain){for(const n of enemies){if(n!==e&&n.hp>0&&Math.hypot(e.x-n.x,e.y-n.y)<90)n.takeDamage(damage*.28);}}
- }
- function drawMeleeSwipe(anim){
-  const d=anim.weapon||defFor('melee'),p=Math.min(1,anim.progress),rank=rarityRank[d.rarity]||0;
-  const range=Math.min(184,Math.max(92,(d.range||128)*.86)),fade=Math.max(0,1-p),color=d.color||'#e2e8f0';
-  ctx.save();ctx.translate(player.x,player.y-7);ctx.globalCompositeOperation='lighter';ctx.lineCap='round';ctx.strokeStyle=color;
-  if(d.pattern==='knock'||d.pattern==='stun'){
-   const endY=-range*(.42+p*.58);ctx.globalAlpha=fade*.78;ctx.lineWidth=9+rank*2;ctx.beginPath();ctx.moveTo(0,-18);ctx.lineTo(0,endY);ctx.stroke();
-   ctx.globalAlpha=fade*.56;ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,endY,18+rank*5+p*18,0,Math.PI*2);ctx.stroke();
-  }else if(d.pattern==='chain'){
-   ctx.globalAlpha=fade*.78;ctx.lineWidth=4+rank;ctx.setLineDash([8,6]);ctx.beginPath();ctx.moveTo(0,-12);ctx.quadraticCurveTo(range*.48,-range*.6,Math.sin(p*Math.PI)*range*.28,-range);ctx.stroke();ctx.setLineDash([]);
-  }else if(d.fullCircle||d.pattern==='circle'||d.pattern==='whirl'){
-   const a=-Math.PI/2+p*Math.PI*1.75;ctx.globalAlpha=fade*.68;ctx.lineWidth=8+rank*2;ctx.beginPath();ctx.arc(0,0,range*.68,a-1.15,a+.22);ctx.stroke();
-   ctx.globalAlpha=fade*.38;ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,range*.82,a-.8,a+.36);ctx.stroke();
-  }else{
-   const a=-2.75+p*2.35;ctx.globalAlpha=fade*.74;ctx.lineWidth=8+rank*1.6;ctx.beginPath();ctx.arc(0,0,range,a-.72,a+.08);ctx.stroke();
-   ctx.globalAlpha=fade*.42;ctx.lineWidth=2.5;ctx.strokeStyle='#ffffff';ctx.beginPath();ctx.arc(0,0,range-5,a-.57,a+.02);ctx.stroke();
+  if(def.burn||def.bleed)setTimeout(function(){if(e.hp>0)e.takeDamage(damage*.22*(def.burnPower||1));},500);
+   if(def.chain){for(const n of enemies){if(n!==e&&n.hp>0&&Math.hypot(e.x-n.x,e.y-n.y)<(def.chainRange||90))n.takeDamage(damage*(def.chainDamage||.28));}}
   }
-  if(rank>=2){ctx.globalAlpha=fade*.32;ctx.strokeStyle=color;ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,range*(.48+p*.42),-Math.PI*.9,-Math.PI*.1);ctx.stroke();}
-  ctx.restore();
- }
- startSwipe=function(){const d=defFor('melee');swipeAnim={active:true,progress:0,color:d.color||currentForm.bulletColor,r:d.range||128,weapon:d};};
- const oldDrawPlayer=drawPlayer;
- drawPlayer=function(){
-  const activeSwipe=swipeAnim.active,storedSwipe=swipeAnim;
-  if(activeSwipe)swipeAnim={active:false};
+  function frMeleeGuardActive(def,anim){
+   return !!(anim&&anim.active&&(def.reflect||def.cut)&&anim.progress<=(def.guardRatio||.65));
+  }
+  function frTriggerMeleeSupport(def,anim){
+   if(!anim||anim.supportTriggered||(!def.shield&&!def.heal))return;
+   anim.supportTriggered=true;
+   if(def.shield){player.shieldActive=true;player.shieldHp=Math.min(80,(player.shieldHp||0)+def.shield);}
+   if(def.heal&&player.hp<player.maxHp){player.hp=Math.min(player.maxHp,player.hp+def.heal);if(charSlots[activeChar])charSlots[activeChar].hp=player.hp;}
+   updateHUD();
+  }
+  function frProcessMeleeGuard(def,anim){
+   if(currentWeapon!=='melee'||!frMeleeGuardActive(def,anim))return;
+   const am=window._curAtkMult||atkMult,base=currentForm.bulletDmg*def.damage*2.2*am;
+   const returnScale=[.45,.55,.65,.75][rarityRank[def.rarity]||0];
+   let reflected=0,cut=0;
+   for(let i=eBullets.length-1;i>=0;i--){
+    const b=eBullets[i];
+    if(!b||b.unreflectable||b.frUnreflectable||(b.r||5)>10||!meleeTargetHit(def,b,0))continue;
+    const shouldCut=!!def.cut&&(!def.reflect||(b.r||5)>=8);
+    if(!shouldCut&&def.reflect){
+     const rb=new Bullet(b.x,b.y,-b.vx*1.25,-Math.abs(b.vy)*1.25,base*returnScale,def.color,Math.min(9,(b.r||5)+1),false,false,!!def.burn);
+     rb.frVisual=true;rb.frRarity=def.rarity||'normal';rb.frPattern='reflect';bullets.push(rb);reflected++;
+    }else{
+     cut++;
+    }
+    burst(b.x,b.y,shouldCut?'#f8fafc':def.color,5);
+    eBullets.splice(i,1);
+   }
+   if(reflected||cut){
+    frTriggerMeleeSupport(def,anim);
+    const now=performance.now();
+    if(now-(anim.lastGuardFxAt||0)>90){
+     anim.lastGuardFxAt=now;
+     const label=[reflected?'反彈 '+reflected:'',cut?'斬除 '+cut:''].filter(Boolean).join(' / ');
+     addText(label,player.x,player.y-34,'#e0f2fe',11,-.45);
+     if(window.frSfx)window.frSfx('parry');
+    }
+   }
+  }
+  function drawMeleeSwipe(anim){
+   const d=anim.weapon||defFor('melee'),p=Math.min(1,anim.progress),rank=rarityRank[d.rarity]||0;
+   const range=d.range||90,fade=Math.max(0,1-p),color=d.color||'#e2e8f0',shape=d.shape||'arc',guardActive=frMeleeGuardActive(d,anim);
+   ctx.save();ctx.translate(player.x,player.y-7);ctx.globalCompositeOperation='lighter';ctx.lineCap='round';ctx.strokeStyle=color;
+   ctx.shadowColor=guardActive?'#e0f2fe':color;ctx.shadowBlur=guardActive?18:5;
+  if(shape==='slam'){
+   const drive=Math.sin(p*Math.PI),endY=-range*(.35+drive*.65);ctx.globalAlpha=fade*.78;ctx.lineWidth=Math.max(8,(d.width||42)*.28)+rank*2;ctx.beginPath();ctx.moveTo(0,-12);ctx.lineTo(0,endY);ctx.stroke();
+   ctx.globalAlpha=fade*.56;ctx.lineWidth=3+rank*.5;ctx.beginPath();ctx.arc(0,endY,(d.impact||36)*(.45+drive*.55),0,Math.PI*2);ctx.stroke();
+  }else if(shape==='thrust'||shape==='dual'){
+   const drive=Math.sin(p*Math.PI),endY=-range*(.28+drive*.72),lanes=shape==='dual'?[-(d.lane||14),d.lane||14]:[0];
+   ctx.globalAlpha=fade*.8;ctx.lineWidth=Math.max(5,(d.width||30)*.2)+rank;
+   lanes.forEach(function(x){ctx.beginPath();ctx.moveTo(x,-10);ctx.lineTo(x,endY);ctx.stroke();});
+   ctx.globalAlpha=fade*.4;ctx.lineWidth=2;lanes.forEach(function(x){ctx.beginPath();ctx.arc(x,endY,8+rank*3,0,Math.PI*2);ctx.stroke();});
+  }else if(shape==='chain'){
+   ctx.globalAlpha=fade*.78;ctx.lineWidth=4+rank;ctx.setLineDash([8,6]);ctx.beginPath();ctx.moveTo(0,-12);ctx.quadraticCurveTo(range*.48,-range*.6,Math.sin(p*Math.PI)*range*.28,-range);ctx.stroke();ctx.setLineDash([]);
+   ctx.globalAlpha=fade*.52;ctx.beginPath();ctx.arc(Math.sin(p*Math.PI)*range*.28,-range,d.impact||28,0,Math.PI*2);ctx.stroke();
+  }else if(shape==='ring'){
+   const a=-Math.PI/2+p*Math.PI*2;ctx.globalAlpha=fade*.68;ctx.lineWidth=8+rank*2;ctx.beginPath();ctx.arc(0,0,range,a-1.15,a+.22);ctx.stroke();
+   ctx.globalAlpha=fade*.38;ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,Math.max(d.inner||0,range*.72),a-.8,a+.36);ctx.stroke();
+  }else if(shape==='triple'){
+   const phase=Math.min(2,Math.floor(p*3)),local=(p*3)%1,centers=[-45,0,45],center=-Math.PI/2+centers[phase]*Math.PI/180,arc=(d.arc||70)*Math.PI/180;
+   ctx.globalAlpha=fade*.8;ctx.lineWidth=8+rank*1.6;ctx.beginPath();ctx.arc(0,0,range,center-arc/2,center-arc/2+arc*Math.max(.2,local));ctx.stroke();
+  }else{
+   const arc=(d.arc||90)*Math.PI/180,start=-Math.PI/2-arc/2,end=start+arc*Math.max(.18,p);ctx.globalAlpha=fade*.74;ctx.lineWidth=8+rank*1.6;ctx.beginPath();ctx.arc(0,0,range,start,end);ctx.stroke();
+   ctx.globalAlpha=fade*.42;ctx.lineWidth=2.5;ctx.strokeStyle='#ffffff';ctx.beginPath();ctx.arc(0,0,Math.max(10,range-5),start,end);ctx.stroke();
+  }
+   if(rank>=2&&shape!=='thrust'&&shape!=='dual'&&shape!=='slam'){ctx.globalAlpha=fade*.26;ctx.strokeStyle=color;ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,range*(.72+p*.18),-Math.PI*.9,-Math.PI*.1);ctx.stroke();}
+   if(guardActive){ctx.shadowBlur=0;ctx.globalAlpha=.62;ctx.strokeStyle='#f8fafc';ctx.lineWidth=2;ctx.setLineDash([3,5]);ctx.beginPath();ctx.arc(0,0,22,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);}
+   ctx.restore();
+  }
+  startSwipe=function(){const d=defFor('melee');swipeAnim={active:true,progress:0,color:d.color||currentForm.bulletColor,r:d.range||128,weapon:d,supportTriggered:false,lastGuardFxAt:0};};
+  const oldDrawPlayer=drawPlayer;
+  drawPlayer=function(){
+   const activeSwipe=swipeAnim.active,storedSwipe=swipeAnim;
+   if(activeSwipe&&currentWeapon==='melee')frProcessMeleeGuard(storedSwipe.weapon||defFor('melee'),storedSwipe);
+   if(activeSwipe)swipeAnim={active:false};
   if(currentWeapon==='ranged')drawRangedWeapon(defFor('ranged'));
   else if(activeSwipe)drawActiveMeleeWeapon(storedSwipe);
   else drawIdleMeleeWeapon(defFor('melee'));
@@ -308,15 +393,11 @@
    player.weaponCd=Math.max(1,Math.floor((d.cooldown||28)/(normalFrenzyTimer>0?2:1)));
    startSwipe();
    const am=window._curAtkMult||atkMult,base=currentForm.bulletDmg*d.damage*2.2*am,hits=d.hits||1;
-   enemies.forEach(function(e){if(meleeTargetHit(d,e,8)){e.takeDamage(base*hits);applyMeleeEffect(d,e,base);burst(e.x,e.y,d.color,Math.min(5,2+hits));}});
-   if(boss&&!boss._defeated&&meleeTargetHit(d,boss,22)){boss.takeDamage(base*Math.min(2,hits));spawnImpact(d,boss.x,boss.y,'melee');}
-   let reflected=0;
-   for(let i=eBullets.length-1;i>=0;i--){const b=eBullets[i];const dist=Math.hypot(b.x-player.x,b.y-player.y);if(reflected<(d.reflect||3)&&dist<(d.range||128)+25){
-    const rb=new Bullet(b.x,b.y,-b.vx*1.45,-Math.abs(b.vy)*1.45,b.dmg*.9,d.color,Math.min(10,(b.r||5)+1),!!d.fullCircle,false,!!d.burn);rb.frVisual=true;rb.frRarity=d.rarity||'normal';rb.frPattern='reflect';bullets.push(rb);eBullets.splice(i,1);reflected++;
-   }}
-   if(d.shield){player.shieldActive=true;player.shieldHp=Math.min(80,(player.shieldHp||0)+d.shield);}
-   if(d.heal){player.hp=Math.min(player.maxHp,player.hp+d.heal);}
-  }else{
+    let didHit=false;
+    enemies.forEach(function(e){if(meleeTargetHit(d,e,8)){didHit=true;e.takeDamage(base*hits);applyMeleeEffect(d,e,base);burst(e.x,e.y,d.color,Math.min(5,2+hits));}});
+    if(boss&&!boss._defeated&&meleeTargetHit(d,boss,22)){didHit=true;boss.takeDamage(base*Math.min(2,hits));spawnImpact(d,boss.x,boss.y,'melee');}
+    if(didHit)frTriggerMeleeSupport(d,swipeAnim);
+   }else{
    const d=defFor('ranged');player.weaponCd=Math.max(1,Math.floor((d.cooldown||10)/(normalFrenzyTimer>0?2:1)));shootRanged(d);
   }
  };

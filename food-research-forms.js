@@ -1,6 +1,29 @@
 (function () {
   const assetBase = 'assets/food-research/forms/';
   const assetVersion = '?v=3';
+  const skillDetails = {
+    onion_guard:{skill1Desc:'清除周圍 150 範圍的普通子彈，對附近敵人造成 24 傷害並擊退。',skill2Desc:'獲得 180 點護盾，向四周發射 24 道可貫穿震波，每道造成 25 傷害。'},
+    popcorn:{skill1Desc:'向前扇形發射 11 顆爆米花，每顆造成 16 傷害。',skill2Desc:'向四周發射 28 顆可貫穿玉米砲彈，每顆造成 28 傷害，並對 230 範圍造成 45 傷害。'},
+    healing_mushroom:{skill1Desc:'短暫無敵、清除 115 範圍的子彈並回復 12 HP。',skill2Desc:'回復 55 HP、獲得 70 點護盾，並對 210 範圍敵人造成 34 傷害。'},
+    garlic_knight:{skill1Desc:'立即解除灼燒、中毒、冰凍等異常狀態，並無敵 2.2 秒。',skill2Desc:'解除異常狀態並無敵 6.5 秒，同時使所有敵人減速 6.5 秒。'},
+    chili_sprite:{skill1Desc:'向前發射 9 道可貫穿火焰，每道造成 18 傷害並附加灼燒。',skill2Desc:'連續產生 8 次焚燒脈衝，每次對 180 範圍造成 18 傷害並留下火焰地面。'},
+    lotus_archer:{skill1Desc:'向前射出 7 支可貫穿藕矢，每支造成 18 傷害。',skill2Desc:'在前方展開 7 道貫穿光柱，每道造成 24 傷害。'},
+    potato_armor:{skill1Desc:'獲得 80 點護盾，並清除 130 範圍內的普通子彈。',skill2Desc:'清除全場普通子彈，對所有敵人造成 38 傷害並大幅減速 6.5 秒。'},
+    lemon_battery:{skill1Desc:'向四周發射 10 顆可貫穿電球，每顆造成 18 傷害，並電擊 180 範圍敵人。',skill2Desc:'連續降下 8 次全場雷擊，每次對所有敵人造成 22 傷害。'},
+    cheese_mage:{skill1Desc:'對 160 範圍造成 18 傷害，並使所有敵人降至 30% 移速，持續 5 秒。',skill2Desc:'使所有敵人降至 15% 移速 9 秒，期間造成 6 次全場傷害，每次 14。'},
+    honey_priest:{skill1Desc:'回復 22 HP，並提升攻擊速度與移動速度 5 秒。',skill2Desc:'回復 70 HP、獲得 120 點護盾，並使所有敵人減速 6 秒。'},
+    coffee_pilot:{skill1Desc:'進入超頻 6.5 秒，大幅提升攻擊速度並額外提高移動速度。',skill2Desc:'清除全場普通子彈，使敵人近乎停止 8 秒，自身同時進入 8 秒超頻。'},
+    octopus_samurai:{skill1Desc:'短暫無敵，反彈 140 範圍內的全部普通子彈。',skill2Desc:'反彈 240 範圍內的普通子彈，並向四周發射 32 道可貫穿斬擊，每道造成 24 傷害。'},
+    salmon_ronin:{skill1Desc:'短暫無敵並向前突進，接著射出 5 道可貫穿斬擊，每道造成 28 傷害。',skill2Desc:'清除全場普通子彈，對所有敵人造成 60 傷害並將其推回上方。'},
+    beef_berserker:{skill1Desc:'獲得 70 點護盾，並對 120 範圍敵人造成 30 傷害。',skill2Desc:'8 秒內不會死亡並進入狂暴狀態，同時對 160 範圍造成 42 傷害。'},
+    puffer_alchemist:{skill1Desc:'向四周發射 18 枚可貫穿毒針，每枚造成 19 傷害。',skill2Desc:'連續釋放 10 次全場劇毒脈衝，每次造成 18 傷害並生成毒池。'},
+    black_garlic_void:{skill1Desc:'清除 220 範圍子彈，將敵人拉近 45%，並造成 26 範圍傷害。',skill2Desc:'清除全場普通子彈，向前發射 5 道可貫穿虛空砲，每道造成 42 傷害。'},
+    lobster_general:{skill1Desc:'吸收 240 範圍內的普通子彈並記錄數量，同時獲得 100 點護盾。',skill2Desc:'向四周發射 30 發可貫穿砲彈；基礎傷害 24，每吸收 1 顆子彈再增加 2 傷害。'},
+    truffle_thunder:{skill1Desc:'在 0.9 秒內發動 5 次雷擊，每次對 220 範圍敵人造成 14 傷害。',skill2Desc:'連續發動 8 次全場雷擊，每次對所有敵人造成 16 傷害。'},
+    dragonfruit_emperor:{skill1Desc:'召喚 9 顆龍星依序轟炸，每次對所有敵人造成 11 傷害。',skill2Desc:'無敵 2.8 秒並連續吐息 10 次，每次發射 3 道貫穿灼燒火焰並造成範圍傷害。'},
+    peach_divine:{skill1Desc:'進入 6 秒強化狀態，並向四周發射 12 道可貫穿仙氣，每道造成 18 傷害。',skill2Desc:'完全回復 HP、解除異常、清除全場普通子彈，並無敵 5 秒。'},
+    cocoa_popsicle_wargod:{skill1Desc:'清除 190 範圍子彈，對 170 範圍造成 52 傷害並使敵人減速 4.2 秒。',skill2Desc:'無敵 2.2 秒並強化 6.5 秒，清除全場普通子彈、極凍敵人，持續釋放 8 波冰晶攻擊。'},
+  };
   const forms = [
     { id:'onion_guard', rarity:'normal', name:'洋蔥守衛', emoji:'🧅', passive:'每 10 秒生成防護罩', skill1:'洋蔥震波', skill2:'三層堡壘', color:'#d8b4fe' },
     { id:'popcorn', rarity:'normal', name:'爆米花', emoji:'🍿', passive:'遠程子彈變大', skill1:'爆米花散射', skill2:'玉米重砲', color:'#fde68a' },
@@ -28,6 +51,11 @@
     { id:'cocoa_popsicle_wargod', rarity:'top', name:'可可冰棒戰神', emoji:'🍫', passive:'攻擊累積寒氣，凍結並碎冰爆破', skill1:'冰棒巨斧', skill2:'極凍戰神', color:'#67e8f9' },
   ].map((form) => ({
     ...form,
+    ...skillDetails[form.id],
+    skill1Cost:form.rarity==='top'?26:form.rarity==='noble'?24:form.rarity==='rare'?22:20,
+    skill2Cost:form.rarity==='top'?60:form.rarity==='noble'?56:form.rarity==='rare'?52:48,
+    skill1Cooldown:form.rarity==='top'?8:form.rarity==='noble'?8.5:form.rarity==='rare'?9:9.5,
+    skill2Cooldown:form.rarity==='top'?19:form.rarity==='noble'?20:form.rarity==='rare'?21:22,
     portrait: assetBase + form.id + '-front.png' + assetVersion,
     battle: assetBase + form.id + '-back.png' + assetVersion,
     passiveIcon: assetBase + form.id + '-passive.png' + assetVersion,
@@ -52,8 +80,8 @@ FR_FORM_CATALOG.forEach(function(form){
   FOOD_FORMS[form.id] = {
     id:form.id, name:form.name, emoji:form.emoji, passive:form.passive,
     pIcon:form.emoji, sk1Icon:'1', sk2Icon:'2', sk1Name:form.skill1, sk2Name:form.skill2,
-    sk1Cd:form.rarity==='top'?8000:form.rarity==='noble'?8500:form.rarity==='rare'?9000:9500,
-    sk2Cd:form.rarity==='top'?19000:form.rarity==='noble'?20000:form.rarity==='rare'?21000:22000,
+    sk1Cd:form.skill1Cooldown*1000,
+    sk2Cd:form.skill2Cooldown*1000,
     bulletColor:form.color, bulletDmg:form.rarity==='top'?16.5:form.rarity==='noble'?15:form.rarity==='rare'?13.5:12,
     spreadCount:0, speedBonus:form.id==='coffee_pilot'?.28:form.id==='salmon_ronin'?.16:0,
     defBonus:form.id==='potato_armor'?.20:form.id==='onion_guard'?.10:0,
@@ -191,7 +219,7 @@ function frProfileFx(id,level,color){
 function frPlayCast(level,id,color,name){
   const now=performance.now(),profile=frProfileFor(id),strong=level===2;
   frSoundFx(profile,level);frProfileFx(id,level,color);frShakeFx(strong?7:3,strong?440:210);
-  if(strong){frFreezeFx(70);frFlashFx(color,300,.28);frFxState.cutin={id:id,name:name,color:color,s:now,d:720};}
+  if(strong){frFreezeFx(35);frFlashFx(color,220,.14);frFxState.cutin={id:id,name:name,color:color,s:now,d:480};}
   else{frRingFx(player.x,player.y,'#ffffff',72,310,3);}
 }
 function frDrawMote(m,t,a){
@@ -216,10 +244,11 @@ function frFxLoop(now){
   if(frFxState.flash){const f=frFxState.flash,t=(now-f.s)/f.d;if(t>=1)frFxState.flash=null;else if(t>=0){frFxCtx.fillStyle=frRgba(f.color,f.a*(1-t));frFxCtx.fillRect(0,0,CW,CH);}}
   if(frFxState.cutin){
     const c=frFxState.cutin,t=(now-c.s)/c.d;if(t>=1)frFxState.cutin=null;else if(t>=0){
-      const enter=Math.min(1,t/.18),leave=t>.78?(1-t)/.22:1,alpha=Math.max(0,Math.min(enter,leave)),img=frImg(c.id,'skill2Icon'),size=Math.min(172,CW*.4),cx=CW/2,cy=CH*.34;
-      frFxCtx.save();frFxCtx.globalAlpha=alpha;frFxCtx.fillStyle='rgba(3,7,18,'+(.76*alpha)+')';frFxCtx.fillRect(0,cy-size*.75,CW,size*1.5);frFxCtx.fillStyle=frRgba(c.color,.22);frFxCtx.fillRect(0,cy-size*.67,CW,size*1.34);
-      frFxCtx.translate(cx,cy);frFxCtx.scale(.82+.18*frEaseOut(enter),.82+.18*frEaseOut(enter));frFxCtx.fillStyle='rgba(255,255,255,.94)';frFxCtx.strokeStyle=c.color;frFxCtx.lineWidth=5;frFxCtx.beginPath();frFxCtx.arc(0,-12,size*.43,0,Math.PI*2);frFxCtx.fill();frFxCtx.stroke();if(img&&img.complete&&img.naturalWidth)frFxCtx.drawImage(img,-size*.36,-size*.48,size*.72,size*.72);frFxCtx.restore();
-      frFxCtx.save();frFxCtx.globalAlpha=alpha;frFxCtx.textAlign='center';frFxCtx.font='900 23px sans-serif';frFxCtx.strokeStyle='rgba(0,0,0,.8)';frFxCtx.lineWidth=6;frFxCtx.strokeText(c.name,cx,cy+size*.54);frFxCtx.fillStyle='#ffffff';frFxCtx.fillText(c.name,cx,cy+size*.54);frFxCtx.restore();
+      const enter=Math.min(1,t/.2),leave=t>.76?(1-t)/.24:1,alpha=Math.max(0,Math.min(enter,leave)),img=frImg(c.id,'skill2Icon');
+      const size=Math.min(64,CW*.17),panelW=Math.min(CW*.48,size+150),panelH=Math.max(76,size+16),panelX=-panelW+(panelW+12)*frEaseOut(enter),panelY=Math.max(112,CH*.27-panelH/2);
+      frFxCtx.save();frFxCtx.globalAlpha=alpha;frFxCtx.fillStyle='rgba(3,7,18,.78)';frFxCtx.strokeStyle=c.color;frFxCtx.lineWidth=2;frFxCtx.beginPath();frFxCtx.roundRect(panelX,panelY,panelW,panelH,10);frFxCtx.fill();frFxCtx.stroke();
+      const iconX=panelX+12+size/2,iconY=panelY+panelH/2;frFxCtx.fillStyle='rgba(255,255,255,.94)';frFxCtx.beginPath();frFxCtx.arc(iconX,iconY,size*.44,0,Math.PI*2);frFxCtx.fill();if(img&&img.complete&&img.naturalWidth)frFxCtx.drawImage(img,iconX-size*.36,iconY-size*.36,size*.72,size*.72);
+      frFxCtx.textAlign='left';frFxCtx.textBaseline='middle';frFxCtx.font='900 15px sans-serif';frFxCtx.fillStyle='#ffffff';frFxCtx.shadowColor='rgba(0,0,0,.85)';frFxCtx.shadowBlur=4;frFxCtx.fillText(c.name,panelX+size+20,panelY+panelH/2);frFxCtx.restore();
     }
   }
   if(now<frFxState.shakeUntil){const p=frFxState.shakePower*((frFxState.shakeUntil-now)/500),dx=(Math.random()-.5)*p*2,dy=(Math.random()-.5)*p*2;canvas.style.transform='translate('+dx+'px,'+dy+'px)';}

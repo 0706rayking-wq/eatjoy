@@ -5,6 +5,12 @@
       maxStage: 22,
       cycleLength: 11,
       finalMap: 10,
+      activeEnemyCaps: [
+        { stage: 1, cap: 8 },
+        { stage: 5, cap: 10 },
+        { stage: 12, cap: 12 },
+        { stage: 18, cap: 14 },
+      ],
       curvePoints: [
         { stage: 1, enemyHp: 1.00, enemyDamage: 1.00, enemySpeed: 1.00, bossHp: 1.00, bossDamage: 1.00, waves: 6, min: 2, max: 3 },
         { stage: 4, enemyHp: 1.28, enemyDamage: 1.14, enemySpeed: 1.05, bossHp: 1.40, bossDamage: 1.12, waves: 7, min: 3, max: 4 },
@@ -175,6 +181,31 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
    for(let k=0;k<count;k++)spawnQueue.push({frame:frame+k*19,x:24+Math.random()*Math.max(40,CW-48),type:1+Math.floor(Math.random()*3),wave:w,stg:s});
   }
   stageInitSpawnLen=spawnQueue.length;rivalTriggeredThisStage=false;rivalCleared=false;rivalFightActive=false;rivalEnemies=[];
+ };
+
+ function frEnemyActiveCap(s){
+  let cap=8;
+  FR_BALANCE.progression.activeEnemyCaps.forEach(function(point){if(s>=point.stage)cap=point.cap;});
+  if(performance.now()<frAdaptiveSpawnLimitUntil)cap=Math.max(6,cap-2);
+  return cap;
+ }
+ let frSpawnerLastAt=performance.now(),frSlowFrameStreak=0,frAdaptiveSpawnLimitUntil=0;
+ const frBalancedTickSpawner=tickSpawner;
+ tickSpawner=function(){
+  const now=performance.now(),frameMs=now-frSpawnerLastAt;frSpawnerLastAt=now;
+  if(frameMs>24&&frameMs<250)frSlowFrameStreak++;else frSlowFrameStreak=Math.max(0,frSlowFrameStreak-2);
+  if(frSlowFrameStreak>=45){frAdaptiveSpawnLimitUntil=now+5000;frSlowFrameStreak=0;}
+  const rivalCount=typeof rivalEnemies!=='undefined'?rivalEnemies.filter(function(r){return !r.defeated;}).length:0;
+  const slots=Math.max(0,frEnemyActiveCap(stage)-enemies.length-rivalCount),nextFrame=spawnTimer+1;
+  if(spawnQueue.length&&spawnQueue[0].frame<=nextFrame){
+   let allowed=0,changed=false;
+   for(let i=0;i<spawnQueue.length&&spawnQueue[i].frame<=nextFrame;i++){
+    if(allowed<slots)allowed++;else{spawnQueue[i].frame=nextFrame+2;changed=true;}
+   }
+   if(changed)spawnQueue.sort(function(a,b){return a.frame-b.frame;});
+  }
+  frBalancedTickSpawner();
+  if(particles.length>140)particles.splice(0,particles.length-140);
  };
 
  const frBalancedHurtPlayer=hurtPlayer;
