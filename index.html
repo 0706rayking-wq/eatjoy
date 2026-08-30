@@ -1113,13 +1113,13 @@
     <div id="notify-root" style="position:fixed;top:80px;left:0;right:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none;padding:0 16px;isolation:isolate;"></div>
 <script src="food-research-question-bank.js"></script>
 <script src="food-research-question-bank-expansion.js"></script>
-<script src="food-research-forms.js?v=8"></script>
-    <script src="food-research-weapons.js?v=8"></script>
+<script src="food-research-forms.js?v=9"></script>
+<script src="food-research-weapons.js?v=11"></script>
     <script src="food-research-amulets.js?v=2"></script>
-    <script src="food-research-bosses.js?v=10"></script>
+    <script src="food-research-bosses.js?v=11"></script>
     <script src="food-research-ui.js?v=5"></script>
-    <script src="food-research-balance.js?v=2"></script>
-    <script src="food-research-audio.js?v=3"></script>
+    <script src="food-research-balance.js?v=3"></script>
+      <script src="food-research-audio.js?v=4"></script>
 
     <script>
 // 動態載入 game.js，載完設 window._gameJsReady = true
@@ -1704,7 +1704,7 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
      );
     };
 
-    const RecipeAdminManager = ({ categoryPath, currentBranch, globalBranches, isSuperAdmin, items = [], triggerNotify, getPublicPath, categories, globalRecipes = [] }) => {
+    const RecipeAdminManager = ({ categoryPath, currentBranch, globalBranches, isSuperAdmin, items = [], triggerNotify, getPublicPath, categories, globalRecipes = [], publishContent }) => {
      const createBlankRecipeSection = (title = '主配方') => ({
       id: crypto.randomUUID(),
       title,
@@ -1723,6 +1723,7 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
      const [editingGlobalRecipeDocId, setEditingGlobalRecipeDocId] = useState(null);
      const [editingGlobalRecipeItemId, setEditingGlobalRecipeItemId] = useState(null);
      const [syncToAll, setSyncToAll] = useState(false);
+     const [isBulkSyncing, setIsBulkSyncing] = useState(false);
      const [showLibrary, setShowLibrary] = useState(false);
      const [activeMenuCategory, setActiveMenuCategory] = useState('全部');
 
@@ -1953,6 +1954,95 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
       }
      };
 
+     const sanitizeMenuItem = (value) => {
+      if (Array.isArray(value)) return value.map(sanitizeMenuItem);
+      if (value && value.constructor === Object) {
+       return Object.fromEntries(
+        Object.entries(value)
+         .filter(([, child]) => child !== undefined)
+         .map(([key, child]) => [key, sanitizeMenuItem(child)])
+       );
+      }
+      return value;
+     };
+
+     const commitInChunks = async (entries, chunkSize, writer) => {
+      for (let start = 0; start < entries.length; start += chunkSize) {
+       const batch = db.batch();
+       entries.slice(start, start + chunkSize).forEach(entry => writer(batch, entry));
+       await batch.commit();
+      }
+     };
+
+     const syncSeasonMenuToAllBranches = async () => {
+      if (!isSuperAdmin || isBulkSyncing) return;
+      if (!currentBranch) return triggerNotify("請先選擇來源分店", "error");
+      if (!Array.isArray(items) || items.length === 0) return triggerNotify("目前分店沒有可同步的本季菜色", "error");
+
+      const targetBranches = [...new Set((globalBranches || []).filter(branch => branch && branch !== currentBranch))];
+      if (targetBranches.length === 0) return triggerNotify("目前沒有其他分店可同步", "info");
+
+      const firstConfirm = window.confirm(
+       `將以「${currentBranch}」目前的 ${items.length} 道菜，完整取代其他 ${targetBranches.length} 間分店的本季菜單。\n\n` +
+       `菜色照片、分類、食材清單、作法、備註與排序都會一起同步。是否繼續？`
+      );
+      if (!firstConfirm) return;
+      if (!window.confirm("再次確認：其他分店目前的本季菜單將被這份菜單取代。")) return;
+
+      setIsBulkSyncing(true);
+      const now = Date.now();
+      const sourceItems = items.map((item, index) => {
+       const rawId = getItemKey(item, index);
+       const normalizedId = String(rawId).replace(/\//g, '／');
+       const id = normalizedId === '.' || normalizedId === '..' ? `menu_${index}` : normalizedId;
+       const { docId, ...copy } = item || {};
+       return sanitizeMenuItem({
+        ...copy,
+        id,
+        sortOrder: index,
+        bulkSyncedFrom: currentBranch,
+        bulkSyncedAt: now
+       });
+      });
+      const sourceIds = new Set(sourceItems.map(item => String(item.id)));
+      const syncedBranches = [];
+
+      try {
+       for (const branch of targetBranches) {
+        const colRef = db.collection(getPublicPath(`${categoryPath}_${branch}/items`));
+        const targetSnap = await colRef.get();
+
+        // Small batches keep image-heavy recipe documents below Firestore's request limit.
+        await commitInChunks(sourceItems, 8, (batch, item) => {
+         batch.set(colRef.doc(String(item.id)), item);
+        });
+
+        const staleDocs = targetSnap.docs.filter(doc => !sourceIds.has(String(doc.id)));
+        await commitInChunks(staleDocs, 400, (batch, doc) => batch.delete(doc.ref));
+
+        // Clear legacy array data so old dishes cannot reappear in the merged menu listener.
+        await db.doc(getPublicPath(`${categoryPath}_${branch}`)).set({
+         items: [],
+         bulkSyncedFrom: currentBranch,
+         bulkSyncedAt: now,
+         bulkSyncedCount: sourceItems.length
+        }, { merge: true });
+        syncedBranches.push(branch);
+       }
+
+       if (publishContent) {
+        await publishContent('menu', '本季菜單已更新', [currentBranch, ...syncedBranches]);
+       }
+       triggerNotify(`已將 ${currentBranch} 的 ${sourceItems.length} 道菜同步至 ${syncedBranches.length} 間分店`, "success");
+      } catch (e) {
+       console.error("Bulk season menu sync failed", e);
+       const completedText = syncedBranches.length > 0 ? `，已完成 ${syncedBranches.length} 間分店` : '';
+       triggerNotify(`整季菜單同步中斷${completedText}，請重新執行`, "error");
+      } finally {
+       setIsBulkSyncing(false);
+      }
+     };
+
      const deleteGlobalRecipe = async (item) => {
       const docId = item.docId || item.title || item.id;
       if (!docId) return triggerNotify("找不到資料庫菜色 ID", "error");
@@ -2036,6 +2126,28 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
 
      return (
       <div className="space-y-4">
+        {isSuperAdmin && (
+         <div className="bg-slate-900 text-white rounded-[2rem] p-5 shadow-lg border border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="min-w-0">
+           <div className="flex items-center gap-2">
+            <Icon name="copy-check" size={17} className="text-amber-300 shrink-0" />
+            <h3 className="font-black text-sm">整季菜單同步</h3>
+           </div>
+           <p className="text-[10px] text-slate-300 mt-1.5 leading-relaxed">
+            以「{currentBranch}」目前 {items.length} 道菜完整取代其他分店，並同步發布更新提醒。
+           </p>
+          </div>
+          <button
+           type="button"
+           onClick={syncSeasonMenuToAllBranches}
+           disabled={isBulkSyncing || items.length === 0}
+           className={`shrink-0 px-5 py-3 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all ${isBulkSyncing || items.length === 0 ? 'bg-slate-700 text-slate-400 cursor-not-allowed' : 'bg-amber-400 text-slate-950 hover:bg-amber-300 active:scale-95'}`}
+          >
+           <Icon name={isBulkSyncing ? "loader-2" : "building-2"} size={15} className={isBulkSyncing ? "animate-spin" : ""} />
+           {isBulkSyncing ? "正在同步..." : "套用至所有分店"}
+          </button>
+         </div>
+        )}
         <div className={`glass-panel p-6 rounded-[2.5rem] space-y-4 bg-white shadow-sm border transition-all ${isEditingRecipe ? 'border-blue-500/30 shadow-blue-500/10' : 'border-slate-100'}`}>
          <div className="flex justify-between items-center mb-2">
            <h3 className="font-black text-slate-800 text-xs flex items-center gap-2 uppercase tracking-widest">
@@ -9159,10 +9271,10 @@ if (selectedActivity === 'food_research') {
  };
  FOOD_RESEARCH_FORM_CATALOG.forEach(form=>{
   PARTNER_FORM_DESC[form.id]=`${FOOD_RESEARCH_RARITIES[form.rarity]?.label||''}型態 · ${form.passive}`;
-  PARTNER_FORM_ABILITIES[form.id]=[
-   {label:'被動技能',name:form.passive,desc:form.passive},
-   {label:'小招',name:form.skill1,desc:'消耗 25 氣力施放'},
-   {label:'大招',name:form.skill2,desc:'消耗 40 氣力施放'},
+   PARTNER_FORM_ABILITIES[form.id]=[
+    {label:'被動技能',name:form.passive,desc:form.passive},
+    {label:'小招',name:form.skill1,desc:`${form.skill1Desc}｜氣力 ${form.skill1Cost}｜冷卻 ${form.skill1Cooldown} 秒`},
+    {label:'大招',name:form.skill2,desc:`${form.skill2Desc}｜氣力 ${form.skill2Cost}｜冷卻 ${form.skill2Cooldown} 秒`},
   ];
  });
  const normalizePartnerSave = (raw={}) => ({
@@ -9845,6 +9957,16 @@ if (selectedActivity === 'food_research') {
   RANGED_DESC['初始食材砲']='雙發直線食材彈，射速與傷害均衡。';
   const MELEE_DESC = Object.fromEntries(MELEE_POOL.map(w=>[w.name,w.desc]));
   MELEE_DESC['初始鍋鏟']='基礎揮擊，攻速、範圍與反彈能力均衡。';
+  const MELEE_DEF = Object.fromEntries(MELEE_POOL.map(w=>[w.name,w]));
+  MELEE_DEF['初始鍋鏟']={...(MELEE_POOL[0]||{}),name:'初始鍋鏟'};
+  const meleeMeta = (name) => {
+   const w=MELEE_DEF[name]||{};
+   const type={arc:'橫斬',thrust:'突刺',slam:'重擊',dual:'雙段突刺',ring:'旋轉',chain:'鎖鏈',triple:'三段斬'}[w.shape]||'揮擊';
+   const speed=(w.cooldown||32)<=27?'快速':(w.cooldown||32)>=48?'緩慢':'中速';
+   const reach=(w.range||90)<=85?'近距離':(w.range||90)>=130?'長距離':'中距離';
+   const guard=[w.reflect?'反彈普通彈':'',w.cut?'斬除普通彈':''].filter(Boolean).join(' / ')||'無擋彈';
+   return [type,speed,reach,guard];
+  };
   const AMULET_DESC = AMULET_DESC_MAP;
   const FORM_DESC = {normal:'被動：MHP+10（可共享、可疊加）｜小招：舔傷口｜大招：亢奮'};
   FOOD_RESEARCH_FORM_CATALOG.forEach(form=>{FORM_DESC[form.id]=`被動：${form.passive}｜小招：${form.skill1}｜大招：${form.skill2}`;});
@@ -9866,12 +9988,16 @@ if (selectedActivity === 'food_research') {
      </div>
      </div>
      {/* Melee */}
-     <div style={cardStyle}>
-     <div style={sectionTitle}>🗡️ 近戰武器</div>
-     <div style={{display:'flex', flexDirection:'column', gap:'6px'}}>
+      <div style={cardStyle}>
+      <div style={sectionTitle}>🗡️ 近戰武器</div>
+      <div style={{fontSize:'10px',color:'#8b949e',lineHeight:1.55,margin:'-2px 0 9px'}}>明亮的有效揮擊軌跡會處理碰到的全部普通子彈；大型彈幕與特殊攻擊仍需迴避。</div>
+      <div style={{display:'flex', flexDirection:'column', gap:'6px'}}>
       {(ws2.melee||['初始鍋鏟']).map(w=>(
       <div key={w} onClick={()=>setEq('melee',w)} style={{padding:'8px 12px', borderRadius:'9px', border:'2px solid '+(eq2.melee===w?'#f0883e':'#30363d'), background:eq2.melee===w?'rgba(240,136,62,.15)':'transparent', cursor:'pointer'}}>
        <div style={{fontSize:'12px', fontWeight:900, color:eq2.melee===w?'#ffa657':'#8b949e'}}>{eq2.melee===w?'✓ ':''}{w}</div>
+       <div style={{display:'flex',flexWrap:'wrap',gap:'4px',marginTop:'5px'}}>
+        {meleeMeta(w).map((tag,idx)=><span key={idx} style={{fontSize:'9px',fontWeight:900,color:idx===3?'#fbbf24':'#c9d1d9',background:idx===3?'rgba(251,191,36,.1)':'rgba(255,255,255,.055)',border:'1px solid '+(idx===3?'rgba(251,191,36,.35)':'#30363d'),borderRadius:'4px',padding:'2px 5px'}}>{tag}</span>)}
+       </div>
        <div style={{fontSize:'10px', color:'#6e7681', marginTop:'3px'}}>{MELEE_DESC[w]||'點擊裝備此武器'}</div>
       </div>
       ))}
@@ -9966,8 +10092,8 @@ if (selectedActivity === 'food_research') {
     PARTNER_FORM_DESC[form.id]=`${FOOD_RESEARCH_RARITIES[form.rarity]?.label||''}型態 · ${form.passive}`;
     PARTNER_FORM_ABILITIES[form.id]=[
      {label:'被動技能',name:form.passive,desc:form.passive},
-     {label:'小招',name:form.skill1,desc:'消耗 25 氣力施放'},
-     {label:'大招',name:form.skill2,desc:'消耗 40 氣力施放'},
+     {label:'小招',name:form.skill1,desc:`${form.skill1Desc}｜氣力 ${form.skill1Cost}｜冷卻 ${form.skill1Cooldown} 秒`},
+     {label:'大招',name:form.skill2,desc:`${form.skill2Desc}｜氣力 ${form.skill2Cost}｜冷卻 ${form.skill2Cooldown} 秒`},
     ];
    });
    const normalizePartnerSave = (raw={}) => ({
@@ -10439,8 +10565,8 @@ if (selectedActivity === 'food_research') {
   CAMP_FORM_DESC[form.id]=`${FOOD_RESEARCH_RARITIES[form.rarity]?.label||''}型態 · ${form.passive}`;
   CAMP_FORM_ABILITIES[form.id]=[
    {label:'被動技能',name:form.passive,desc:form.passive},
-   {label:'小招',name:form.skill1,desc:'消耗 25 氣力施放'},
-   {label:'大招',name:form.skill2,desc:'消耗 40 氣力施放'},
+   {label:'小招',name:form.skill1,desc:`${form.skill1Desc}｜氣力 ${form.skill1Cost}｜冷卻 ${form.skill1Cooldown} 秒`},
+   {label:'大招',name:form.skill2,desc:`${form.skill2Desc}｜氣力 ${form.skill2Cost}｜冷卻 ${form.skill2Cooldown} 秒`},
   ];
  });
 
@@ -12128,7 +12254,7 @@ return (
              <Icon name="send" size={14} /> 更新發布
             </button>
            </div>
-           <RecipeAdminManager categoryPath="menu/list" currentBranch={currentBranch} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} items={menu?.items || []} triggerNotify={triggerNotify} getPublicPath={getPublicPath} categories={MENU_CATEGORIES} globalRecipes={globalRecipes} />
+           <RecipeAdminManager categoryPath="menu/list" currentBranch={currentBranch} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} items={menu?.items || []} triggerNotify={triggerNotify} getPublicPath={getPublicPath} categories={MENU_CATEGORIES} globalRecipes={globalRecipes} publishContent={publishContent} />
           </div>
          )}
          
