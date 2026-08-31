@@ -156,6 +156,7 @@ if (!recognitionNode || !normalizeNode || !lineResponseNode || !explanationNode 
 recognitionNode.parameters.text = recognitionPrompt;
 normalizeNode.parameters.jsCode = normalizeCode;
 lineResponseNode.parameters.jsonBody = `={{ (() => { const isFrontWash = $('整理辨識結果').first().json.sheet_type === '外場／洗滌'; const lineMessages = ($json.lineMessages || []).slice(0, 5).map(text => isFrontWash ? String(text).replace('店別：南港內場', '店別：南港外場／洗滌') : String(text)); return { to: $('僅處理下班條照片').first().json.event.source.groupId, messages: lineMessages.map(text => ({ type: 'text', text })) }; })() }}`;
+lineResponseNode.onError = 'continueRegularOutput';
 explanationNode.name = '準備相符人員班表';
 explanationNode.position = [1344, 224];
 explanationNode.parameters.jsonBody = `={{ JSON.stringify({ action: 'prepare_schedule_records', normalRecords: $json.normalRecords || [] }) }}`;
