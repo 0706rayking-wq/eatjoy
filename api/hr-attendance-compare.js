@@ -479,6 +479,19 @@ async function loadNueipAttendanceBrowser(date, requestedDepartments = [], sched
   }
 }
 
+async function loadNueipAttendanceBrowserWithRetry(date, requestedDepartments = [], schedule = {}) {
+  let lastError;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      return await loadNueipAttendanceBrowser(date, requestedDepartments, schedule);
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 2500 * (attempt + 1)));
+    }
+  }
+  throw lastError;
+}
+
 async function loadNueipAttendance(date, schedule = {}) {
   const companyCode = readRequiredEnv('NUEIP_COMPANY_CODE');
   const employeeId = readRequiredEnv('NUEIP_EMPLOYEE_ID');
@@ -590,7 +603,7 @@ async function loadNueipAttendance(date, schedule = {}) {
   } catch (error) {
     if (['外場／洗滌', '行政／洗滌'].includes(schedule?.sheet_type) && /找不到NUEIP南港/.test(error.message)) {
       const browserAttendance = uniqueAttendance(
-        await loadNueipAttendanceBrowser(date, [], schedule)
+        await loadNueipAttendanceBrowserWithRetry(date, [], schedule)
       );
       const browserHealth = assessAttendanceSource(schedule, browserAttendance);
       if (!browserHealth.complete) {
@@ -618,7 +631,7 @@ async function loadNueipAttendance(date, schedule = {}) {
   // a few employee rows. Treat that as an incomplete source, not as evidence
   // that every other employee is missing from NUEIP.
   const browserAttendance = uniqueAttendance(
-    await loadNueipAttendanceBrowser(date, departmentValues, schedule)
+    await loadNueipAttendanceBrowserWithRetry(date, departmentValues, schedule)
   );
   const browserHealth = assessAttendanceSource(schedule, browserAttendance);
   if (!browserHealth.complete) {
