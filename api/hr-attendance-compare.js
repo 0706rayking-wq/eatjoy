@@ -345,6 +345,7 @@ async function loadNueipAttendanceBrowser(date, requestedDepartments = [], sched
     await page.goto('https://portal.nueip.com/login', { waitUntil: 'domcontentloaded', timeout: 25000 });
     lastUrl = page.url();
     stage = '填寫登入資料';
+    let hasLoginForm = true;
     try {
       await page.waitForSelector('input[name="inputCompany"]', { timeout: 15000 });
     } catch (error) {
@@ -358,20 +359,31 @@ async function loadNueipAttendanceBrowser(date, requestedDepartments = [], sched
           .slice(0, 12)
           .map((input) => String(input.getAttribute('name') || input.getAttribute('type') || 'unnamed'))
       })).catch(() => ({}));
-      const details = [
-        loginPage.title ? `標題=${loginPage.title}` : '',
-        loginPage.text ? `內容=${loginPage.text}` : '',
-        Array.isArray(loginPage.inputs) && loginPage.inputs.length ? `欄位=${loginPage.inputs.join(',')}` : ''
-      ].filter(Boolean).join('；');
-      throw new Error(`找不到NUEIP登入欄位${details ? `（${details}）` : ''}`);
+      const authenticatedHome = /功能快捷|今日提醒|明日提醒/.test(loginPage.text || '');
+      if (authenticatedHome) {
+        // Browserbase preserves this NUEIP session. The portal can render the
+        // signed-in home screen at /login, so continue directly to attendance.
+        hasLoginForm = false;
+      } else {
+        const details = [
+          loginPage.title ? `標題=${loginPage.title}` : '',
+          loginPage.text ? `內容=${loginPage.text}` : '',
+          Array.isArray(loginPage.inputs) && loginPage.inputs.length ? `欄位=${loginPage.inputs.join(',')}` : ''
+        ].filter(Boolean).join('；');
+        throw new Error(`找不到NUEIP登入欄位${details ? `（${details}）` : ''}`);
+      }
     }
-    await page.type('input[name="inputCompany"]', companyCode);
-    await page.type('input[name="inputID"]', employeeId);
-    await page.type('input[name="inputPassword"]', password);
-    await page.click('button.login-button');
-    stage = '等待登入完成';
-    await page.waitForFunction(() => !location.pathname.startsWith('/login'), { timeout: 20000 });
-    lastUrl = page.url();
+    if (hasLoginForm) {
+      await page.type('input[name="inputCompany"]', companyCode);
+      await page.type('input[name="inputID"]', employeeId);
+      await page.type('input[name="inputPassword"]', password);
+      await page.click('button.login-button');
+      stage = '等待登入完成';
+      await page.waitForFunction(() => !location.pathname.startsWith('/login'), { timeout: 20000 });
+      lastUrl = page.url();
+    } else {
+      stage = '沿用既有登入工作階段';
+    }
 
     if (departmentValues.length === 0) {
       const discoveryQuery = new URLSearchParams({
