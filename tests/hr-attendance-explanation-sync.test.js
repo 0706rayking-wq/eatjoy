@@ -3,6 +3,9 @@ const {
   attendanceRowSelectors,
   explanationDepartmentValues,
   normalizeRecords,
+  recordKey,
+  retryAttempts,
+  retryDelay,
   scheduleDepartment,
   weekdayForDate,
   weekIndexForDate
@@ -52,5 +55,11 @@ assert.deepEqual(explanationDepartmentValues(
   { NUEIP_ADMIN_WASH_DEPARTMENT_VALUES: '15451_103018,15451_103019' }
 ), ['15451_103018', '15451_103019', '15451_0']);
 assert.match(attendanceRowSelectors().modify, /data-th\*="修改"/);
+assert.equal(recordKey({ employeeNumber: '403003', date: '2026-08-21', department: '南港三井Lalaport外場' }), '403003|2026-08-21|南港三井Lalaport外場');
+assert.equal(retryAttempts({}), 2);
+assert.equal(retryAttempts({ NUEIP_EXPLANATION_RETRY_ATTEMPTS: '99' }), 2);
+assert.equal(retryAttempts({ NUEIP_EXPLANATION_RETRY_ATTEMPTS: '1' }), 1);
+assert.equal(retryDelay(1), 2500);
+assert.equal(retryDelay(10), 12000);
 
 console.log('hr-attendance-explanation-sync tests passed');
