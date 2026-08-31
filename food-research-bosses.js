@@ -1,26 +1,26 @@
 (function () {
   const bossCatalog = [
-    { map:0, id:'tiramisu-jazz', name:'提拉米蘇爵士', sprite:'boss-tiramisu-jazz.png', color:'#a16207', normal:'cocoaFan', skills:['coffeePools','cookieRain','creamWalls'] },
-    { map:0, id:'jelly-king', name:'史萊姆果凍王', sprite:'boss-jelly-king.png', color:'#ec4899', normal:'jellyBounce', skills:['jellyClones','jellyRings','jellyRain'] },
-    { map:1, id:'niu-mowang', name:'牛魔王', sprite:'boss-niu-mowang.png', color:'#dc2626', normal:'hornFan', skills:['doubleCharge','shockRings','cleaverLanes'] },
-    { map:1, id:'yang-mowang', name:'羊魔王', sprite:'boss-yang-mowang.png', color:'#d8b4fe', normal:'woolSplit', skills:['sheepLanes','woolSpiral','slowCharge'] },
-    { map:2, id:'mala-vampire', name:'麻辣湯吸血鬼', sprite:'boss-mala-vampire.png', color:'#e11d48', normal:'chiliCurve', skills:['drainTether','chiliRain','bloodDash'] },
-    { map:2, id:'white-soup-princess', name:'白雪湯雪姬', sprite:'boss-white-soup-princess.png', color:'#e0f2fe', normal:'brothTriple', skills:['fogAim','iceFlower','hotCold'] },
-    { map:3, id:'bitter-melon-witch', name:'苦瓜巫婆', sprite:'boss-bitter-melon-witch.png', color:'#65a30d', normal:'crossCrescent', skills:['poisonSweep','seedMines','vineCage'] },
-    { map:3, id:'halloween-pumpkin-king', name:'萬聖南瓜王', sprite:'boss-halloween-pumpkin-king.png', color:'#f97316', normal:'leadBurst', skills:['pumpkinRoll','lockBeam','pumpkinMeteors'] },
-    { map:4, id:'karaage-superhero', name:'唐揚雞超人', sprite:'boss-karaage-superhero.png', color:'#f59e0b', normal:'chickenShotgun', skills:['bodySlam','oilRain','tripleDash'] },
-    { map:4, id:'eel-dragon', name:'星鰻龍', sprite:'boss-eel-dragon.png', color:'#92400e', normal:'sauceCurve', skills:['pathDash','conveyor','reverseSpiral'] },
-    { map:5, id:'fried-rice-beast', name:'炒飯獸', sprite:'boss-fried-rice-beast.png', color:'#facc15', normal:'riceFan', skills:['riceTornado','eggOrbit','wokShock'] },
-    { map:5, id:'intestine-sandworm', name:'肥腸沙蟲', sprite:'boss-intestine-sandworm.png', color:'#fb7185', normal:'ringShot', skills:['sandTrail','lidCross','closingLoops'] },
-    { map:6, id:'durian-icepop-warrior', name:'榴槤冰棒戰士', sprite:'boss-durian-icepop-warrior.png', color:'#84cc16', normal:'iceFan', skills:['iceSweep','iceColumns','avalanche'] },
-    { map:6, id:'mango-ice-monster', name:'芒果冰怪', sprite:'boss-mango-ice-monster.png', color:'#fbbf24', normal:'turnTwin', skills:['syrupPools','snowcone','sideAvalanche'] },
-    { map:7, id:'fries-swordsman', name:'薯條劍宗', sprite:'boss-fries-swordsman.png', color:'#f59e0b', normal:'crossSlash', skills:['fryColumns','lineSlashes','orbitFries'] },
-    { map:7, id:'pasta-mummy', name:'義大利麵木乃伊', sprite:'boss-pasta-mummy.png', color:'#ef4444', normal:'noodleCurve', skills:['tomatoSpiral','contractingCircles','noodleGrid'] },
-    { map:8, id:'pastry-soup-wizard', name:'酥皮濃湯惡巫師', sprite:'boss-pastry-soup-wizard.png', color:'#d97706', normal:'flakeCross', skills:['groundEruptions','shieldRadial','insideOutside'] },
-    { map:8, id:'cream-chicken-pontiff', name:'奶油燉雞邪教宗', sprite:'boss-cream-chicken-pontiff.png', color:'#fef08a', normal:'creamSplit', skills:['chickenLegRain','creamSweep','closingWalls'] },
-    { map:9, id:'octopus-warrior', name:'八爪章魚戰士', sprite:'boss-octopus-warrior.png', color:'#7c3aed', normal:'inkFan', skills:['tentacleLanes','inkCloud','centerPull'] },
-    { map:9, id:'heavy-armor-mech', name:'重甲機兵', sprite:'boss-heavy-armor-mech.png', color:'#0891b2', normal:'clawCrescent', skills:['horizontalCharges','bubbleLock','waterWalls'] },
-    { map:10, id:'little-thunder-god', name:'小雷神', sprite:'little-thunder-god-phase1-spritesheet.png', color:'#60a5fa', normal:'hiddenSpark', skills:['thunderMarks','cloakDash','staticCage'], phaseKits:[
+    { map:0, id:'tiramisu-jazz', name:'提拉米蘇爵士', intro:'入場券？就用你的勇氣來付吧。', sprite:'boss-tiramisu-jazz.png', color:'#a16207', normal:'cocoaFan', skills:['coffeePools','cookieRain','creamWalls'] },
+    { map:0, id:'jelly-king', name:'史萊姆果凍王', intro:'在我的甜蜜王國，連腳步都會反彈！', sprite:'boss-jelly-king.png', color:'#ec4899', normal:'jellyBounce', skills:['jellyClones','jellyRings','jellyRain'] },
+    { map:1, id:'niu-mowang', name:'牛魔王', intro:'站穩了！本王可不會替你讓路！', sprite:'boss-niu-mowang.png', color:'#dc2626', normal:'hornFan', skills:['doubleCharge','shockRings','cleaverLanes'] },
+    { map:1, id:'yang-mowang', name:'羊魔王', intro:'別被柔軟騙了，羊角可不懂手下留情。', sprite:'boss-yang-mowang.png', color:'#d8b4fe', normal:'woolSplit', skills:['sheepLanes','woolSpiral','slowCharge'] },
+    { map:2, id:'mala-vampire', name:'麻辣湯吸血鬼', intro:'讓我嚐嚐，你的熱血夠不夠辣。', sprite:'boss-mala-vampire.png', color:'#e11d48', normal:'chiliCurve', skills:['drainTether','chiliRain','bloodDash'] },
+    { map:2, id:'white-soup-princess', name:'白雪湯雪姬', intro:'一冷一熱，你能撐過幾回？', sprite:'boss-white-soup-princess.png', color:'#e0f2fe', normal:'brothTriple', skills:['fogAim','iceFlower','hotCold'] },
+    { map:3, id:'bitter-melon-witch', name:'苦瓜巫婆', intro:'吞下這份苦，才有資格談勝利。', sprite:'boss-bitter-melon-witch.png', color:'#65a30d', normal:'crossCrescent', skills:['poisonSweep','seedMines','vineCage'] },
+    { map:3, id:'halloween-pumpkin-king', name:'萬聖南瓜王', intro:'猜猜看，下一顆南瓜會落在哪？', sprite:'boss-halloween-pumpkin-king.png', color:'#f97316', normal:'leadBurst', skills:['pumpkinRoll','lockBeam','pumpkinMeteors'] },
+    { map:4, id:'karaage-superhero', name:'唐揚雞超人', intro:'正義要趁熱，壞蛋也要炸得酥脆！', sprite:'boss-karaage-superhero.png', color:'#f59e0b', normal:'chickenShotgun', skills:['bodySlam','oilRain','tripleDash'] },
+    { map:4, id:'eel-dragon', name:'星鰻龍', intro:'踏錯一步，就會被醬香漩渦吞沒。', sprite:'boss-eel-dragon.png', color:'#92400e', normal:'sauceCurve', skills:['pathDash','conveyor','reverseSpiral'] },
+    { map:5, id:'fried-rice-beast', name:'炒飯獸', intro:'鍋氣已起，你就是今天最後一味！', sprite:'boss-fried-rice-beast.png', color:'#facc15', normal:'riceFan', skills:['riceTornado','eggOrbit','wokShock'] },
+    { map:5, id:'intestine-sandworm', name:'肥腸沙蟲', intro:'地面在動？不，是我來了。', sprite:'boss-intestine-sandworm.png', color:'#fb7185', normal:'ringShot', skills:['sandTrail','lidCross','closingLoops'] },
+    { map:6, id:'durian-icepop-warrior', name:'榴槤冰棒戰士', intro:'聞到只是警告，凍住才是處刑。', sprite:'boss-durian-icepop-warrior.png', color:'#84cc16', normal:'iceFan', skills:['iceSweep','iceColumns','avalanche'] },
+    { map:6, id:'mango-ice-monster', name:'芒果冰怪', intro:'甜得越迷人，雪崩就越無情。', sprite:'boss-mango-ice-monster.png', color:'#fbbf24', normal:'turnTwin', skills:['syrupPools','snowcone','sideAvalanche'] },
+    { map:7, id:'fries-swordsman', name:'薯條劍宗', intro:'刀落如雨，接得住便算你有本事。', sprite:'boss-fries-swordsman.png', color:'#f59e0b', normal:'crossSlash', skills:['fryColumns','lineSlashes','orbitFries'] },
+    { map:7, id:'pasta-mummy', name:'義大利麵木乃伊', intro:'麵線纏身之時，掙扎只會打成死結。', sprite:'boss-pasta-mummy.png', color:'#ef4444', normal:'noodleCurve', skills:['tomatoSpiral','contractingCircles','noodleGrid'] },
+    { map:8, id:'pastry-soup-wizard', name:'酥皮濃湯惡巫師', intro:'酥皮一裂，濃湯將吞沒整座戰場。', sprite:'boss-pastry-soup-wizard.png', color:'#d97706', normal:'flakeCross', skills:['groundEruptions','shieldRadial','insideOutside'] },
+    { map:8, id:'cream-chicken-pontiff', name:'奶油燉雞邪教宗', intro:'接受奶油的洗禮，沉入濃醇的永恆吧。', sprite:'boss-cream-chicken-pontiff.png', color:'#fef08a', normal:'creamSplit', skills:['chickenLegRain','creamSweep','closingWalls'] },
+    { map:9, id:'octopus-warrior', name:'八爪章魚戰士', intro:'八臂皆刃，你能看住幾個方向？', sprite:'boss-octopus-warrior.png', color:'#7c3aed', normal:'inkFan', skills:['tentacleLanes','inkCloud','centerPull'] },
+    { map:9, id:'heavy-armor-mech', name:'重甲機兵', intro:'裝甲鎖定。所有逃生路線，全部封閉。', sprite:'boss-heavy-armor-mech.png', color:'#0891b2', normal:'clawCrescent', skills:['horizontalCharges','bubbleLock','waterWalls'] },
+    { map:10, id:'little-thunder-god', name:'小雷神', intro:'能走到這裡……很好。接下我這一道雷。', intro22:'你果然回來了。這一次，我不會再保留。', stage11Defeat:'你的力量，我記住了……我們還會再見。', phase12:'真不簡單，盡你的全力吧', phase23:'看得出你很想贏啊？不過，我也是', nearDefeat:'很好……這才是我等待已久的戰鬥！', sprite:'little-thunder-god-phase1-spritesheet.png', color:'#60a5fa', normal:'hiddenSpark', skills:['thunderMarks','cloakDash','staticCage'], phaseKits:[
       { name:'第一型態・雷幕披風', color:'#a78bfa', normal:'hiddenSpark', skills:['thunderMarks','cloakDash','staticCage'] },
       { name:'第二型態・雷鎧真身', color:'#38bdf8', normal:'vajraFan', skills:['heavenLances','warDrumRings','armorCounter'] },
       { name:'第三型態・閃電化身', color:'#facc15', normal:'livingLightning', skills:['ninefoldJudgment','thunderDomain','finalThunderstorm'] }
@@ -327,7 +327,8 @@ function frThunderStartTransition(b,nextPhase){
   b.hp=0;updateBossHp();b._frEvents=[];b._frWarnings=[];b._frDash=null;b._frTether=null;b._frBusyUntil=Infinity;
   eBullets=[];hazards=hazards.filter(function(h){return h&&h._frThunderField;});
   b._frTransition={from:b._frThunderPhase,to:nextPhase,start:b.timer,duration:66};
-  addText(nextPhase===1?'披風解除・雷鎧覺醒':'鎧甲爆開・閃電化身',CW/2,CH*.34,'#fde047',18,-.2);
+  const line=nextPhase===1?b._frRootDef.phase12:b._frRootDef.phase23;
+  addText('小雷神：「'+line+'」',CW/2,CH*.34,'#fde047',18,-.2);
 }
 function frThunderUpdateTransition(b){
   const tr=b._frTransition;if(!tr)return false;
@@ -336,7 +337,13 @@ function frThunderUpdateTransition(b){
 }
 function frThunderTakeDamage(b,amount,isQa){
   if(b._frTransition||b._defeated)return;
-  if(!b._frFullEncounter||b._frThunderPhase>=2)return frBaseBoss.prototype.takeDamage.call(b,amount,isQa);
+  if(!b._frFullEncounter||b._frThunderPhase>=2){
+    const wasDefeated=b._defeated,ratioBefore=b.hp/Math.max(1,b.maxHp);
+    frBaseBoss.prototype.takeDamage.call(b,amount,isQa);
+    if(!b._frFullEncounter&&!wasDefeated&&b._defeated&&!b._frStage11DefeatSpoken){b._frStage11DefeatSpoken=true;addText('小雷神：「'+b._frRootDef.stage11Defeat+'」',CW/2,CH*.34,'#a78bfa',18,-.2);}
+    if(b._frFullEncounter&&b._frThunderPhase>=2&&!b._frNearDefeatSpoken&&ratioBefore>.2&&b.hp/Math.max(1,b.maxHp)<=.2){b._frNearDefeatSpoken=true;addText('小雷神：「'+b._frRootDef.nearDefeat+'」',CW/2,CH*.34,'#fde047',18,-.2);}
+    return;
+  }
   let dealt=Math.max(1,Number(amount)||1);
   if(typeof frDamageMultiplier==='function')dealt*=frDamageMultiplier(b);
   if(b._frArmorCounterUntil>b.timer){dealt*=.62;if(!b._frCounterPulseAt||b.timer-b._frCounterPulseAt>16){b._frCounterPulseAt=b.timer;frBossRadial(b,8,4,Math.max(7,Math.round(8*frBalanceCurve(stage).bossDamage)),b.color,b.timer*.1);}}
@@ -387,6 +394,7 @@ function frBossInit(b){
     b._frRootDef=b._frDef;frThunderApplyPhase(b,0,false);
     const shieldTrack=document.getElementById('bossShieldTrack'),shieldLabel=document.getElementById('bossShieldLbl');if(shieldTrack)shieldTrack.style.display='block';if(shieldLabel)shieldLabel.style.display='block';
   }
+  b._frEntryLine=b._frFinal&&b._frFullEncounter?(b._frDef.intro22||b._frDef.intro):b._frDef.intro;
   if(window.frBossQaMode){b.maxHp*=10;b.hp=b.maxHp;b.maxShield*=4;b.shield=b.maxShield;}
   const hud=document.getElementById('bossHud'),name=document.getElementById('bossName');if(hud)hud.style.display='block';if(name)name.textContent='👿 '+b.name;
   hazards=[];eBullets=[];updateBossHp();updateBossShield();
@@ -398,6 +406,7 @@ function frBossUpdateCustom(b){
   if(!b._frEntered){
     if(b.y<safeY){b.y=Math.min(safeY,b.y+2.5);return;}
     b._frEntered=true;
+    if(!b._frIntroSpoken&&b._frEntryLine){b._frIntroSpoken=true;b._frBusyUntil=b.timer+140;addText(b.name+'：「'+b._frEntryLine+'」',CW/2,CH*.34,b.color,18,-.2);}
   }
   if(b.frozenTimer>0)b.frozenTimer--;
   if(b.shieldBroken){b.shieldResetTimer--;updateBossShield();if(b.shieldResetTimer<=0){b.shield=b.maxShield;b.shieldBroken=false;addText('🛡️護盾重置！',b.x,b.y-50,'#60a5fa');updateBossShield();}}
