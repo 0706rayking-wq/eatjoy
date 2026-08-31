@@ -12,6 +12,7 @@ Use exactly this structure:
 {
   "is_attendance_sheet": boolean,
   "sheet_type": "內場" | "外場／洗滌" | "行政／洗滌" | "未知",
+  "sheet_title": string | null,
   "departments": string[],
   "header_sequence": string[],
   "date": string | null,
@@ -43,9 +44,10 @@ Mandatory classification gate:
 
 Extraction rules when and only when is_attendance_sheet=true:
 1. Read EVERY printed employee row across every repeated 姓名 block, in visual order. Never omit a row because it has a slash, blank times, changed day off, or unclear handwriting.
-2. Determine the sheet and employee departments from visible titles and section stickers:
-   - Set sheet_type=行政／洗滌 when the title or stickers show 行政 and/or 洗滌.
-   - Set sheet_type=外場／洗滌 for an 外場 sheet, including an unnumbered 上班/下班 header.
+2. Read the main printed title verbatim into sheet_title, then determine departments from that title and any section stickers:
+   - A title containing 外場 (for example「外場 下班條」) is authoritative: set sheet_type=外場／洗滌 and departments=["外場"]. Do not route it to 內場 just because the header is unnumbered.
+   - A title containing 行政 and/or 洗滌 (for example「行政／洗滌 下班條」) is authoritative: set sheet_type=行政／洗滌. Read each visible 行政 or 洗滌 section sticker and assign every following employee row to that section until the next sticker.
+   - Only when neither title exists may an unnumbered 上班/下班 header be treated as 內場.
    - Otherwise set sheet_type=內場 for the unnumbered header.
    - A small sticker reading 行政 or 洗滌 is a section marker, not an employee name. It applies to the employee rows after it until the next section sticker. Set each employee.department to that section.
    - Record every visible section label in departments. If a row's section truly cannot be determined, use null and add a warning.
@@ -105,11 +107,18 @@ if (!schedule.date || !Array.isArray(schedule.employees)) throw new Error('下�
 schedule.departments = Array.isArray(schedule.departments)
   ? [...new Set(schedule.departments.map((value) => String(value || '').trim()).filter(Boolean))]
   : [];
-const hasFrontDepartment = schedule.departments.some((value) => value.includes('外場'));
+const sheetTitle = String(schedule.sheet_title || '').replace(/\s+/g, '');
+const titleHasFrontDepartment = sheetTitle.includes('外場');
+const titleHasAdminDepartment = sheetTitle.includes('行政');
+const titleHasWashDepartment = /洗滌|洗碗/.test(sheetTitle);
+const hasFrontDepartment = titleHasFrontDepartment || schedule.departments.some((value) => value.includes('外場'));
 const hasKitchenDepartment = schedule.departments.some((value) => value.includes('內場'));
-const hasAdminDepartment = schedule.departments.some((value) => value.includes('行政'));
-const hasWashDepartment = schedule.departments.some((value) => /洗滌|洗碗/.test(value));
-schedule.sheet_type = hasAdminDepartment || hasWashDepartment
+const hasAdminDepartment = titleHasAdminDepartment || schedule.departments.some((value) => value.includes('行政'));
+const hasWashDepartment = titleHasWashDepartment || schedule.departments.some((value) => /洗滌|洗碗/.test(value));
+if (titleHasFrontDepartment && !schedule.departments.includes('外場')) schedule.departments.push('外場');
+if (titleHasAdminDepartment && !schedule.departments.includes('行政')) schedule.departments.push('行政');
+if (titleHasWashDepartment && !schedule.departments.includes('洗滌')) schedule.departments.push('洗滌');
+schedule.sheet_type = titleHasAdminDepartment || titleHasWashDepartment || hasAdminDepartment || hasWashDepartment
   ? '行政／洗滌'
   : hasFrontDepartment
   ? '外場／洗滌'

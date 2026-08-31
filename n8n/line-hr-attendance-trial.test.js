@@ -81,6 +81,20 @@ assert.equal(acceptedFrontSameFormat.length, 1);
 assert.equal(acceptedFrontSameFormat[0].json.sheet_type, '外場／洗滌');
 assert.equal(acceptedFrontSameFormat[0].json.employees[0].department, '外場');
 
+const acceptedFrontByTitle = normalize({
+  text: JSON.stringify({
+    ...baseSchedule,
+    is_attendance_sheet: true,
+    sheet_type: '內場',
+    sheet_title: '外場 下班條',
+    departments: [],
+    header_sequence: ['上班', '下班', '上班', '下班']
+  })
+});
+assert.equal(acceptedFrontByTitle[0].json.sheet_type, '外場／洗滌');
+assert.deepEqual(acceptedFrontByTitle[0].json.departments, ['外場']);
+assert.equal(acceptedFrontByTitle[0].json.employees[0].department, '外場');
+
 const acceptedAdminWash = normalize({
   text: JSON.stringify({
     ...baseSchedule,
@@ -97,6 +111,18 @@ const acceptedAdminWash = normalize({
 assert.equal(acceptedAdminWash.length, 1);
 assert.equal(acceptedAdminWash[0].json.sheet_type, '行政／洗滌');
 assert.deepEqual(acceptedAdminWash[0].json.employees.map((employee) => employee.department), ['行政', '洗滌']);
+
+const acceptedAdminWashByTitle = normalize({
+  text: JSON.stringify({
+    ...baseSchedule,
+    is_attendance_sheet: true,
+    sheet_title: '行政／洗滌 下班條',
+    departments: [],
+    header_sequence: ['上班', '下班', '上班', '下班']
+  })
+});
+assert.equal(acceptedAdminWashByTitle[0].json.sheet_type, '行政／洗滌');
+assert.deepEqual(acceptedAdminWashByTitle[0].json.departments, ['行政', '洗滌']);
 
 const acceptedThreeShifts = normalize({
   text: JSON.stringify({
