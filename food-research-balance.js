@@ -127,6 +127,8 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
       .replace("function goBackToCamp(){window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold},'*');}", "function goBackToCamp(){frFlushQuestKills(true);window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold,score,stage,bossKills:frBossDefeatedCount,durationMs:Math.max(1000,Date.now()-frRunStartedAt),runId:frRunId,completed:!!window.frRunComplete},'*');}")
       .replace('currentBgIdx=Math.floor(Math.random()*BG_THEMES.length);', 'currentBgIdx=frMapForStage(stage);')
       .replace(/currentBgIdx = pickInitialBgIdx\(\);/g, "currentBgIdx = SAVE.startMapIdx!=null ? pickInitialBgIdx() : frMapForStage(stage);")
+      .replace('stage=Math.max(1,savedS);', 'stage=SAVE.testMode?Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Number(SAVE.testStage)||FR_BALANCE.progression.maxStage)):Math.max(1,savedS);')
+      .replace('stage=Math.max(1,savedStage-1)||1;score=0;', 'stage=SAVE.testMode?Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Number(SAVE.testStage)||FR_BALANCE.progression.maxStage)):(Math.max(1,savedStage-1)||1);score=0;')
       .replace('const spd=player.speed*(currentWeapon===\'melee\'?1.1:1)*(normalFrenzyTimer>0?2:1);', "const statusMove=(window.frSlowUntil&&performance.now()<window.frSlowUntil)?FR_BALANCE.combat.slowMultiplier:1;const spd=player.speed*(currentWeapon==='melee'?1.1:1)*(normalFrenzyTimer>0?2:1)*statusMove;")
       .replace('if(e.hp<=0)enemies.splice(i,1);', 'if(e.hp<=0)enemies.splice(i,1);')
       .replace('if(Math.hypot(player.x-e.x,player.y-e.y)<player.radius+e.r&&player.invTimer<=0)hurtPlayer(10);', 'if(Math.hypot(player.x-e.x,player.y-e.y)<player.radius+e.r&&player.invTimer<=0)hurtPlayer(e.atk||10);')

@@ -219,6 +219,17 @@
     html.fr-ui-v2 #bossName { color: #ffd6cf; font-size: 11px; margin-bottom: 3px; }
     html.fr-ui-v2 #bossTrack { height: 9px; border-width: 1px; border-radius: 3px; background: #3c2227; }
     html.fr-ui-v2 #bossFill { border-radius: 2px; }
+    html.fr-ui-v2 #frTestBadge {
+      margin-top: 5px;
+      padding: 3px 8px;
+      border: 1px solid rgba(251,191,36,.72);
+      border-radius: 999px;
+      background: rgba(22,27,34,.9);
+      color: #fde047;
+      font-size: 9px;
+      font-weight: 900;
+      text-align: center;
+    }
 
     html.fr-ui-v2 #joystickWrap {
       left: 12px;
@@ -366,6 +377,29 @@
       box-shadow: 0 3px 0 #101318;
     }
     html.fr-ui-v2 .qopt:active { background: #3a3024; transform: translateY(2px); box-shadow: 0 1px 0 #101318; }
+    html.fr-ui-v2 .qopt:disabled { cursor: default; }
+    html.fr-ui-v2 #revFeedback {
+      display: none;
+      padding: 8px 10px;
+      margin-top: 9px;
+      border: 1px solid rgba(255,244,216,.18);
+      border-radius: 7px;
+      background: #20252d;
+      color: var(--fr-muted);
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.45;
+      text-align: left;
+    }
+    html.fr-ui-v2 #revFeedback.correct { display: block; border-color: #3fb950; color: #8ce5bf; }
+    html.fr-ui-v2 #revFeedback.wrong { display: block; border-color: #f85149; color: #ff9b9e; }
+    html.fr-ui-v2 #revNext {
+      display: none;
+      min-height: 44px;
+      margin: 10px 0 0;
+      padding: 9px 12px;
+      font-size: 14px;
+    }
 
     @media (max-height: 650px) {
       html.fr-ui-v2 .mbox { padding: 14px 14px 12px; }
@@ -402,6 +436,22 @@
     startCopy.insertAdjacentElement('afterend', warning);
   }
 
+  if (SAVE.testMode && startBox) {
+    const title = startBox.querySelector('h2');
+    const startButton = startBox.querySelector('.mbtn.blue');
+    const warning = startBox.querySelector('.fr-start-warning');
+    if (title) title.textContent = '\u7b2c 22 \u95dc \u00b7 \u5c0f\u96f7\u795e\u6f14\u7df4';
+    if (startButton) startButton.textContent = '\u26a1 \u958b\u59cb\u6f14\u7df4';
+    if (warning) warning.textContent = '\u6f14\u7df4\u6a21\u5f0f\uff1a\u5b8c\u6574\u4e09\u968e\u6bb5\uff0c\u4e0d\u8a08\u91d1\u5e63\u3001\u4efb\u52d9\u3001\u9032\u5ea6\u8207\u6392\u884c\u699c\u3002';
+    const bossHud = document.getElementById('bossHud');
+    if (bossHud) {
+      const badge = document.createElement('div');
+      badge.id = 'frTestBadge';
+      badge.textContent = '\u26a1 \u7b2c 22 \u95dc\u6f14\u7df4 \u00b7 \u4e0d\u8a08\u734e\u52f5';
+      bossHud.appendChild(badge);
+    }
+  }
+
   const reviveBox = document.querySelector('#revModal .mbox');
   if (reviveBox) {
     reviveBox.classList.add('fr-revive-panel');
@@ -427,6 +477,86 @@
       status.appendChild(progressBlock);
       status.appendChild(wrongBlock);
     }
+
+    const reviveOptions = document.getElementById('revOpts');
+    const reviveFeedback = document.createElement('div');
+    reviveFeedback.id = 'revFeedback';
+    reviveFeedback.setAttribute('role', 'status');
+    const reviveNext = document.createElement('button');
+    reviveNext.id = 'revNext';
+    reviveNext.className = 'mbtn blue';
+    reviveNext.type = 'button';
+    if (reviveOptions) {
+      reviveOptions.insertAdjacentElement('afterend', reviveFeedback);
+      reviveFeedback.insertAdjacentElement('afterend', reviveNext);
+    }
+
+    function finishRevivalQuiz(success) {
+      document.getElementById('revModal').style.display = 'none';
+      if (success) {
+        goBackToCamp();
+        return;
+      }
+      const penalty = {
+        loseGold: gold,
+        loseRanged: SAVE.equip?.ranged !== '初始食材砲' ? SAVE.equip.ranged : null,
+        loseMelee: SAVE.equip?.melee !== '初始鍋鏟' ? SAVE.equip.melee : null,
+        loseAmulets: (SAVE.equip?.amulets || []).filter(Boolean)
+      };
+      gold = 0;
+      window.parent.postMessage({type:'FR_PENALTY_RETURN', penalty}, '*');
+    }
+
+    nextRevQ = function () {
+      if (!revPool.length) revPool = typeof shuffleQaBank === 'function' ? shuffleQaBank() : [...qaBank].sort(() => Math.random() - .5);
+      curRevQ = revPool.pop();
+      document.getElementById('revQ').textContent = curRevQ.q;
+      document.getElementById('revNum').textContent = '答對 ' + revCorrect + ' / 5　答錯 ' + revWrong + ' / 3';
+      const opts = document.getElementById('revOpts');
+      opts.innerHTML = '';
+      reviveFeedback.className = '';
+      reviveFeedback.textContent = '';
+      reviveNext.style.display = 'none';
+      reviveNext.onclick = null;
+
+      ['A','B','C','D'].slice(0, curRevQ.opts.length).forEach(function (letter, index) {
+        const btn = document.createElement('button');
+        btn.className = 'qopt';
+        btn.textContent = letter + '. ' + curRevQ.opts[index];
+        btn.onclick = function () {
+          const correct = index === curRevQ.ans;
+          opts.querySelectorAll('.qopt').forEach(function (option, optionIndex) {
+            option.onclick = null;
+            option.disabled = true;
+            if (optionIndex === curRevQ.ans) option.className = 'qopt correct';
+            else if (optionIndex === index) option.className = 'qopt wrong';
+          });
+
+          if (correct) revCorrect++;
+          else revWrong++;
+          drawRevProg();
+          document.getElementById('revNum').textContent = '答對 ' + revCorrect + ' / 5　答錯 ' + revWrong + ' / 3';
+          reviveFeedback.className = correct ? 'correct' : 'wrong';
+          reviveFeedback.textContent = correct
+            ? '答對了！'
+            : '答錯了，正確答案是 ' + ['A','B','C','D'][curRevQ.ans] + '. ' + curRevQ.opts[curRevQ.ans];
+
+          const succeeded = revCorrect >= 5;
+          const failed = revWrong >= 3;
+          reviveNext.textContent = succeeded ? '完成醫治' : failed ? '確認結果' : '下一題';
+          reviveNext.style.display = 'block';
+          reviveNext.onclick = function () {
+            reviveNext.disabled = true;
+            if (succeeded || failed) finishRevivalQuiz(succeeded);
+            else {
+              reviveNext.disabled = false;
+              nextRevQ();
+            }
+          };
+        };
+        opts.appendChild(btn);
+      });
+    };
   }
 
   const controls = {

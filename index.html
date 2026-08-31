@@ -1117,8 +1117,8 @@
 <script src="food-research-weapons.js?v=11"></script>
     <script src="food-research-amulets.js?v=2"></script>
     <script src="food-research-bosses.js?v=11"></script>
-    <script src="food-research-ui.js?v=5"></script>
-    <script src="food-research-balance.js?v=4"></script>
+    <script src="food-research-ui.js?v=7"></script>
+    <script src="food-research-balance.js?v=5"></script>
       <script src="food-research-audio.js?v=4"></script>
 
     <script>
@@ -8096,8 +8096,10 @@ const [frEquipRev, setFrEquipRev] = useState(0);
 const [facilityRebuild, setFacilityRebuild] = useState(null);
 const [selectedRebuildFacility, setSelectedRebuildFacility] = useState('training');
 const [rebuildQuiz, setRebuildQuiz] = useState(null);
+const [rebuildAnswerResult, setRebuildAnswerResult] = useState(null);
 const [rebuildFeedback, setRebuildFeedback] = useState('');
 const [rebuildSaving, setRebuildSaving] = useState(false);
+const rebuildRecentQuestionsRef = useRef([]);
 const [leftoverSubmissions, setLeftoverSubmissions] = useState([]);
 const [leftoverProgress, setLeftoverProgress] = useState({ approvedItems: [], comments: {} });
 const [leftoverPending, setLeftoverPending] = useState([]);
@@ -8116,9 +8118,11 @@ const [frStartMapIdx, setFrStartMapIdx] = useState('random');
 const rivalDataRef = useRef('[]');
 const chosenPartnersRef = useRef([]);
 const foodResearchHTMLRef = useRef('');
+const frTestModeRef = useRef(false);
 const [dailyQuizAnswer, setDailyQuizAnswer] = useState(null);
 const [questRevision, setQuestRevision] = useState(0);
 const dailyQuizLockRef = useRef(false);
+const dailyQuizAdvanceLockRef = useRef(false);
 const departureInProgressRef = useRef(false);
 const expeditionRunRef = useRef({ id:'', startedAt:0 });
 const [activeAmuletTab, setActiveAmuletTab] = useState(0);
@@ -8974,7 +8978,8 @@ if (selectedActivity === 'food_research') {
   }
  };
  const campPixelPanel = {background:'rgba(13,17,23,.78)', border:'1px solid rgba(251,191,36,.35)', boxShadow:'0 10px 28px rgba(0,0,0,.35)', backdropFilter:'blur(2px)'};
- const REBUILD_TARGET = 500;
+ const REBUILD_TARGET = 300;
+ const REBUILD_REWARD = 15;
  const REBUILD_PLAYER_LIMIT = 50;
  const REBUILD_WRONG_LIMIT = 5;
  const REBUILD_FACILITY_IDS = ['training','gacha','shrine','shop'];
@@ -9038,11 +9043,17 @@ if (selectedActivity === 'food_research') {
  ];
  const pickRebuildQuestion = () => {
   const source = (foodResearchQuestionBank.length > 0 ? foodResearchQuestionBank : fallbackRebuildQuestions).map(normalizeRebuildQuestion).filter(q => q.q && q.opts.length >= 4);
-  return source[Math.floor(Math.random() * source.length)] || fallbackRebuildQuestions[0];
+  const recent = rebuildRecentQuestionsRef.current || [];
+  const available = source.filter(q => !recent.includes(q.q));
+  const pool = available.length ? available : source;
+  const picked = pool[Math.floor(Math.random() * pool.length)] || fallbackRebuildQuestions[0];
+  rebuildRecentQuestionsRef.current = [...recent, picked.q].slice(-5);
+  return picked;
  };
  const startRebuildQuiz = (facilityId) => {
   setSelectedRebuildFacility(facilityId || 'training');
   setRebuildFeedback('');
+  setRebuildAnswerResult(null);
   setRebuildQuiz(pickRebuildQuestion());
   setFrPhase('rebuild');
  };
@@ -9050,19 +9061,29 @@ if (selectedActivity === 'food_research') {
   promise,
   new Promise((_, reject) => setTimeout(() => reject(new Error(label + '逾時')), 8000))
  ]);
- const savePersonalRebuild = async (updater) => {
+ const savePersonalRebuild = async (updater, rewardGold=0) => {
   if (!currentUser?.phone) throw new Error('missing-player-phone');
   const ref = db.collection(getPublicPath('users')).doc(currentUser.phone);
-  let baseUser = allUsers.find(u => u.phone === currentUser.phone) || currentUser || {};
-  try {
-   const snap = await rebuildTimeout(ref.get(), '讀取施工紀錄');
-   if (snap.exists) baseUser = { ...baseUser, ...snap.data() };
-  } catch (e) {
-   console.warn('讀取施工紀錄失敗，使用目前快取資料', e);
+  const result = await rebuildTimeout(db.runTransaction(async tx => {
+   const snap = await tx.get(ref);
+   const remoteUser = snap.exists ? snap.data() : {};
+   const fallbackUser = allUsers.find(u => u.phone === currentUser.phone) || currentUser || {};
+   const baseUser = { ...fallbackUser, ...remoteUser };
+   const nextRebuild = cloneRebuildSave(baseUser.gameRebuild);
+   const updateResult = updater(nextRebuild) || {};
+   const rewardAllowed = rewardGold > 0 && (updateResult.status === 'ok' || updateResult.status === 'completedNow');
+   const reward = rewardAllowed ? rewardGold : 0;
+   const baseGameSave = { ...readLocalSave(), ...(baseUser.gameSave || {}) };
+   const nextGold = Math.max(0, Number(baseGameSave.gold || 0)) + reward;
+   const payload = { gameRebuild: nextRebuild };
+   if (reward > 0) payload.gameSave = { ...baseGameSave, gold:nextGold, updatedAt:Date.now() };
+   tx.set(ref, payload, { merge:true });
+   return { ...updateResult, reward, gold:nextGold };
+  }), '寫入施工紀錄與獎勵');
+  if (result.reward > 0) {
+   const localSave = loadSave();
+   cacheFoodResearchSave({ ...localSave, gold:result.gold, updatedAt:Date.now() });
   }
-  const next = cloneRebuildSave(baseUser.gameRebuild);
-  const result = updater(next) || {};
-  await rebuildTimeout(ref.set({ gameRebuild: next }, { merge: true }), '寫入施工紀錄');
   return result;
  };
  const markSharedFacilityComplete = async (facilityId) => {
@@ -9097,7 +9118,7 @@ if (selectedActivity === 'food_research') {
  };
 
  const answerRebuildQuestion = async (idx) => {
-  if (!rebuildQuiz || rebuildSaving || rebuildComplete) return;
+  if (!rebuildQuiz || rebuildSaving || rebuildComplete || rebuildAnswerResult) return;
   if (rebuildWrongLocked) {
    setRebuildFeedback('你今天答錯已達 5 題，明天可以再參與施工。');
    return;
@@ -9117,13 +9138,12 @@ if (selectedActivity === 'food_research') {
       saveData.daily[rebuildTodayKey] = { ...day, wrong: nextWrongs };
       return { status: nextWrongs >= REBUILD_WRONG_LIMIT ? 'wrongLockedNow' : 'wrong', wrongs: nextWrongs };
      });
-     if (result.status === 'wrongLocked' || result.status === 'wrongLockedNow') {
-      setRebuildFeedback('答錯已達 5 題，今天不能再參與施工。');
-      setRebuildQuiz(null);
-     } else {
-      setRebuildFeedback(`答錯了，今日答錯 ${result.wrongs}/${REBUILD_WRONG_LIMIT} 題，換一題再試一次。`);
-      setRebuildQuiz(pickRebuildQuestion());
-     }
+     const locked = result.status === 'wrongLocked' || result.status === 'wrongLockedNow';
+     const correctText = `${String.fromCharCode(65+rebuildQuiz.ans)}. ${rebuildQuiz.opts[rebuildQuiz.ans]}`;
+     setRebuildAnswerResult({selectedIndex:idx, correctIndex:rebuildQuiz.ans, isCorrect:false, status:locked?'wrongLocked':'wrong'});
+     setRebuildFeedback(locked
+      ? `答錯已達 ${REBUILD_WRONG_LIMIT} 題，今天不能再參與施工。正確答案：${correctText}`
+      : `答錯了，今日答錯 ${result.wrongs}/${REBUILD_WRONG_LIMIT} 題。正確答案：${correctText}`);
      return;
     }
     const facilityNow = getFacilityProgress(facilityId);
@@ -9155,17 +9175,19 @@ if (selectedActivity === 'food_research') {
      const nextMine = mine + 1;
      saveData.daily[rebuildTodayKey] = { ...day, correct: nextMine };
      return { status: facilityNow.total + 1 >= REBUILD_TARGET ? 'completedNow' : 'ok', mine: nextMine };
-    });
+    }, REBUILD_REWARD);
     if (result.status === 'wrongLocked') {
      setRebuildFeedback('你今天答錯已達 5 題，明天可以再參與施工。');
     } else if (result.status === 'limit') {
      setRebuildFeedback('你今天已經貢獻滿 50 題了，明天可以再協助重建。');
     } else if (result.status === 'completedNow') {
-     await markSharedFacilityComplete(facilityId);
-     setRebuildFeedback(`${rebuildFacility.label}重建完成！現在可以進入使用。`);
+     try { await markSharedFacilityComplete(facilityId); }
+     catch (completeError) { console.warn('完工標記稍後由進度資料補正', completeError); }
+     setRebuildAnswerResult({selectedIndex:idx, correctIndex:rebuildQuiz.ans, isCorrect:true, status:'completedNow', reward:result.reward});
+     setRebuildFeedback(`答對！獲得 ${result.reward} 金幣，${rebuildFacility.label}重建完成！`);
     } else {
-     setRebuildFeedback(`答對！你今日已貢獻 ${result.mine}/${REBUILD_PLAYER_LIMIT} 題。`);
-     setRebuildQuiz(pickRebuildQuestion());
+     setRebuildAnswerResult({selectedIndex:idx, correctIndex:rebuildQuiz.ans, isCorrect:true, status:result.mine>=REBUILD_PLAYER_LIMIT?'limitNow':'ok', reward:result.reward});
+     setRebuildFeedback(`答對！施工進度 +1，獲得 ${result.reward} 金幣。今日已貢獻 ${result.mine}/${REBUILD_PLAYER_LIMIT} 題。`);
     }
    } catch (e) {
     console.error(e);
@@ -9193,13 +9215,12 @@ if (selectedActivity === 'food_research') {
      tx.set(ref, { dailyWrongs, updatedAt: Date.now(), branch: currentBranch }, { merge: true });
      return { status: nextWrongs >= REBUILD_WRONG_LIMIT ? 'wrongLockedNow' : 'wrong', wrongs: nextWrongs };
     });
-    if (result.status === 'wrongLocked' || result.status === 'wrongLockedNow') {
-     setRebuildFeedback('答錯已達 5 題，今天不能再參與施工。');
-     setRebuildQuiz(null);
-    } else {
-     setRebuildFeedback(`答錯了，今日答錯 ${result.wrongs}/${REBUILD_WRONG_LIMIT} 題，換一題再試一次。`);
-     setRebuildQuiz(pickRebuildQuestion());
-    }
+    const locked = result.status === 'wrongLocked' || result.status === 'wrongLockedNow';
+    const correctText = `${String.fromCharCode(65+rebuildQuiz.ans)}. ${rebuildQuiz.opts[rebuildQuiz.ans]}`;
+    setRebuildAnswerResult({selectedIndex:idx, correctIndex:rebuildQuiz.ans, isCorrect:false, status:locked?'wrongLocked':'wrong'});
+    setRebuildFeedback(locked
+     ? `答錯已達 ${REBUILD_WRONG_LIMIT} 題，今天不能再參與施工。正確答案：${correctText}`
+     : `答錯了，今日答錯 ${result.wrongs}/${REBUILD_WRONG_LIMIT} 題。正確答案：${correctText}`);
    } catch (e) {
     console.error(e);
     setRebuildFeedback('同步答錯次數失敗，請稍後再試。');
@@ -9256,10 +9277,15 @@ if (selectedActivity === 'food_research') {
    } else if (result.status === 'limit') {
     setRebuildFeedback('你今天已經貢獻滿 50 題了，明天可以再協助重建。');
    } else if (result.status === 'completedNow') {
-    setRebuildFeedback(`${rebuildFacility.label}重建完成！現在可以進入使用。`);
+    const currentSave = loadSave();
+    writeSave({gold:Math.max(0, Number(currentSave.gold || 0))+REBUILD_REWARD});
+    setRebuildAnswerResult({selectedIndex:idx, correctIndex:rebuildQuiz.ans, isCorrect:true, status:'completedNow', reward:REBUILD_REWARD});
+    setRebuildFeedback(`答對！獲得 ${REBUILD_REWARD} 金幣，${rebuildFacility.label}重建完成！`);
    } else {
-    setRebuildFeedback(`答對！你今日已貢獻 ${result.mine}/${REBUILD_PLAYER_LIMIT} 題。`);
-    setRebuildQuiz(pickRebuildQuestion());
+    const currentSave = loadSave();
+    writeSave({gold:Math.max(0, Number(currentSave.gold || 0))+REBUILD_REWARD});
+    setRebuildAnswerResult({selectedIndex:idx, correctIndex:rebuildQuiz.ans, isCorrect:true, status:result.mine>=REBUILD_PLAYER_LIMIT?'limitNow':'ok', reward:REBUILD_REWARD});
+    setRebuildFeedback(`答對！施工進度 +1，獲得 ${REBUILD_REWARD} 金幣。今日已貢獻 ${result.mine}/${REBUILD_PLAYER_LIMIT} 題。`);
    }
   } catch (e) {
    console.error(e);
@@ -9329,6 +9355,7 @@ if (selectedActivity === 'food_research') {
     return { ...base, facilities, updatedAt: now, branch: currentBranch };
    });
    setRebuildQuiz(null);
+   setRebuildAnswerResult(null);
    setRebuildFeedback(`${targetLabel}已${mode === 'complete' ? '設為完成' : '歸零'}。`);
   } catch (e) {
    console.error(e);
@@ -9400,6 +9427,12 @@ if (selectedActivity === 'food_research') {
   } catch (error) {
    setPartnerStatusTarget(prev => String(prev?.user?.phone) === String(user.phone) ? {...prev,loading:false} : prev);
   }
+ };
+
+ const showNextRebuildQuestion = () => {
+  setRebuildAnswerResult(null);
+  setRebuildFeedback('');
+  setRebuildQuiz(pickRebuildQuestion());
  };
  const renderPartnerStatusModal = () => {
   if (!partnerStatusTarget) return null;
@@ -9477,7 +9510,7 @@ if (selectedActivity === 'food_research') {
       <div style={{fontSize:'42px', marginBottom:'6px'}}>{rebuildComplete ? '🏗️✨' : '🏗️'}</div>
       <div style={{color:'#e6edf3', fontWeight:900, fontSize:'18px'}}>{rebuildComplete ? '設施重建完成' : '分店共同重建中'}</div>
       <div style={{color:'#8b949e', fontSize:'12px', lineHeight:'1.6', marginTop:'6px'}}>
-       每個設施各自需要答對 {REBUILD_TARGET} 題才會完工。<br/>
+       每個設施各自需要答對 {REBUILD_TARGET} 題才會完工，答對每題獲得 {REBUILD_REWARD} 金幣。<br/>
        每位玩家每日最多協助 {REBUILD_PLAYER_LIMIT} 題，四個設施合計；答錯 {REBUILD_WRONG_LIMIT} 題後當天暫停施工。
       </div>
       <div style={{marginTop:'14px', height:'12px', background:'#21262d', borderRadius:'999px', overflow:'hidden', border:'1px solid #30363d'}}>
@@ -9518,11 +9551,11 @@ if (selectedActivity === 'food_research') {
       </div>
      </div>
 
-     {rebuildComplete ? (
+     {rebuildComplete && !rebuildAnswerResult ? (
       <button onClick={()=>setFrPhase(selectedRebuildFacility || 'camp')} style={btnGold}>進入{rebuildFacility.label}</button>
-     ) : rebuildWrongLocked ? (
+     ) : rebuildWrongLocked && !rebuildAnswerResult ? (
       <div style={{...cardStyle, color:'#f85149', fontWeight:900, fontSize:'13px', lineHeight:'1.7'}}>你今天答錯已達 5 題，施工資格暫停到明天。</div>
-     ) : rebuildRemaining <= 0 ? (
+     ) : rebuildRemaining <= 0 && !rebuildAnswerResult ? (
       <div style={{...cardStyle, color:'#fbbf24', fontWeight:900, fontSize:'13px', lineHeight:'1.7'}}>你今天已經貢獻滿 50 題了，明天可以再協助重建。</div>
      ) : (
       <div style={cardStyle}>
@@ -9533,15 +9566,25 @@ if (selectedActivity === 'food_research') {
         <>
          <div style={{color:'#e6edf3', fontWeight:900, fontSize:'15px', lineHeight:'1.6', marginBottom:'12px'}}>{rebuildQuiz.q}</div>
          <div style={{display:'grid', gridTemplateColumns:'1fr', gap:'8px'}}>
-          {rebuildQuiz.opts.slice(0,4).map((opt, i) => (
-           <button key={i} disabled={rebuildSaving} onClick={()=>answerRebuildQuestion(i)} style={{padding:'12px', borderRadius:'12px', border:'1px solid #30363d', background:'#0d1117', color:'#e6edf3', textAlign:'left', fontWeight:900, fontSize:'13px', opacity:rebuildSaving?'.55':'1'}}>
-            {String.fromCharCode(65+i)}. {opt}
-           </button>
-          ))}
+          {rebuildQuiz.opts.slice(0,4).map((opt, i) => {
+           const answered = !!rebuildAnswerResult;
+           const correctOption = answered && i === rebuildAnswerResult.correctIndex;
+           const wrongChoice = answered && !rebuildAnswerResult.isCorrect && i === rebuildAnswerResult.selectedIndex;
+           return (
+            <button key={i} disabled={rebuildSaving||answered} onClick={()=>answerRebuildQuestion(i)} style={{padding:'12px', borderRadius:'12px', border:'1px solid '+(correctOption?'#3fb950':wrongChoice?'#f85149':'#30363d'), background:correctOption?'rgba(46,160,67,.20)':wrongChoice?'rgba(248,81,73,.18)':'#0d1117', color:correctOption?'#7ee787':wrongChoice?'#ff7b72':'#e6edf3', textAlign:'left', fontWeight:900, fontSize:'13px', opacity:rebuildSaving?'.55':answered&&!correctOption&&!wrongChoice?'.66':'1'}}>
+             {String.fromCharCode(65+i)}. {opt}{correctOption?'　✓ 正確答案':wrongChoice?'　你的選擇':''}
+            </button>
+           );
+          })}
          </div>
         </>
        )}
        {rebuildFeedback && <div style={{marginTop:'12px', color:rebuildFeedback.includes('答錯')||rebuildFeedback.includes('失敗')?'#f85149':'#3fb950', fontWeight:900, fontSize:'12px', lineHeight:'1.6'}}>{rebuildFeedback}</div>}
+       {rebuildAnswerResult && (
+        <button onClick={rebuildAnswerResult.status==='completedNow'?()=>setFrPhase(selectedRebuildFacility||'camp'):(rebuildAnswerResult.status==='wrongLocked'||rebuildAnswerResult.status==='limitNow')?()=>setFrPhase('camp'):showNextRebuildQuestion} style={{...btnPrimary, marginTop:'12px'}}>
+         {rebuildAnswerResult.status==='completedNow'?`進入${rebuildFacility.label}`:(rebuildAnswerResult.status==='wrongLocked'||rebuildAnswerResult.status==='limitNow')?'今日施工結束':'下一題'}
+        </button>
+       )}
       </div>
      )}
     </div>
@@ -9789,14 +9832,18 @@ if (selectedActivity === 'food_research') {
    if (!dailyKnowledgeCurrent || dailyKnowledgeTask.completed || dailyKnowledgeTask.done || dailyQuizLockRef.current) return;
    dailyQuizLockRef.current = true;
    const isCorrect = answerIndex === dailyKnowledgeCurrent.ans;
-   setDailyQuizAnswer({chosen:answerIndex, correct:dailyKnowledgeCurrent.ans});
-   setTimeout(() => {
+   setDailyQuizAnswer({chosen:answerIndex, correct:dailyKnowledgeCurrent.ans, isCorrect});
+  };
+  const continueDailyKnowledge = () => {
+   if (!dailyQuizAnswer || dailyQuizAdvanceLockRef.current) return;
+   dailyQuizAdvanceLockRef.current = true;
+   try {
     const latestSave = loadSave();
     const latestQuests = latestSave.quests || todayQuests;
     const tasks = [...(latestQuests.tasks || [])];
     const task = {...(tasks[2] || dailyKnowledgeTask)};
     if (!task.completed && !task.done) {
-     task.correct = (task.correct || 0) + (isCorrect ? 1 : 0);
+     task.correct = (task.correct || 0) + (dailyQuizAnswer.isCorrect ? 1 : 0);
      task.current = Math.min(10, (task.current || 0) + 1);
      task.progress = task.current;
      if (task.current >= 10) {
@@ -9806,10 +9853,12 @@ if (selectedActivity === 'food_research') {
      tasks[2] = task;
      writeSave({quests:{...latestQuests, tasks}});
     }
-    dailyQuizLockRef.current = false;
     setDailyQuizAnswer(null);
     setQuestRevision(value => value + 1);
-   }, 700);
+   } finally {
+    dailyQuizLockRef.current = false;
+    dailyQuizAdvanceLockRef.current = false;
+   }
   };
 
   const claimQuest = (i) => {
@@ -9885,7 +9934,15 @@ if (selectedActivity === 'food_research') {
          </button>
         ))}
        </div>
-       <div style={{fontSize:'11px', color:'#8b949e', fontWeight:700}}>目前答對 {dailyKnowledgeTask.correct || 0} 題</div>
+       {dailyQuizAnswer && (
+        <div style={{padding:'9px 10px', marginBottom:'9px', borderRadius:'8px', border:'1px solid '+(dailyQuizAnswer.isCorrect?'#3fb950':'#f85149'), background:dailyQuizAnswer.isCorrect?'rgba(63,185,80,.12)':'rgba(248,81,73,.12)', color:dailyQuizAnswer.isCorrect?'#7ee787':'#ff9b9e', fontSize:'11px', fontWeight:900, lineHeight:'1.5'}}>
+         {dailyQuizAnswer.isCorrect ? '答對了！' : `答錯了，正確答案是 ${String.fromCharCode(65 + dailyQuizAnswer.correct)}. ${dailyKnowledgeCurrent.opts[dailyQuizAnswer.correct]}`}
+        </div>
+       )}
+       <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:'10px'}}>
+        <div style={{fontSize:'11px', color:'#8b949e', fontWeight:700}}>目前答對 {dailyKnowledgeTask.correct || 0} 題</div>
+        {dailyQuizAnswer && <button onClick={continueDailyKnowledge} style={{...btnGold, width:'auto', minWidth:'112px', padding:'9px 16px', margin:0}}>{(dailyKnowledgeTask.current || 0) >= 9 ? '完成今日作答' : '下一題'}</button>}
+       </div>
       </React.Fragment>
      )}
      {todayQuests.tasks[2].done ? (
@@ -10294,11 +10351,13 @@ if (selectedActivity === 'food_research') {
      return [...prev, u];
     });
    };
-   const handleDeparture = async () => {
+   const handleDeparture = async (testMode=false) => {
+    if (testMode && !isSuperAdmin) return;
     if (departureInProgressRef.current) return;
     departureInProgressRef.current = true;
+    frTestModeRef.current = !!testMode;
     expeditionRunRef.current = {
-     id:`${currentUser?.phone || 'guest'}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
+     id:`${testMode?'test_':''}${currentUser?.phone || 'guest'}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
      startedAt:Date.now()
     };
     const selectedPartners = chosenPartners.slice(0,2);
@@ -10313,12 +10372,14 @@ if (selectedActivity === 'food_research') {
       const snap = await Promise.race([snapP, new Promise(r=>setTimeout(()=>r(null),TIMEOUT))]);
       // 背景金幣與戰況寫入（不等待）
       if (snap && snap.exists) {
-       const cur = snap.data().gameGold || 0;
-       ref.update({ gameGold: cur + 20 }).catch(() => {});
-       db.collection(getPublicPath(`warlog_${partner.phone}`)).add({
-        type: 'selected_as_partner', by: currentUser?.name || '玩家',
-        coins: 20, timestamp: Date.now(), date: new Date().toDateString(), claimed: false
-       }).catch(()=>{});
+       if (!testMode) {
+        const cur = snap.data().gameGold || 0;
+        ref.update({ gameGold: cur + 20 }).catch(() => {});
+        db.collection(getPublicPath(`warlog_${partner.phone}`)).add({
+         type: 'selected_as_partner', by: currentUser?.name || '玩家',
+         coins: 20, timestamp: Date.now(), date: new Date().toDateString(), claimed: false
+        }).catch(()=>{});
+       }
        const pSave = snap.data().gameSave || {};
        return {
         ...partner,
@@ -10361,15 +10422,18 @@ if (selectedActivity === 'food_research') {
     }));
     rivalDataRef.current = JSON.stringify(rd);
     };
-    await fetchRivals();
-    const latestSave = loadSave();
-    const latestQuests = latestSave.quests;
-    if (latestQuests?.date === new Date().toDateString()) {
-     const tasks = [...(latestQuests.tasks || [])];
-     const expeditionTask = tasks[1];
-     if (expeditionTask?.type === 'expedition' && !expeditionTask.done) {
-      tasks[1] = {...expeditionTask, progress:Math.min(expeditionTask.target, (expeditionTask.progress||0)+1)};
-      writeSave({quests:{...latestQuests,tasks}});
+    if (testMode) rivalDataRef.current = '[]';
+    else await fetchRivals();
+    if (!testMode) {
+     const latestSave = loadSave();
+     const latestQuests = latestSave.quests;
+     if (latestQuests?.date === new Date().toDateString()) {
+      const tasks = [...(latestQuests.tasks || [])];
+      const expeditionTask = tasks[1];
+      if (expeditionTask?.type === 'expedition' && !expeditionTask.done) {
+       tasks[1] = {...expeditionTask, progress:Math.min(expeditionTask.target, (expeditionTask.progress||0)+1)};
+       writeSave({quests:{...latestQuests,tasks}});
+      }
      }
     }
     foodResearchHTMLRef.current='';
@@ -10387,6 +10451,11 @@ if (selectedActivity === 'food_research') {
      {isSuperAdmin && (
      <div style={{...cardStyle}}>
       <div style={{fontSize:'11px', color:'#58a6ff', fontWeight:900, marginBottom:'7px'}}>{'\u6700\u9AD8\u6B0A\u9650\uFF1A\u8D77\u59CB\u5730\u5716'}</div>
+      <div style={{padding:'10px', marginBottom:'10px', border:'1px solid #fbbf24', borderRadius:'10px', background:'rgba(251,191,36,.08)'}}>
+       <div style={{color:'#fde047', fontSize:'13px', fontWeight:900}}>⚡ 第 22 關小雷神演練場</div>
+       <div style={{color:'#c9d1d9', fontSize:'10px', lineHeight:'1.55', marginTop:'4px'}}>固定雷霆之境與第 22 關難度，完整體驗三階段、護盾與轉場。可帶目前選擇的夥伴，測試不計入任何正式獎勵或紀錄。</div>
+       <button onClick={() => { if(!window._gameJsReady){ triggerNotify('遊戲載入中，請稍候...','info'); return; } handleDeparture(true); }} style={{...btnGold, marginTop:'9px', padding:'11px 12px'}}>⚡ 直接挑戰第 22 關</button>
+      </div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'6px'}}>
        {FR_MAP_OPTIONS.map(m=>{
         const active = frStartMapIdx === m.id;
@@ -10430,7 +10499,7 @@ if (selectedActivity === 'food_research') {
      </div>
      {renderPartnerStatusModal()}
      <div style={{padding:'14px', borderTop:'1px solid #21262d', background:'#161b22', flexShrink:0}}>
-     <button onClick={() => { if(!window._gameJsReady){ triggerNotify('遊戲載入中，請稍候...','info'); return; } handleDeparture(); }} style={{...btnPrimary, padding:'14px 0', fontSize:'14px'}}>
+     <button onClick={() => { if(!window._gameJsReady){ triggerNotify('遊戲載入中，請稍候...','info'); return; } handleDeparture(false); }} style={{...btnPrimary, padding:'14px 0', fontSize:'14px'}}>
      ⚔️ 帶著{chosenPartners.length>0?chosenPartners.map(p=>p.name).join('、'):'單人'}出征！
      </button>
     </div>
@@ -10443,7 +10512,7 @@ if (selectedActivity === 'food_research') {
  const s2 = loadSave();
  const playerPhone = currentUser?.phone || 'guest';
  // 需求1：讀取該玩家的續關進度
- const savedStageKey = 'fr_stage_' + playerPhone;
+ const savedStageKey = frTestModeRef.current ? 'fr_test_stage_' + playerPhone : 'fr_stage_' + playerPhone;
  // 需求2：夥伴已在 handleDeparture 載入個人存檔
  const activePartners = (chosenPartnersRef.current || []).slice(0,2);
  const partnerData = JSON.stringify(activePartners.map(p => ({
@@ -10460,7 +10529,7 @@ if (selectedActivity === 'food_research') {
   equip: normalizedExpeditionEquip,
   equippedForm: FOOD_RESEARCH_FORM_MAP[s2.equippedForm] ? s2.equippedForm : 'normal',
    gold: s2.gold||0,
-   runScore: s2.runScore||0,
+   runScore: frTestModeRef.current ? 0 : (s2.runScore||0),
   quests: s2.quests||null,
   playerName: currentUser?.name || (isSuperAdmin ? '主廚' : '玩家'),
   playerPhone: playerPhone,
@@ -10468,7 +10537,9 @@ if (selectedActivity === 'food_research') {
   runStartedAt: expeditionRunRef.current.startedAt || Date.now(),
   savedStageKey: savedStageKey,
   isSuperAdmin: !!isSuperAdmin,
-   startMapIdx: isSuperAdmin && frStartMapIdx !== 'random' ? Number(frStartMapIdx) : null,
+   testMode: !!frTestModeRef.current,
+   testStage: frTestModeRef.current ? 22 : null,
+   startMapIdx: frTestModeRef.current ? 10 : (isSuperAdmin && frStartMapIdx !== 'random' ? Number(frStartMapIdx) : null),
   });
   const configuredRevivalQuestions = foodResearchQuestionBank;
   const revivalQuestionData = JSON.stringify(configuredRevivalQuestions.map((item,index) => {
@@ -10537,29 +10608,37 @@ if (selectedActivity === 'food_research') {
      const handler = msg => {
      if (!msg.data) return;
      if (msg.data.type === 'FR_BACK_TO_CAMP') {
-       const cur = loadSave();
-       const finalScore = Math.max(0, Number(msg.data.score)||0);
-       writeSave({
-        gold: (cur.gold || 0) + (msg.data.gold || 0),
-        lastScore: finalScore,
-        bestScore: Math.max(Number(cur.bestScore)||0, finalScore),
-        runScore: msg.data.completed ? 0 : finalScore
-       });
-       if (finalScore > 0) {
-        syncFoodResearchRanking({
-         score:finalScore,
-         stage:msg.data.stage,
-         bossKills:msg.data.bossKills,
-         durationMs:msg.data.durationMs,
-         completed:msg.data.completed,
-         runId:msg.data.runId
-        }).catch(error => console.error('同步食研所排行榜失敗', error));
+       const wasTestMode = frTestModeRef.current;
+       if (!wasTestMode) {
+        const cur = loadSave();
+        const finalScore = Math.max(0, Number(msg.data.score)||0);
+        writeSave({
+         gold: (cur.gold || 0) + (msg.data.gold || 0),
+         lastScore: finalScore,
+         bestScore: Math.max(Number(cur.bestScore)||0, finalScore),
+         runScore: msg.data.completed ? 0 : finalScore
+        });
+        if (finalScore > 0) {
+         syncFoodResearchRanking({
+          score:finalScore,
+          stage:msg.data.stage,
+          bossKills:msg.data.bossKills,
+          durationMs:msg.data.durationMs,
+          completed:msg.data.completed,
+          runId:msg.data.runId
+         }).catch(error => console.error('同步食研所排行榜失敗', error));
+        }
+       } else {
+        triggerNotify('第 22 關演練結束，測試結果未計入正式紀錄。','success');
        }
       window.removeEventListener('message', handler);
       foodResearchHTMLRef.current='';
+      frTestModeRef.current=false;
       setFrPhase('camp');
+      return;
      }
      if (msg.data.type === 'FR_RIVAL_WIN') {
+      if (frTestModeRef.current) return;
       const today = new Date().toDateString();
       const rivalNames = msg.data.rivalNames || [];
       const rivalPhones = msg.data.rivalPhones || [];
@@ -10581,6 +10660,7 @@ if (selectedActivity === 'food_research') {
       }).catch(()=>{});
      }
      if (msg.data.type === 'FR_RIVAL_ONE_DOWN') {
+      if (frTestModeRef.current) return;
       const rp = msg.data.rivalPhone;
       const rn = msg.data.rivalName || '對手';
       const myName = currentUser?.name || '玩家';
@@ -10594,6 +10674,7 @@ if (selectedActivity === 'food_research') {
      }
      if (msg.data.type === 'FR_GOLD_UPDATE') { /* 本場金幣回營時統一結算 */ }
      if (msg.data.type === 'FR_QUEST_KILL') {
+      if (frTestModeRef.current) return;
       const killCount = Math.max(0, Math.min(50, Number(msg.data.count)||0));
       const s2 = loadSave(); const q2 = s2.quests;
       if (q2 && !q2.tasks[0].done && killCount > 0) {
@@ -10604,6 +10685,14 @@ if (selectedActivity === 'food_research') {
       }
      }
      if (msg.data.type === 'FR_PENALTY_RETURN') {
+      if (frTestModeRef.current) {
+       window.removeEventListener('message', handler);
+       foodResearchHTMLRef.current='';
+       frTestModeRef.current=false;
+       triggerNotify('演練已結束，裝備與正式紀錄不受影響。','info');
+       setFrPhase('camp');
+       return;
+      }
       // 需求4：遺失本場金幣 + 移除裝備武器/護符（從擁有清單也刪除）
       const pen = msg.data.penalty || {};
       const cur = loadSave();
@@ -10634,6 +10723,7 @@ if (selectedActivity === 'food_research') {
      if (msg.data.type === 'FOOD_RESEARCH_BACK') {
       window.removeEventListener('message', handler);
       foodResearchHTMLRef.current='';
+      frTestModeRef.current=false;
       setSelectedActivity(null);
      }
      };
