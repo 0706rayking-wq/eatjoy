@@ -345,7 +345,26 @@ async function loadNueipAttendanceBrowser(date, requestedDepartments = [], sched
     await page.goto('https://portal.nueip.com/login', { waitUntil: 'domcontentloaded', timeout: 25000 });
     lastUrl = page.url();
     stage = '填寫登入資料';
-    await page.waitForSelector('input[name="inputCompany"]', { timeout: 15000 });
+    try {
+      await page.waitForSelector('input[name="inputCompany"]', { timeout: 15000 });
+    } catch (error) {
+      // The managed browser occasionally receives an interstitial or an error
+      // page instead of NUEIP's login form. Capture only generic page metadata
+      // so the workflow can distinguish that case without exposing credentials.
+      const loginPage = await page.evaluate(() => ({
+        title: String(document.title || '').replace(/\s+/g, ' ').trim().slice(0, 80),
+        text: String(document.body?.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 180),
+        inputs: [...document.querySelectorAll('input')]
+          .slice(0, 12)
+          .map((input) => String(input.getAttribute('name') || input.getAttribute('type') || 'unnamed'))
+      })).catch(() => ({}));
+      const details = [
+        loginPage.title ? `標題=${loginPage.title}` : '',
+        loginPage.text ? `內容=${loginPage.text}` : '',
+        Array.isArray(loginPage.inputs) && loginPage.inputs.length ? `欄位=${loginPage.inputs.join(',')}` : ''
+      ].filter(Boolean).join('；');
+      throw new Error(`找不到NUEIP登入欄位${details ? `（${details}）` : ''}`);
+    }
     await page.type('input[name="inputCompany"]', companyCode);
     await page.type('input[name="inputID"]', employeeId);
     await page.type('input[name="inputPassword"]', password);
