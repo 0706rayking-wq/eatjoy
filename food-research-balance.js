@@ -139,7 +139,32 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
       .replace(/\(pTr\.atk\|\|0\)\*\.1/g, '(pTr.atk||0)*FR_BALANCE.training.attackPerLevel')
       .replace(/\(pTr\.def\|\|0\)\*\.08/g, '(pTr.def||0)*FR_BALANCE.training.defensePerLevel')
       .replace(/\(pTr\.hp\|\|0\)\*20/g, '(pTr.hp||0)*FR_BALANCE.training.hpPerLevel')
-      .replace(/\(pTr\.stam\|\|0\)\*10/g, '(pTr.stam||0)*FR_BALANCE.training.staminaPerLevel');
+      .replace(/\(pTr\.stam\|\|0\)\*10/g, '(pTr.stam||0)*FR_BALANCE.training.staminaPerLevel')
+      .replace(/   var spd=1\.5;\n   r\.x\+=dx\/dist\*spd\*0\.6;\n   r\.y=Math\.min\(r\.y,r\.targetY\+15\);\n   if\(dist<160&&r\.atkTimer>=60\)\{[\s\S]*?hurtPlayer\(r\.atk\*0\.7\);\n   \}/,
+`   // 衝鋒手：保持中近距離，以可閃避的突進波取代貼身扣血
+   var spd=1.5,safeDist=Math.max(1,dist),minGap=190;
+   if(dist>minGap+25)r.x+=dx/safeDist*spd*.45;
+   else if(dist<minGap-20){r.x-=dx/safeDist*spd*1.25;r.y-=dy/safeDist*spd*.65;}
+   else r.x+=Math.sin(r.timer*.08)*1.2;
+   r.y+=(r.targetY-r.y)*.08;r.y=Math.min(r.y,CH*.38);
+   if(dist<220&&r.atkTimer>=60){
+    r.atkTimer=0;addText('⚔️ 突進波',r.x,r.y-30,'#ef4444',15,40);
+    var rushA=Math.atan2(player.y-r.y,player.x-r.x);
+    for(var rushI=-1;rushI<=1;rushI++)eBullets.push(new Bullet(r.x,r.y,Math.cos(rushA+rushI*.16)*4.8,Math.sin(rushA+rushI*.16)*4.8,r.atk*.72,'#f87171',8));
+   }`)
+      .replace(/   var rage=1\+\(1-r\.hp\/r\.maxHp\)\*2;\n   var bspd=1\.5\*rage;\n   r\.x\+=dx\/dist\*bspd; r\.y\+=dy\/dist\*bspd;[\s\S]*?for\(var v=0;v<3;v\+\+\)\{var off=\(v-1\)\*0\.3;eBullets\.push\(new Bullet\(r\.x,r\.y,Math\.cos\(a6\+off\)\*5,Math\.sin\(a6\+off\)\*5,r\.atk\*rage\*0\.8,'#ef4444',8\)\);\}\n   \}/,
+`   // 狂戰手：低血量仍會加速，但不再黏住玩家造成接觸傷害
+   var rage=1+(1-r.hp/r.maxHp)*2;
+   var bspd=1.5*rage,bSafe=Math.max(1,dist),holdGap=170;
+   if(dist>holdGap+35){r.x+=dx/bSafe*bspd*.5;r.y+=dy/bSafe*bspd*.18;}
+   else if(dist<holdGap-25){r.x-=dx/bSafe*bspd*.8;r.y-=dy/bSafe*bspd*.5;}
+   else r.x+=Math.sin(r.timer*.11)*1.5;
+   r.y+=(r.targetY-r.y)*.055;r.y=Math.min(r.y,CH*.4);
+   if(r.atkTimer>=Math.floor(65/rage)){
+    r.atkTimer=0;addText('🔥 怒氣斬',r.x,r.y-30,'#ef4444',15,45);
+    var a6=Math.atan2(player.y-r.y,player.x-r.x);
+    for(var v=0;v<3;v++){var off=(v-1)*.24;eBullets.push(new Bullet(r.x,r.y,Math.cos(a6+off)*4.8,Math.sin(a6+off)*4.8,r.atk*rage*.68,'#ef4444',8));}
+   }`);
 
     out = out.replace(
       "setTimeout(()=>{\n stage++;\n currentBgIdx=frMapForStage(stage);",

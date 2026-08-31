@@ -1,6 +1,6 @@
 (function () {
   const assetBase = 'assets/food-research/forms/';
-  const assetVersion = '?v=3';
+  const assetVersion = '?v=4';
   const skillDetails = {
     onion_guard:{skill1Desc:'清除周圍 150 範圍的普通子彈，對附近敵人造成 24 傷害並擊退。',skill2Desc:'獲得 180 點護盾，向四周發射 24 道可貫穿震波，每道造成 25 傷害。'},
     popcorn:{skill1Desc:'向前扇形發射 11 顆爆米花，每顆造成 16 傷害。',skill2Desc:'向四周發射 28 顆可貫穿玉米砲彈，每顆造成 28 傷害，並對 230 範圍造成 45 傷害。'},
@@ -54,8 +54,8 @@
     ...skillDetails[form.id],
     skill1Cost:form.rarity==='top'?26:form.rarity==='noble'?24:form.rarity==='rare'?22:20,
     skill2Cost:form.rarity==='top'?60:form.rarity==='noble'?56:form.rarity==='rare'?52:48,
-    skill1Cooldown:form.rarity==='top'?8:form.rarity==='noble'?8.5:form.rarity==='rare'?9:9.5,
-    skill2Cooldown:form.rarity==='top'?19:form.rarity==='noble'?20:form.rarity==='rare'?21:22,
+    skill1Cooldown:form.rarity==='top'?4:form.rarity==='noble'?4.25:form.rarity==='rare'?4.5:4.75,
+    skill2Cooldown:form.rarity==='top'?9.5:form.rarity==='noble'?10:form.rarity==='rare'?10.5:11,
     portrait: assetBase + form.id + '-front.png' + assetVersion,
     battle: assetBase + form.id + '-back.png' + assetVersion,
     passiveIcon: assetBase + form.id + '-passive.png' + assetVersion,
@@ -76,6 +76,10 @@
 const FR_FORM_CATALOG = ${JSON.stringify(forms)};
 const FR_FORM_MAP = Object.fromEntries(FR_FORM_CATALOG.map(function(form){return [form.id, form];}));
 Object.keys(FOOD_FORMS).forEach(function(key){if(key!=='normal')delete FOOD_FORMS[key];});
+FOOD_FORMS.normal.id='normal';
+FOOD_FORMS.normal.sk1Cd=Math.round((FOOD_FORMS.normal.sk1Cd||4000)*.5);
+FOOD_FORMS.normal.sk2Cd=Math.round((FOOD_FORMS.normal.sk2Cd||12000)*.5);
+if(currentForm&&currentForm.name===FOOD_FORMS.normal.name){currentForm.id='normal';currentForm.sk1Cd=FOOD_FORMS.normal.sk1Cd;currentForm.sk2Cd=FOOD_FORMS.normal.sk2Cd;}
 FR_FORM_CATALOG.forEach(function(form){
   FOOD_FORMS[form.id] = {
     id:form.id, name:form.name, emoji:form.emoji, passive:form.passive,
@@ -99,6 +103,9 @@ function frImg(formId,key){
   const img=new Image();img.decoding='async';img.src=form[key];frFormImages[cacheKey]=img;
   return img;
 }
+const frCooldownStyle=document.createElement('style');
+frCooldownStyle.textContent='.skCd{display:none!important;position:absolute;inset:0;border-radius:17px;align-items:center;justify-content:center;background:rgba(2,6,23,.76);color:#fff;font:900 16px/1 sans-serif;letter-spacing:0;z-index:3;pointer-events:none;text-shadow:0 1px 3px #000}.skCd[style*="flex"]{display:flex!important}';
+document.head.appendChild(frCooldownStyle);
 const frBattleSheets={};
 const FR_BATTLE_CELL=128;
 const FR_BATTLE_POSES=[
@@ -562,5 +569,36 @@ drawPlayer=function(){
 
 const frOriginalSetForm=setForm;
 setForm=function(fid){frOriginalSetForm(FR_FORM_MAP[fid]?fid:'normal');if(currentForm.id!=='normal')frImg(currentForm.id,'battle');frSetSkillArt();};
+
+drawRivalEnemies=function(){
+ if(!rivalFightActive)return;
+ rivalEnemies.forEach(function(r){
+  if(r.defeated)return;
+  ctx.save();ctx.translate(r.x,r.y);
+  const hp=Math.max(0,r.hp/r.maxHp),barY=-r.r-22;
+  ctx.fillStyle='rgba(0,0,0,.52)';ctx.fillRect(-34,barY,68,9);
+  ctx.fillStyle=hp>.6?'#22c55e':hp>.3?'#f59e0b':'#ef4444';ctx.fillRect(-34,barY,68*hp,9);
+  ctx.strokeStyle='rgba(255,255,255,.45)';ctx.lineWidth=1;ctx.strokeRect(-34,barY,68,9);
+  if(r.invTimer>0&&r.invTimer%6<3)ctx.globalAlpha=.35;
+  const portrait=r.formId&&r.formId!=='normal'?frImg(r.formId,'portrait'):null;
+  ctx.fillStyle='rgba(15,23,42,.24)';ctx.beginPath();ctx.ellipse(0,28,24,6,0,0,Math.PI*2);ctx.fill();
+  if(portrait&&portrait.complete&&portrait.naturalWidth){
+   ctx.imageSmoothingEnabled=false;const bob=Math.sin((r.timer||0)*.09)*2;
+   ctx.drawImage(portrait,-39,-47+bob,78,78);
+  }else if(r.formId==='normal'&&rivalNormalDownImg.complete&&rivalNormalDownImg.naturalWidth>0){
+   const frame=Math.floor((r.timer||0)/8)%HERO_FLOAT_FRAMES;ctx.imageSmoothingEnabled=false;
+   ctx.drawImage(rivalNormalDownImg,frame*HERO_FLOAT_FRAME_W,0,HERO_FLOAT_FRAME_W,HERO_FLOAT_FRAME_H,-36,-45,72,72);
+  }else{
+   ctx.font='30px Segoe UI Emoji,Segoe UI Symbol,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(r.emoji,0,0);
+  }
+  ctx.globalAlpha=1;
+  const modeIcon={sniper:'🎯',rusher:'💨',caster:'✨',deflector:'💧',evader:'↔',berserker:'🔥'};
+  ctx.font='bold 10px Segoe UI Emoji,Segoe UI Symbol,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#fbbf24';
+  ctx.strokeStyle='rgba(15,23,42,.9)';ctx.lineWidth=3;const label=r.name+' '+(modeIcon[r.aiMode]||'');ctx.strokeText(label,0,barY-7);ctx.fillText(label,0,barY-7);
+  ctx.restore();
+ });
+ const active=rivalEnemies.filter(function(r){return !r.defeated;}).length;
+ if(active>0){ctx.save();ctx.font='bold 12px Segoe UI Emoji,Segoe UI Symbol,sans-serif';ctx.fillStyle='rgba(251,191,36,.92)';ctx.textAlign='right';ctx.textBaseline='top';ctx.fillText('入侵者 '+active+'名',CW-10,88);ctx.restore();}
+};
 `;
 })();
