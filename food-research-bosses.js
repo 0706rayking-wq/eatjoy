@@ -104,7 +104,10 @@ function frBossApplyStatus(status){
   window.frBossStatusCooldown=window.frBossStatusCooldown||{};
   if(now<(window.frBossStatusCooldown[kind]||0))return;
   window.frBossStatusCooldown[kind]=now+900;
-  const scale=(currentForm&&currentForm.id==='garlic_knight') ? 0.5 : 1;
+  const formScale=(currentForm&&currentForm.id==='garlic_knight') ? 0.5 : 1;
+  const amuletBonus=typeof frActiveAmuletBonus==='function'?frActiveAmuletBonus():{};
+  const amuletScale=kind==='paralyze'?1-Math.min(.5,amuletBonus.paralyzeDuration||0):1;
+  const scale=formScale*amuletScale;
   const duration=Math.round(((status&&status.duration)||2600)*scale);
   if(kind==='freeze'){player.frozenTimer=Math.max(player.frozenTimer||0,Math.round(75*scale));addText('冰凍',player.x,player.y-32,'#7dd3fc',13,-.5);}
   else if(kind==='burn'){player.burnTimer=Math.max(player.burnTimer||0,Math.round(240*scale));addText('灼燒',player.x,player.y-32,'#ef4444',13,-.5);}

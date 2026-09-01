@@ -71,6 +71,10 @@
       hpPerLevel: 12,
       staminaPerLevel: 6,
       critPerLevel: 0.03,
+      rangedSpeedPerLevel: 0.015,
+      meleeSpeedPerLevel: 0.02,
+      critDamagePerLevel: 0.03,
+      skillDamagePerLevel: 0.02,
     },
   };
 

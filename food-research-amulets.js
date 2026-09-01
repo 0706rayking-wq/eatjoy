@@ -30,6 +30,7 @@
     { id:'a28', name:'爆破御守', emoji:'💥', desc:'擊敗敵人有 10% 機率爆破，對周圍造成 30 傷害', effects:{ deathExplosion:0.10, explosionDamage:30 } },
     { id:'a29', name:'磁引御守', emoji:'🧲', desc:'金幣吸附範圍 +60%', effects:{ coinMagnet:0.60 } },
     { id:'a30', name:'金剛御守', emoji:'💎', desc:'每 15 秒生成 18 點防護罩', effects:{ autoShield:18 } },
+    { id:'a31', name:'鎮雷御守', emoji:'⚡', desc:'受到麻痺的狀態時間減半', effects:{ paralyzeDuration:0.50 } },
   ];
 
   const effectKeys = [...new Set(catalog.flatMap(item => Object.keys(item.effects)))];
@@ -116,8 +117,9 @@
   const now=performance.now();if(now-frState.lastHit>1500)frState.combo=0;
   if(b.comboDamage)mult*=1+b.comboDamage*Math.min(10,frState.combo);
   if(target&&target.maxHp&&target.hp/target.maxHp<=.3)mult*=1+(b.executeDamage||0);
-  const critChance=Math.min(FR_BALANCE.combat.critChanceCap,(b.crit||0)+((((charSlots[activeChar]||{}).training||tr).crit||0)*FR_BALANCE.training.critPerLevel));
-  if(Math.random()<critChance){mult*=FR_BALANCE.combat.critMultiplier+(b.critDamage||0);addText('暴擊 '+Math.round((FR_BALANCE.combat.critMultiplier+(b.critDamage||0))*100)+'%',target.x,target.y-22,'#fbbf24',14,-.6);}
+  const training=((charSlots[activeChar]||{}).training||tr),critChance=Math.min(FR_BALANCE.combat.critChanceCap,(b.crit||0)+((training.crit||0)*FR_BALANCE.training.critPerLevel));
+  const critMultiplier=FR_BALANCE.combat.critMultiplier+(b.critDamage||0)+(training.critDamage||0)*FR_BALANCE.training.critDamagePerLevel;
+  if(Math.random()<critChance){mult*=critMultiplier;addText('暴擊 '+Math.round(critMultiplier*100)+'%',target.x,target.y-22,'#fbbf24',14,-.6);}
   return mult;
  }
  function frAfterHit(target,wasAlive){

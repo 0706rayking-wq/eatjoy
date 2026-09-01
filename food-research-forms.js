@@ -29,7 +29,7 @@
     { id:'popcorn', rarity:'normal', name:'爆米花', emoji:'🍿', passive:'遠程子彈尺寸與命中範圍增加 55%', skill1:'爆米花散射', skill2:'玉米重砲', color:'#fde68a' },
     { id:'healing_mushroom', rarity:'normal', name:'療癒蘑菇', emoji:'🍄', passive:'每 5 秒自動治療', skill1:'蘑菇替身', skill2:'療癒菌林', color:'#f9a8d4' },
     { id:'garlic_knight', rarity:'normal', name:'蒜頭騎士', emoji:'🧄', passive:'異常狀態時間減半', skill1:'聖蒜淨化', skill2:'無垢聖域', color:'#f5f5dc' },
-    { id:'chili_sprite', rarity:'normal', name:'辣椒精靈', emoji:'🌶️', passive:'150 範圍內的敵人持續灼燒', skill1:'焚風', skill2:'烈焰油海', color:'#fb7185' },
+    { id:'chili_sprite', rarity:'normal', name:'辣椒精靈', emoji:'🌶️', passive:'150 範圍內每 0.75 秒造成 8 點灼燒傷害', skill1:'焚風', skill2:'烈焰油海', color:'#fb7185' },
     { id:'lotus_archer', rarity:'normal', name:'蓮藕射手', emoji:'🏹', passive:'遠程攻擊額外貫穿', skill1:'連環藕矢', skill2:'九孔光陣', color:'#fda4af' },
     { id:'potato_armor', rarity:'normal', name:'馬鈴薯裝甲', emoji:'🥔', passive:'受到的傷害降低 20%', skill1:'澱粉彈牆', skill2:'大地震盪', color:'#d6a86e' },
     { id:'lemon_battery', rarity:'normal', name:'檸檬電池', emoji:'🍋', passive:'遠程攻擊有 28% 機率觸發連鎖電流', skill1:'彈跳電球', skill2:'超載電網', color:'#facc15' },
@@ -41,12 +41,12 @@
     { id:'salmon_ronin', rarity:'rare', name:'鮭魚浪客', emoji:'🍣', passive:'閃避後 3 秒內攻擊、攻速與移速提升 25%', skill1:'逆流一閃', skill2:'鮭潮斷浪', color:'#fb7185' },
     { id:'beef_berserker', rarity:'rare', name:'牛排狂戰士', emoji:'🥩', passive:'血量越低，攻擊最高 +45%、攻速最高 +55%', skill1:'猛牛挑釁', skill2:'血宴不倒', color:'#dc2626' },
 
-    { id:'puffer_alchemist', rarity:'noble', name:'河豚毒師', emoji:'🐡', passive:'160 範圍毒霧每 0.75 秒疊毒，最高 5 層', skill1:'萬毒棘輪', skill2:'死海劇毒', color:'#a3e635' },
+    { id:'puffer_alchemist', rarity:'noble', name:'河豚毒師', emoji:'🐡', passive:'160 範圍每 0.75 秒疊毒；8 點起，每層 +3，最高 5 層', skill1:'萬毒棘輪', skill2:'死海劇毒', color:'#a3e635' },
     { id:'black_garlic_void', rarity:'noble', name:'黑蒜虛空使', emoji:'⚫', passive:'造成傷害 +12%，遠程攻擊額外貫穿', skill1:'蒜核黑洞', skill2:'虛無貫星砲', color:'#818cf8' },
     { id:'lobster_general', rarity:'noble', name:'龍蝦將軍', emoji:'🦞', passive:'每 8 秒獲得護甲，護盾格擋後 4 秒內傷害 +25%', skill1:'赤甲納彈', skill2:'百砲返還', color:'#ef4444' },
     { id:'truffle_thunder', rarity:'noble', name:'松露雷神', emoji:'⚡', passive:'所有遠程攻擊附帶不衰減連鎖電流', skill1:'追身雷雲', skill2:'萬雷天牢', color:'#60a5fa' },
 
-    { id:'dragonfruit_emperor', rarity:'top', name:'火龍果龍皇', emoji:'🐉', passive:'185 範圍灼燒光環，擊破敵人有 35% 機率爆破', skill1:'龍星雨', skill2:'焚界龍息', color:'#f43f5e' },
+    { id:'dragonfruit_emperor', rarity:'top', name:'火龍果龍皇', emoji:'🐉', passive:'185 範圍每 0.5 秒造成 14 點灼燒；擊破有 35% 機率爆破', skill1:'龍星雨', skill2:'焚界龍息', color:'#f43f5e' },
     { id:'peach_divine', rarity:'top', name:'仙桃神使', emoji:'🍑', passive:'每場戰鬥首次死亡可復活', skill1:'仙影分身', skill2:'蟠桃回天', color:'#f9a8d4' },
     { id:'cocoa_popsicle_wargod', rarity:'top', name:'可可冰棒戰神', emoji:'🍫', passive:'攻擊累積 5 層寒氣後凍結並觸發碎冰爆破', skill1:'冰棒巨斧', skill2:'極凍戰神', color:'#67e8f9' },
   ].map((form) => ({
@@ -156,6 +156,12 @@ function frFormAttackSpeedMultiplier(){
   if(id==='beef_berserker'&&player.maxHp>0)return 1+.55*(1-Math.max(0,player.hp)/player.maxHp);
   return 1;
 }
+function frActiveTraining(){
+  return (typeof charSlots!=='undefined'&&charSlots[activeChar]&&charSlots[activeChar].training)||tr||{};
+}
+function frSkillPowerMultiplier(){
+  return 1+(frActiveTraining().skillPower||0)*FR_BALANCE.training.skillDamagePerLevel;
+}
 let frCoffeeMomentum=0,frCoffeeMoveAt=performance.now();
 function frFormMoveMultiplier(){
   if(!currentForm)return 1;
@@ -168,11 +174,12 @@ function frFormMoveMultiplier(){
   if(id==='salmon_ronin'&&now<(window.frSalmonBuffUntil||0))mult*=1.25;
   return mult;
 }
-function frDamage(amount,radius,color){
-  frForEachEnemy(function(e){if(radius==null||Math.hypot(e.x-player.x,e.y-player.y)<=radius){frApplyDamage(e,amount*(window._curAtkMult||atkMult)*frFormDamageMultiplier());if(color)burst(e.x,e.y,color,5);}});
+function frDamage(amount,radius,color,applySkillPower){
+  const skillMult=applySkillPower===false?1:frSkillPowerMultiplier();
+  frForEachEnemy(function(e){if(radius==null||Math.hypot(e.x-player.x,e.y-player.y)<=radius){frApplyDamage(e,amount*(window._curAtkMult||atkMult)*frFormDamageMultiplier()*skillMult);if(color)burst(e.x,e.y,color,5);}});
 }
 function frSkillBullet(x,y,vx,vy,color,damage,radius,pierce,burn,options){
-  const mult=(window._curAtkMult||atkMult)*frFormDamageMultiplier(),opt=options||{};
+  const mult=(window._curAtkMult||atkMult)*frFormDamageMultiplier()*frSkillPowerMultiplier(),opt=options||{};
   const shot=new Bullet(x,y,vx,vy,damage*mult,color,radius,!!pierce,!!opt.homing,!!burn);
   if(opt.chain){shot.frChain=true;shot.frChainHits=new Set();shot.frChainRange=opt.chainRange||110;shot.frChainDamage=opt.chainDamage||.3;shot.frChainMax=opt.chainMax||2;}
   bullets.push(shot);return shot;
@@ -345,7 +352,7 @@ fire=function(){
   if(id==='lotus_archer'||id==='black_garlic_void')b.pierce=true;
   if(id==='chili_sprite'||id==='dragonfruit_emperor')b.burn=true;
   if(id==='beef_berserker'){const missing=1-player.hp/player.maxHp;b.dmg*=1+missing*.8;}
-  if(id==='lemon_battery'||id==='truffle_thunder'){if(Math.random()<(id==='truffle_thunder'?.45:.22)){setTimeout(function(){frDamage(id==='truffle_thunder'?10:6,115,'#fde047');},50);}}
+  if(id==='lemon_battery'||id==='truffle_thunder'){if(Math.random()<(id==='truffle_thunder'?.45:.22)){setTimeout(function(){frDamage(id==='truffle_thunder'?10:6,115,'#fde047',false);},50);}}
   if(id==='cocoa_popsicle_wargod'){b.color='#67e8f9';b.dmg*=1.12;}
 };
 
@@ -555,14 +562,15 @@ function frPufferPoisonWave(radius,damage){
     if(radius!=null&&Math.hypot(target.x-player.x,target.y-player.y)>radius)return;
     if(!target._frPoisonAt||now-target._frPoisonAt>1800)target._frPoisonStacks=0;
     target._frPoisonAt=now;target._frPoisonStacks=Math.min(5,(target._frPoisonStacks||0)+1);
-    const dealt=damage==null?1.5+target._frPoisonStacks*1.1:damage;
+    const aura=FR_PASSIVE_AURAS.puffer_alchemist;
+    const dealt=damage==null?aura.baseDamage+target._frPoisonStacks*aura.stackDamage:damage*frSkillPowerMultiplier();
     frApplyDamage(target,dealt*(window._curAtkMult||atkMult)*frFormDamageMultiplier());burst(target.x,target.y,'#a3e635',4);
   });
 }
 const FR_PASSIVE_AURAS={
-  chili_sprite:{radius:150,color:'#fb7185',fill:'rgba(251,113,133,.055)',dash:[7,7]},
-  puffer_alchemist:{radius:160,color:'#a3e635',fill:'rgba(163,230,53,.055)',dash:[3,8]},
-  dragonfruit_emperor:{radius:185,color:'#f97316',fill:'rgba(249,115,22,.07)',dash:[12,7]}
+  chili_sprite:{radius:150,damage:8,interval:750,color:'#fb7185',fill:'rgba(251,113,133,.055)',dash:[7,7]},
+  puffer_alchemist:{radius:160,baseDamage:5,stackDamage:3,interval:750,color:'#a3e635',fill:'rgba(163,230,53,.055)',dash:[3,8]},
+  dragonfruit_emperor:{radius:185,damage:14,interval:500,color:'#f97316',fill:'rgba(249,115,22,.07)',dash:[12,7]}
 };
 function frPufferAuraTick(){frPufferPoisonWave(FR_PASSIVE_AURAS.puffer_alchemist.radius,null);}
 
@@ -575,9 +583,9 @@ setInterval(function(){
   if(id==='healing_mushroom'&&ready(id,5000))frHeal(4);
   if(id==='honey_priest'&&ready(id,4500)){if(player.hp<player.maxHp)frHeal(5);else{player.shieldActive=true;player.shieldHp=Math.max(player.shieldHp||0,20);}}
   if(id==='lobster_general'&&ready(id,8000)){player.shieldActive=true;player.shieldHp=Math.max(player.shieldHp||0,45);}
-  if(id==='chili_sprite'&&ready(id+':aura',750))frDamage(3,FR_PASSIVE_AURAS.chili_sprite.radius,'#fb7185');
-  if(id==='puffer_alchemist'&&ready(id+':aura',750))frPufferAuraTick();
-  if(id==='dragonfruit_emperor'&&ready(id+':aura',500))frDamage(5,FR_PASSIVE_AURAS.dragonfruit_emperor.radius,'#f43f5e');
+  if(id==='chili_sprite'&&ready(id+':aura',FR_PASSIVE_AURAS.chili_sprite.interval))frDamage(FR_PASSIVE_AURAS.chili_sprite.damage,FR_PASSIVE_AURAS.chili_sprite.radius,'#fb7185',false);
+  if(id==='puffer_alchemist'&&ready(id+':aura',FR_PASSIVE_AURAS.puffer_alchemist.interval))frPufferAuraTick();
+  if(id==='dragonfruit_emperor'&&ready(id+':aura',FR_PASSIVE_AURAS.dragonfruit_emperor.interval))frDamage(FR_PASSIVE_AURAS.dragonfruit_emperor.damage,FR_PASSIVE_AURAS.dragonfruit_emperor.radius,'#f43f5e',false);
   if(id==='cheese_mage'&&ready(id+':slow',600))frSlowAll(900,.72);
 },250);
 

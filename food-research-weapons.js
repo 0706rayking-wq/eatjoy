@@ -402,18 +402,22 @@
  };
  autoFire=function(){
   if(player.weaponCd>0){player.weaponCd--;return;}
+  const activeTraining=(typeof charSlots!=='undefined'&&charSlots[activeChar]&&charSlots[activeChar].training)||tr||{};
   if(currentWeapon==='melee'){
    const d=defFor('melee');
    const formHaste=typeof frFormAttackSpeedMultiplier==='function'?frFormAttackSpeedMultiplier():1;
-   player.weaponCd=Math.max(1,Math.floor((d.cooldown||28)/((normalFrenzyTimer>0?2:1)*formHaste)));
+   const trainedCooldown=Math.max(16,Math.round((d.cooldown||28)/(1+(activeTraining.meleeSpeed||0)*FR_BALANCE.training.meleeSpeedPerLevel)));
+   player.weaponCd=Math.max(1,Math.floor(trainedCooldown/((normalFrenzyTimer>0?2:1)*formHaste)));
    startSwipe();
    const am=(window._curAtkMult||atkMult)*(typeof frFormDamageMultiplier==='function'?frFormDamageMultiplier():1),base=currentForm.bulletDmg*d.damage*2.2*am,hits=d.hits||1;
     let didHit=false;
     enemies.forEach(function(e){if(meleeTargetHit(d,e,8)){didHit=true;e.takeDamage(base*hits);applyMeleeEffect(d,e,base);burst(e.x,e.y,d.color,Math.min(5,2+hits));}});
     if(boss&&!boss._defeated&&meleeTargetHit(d,boss,22)){didHit=true;boss.takeDamage(base*Math.min(2,hits));spawnImpact(d,boss.x,boss.y,'melee');}
-    if(didHit)frTriggerMeleeSupport(d,swipeAnim);
+   if(didHit)frTriggerMeleeSupport(d,swipeAnim);
    }else{
-   const d=defFor('ranged'),formHaste=typeof frFormAttackSpeedMultiplier==='function'?frFormAttackSpeedMultiplier():1;player.weaponCd=Math.max(1,Math.floor((d.cooldown||10)/((normalFrenzyTimer>0?2:1)*formHaste)));shootRanged(d);
+   const d=defFor('ranged'),formHaste=typeof frFormAttackSpeedMultiplier==='function'?frFormAttackSpeedMultiplier():1;
+   const trainedCooldown=Math.max(6,Math.round((d.cooldown||10)/(1+(activeTraining.rangedSpeed||0)*FR_BALANCE.training.rangedSpeedPerLevel)));
+   player.weaponCd=Math.max(1,Math.floor(trainedCooldown/((normalFrenzyTimer>0?2:1)*formHaste)));shootRanged(d);
   }
  };
 })();

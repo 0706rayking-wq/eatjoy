@@ -1113,12 +1113,12 @@
     <div id="notify-root" style="position:fixed;top:80px;left:0;right:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none;padding:0 16px;isolation:isolate;"></div>
 <script src="food-research-question-bank.js"></script>
 <script src="food-research-question-bank-expansion.js"></script>
-<script src="food-research-forms.js?v=13"></script>
-<script src="food-research-weapons.js?v=12"></script>
-    <script src="food-research-amulets.js?v=2"></script>
-    <script src="food-research-bosses.js?v=14"></script>
+<script src="food-research-forms.js?v=15"></script>
+<script src="food-research-weapons.js?v=13"></script>
+    <script src="food-research-amulets.js?v=3"></script>
+    <script src="food-research-bosses.js?v=15"></script>
     <script src="food-research-ui.js?v=7"></script>
-    <script src="food-research-balance.js?v=6"></script>
+    <script src="food-research-balance.js?v=7"></script>
       <script src="food-research-audio.js?v=4"></script>
 
     <script>
@@ -8688,7 +8688,7 @@ if (selectedActivity === 'food_research') {
  const liveUser = allUsers.find(u => u.phone === currentUser?.phone) || currentUser || {};
  const foodResearchResetAt = liveUser.gameResetAt || 0;
  const makeFreshFoodResearchSave = (resetAt=0) => ({
-  training:{atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0},
+   training:{atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0,rangedSpeed:0,meleeSpeed:0,critDamage:0,skillPower:0},
   gold:0,
   ownedForms:[],
   equippedForm:'normal',
@@ -8835,7 +8835,7 @@ if (selectedActivity === 'food_research') {
  const validAmuletNames = new Set(AMULET_POOL.map(item=>item.name));
  const normalizeAmuletNames = (items=[]) => [...new Set((Array.isArray(items)?items:[]).filter(name=>validAmuletNames.has(name)))];
  const playerGold   = save.gold   || 0;
- const training     = save.training || { atk:0, def:0, hp:0, stam:0, stamRegen:0, crit:0 };
+ const training     = save.training || { atk:0, def:0, hp:0, stam:0, stamRegen:0, crit:0, rangedSpeed:0, meleeSpeed:0, critDamage:0, skillPower:0 };
  const validFoodFormIds = new Set(FOOD_RESEARCH_FORM_CATALOG.map(form=>form.id));
  const ownedForms   = (save.ownedForms || []).filter(id=>validFoodFormIds.has(id));
  const equippedForm = validFoodFormIds.has(save.equippedForm) ? save.equippedForm : 'normal';
@@ -8877,6 +8877,10 @@ if (selectedActivity === 'food_research') {
   {key:'stam',  label:'💨 最大氣力', costBase:60, max:10, effect:'+6 / Lv'},
   {key:'stamRegen', label:'⚡ 氣力回復', costBase:60, max:10, effect:'+10% / Lv'},
   {key:'crit',  label:'🎯 爆擊率', costBase:100, max:10, effect:'+3% / Lv'},
+  {key:'rangedSpeed', label:'🏹 遠程熟練', costBase:100, max:10, effect:'遠程攻速 +1.5% / Lv'},
+  {key:'meleeSpeed', label:'⚔️ 近戰熟練', costBase:100, max:10, effect:'近戰攻速 +2% / Lv'},
+  {key:'critDamage', label:'✨ 暴擊鍛鍊', costBase:110, max:10, effect:'暴擊傷害 +3% / Lv'},
+  {key:'skillPower', label:'🔮 技能修行', costBase:110, max:10, effect:'小招與大招傷害 +2% / Lv'},
  ];
  const getTrainingCost = (stat, lv) => Math.round(stat.costBase * (1 + lv * .55));
 
@@ -9722,7 +9726,7 @@ if (selectedActivity === 'food_research') {
 
  if (frPhase === 'training') {
   const cur = loadSave();
-  const tr = cur.training || { atk:0, def:0, hp:0, stam:0, stamRegen:0, crit:0 };
+   const tr = cur.training || { atk:0, def:0, hp:0, stam:0, stamRegen:0, crit:0, rangedSpeed:0, meleeSpeed:0, critDamage:0, skillPower:0 };
   const g = cur.gold || 0;
   return (
    <div className="fixed inset-0 z-[10000] flex flex-col" style={campBg}>
@@ -9756,7 +9760,7 @@ if (selectedActivity === 'food_research') {
          const s2 = loadSave();
          const g2 = s2.gold||0;
          if(g2 < cost) { alert('金幣不足！'); return; }
-         const tr2 = s2.training||{atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0};
+         const tr2 = s2.training||{atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0,rangedSpeed:0,meleeSpeed:0,critDamage:0,skillPower:0};
          tr2[stat.key] = (tr2[stat.key]||0)+1;
          writeSave({gold: g2-cost, training: tr2});
          setFrPhase('camp'); setTimeout(()=>setFrPhase('training'),10);
@@ -10034,7 +10038,7 @@ if (selectedActivity === 'food_research') {
    if(g2 < SHRINE_COST){ alert(`金幣不足，需要 ${SHRINE_COST} 金幣！`); return; }
    const am = normalizeAmuletNames(s2.amulets);
    const available = AMULET_POOL.filter(item=>!am.includes(item.name));
-   if(!available.length){ alert('30 種護符已全部收集完成！'); return; }
+    if(!available.length){ alert(`${AMULET_POOL.length} 種護符已全部收集完成！`); return; }
    const got = available[Math.floor(Math.random()*available.length)];
    am.push(got.name);
    writeSave({gold:g2-SHRINE_COST, amulets:am, amuletSchemaVersion:window.FOOD_RESEARCH_AMULET_SCHEMA_VERSION||2});
