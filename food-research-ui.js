@@ -462,7 +462,7 @@
       intro.classList.add('fr-revive-intro');
       intro.innerHTML =
         '<span class="fr-revive-success">&#x2714; \u7B54\u5C0D 5 \u984C\uFF0C\u5E36\u8457\u6230\u5229\u54C1\u56DE\u5230\u71DF\u5730</span>' +
-        '<span class="fr-revive-danger">&#x26A0; \u7B54\u932F 3 \u984C\uFF0C\u91D1\u5E63\u8207\u88DD\u5099\u5168\u6578\u907A\u5931</span>';
+        '<span class="fr-revive-danger">&#x26A0; \u7B54\u932F 3 \u984C\uFF0C\u672C\u5834\u91D1\u5E63\u8207\u5206\u6578\u6B78\u96F6\uFF0C\u53E6\u6263\u71DF\u5730\u91D1\u5E63 20%\uFF1B\u6B66\u5668\u8207\u8B77\u7B26\u4FDD\u7559</span>';
     }
     const progress = document.getElementById('revProg');
     const wrong = document.getElementById('revWrongDisp');
@@ -498,12 +498,12 @@
         return;
       }
       const penalty = {
-        loseGold: gold,
-        loseRanged: SAVE.equip?.ranged !== '初始食材砲' ? SAVE.equip.ranged : null,
-        loseMelee: SAVE.equip?.melee !== '初始鍋鏟' ? SAVE.equip.melee : null,
-        loseAmulets: (SAVE.equip?.amulets || []).filter(Boolean)
+        loseRunGold: Math.max(0, Math.round(gold)),
+        loseRunScore: Math.max(0, Math.round(score)),
+        walletRate: .2
       };
       gold = 0;
+      score = 0;
       window.parent.postMessage({type:'FR_PENALTY_RETURN', penalty}, '*');
     }
 

@@ -1127,8 +1127,8 @@
 <script src="food-research-forms.js?v=16"></script>
 <script src="food-research-weapons.js?v=14"></script>
     <script src="food-research-amulets.js?v=3"></script>
-    <script src="food-research-bosses.js?v=18"></script>
-    <script src="food-research-ui.js?v=7"></script>
+    <script src="food-research-bosses.js?v=20"></script>
+    <script src="food-research-ui.js?v=8"></script>
 <script src="food-research-balance.js?v=18"></script>
       <script src="food-research-audio.js?v=4"></script>
 
@@ -10851,29 +10851,13 @@ if (selectedActivity === 'food_research') {
        setFrPhase('camp');
        return;
       }
-      // 需求4：遺失本場金幣 + 移除裝備武器/護符（從擁有清單也刪除）
       const pen = msg.data.penalty || {};
       const cur = loadSave();
-      const newEquip = { ...cur.equip };
-      const newWeapons = { ranged: [...(cur.weapons?.ranged||[])], melee: [...(cur.weapons?.melee||[])] };
-      // 遠程武器：裝備中移除，擁有清單也刪除
-      if (pen.loseRanged) {
-        if (newEquip.ranged === pen.loseRanged) newEquip.ranged = '初始食材砲';
-        newWeapons.ranged = newWeapons.ranged.filter(w => w !== pen.loseRanged);
-      }
-      // 近戰武器
-      if (pen.loseMelee) {
-        if (newEquip.melee === pen.loseMelee) newEquip.melee = '初始鍋鏟';
-        newWeapons.melee = newWeapons.melee.filter(w => w !== pen.loseMelee);
-      }
-      // 護符：裝備中清空，擁有清單也清空
-      let newAmulets = [...(cur.amulets||[])];
-      if (pen.loseAmulets && pen.loseAmulets.length > 0) {
-        newEquip.amulets = ['','',''];
-        pen.loseAmulets.forEach(a => { newAmulets = newAmulets.filter(x => x !== a); });
-      }
-      // 金幣：營地金幣不受影響（不扣 cur.gold），只損失本場賺的
-       writeSave({ equip: newEquip, weapons: newWeapons, amulets: newAmulets, runScore:0 });
+      const walletBefore = Math.max(0, Number(cur.gold)||0);
+      const penaltyRate = Math.max(0, Math.min(.2, Number(pen.walletRate)||.2));
+      const walletFee = Math.round(walletBefore * penaltyRate);
+      writeSave({ gold:Math.max(0, walletBefore-walletFee), runScore:0 });
+      triggerNotify('遠征失敗：本場金幣與分數未帶回，另支付 '+walletFee+' 金幣。武器與護符已保留。','warning');
       window.removeEventListener('message', handler);
       foodResearchHTMLRef.current='';
       setFrPhase('camp');
