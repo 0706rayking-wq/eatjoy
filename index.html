@@ -98,6 +98,17 @@
             min-height: 100vh;
         }
 
+        @keyframes campExitNudge {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(4px); }
+        }
+
+        .camp-exit-nudge { animation: campExitNudge 1.2s ease-in-out infinite; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .camp-exit-nudge { animation: none !important; }
+        }
+
         /* ══ SCHEDULE 完全隔離主題（強制白色底） ══ */
 
         /* Step1：所有子元素先清空背景、還原顏色 */
@@ -8165,6 +8176,35 @@ const dailyQuizAdvanceLockRef = useRef(false);
 const departureInProgressRef = useRef(false);
 const expeditionRunRef = useRef({ id:'', startedAt:0 });
 const [activeAmuletTab, setActiveAmuletTab] = useState(0);
+const campMapScrollRef = useRef(null);
+const campExitRef = useRef(null);
+const [campExitVisible, setCampExitVisible] = useState(false);
+const [showCampExitGuide, setShowCampExitGuide] = useState(false);
+const campExitGuideKey = `fr_camp_exit_guide_${currentUser?.phone || 'guest'}`;
+
+const markCampExitGuideSeen = () => {
+ try { localStorage.setItem(campExitGuideKey, '1'); } catch {}
+ setShowCampExitGuide(false);
+};
+
+const openCampDeparture = () => {
+ markCampExitGuideSeen();
+ setChosenPartners([]);
+ chosenPartnersRef.current = [];
+ foodResearchHTMLRef.current = '';
+ setFrPhase('partner_select');
+};
+
+const revealCampExit = () => {
+ markCampExitGuideSeen();
+ const root = campMapScrollRef.current;
+ const exit = campExitRef.current;
+ if (!root || !exit) return;
+ const target = Math.max(0, exit.offsetTop + exit.offsetHeight / 2 - root.clientHeight / 2);
+ if (typeof root.scrollTo === 'function') root.scrollTo({ top:target, behavior:'smooth' });
+ else root.scrollTop = target;
+ window.setTimeout(() => setCampExitVisible(true), 480);
+};
 
 const getFoodResearchSeasonId = () => {
  const parts = new Intl.DateTimeFormat('en-CA', {
@@ -8175,6 +8215,38 @@ const getFoodResearchSeasonId = () => {
  return `${year}-${month}`;
 };
 const foodResearchSeasonId = getFoodResearchSeasonId();
+
+useEffect(() => {
+ if (selectedActivity !== 'food_research' || frPhase !== 'camp') {
+  setShowCampExitGuide(false);
+  return;
+ }
+ let seen = false;
+ try { seen = localStorage.getItem(campExitGuideKey) === '1'; } catch {}
+ setShowCampExitGuide(!seen);
+}, [selectedActivity, frPhase, campExitGuideKey]);
+
+useEffect(() => {
+ if (selectedActivity !== 'food_research' || frPhase !== 'camp') return;
+ setCampExitVisible(false);
+ let observer = null;
+ const timer = window.setTimeout(() => {
+  if (!campExitRef.current) return;
+  observer = new IntersectionObserver(entries => {
+   const visible = entries.some(entry => entry.isIntersecting && entry.intersectionRatio >= .35);
+   setCampExitVisible(visible);
+   if (visible) {
+    try { localStorage.setItem(campExitGuideKey, '1'); } catch {}
+    setShowCampExitGuide(false);
+   }
+  }, { root:campMapScrollRef.current, threshold:[0, .35, .75], rootMargin:'-8px 0px -72px 0px' });
+  observer.observe(campExitRef.current);
+ }, 60);
+ return () => {
+  window.clearTimeout(timer);
+  if (observer) observer.disconnect();
+ };
+}, [selectedActivity, frPhase, campExitGuideKey]);
 
 const defaultActivities = [
  { id: 'snake', title: '靈蛇識食', subtitle: '淨化小食怪', img: null, isOpen: config?.isOpen || false },
@@ -10909,7 +10981,8 @@ if (selectedActivity === 'food_research') {
    </div>
 
    {/* Clickable camp map */}
-   <div className="flex-1 overflow-y-auto" style={{padding:'8px 8px 12px'}}>
+   <div className="flex-1 min-h-0" style={{position:'relative'}}>
+   <div ref={campMapScrollRef} className="h-full overflow-y-auto" style={{padding:'8px 8px 56px'}}>
     <div style={{position:'relative', width:'100%', maxWidth:'520px', margin:'0 auto', borderRadius:'16px', overflow:'hidden', border:'1px solid rgba(251,191,36,.38)', boxShadow:'0 18px 50px rgba(0,0,0,.45)', background:'#0d1117'}}>
      <img src={CAMP_ASSETS.map} alt="食研所營地地圖" style={{display:'block', width:'100%', height:'auto', imageRendering:'pixelated', userSelect:'none', pointerEvents:'none'}} />
      <div style={{position:'absolute', inset:0, background:'linear-gradient(180deg,rgba(0,0,0,.08),rgba(0,0,0,.1))', pointerEvents:'none'}} />
@@ -10922,12 +10995,12 @@ if (selectedActivity === 'food_research') {
       const handleMapClick = () => {
        if (locked) { startRebuildQuiz(f.id); return; }
        if (f.id === 'leaderboard') { setFrRankTab('kitchen'); setFrPhase('leaderboard'); return; }
-       if (f.id === 'partner_select') { setChosenPartners([]); chosenPartnersRef.current=[]; }
+       if (f.id === 'partner_select') { openCampDeparture(); return; }
        foodResearchHTMLRef.current='';
        setFrPhase(f.id);
       };
       return (
-       <button key={spot.id} onClick={handleMapClick} className="active:scale-95" title={f.label} style={{
+       <button ref={spot.id==='partner_select'?campExitRef:null} key={spot.id} onClick={handleMapClick} className="active:scale-95" title={f.label} style={{
         position:'absolute',
         left:spot.x+'%',
         top:spot.y+'%',
@@ -10960,6 +11033,21 @@ if (selectedActivity === 'food_research') {
       );
      })}
     </div>
+   </div>
+
+   <div style={{position:'absolute',right:'12px',bottom:'calc(14px + env(safe-area-inset-bottom, 0px))',zIndex:80,display:'flex',flexDirection:'column',alignItems:'flex-end',gap:'8px',pointerEvents:'none'}}>
+    {showCampExitGuide && !campExitVisible && (
+     <div role="status" style={{position:'relative',width:'min(248px, calc(100vw - 24px))',background:'rgba(13,17,23,.96)',border:'1px solid rgba(251,191,36,.72)',borderRadius:'8px',padding:'10px 34px 10px 12px',color:'#e6edf3',fontSize:'11px',fontWeight:800,lineHeight:'1.55',boxShadow:'0 10px 28px rgba(0,0,0,.5)',pointerEvents:'auto'}}>
+      準備完成後，可以從下方的營地出口出征。
+      <button onClick={markCampExitGuideSeen} aria-label="關閉出征提示" title="關閉提示" style={{position:'absolute',top:'5px',right:'5px',width:'26px',height:'26px',border:'none',background:'transparent',color:'#8b949e',fontSize:'18px',fontWeight:900,cursor:'pointer'}}>×</button>
+     </div>
+    )}
+    {!campExitVisible && (
+     <button onClick={revealCampExit} className="camp-exit-nudge" style={{border:'1px solid rgba(251,191,36,.6)',borderRadius:'8px',background:'rgba(13,17,23,.92)',color:'#fde68a',padding:'7px 10px',fontSize:'11px',fontWeight:900,cursor:'pointer',pointerEvents:'auto',boxShadow:'0 6px 18px rgba(0,0,0,.4)'}}>
+      ↓ 下方還有營地出口
+     </button>
+    )}
+   </div>
    </div>
 
    {showCharStatus && (
