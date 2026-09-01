@@ -8922,6 +8922,29 @@ if (selectedActivity === 'food_research') {
   {key:'skillPower', label:'🔮 技能修行', costBase:110, max:10, effect:'小招與大招傷害 +2% / Lv'},
  ];
  const getTrainingCost = (stat, lv) => Math.round(stat.costBase * (1 + lv * .55));
+ const refreshTrainingPhase = () => {
+  setFrPhase('camp');
+  setTimeout(()=>setFrPhase('training'),10);
+ };
+ const adjustTrainingForTest = (stat, delta) => {
+  if (!isSuperAdmin || !stat) return;
+  const latest = loadSave();
+  const currentTraining = latest.training || {};
+  const currentLevel = Math.max(0, Math.min(stat.max, Math.round(Number(currentTraining[stat.key]) || 0)));
+  const nextLevel = Math.max(0, Math.min(stat.max, currentLevel + delta));
+  if (nextLevel === currentLevel) return;
+  writeSave({training:{...currentTraining,[stat.key]:nextLevel}});
+  refreshTrainingPhase();
+ };
+ const resetTrainingForTest = () => {
+  if (!isSuperAdmin || !window.confirm('確定將全部訓練能力歸零？')) return;
+  const latest = loadSave();
+  const currentTraining = latest.training || {};
+  const resetTraining = {...currentTraining};
+  TRAIN_STATS.forEach(stat => { resetTraining[stat.key] = 0; });
+  writeSave({training:resetTraining});
+  refreshTrainingPhase();
+ };
 
  const WEAPON_RARITIES = window.FOOD_RESEARCH_WEAPON_RARITIES || {
   normal:{label:'普通',rate:65,color:'#94a3b8'}, rare:{label:'稀有',rate:20,color:'#38bdf8'},
@@ -9772,18 +9795,38 @@ if (selectedActivity === 'food_research') {
     <NavBar title="⚔️ 訓練所" onBack={()=>setFrPhase('camp')} />
     <div className="flex-1 overflow-y-auto p-4 space-y-3">
      <div style={{...cardStyle, display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-     <span style={{color:'#fbbf24', fontWeight:900, fontSize:'13px'}}>💰 現有金幣</span>
-     <span style={{color:'#fde047', fontWeight:900, fontSize:'18px'}}>{g}</span>
-     </div>
-     {TRAIN_STATS.map(stat => {
+      <span style={{color:'#fbbf24', fontWeight:900, fontSize:'13px'}}>💰 現有金幣</span>
+      <span style={{color:'#fde047', fontWeight:900, fontSize:'18px'}}>{g}</span>
+      </div>
+      {isSuperAdmin && (
+       <div style={{...cardStyle,display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',borderColor:'#7c3aed',background:'rgba(76,29,149,.18)'}}>
+        <span style={{color:'#c4b5fd',fontWeight:900,fontSize:'11px'}}>最高權限測試</span>
+        <button onClick={resetTrainingForTest} style={{border:'1px solid #7f1d1d',borderRadius:'6px',background:'rgba(127,29,29,.25)',color:'#fca5a5',fontSize:'10px',fontWeight:900,padding:'6px 10px',cursor:'pointer'}}>全部歸零</button>
+       </div>
+      )}
+      {TRAIN_STATS.map(stat => {
      const lv = tr[stat.key] || 0;
      const cost = getTrainingCost(stat, lv);
      const maxed = lv >= stat.max;
      return (
       <div key={stat.key} style={cardStyle}>
-      <div style={{display:'flex', justifyContent:'space-between', marginBottom:'8px'}}>
+      <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', gap:'8px', marginBottom:'8px'}}>
        <span style={{color:'#e6edf3', fontWeight:900, fontSize:'13px'}}>{stat.label}</span>
-       <span style={{color:'#8b949e', fontSize:'11px', fontWeight:700}}>Lv {lv}/{stat.max}</span>
+       {isSuperAdmin ? (
+        <div style={{display:'grid',gridTemplateColumns:'28px 64px 28px',alignItems:'center',gap:'5px'}}>
+         <button onClick={()=>adjustTrainingForTest(stat,-1)} disabled={lv<=0} title="降低一級" aria-label={`降低${stat.label}一級`}
+          style={{width:'28px',height:'28px',borderRadius:'6px',border:'1px solid #30363d',background:'#161b22',color:lv<=0?'#484f58':'#f0f6fc',display:'grid',placeItems:'center',cursor:lv<=0?'default':'pointer'}}>
+          <Icon name="minus" size={14}/>
+         </button>
+         <span style={{color:'#c4b5fd', fontSize:'11px', fontWeight:900, textAlign:'center'}}>Lv {lv}/{stat.max}</span>
+         <button onClick={()=>adjustTrainingForTest(stat,1)} disabled={lv>=stat.max} title="提高一級" aria-label={`提高${stat.label}一級`}
+          style={{width:'28px',height:'28px',borderRadius:'6px',border:'1px solid #7c3aed',background:'rgba(76,29,149,.35)',color:lv>=stat.max?'#484f58':'#ddd6fe',display:'grid',placeItems:'center',cursor:lv>=stat.max?'default':'pointer'}}>
+          <Icon name="plus" size={14}/>
+         </button>
+        </div>
+       ) : (
+        <span style={{color:'#8b949e', fontSize:'11px', fontWeight:700}}>Lv {lv}/{stat.max}</span>
+       )}
       </div>
       <div style={{display:'flex', gap:'4px', marginBottom:'8px'}}>
        {Array.from({length:stat.max},(_,i)=>(
@@ -9802,7 +9845,7 @@ if (selectedActivity === 'food_research') {
          const tr2 = s2.training||{atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0,rangedSpeed:0,meleeSpeed:0,critDamage:0,skillPower:0};
          tr2[stat.key] = (tr2[stat.key]||0)+1;
          writeSave({gold: g2-cost, training: tr2});
-         setFrPhase('camp'); setTimeout(()=>setFrPhase('training'),10);
+         refreshTrainingPhase();
         }} style={{...btnPrimary, width:'auto', padding:'6px 14px', fontSize:'11px', opacity: g<cost?'.4':'1'}}>
          升級 💰{cost}
         </button>
