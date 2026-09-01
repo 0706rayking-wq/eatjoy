@@ -1,29 +1,29 @@
 (function () {
   const bossCatalog = [
-    { map:0, id:'tiramisu-jazz', name:'提拉米蘇爵士', intro:'入場券？就用你的勇氣來付吧。', sprite:'boss-tiramisu-jazz.png', color:'#a16207', normal:'cocoaFan', skills:['coffeePools','cookieRain','creamWalls'] },
-    { map:0, id:'jelly-king', name:'史萊姆果凍王', intro:'在我的甜蜜王國，連腳步都會反彈！', sprite:'boss-jelly-king.png', color:'#ec4899', normal:'jellyBounce', skills:['jellyClones','jellyRings','jellyRain'] },
-    { map:1, id:'niu-mowang', name:'牛魔王', intro:'站穩了！本王可不會替你讓路！', sprite:'boss-niu-mowang.png', color:'#dc2626', normal:'hornFan', skills:['doubleCharge','shockRings','cleaverLanes'] },
-    { map:1, id:'yang-mowang', name:'羊魔王', intro:'別被柔軟騙了，羊角可不懂手下留情。', sprite:'boss-yang-mowang.png', color:'#d8b4fe', normal:'woolSplit', skills:['sheepLanes','woolSpiral','slowCharge'] },
-    { map:2, id:'mala-vampire', name:'麻辣湯吸血鬼', intro:'讓我嚐嚐，你的熱血夠不夠辣。', sprite:'boss-mala-vampire.png', color:'#e11d48', normal:'chiliCurve', skills:['drainTether','chiliRain','bloodDash'] },
-    { map:2, id:'white-soup-princess', name:'白雪湯雪姬', intro:'一冷一熱，你能撐過幾回？', sprite:'boss-white-soup-princess.png', color:'#e0f2fe', normal:'brothTriple', skills:['fogAim','iceFlower','hotCold'] },
-    { map:3, id:'bitter-melon-witch', name:'苦瓜巫婆', intro:'吞下這份苦，才有資格談勝利。', sprite:'boss-bitter-melon-witch.png', color:'#65a30d', normal:'crossCrescent', skills:['poisonSweep','seedMines','vineCage'] },
-    { map:3, id:'halloween-pumpkin-king', name:'萬聖南瓜王', intro:'猜猜看，下一顆南瓜會落在哪？', sprite:'boss-halloween-pumpkin-king.png', color:'#f97316', normal:'leadBurst', skills:['pumpkinRoll','lockBeam','pumpkinMeteors'] },
-    { map:4, id:'karaage-superhero', name:'唐揚雞超人', intro:'正義要趁熱，壞蛋也要炸得酥脆！', sprite:'boss-karaage-superhero.png', color:'#f59e0b', normal:'chickenShotgun', skills:['bodySlam','oilRain','tripleDash'] },
-    { map:4, id:'eel-dragon', name:'星鰻龍', intro:'踏錯一步，就會被醬香漩渦吞沒。', sprite:'boss-eel-dragon.png', color:'#92400e', normal:'sauceCurve', skills:['pathDash','conveyor','reverseSpiral'] },
-    { map:5, id:'fried-rice-beast', name:'炒飯獸', intro:'鍋氣已起，你就是今天最後一味！', sprite:'boss-fried-rice-beast.png', color:'#facc15', normal:'riceFan', skills:['riceTornado','eggOrbit','wokShock'] },
-    { map:5, id:'intestine-sandworm', name:'肥腸沙蟲', intro:'地面在動？不，是我來了。', sprite:'boss-intestine-sandworm.png', color:'#fb7185', normal:'ringShot', skills:['sandTrail','lidCross','closingLoops'] },
-    { map:6, id:'durian-icepop-warrior', name:'榴槤冰棒戰士', intro:'聞到只是警告，凍住才是處刑。', sprite:'boss-durian-icepop-warrior.png', color:'#84cc16', normal:'iceFan', skills:['iceSweep','iceColumns','avalanche'] },
-    { map:6, id:'mango-ice-monster', name:'芒果冰怪', intro:'甜得越迷人，雪崩就越無情。', sprite:'boss-mango-ice-monster.png', color:'#fbbf24', normal:'turnTwin', skills:['syrupPools','snowcone','sideAvalanche'] },
-    { map:7, id:'fries-swordsman', name:'薯條劍宗', intro:'刀落如雨，接得住便算你有本事。', sprite:'boss-fries-swordsman.png', color:'#f59e0b', normal:'crossSlash', skills:['fryColumns','lineSlashes','orbitFries'] },
-    { map:7, id:'pasta-mummy', name:'義大利麵木乃伊', intro:'麵線纏身之時，掙扎只會打成死結。', sprite:'boss-pasta-mummy.png', color:'#ef4444', normal:'noodleCurve', skills:['tomatoSpiral','contractingCircles','noodleGrid'] },
-    { map:8, id:'pastry-soup-wizard', name:'酥皮濃湯惡巫師', intro:'酥皮一裂，濃湯將吞沒整座戰場。', sprite:'boss-pastry-soup-wizard.png', color:'#d97706', normal:'flakeCross', skills:['groundEruptions','shieldRadial','insideOutside'] },
-    { map:8, id:'cream-chicken-pontiff', name:'奶油燉雞邪教宗', intro:'接受奶油的洗禮，沉入濃醇的永恆吧。', sprite:'boss-cream-chicken-pontiff.png', color:'#fef08a', normal:'creamSplit', skills:['chickenLegRain','creamSweep','closingWalls'] },
-    { map:9, id:'octopus-warrior', name:'八爪章魚戰士', intro:'八臂皆刃，你能看住幾個方向？', sprite:'boss-octopus-warrior.png', color:'#7c3aed', normal:'inkFan', skills:['tentacleLanes','inkCloud','centerPull'] },
-    { map:9, id:'heavy-armor-mech', name:'重甲機兵', intro:'裝甲鎖定。所有逃生路線，全部封閉。', sprite:'boss-heavy-armor-mech.png', color:'#0891b2', normal:'clawCrescent', skills:['horizontalCharges','bubbleLock','waterWalls'] },
-    { map:10, id:'little-thunder-god', name:'小雷神', intro:'能走到這裡……很好。接下我這一道雷。', intro22:'你果然回來了。這一次，我不會再保留。', stage11Defeat:'你的力量，我記住了……我們還會再見。', phase12:'真不簡單，盡你的全力吧', phase23:'看得出你很想贏啊？不過，我也是', nearDefeat:'很好……這才是我等待已久的戰鬥！', sprite:'little-thunder-god-phase1-spritesheet.png', color:'#60a5fa', normal:'hiddenSpark', skills:['thunderMarks','cloakDash','staticCage'], phaseKits:[
-      { name:'第一型態・雷幕披風', color:'#a78bfa', normal:'hiddenSpark', skills:['thunderMarks','cloakDash','staticCage'] },
-      { name:'第二型態・雷鎧真身', color:'#38bdf8', normal:'vajraFan', skills:['heavenLances','warDrumRings','armorCounter'] },
-      { name:'第三型態・閃電化身', color:'#facc15', normal:'livingLightning', skills:['ninefoldJudgment','thunderDomain','finalThunderstorm'] }
+    { map:0, id:'tiramisu-jazz', name:'提拉米蘇爵士', intro:'入場券？就用你的勇氣來付吧。', death:'呵……今晚的爵士曲，該落幕了。', sprite:'boss-tiramisu-jazz.png', color:'#a16207', normal:'cocoaFan', skills:['coffeePools','cookieRain','creamWalls'] },
+    { map:0, id:'jelly-king', name:'史萊姆果凍王', intro:'在我的甜蜜王國，連腳步都會反彈！', death:'王冠碎了……甜蜜王國也融化了……', sprite:'boss-jelly-king.png', color:'#ec4899', normal:'jellyBounce', skills:['jellyClones','jellyRings','jellyRain'] },
+    { map:1, id:'niu-mowang', name:'牛魔王', intro:'站穩了！本王可不會替你讓路！', death:'好力道……本王認輸！', sprite:'boss-niu-mowang.png', color:'#dc2626', normal:'hornFan', skills:['doubleCharge','shockRings','cleaverLanes'] },
+    { map:1, id:'yang-mowang', name:'羊魔王', intro:'別被柔軟騙了，羊角可不懂手下留情。', death:'原來真正柔中帶剛的……是你。', sprite:'boss-yang-mowang.png', color:'#d8b4fe', normal:'woolSplit', skills:['sheepLanes','woolSpiral','slowCharge'] },
+    { map:2, id:'mala-vampire', name:'麻辣湯吸血鬼', intro:'讓我嚐嚐，你的熱血夠不夠辣。', death:'這股辣……竟燒盡了我的長夜……', sprite:'boss-mala-vampire.png', color:'#e11d48', normal:'chiliCurve', skills:['drainTether','chiliRain','bloodDash'] },
+    { map:2, id:'white-soup-princess', name:'白雪湯雪姬', intro:'一冷一熱，你能撐過幾回？', death:'冰雪融了……這鍋湯，交給你了……', sprite:'boss-white-soup-princess.png', color:'#e0f2fe', normal:'brothTriple', skills:['fogAim','iceFlower','hotCold'] },
+    { map:3, id:'bitter-melon-witch', name:'苦瓜巫婆', intro:'吞下這份苦，才有資格談勝利。', death:'苦盡之後……原來真有回甘……', sprite:'boss-bitter-melon-witch.png', color:'#65a30d', normal:'crossCrescent', skills:['poisonSweep','seedMines','vineCage'] },
+    { map:3, id:'halloween-pumpkin-king', name:'萬聖南瓜王', intro:'猜猜看，下一顆南瓜會落在哪？', death:'燈火熄滅……萬聖夜結束了……', sprite:'boss-halloween-pumpkin-king.png', color:'#f97316', normal:'leadBurst', skills:['pumpkinRoll','lockBeam','pumpkinMeteors'] },
+    { map:4, id:'karaage-superhero', name:'唐揚雞超人', intro:'正義要趁熱，壞蛋也要炸得酥脆！', death:'正義……今天站在你那邊。', sprite:'boss-karaage-superhero.png', color:'#f59e0b', normal:'chickenShotgun', skills:['bodySlam','oilRain','tripleDash'] },
+    { map:4, id:'eel-dragon', name:'星鰻龍', intro:'踏錯一步，就會被醬香漩渦吞沒。', death:'醬香散了……好一場漂亮的翻身。', sprite:'boss-eel-dragon.png', color:'#92400e', normal:'sauceCurve', skills:['pathDash','conveyor','reverseSpiral'] },
+    { map:5, id:'fried-rice-beast', name:'炒飯獸', intro:'鍋氣已起，你就是今天最後一味！', death:'你的鍋氣……比我更旺……', sprite:'boss-fried-rice-beast.png', color:'#facc15', normal:'riceFan', skills:['riceTornado','eggOrbit','wokShock'] },
+    { map:5, id:'intestine-sandworm', name:'肥腸沙蟲', intro:'地面在動？不，是我來了。', death:'地面平靜了……但飢餓不會消失……', sprite:'boss-intestine-sandworm.png', color:'#fb7185', normal:'ringShot', skills:['sandTrail','lidCross','closingLoops'] },
+    { map:6, id:'durian-icepop-warrior', name:'榴槤冰棒戰士', intro:'聞到只是警告，凍住才是處刑。', death:'冰殼碎了……氣味仍會留下……', sprite:'boss-durian-icepop-warrior.png', color:'#84cc16', normal:'iceFan', skills:['iceSweep','iceColumns','avalanche'] },
+    { map:6, id:'mango-ice-monster', name:'芒果冰怪', intro:'甜得越迷人，雪崩就越無情。', death:'雪崩停了……甜味也化了……', sprite:'boss-mango-ice-monster.png', color:'#fbbf24', normal:'turnTwin', skills:['syrupPools','snowcone','sideAvalanche'] },
+    { map:7, id:'fries-swordsman', name:'薯條劍宗', intro:'刀落如雨，接得住便算你有本事。', death:'此刀已鈍……你勝得漂亮。', sprite:'boss-fries-swordsman.png', color:'#f59e0b', normal:'crossSlash', skills:['fryColumns','lineSlashes','orbitFries'] },
+    { map:7, id:'pasta-mummy', name:'義大利麵木乃伊', intro:'麵線纏身之時，掙扎只會打成死結。', death:'纏了千年的麵線……終於斷了……', sprite:'boss-pasta-mummy.png', color:'#ef4444', normal:'noodleCurve', skills:['tomatoSpiral','contractingCircles','noodleGrid'] },
+    { map:8, id:'pastry-soup-wizard', name:'酥皮濃湯惡巫師', intro:'酥皮一裂，濃湯將吞沒整座戰場。', death:'酥皮崩裂……我的濃湯也冷了……', sprite:'boss-pastry-soup-wizard.png', color:'#d97706', normal:'flakeCross', skills:['groundEruptions','shieldRadial','insideOutside'] },
+    { map:8, id:'cream-chicken-pontiff', name:'奶油燉雞邪教宗', intro:'接受奶油的洗禮，沉入濃醇的永恆吧。', death:'洗禮結束……濃醇的神諭已散……', sprite:'boss-cream-chicken-pontiff.png', color:'#fef08a', normal:'creamSplit', skills:['chickenLegRain','creamSweep','closingWalls'] },
+    { map:9, id:'octopus-warrior', name:'八爪章魚戰士', intro:'八臂皆刃，你能看住幾個方向？', death:'八臂皆敗……你看穿了所有攻勢……', sprite:'boss-octopus-warrior.png', color:'#7c3aed', normal:'inkFan', skills:['tentacleLanes','inkCloud','centerPull'] },
+    { map:9, id:'heavy-armor-mech', name:'重甲機兵', intro:'裝甲鎖定。所有逃生路線，全部封閉。', death:'裝甲解除……戰鬥系統，停止……', sprite:'boss-heavy-armor-mech.png', color:'#0891b2', normal:'clawCrescent', skills:['horizontalCharges','bubbleLock','waterWalls'] },
+    { map:10, id:'little-thunder-god', name:'小雷神', intro:'能走到這裡……很好。接下我這一道雷。', intro22:'你果然回來了。這一次，我不會再保留。', stage11Defeat:'你的力量，我記住了……我們還會再見。', death:'痛快……能在全力一戰後敗給你，我沒有遺憾。', phase12:'真不簡單，盡你的全力吧', phase23:'看得出你很想贏啊？不過，我也是', nearDefeat:'很好……這才是我等待已久的戰鬥！', sprite:'little-thunder-god-phase1-spritesheet.png', color:'#60a5fa', normal:'hiddenSpark', skills:['thunderMarks','cloakDash','staticCage','fiveLaserCannons'], phaseKits:[
+      { name:'第一型態・雷幕披風', color:'#a78bfa', normal:'hiddenSpark', skills:['thunderMarks','cloakDash','staticCage','fiveLaserCannons'] },
+      { name:'第二型態・雷鎧真身', color:'#38bdf8', normal:'vajraFan', skills:['heavenLances','warDrumRings','armorCounter','sixWayLances','orbitLances','lanceRush'] },
+      { name:'第三型態・閃電化身', color:'#facc15', normal:'livingLightning', skills:['ninefoldJudgment','thunderDomain','finalThunderstorm','crossThunderPillars','delayedThunderOrbs'] }
     ] }
   ];
 
@@ -31,6 +31,7 @@
   window.FOOD_RESEARCH_BOSS_PATCH = String.raw`
 const FR_BOSS_CATALOG = ${JSON.stringify(bossCatalog)};
 const FR_BOSS_BY_MAP = FR_BOSS_CATALOG.reduce(function(out,item){(out[item.map]||(out[item.map]=[])).push(item);return out;},{});
+const FR_STAGE11_THUNDER={hp:1.20,shield:1.15,damage:1.08,normalCd:.88,skillCd:.90,closeRadius:90,closeHold:60,closeWarn:42,closeCooldown:360};
 const FR_BOSS_IMAGES = {};
 const FR_THUNDER_IMAGES={};
 const FR_THUNDER_SOURCES={
@@ -66,6 +67,8 @@ function frBossAim(b,predict){
 }
 function frBossShot(b,angle,speed,damage,color,radius,options){
   const opt=options||{};
+  const stageSpeed=stage>=16?1.10:stage>=11?1.05:1;
+  speed*=stageSpeed;
   const shot=new Bullet(b.x+(opt.ox||0),b.y+(opt.oy||36),Math.cos(angle)*speed,Math.sin(angle)*speed,damage,color||b.color,radius||7,false,false,!!opt.burn);
   const baseUpdate=shot.update.bind(shot);
   const baseDead=shot.dead.bind(shot);
@@ -73,9 +76,14 @@ function frBossShot(b,angle,speed,damage,color,radius,options){
   shot.frStatus=opt.status||null;
   shot.update=function(){
     if(this._frDead)return;
+    if(Number.isFinite(opt.stopX)&&Number.isFinite(opt.stopY)&&!this._frStopped){
+      const remain=Math.hypot(opt.stopX-this.x,opt.stopY-this.y),step=Math.max(1,Math.hypot(this.vx,this.vy));
+      if(remain<=step+8){this.x=opt.stopX;this.y=opt.stopY;this.vx=0;this.vy=0;this._frStopped=true;this._frStoppedAt=this.age;}
+    }
     if(opt.curve){const a=Math.atan2(this.vy,this.vx)+opt.curve;const sp=Math.hypot(this.vx,this.vy);this.vx=Math.cos(a)*sp;this.vy=Math.sin(a)*sp;}
     if(opt.turnAt&&this.age===opt.turnAt){const a=frBossAim(b,true);const sp=Math.hypot(this.vx,this.vy);this.vx=Math.cos(a)*sp;this.vy=Math.sin(a)*sp;}
     baseUpdate();
+    if(this._frStopped&&this.age-this._frStoppedAt>=18){frBossHazard({kind:'circle',x:this.x,y:this.y,r:68,color:opt.explodeColor||this.color,damage:opt.explodeDamage||this.dmg,status:opt.status||null,delay:30,minDelay:24,duration:12});this._frDead=true;}
     if(opt.bounce){if(this.x<this.r&&this.vx<0)this.vx*=-1;if(this.x>CW-this.r&&this.vx>0)this.vx*=-1;}
     if(opt.splitAt&&this.age===opt.splitAt){for(let i=0;i<opt.splitCount;i++){const a=Math.PI*2*i/opt.splitCount;frBossShot({x:this.x,y:this.y,color:this.color},a,opt.splitSpeed||3,Math.max(6,this.dmg*.7),this.color,Math.max(4,this.r*.7));}this._frDead=true;}
   };
@@ -97,6 +105,16 @@ function frBossWarning(b,kind,frames,data){
   b._frWarnings.push(w);return w;
 }
 function frBossAnimate(b,frames){b._frAnimStart=b.timer;b._frAnimUntil=b.timer+(frames||30);}
+function frBossSpeak(b,text,color){
+  if(!text)return;
+  let box=document.getElementById('frBossDialogue');
+  if(!box){box=document.createElement('div');box.id='frBossDialogue';box.style.cssText="position:absolute;left:6%;right:6%;bottom:21%;z-index:58;padding:9px 12px;border:1px solid rgba(255,255,255,.22);border-radius:8px;background:rgba(5,10,20,.82);color:#fff;text-align:center;font-size:15px;line-height:1.45;font-weight:900;text-shadow:0 1px 3px #000;pointer-events:none;opacity:0;transform:translate3d(0,6px,0);transition:opacity .5s ease,transform .5s ease";(document.getElementById('gc')||document.body).appendChild(box);}
+  clearTimeout(box._frHoldTimer);clearTimeout(box._frFadeTimer);box.textContent=(b&&b.name?b.name:'BOSS')+'：「'+text+'」';box.style.color=color||b&&b.color||'#fff';box.style.display='block';box.style.opacity='0';box.style.transform='translate3d(0,6px,0)';
+  requestAnimationFrame(function(){box.style.opacity='1';box.style.transform='translate3d(0,0,0)';});
+  box._frHoldTimer=setTimeout(function(){box.style.opacity='0';box.style.transform='translate3d(0,4px,0)';},2000);
+  box._frFadeTimer=setTimeout(function(){box.style.display='none';},2550);
+  if(b)b._frBusyUntil=Math.max(b._frBusyUntil||0,b.timer+150);
+}
 function frBossApplyStatus(status){
   if(!status||!player||player.hp<=0)return;
   const now=performance.now(),kind=typeof status==='string'?status:status.kind;
@@ -138,7 +156,7 @@ function frBossHurtOnce(h,amount){
 }
 
 class FrBossHazard{
-  constructor(options){Object.assign(this,{age:0,dead:false,delay:60,duration:90,kind:'circle',x:CW/2,y:CH/2,r:60,w:60,h:60,color:'#ef4444',damage:18,lastHit:-999,slow:0,status:null},options||{});if(this.delay>0)this.delay=Math.max(60,this.delay);}
+  constructor(options){Object.assign(this,{age:0,dead:false,delay:60,duration:90,kind:'circle',x:CW/2,y:CH/2,r:60,w:60,h:60,color:'#ef4444',damage:18,lastHit:-999,slow:0,status:null,minDelay:60},options||{});if(this.delay>0)this.delay=Math.max(this.minDelay||60,this.delay);}
   update(){
     this.age++;
     if(this.age>this.delay){if(this.moveX)this.x+=this.moveX;if(this.moveY)this.y+=this.moveY;}
@@ -225,7 +243,7 @@ function frBossMeteor(b,count,color,damage,largeLast,status){
   for(let i=0;i<count;i++)frBossLater(b,i*18,function(){const x=35+Math.random()*(CW-70),y=130+Math.random()*(CH-210);frBossHazard({kind:'circle',x:x,y:y,r:largeLast&&i===count-1?88:42,color:color,damage:damage,status:status||null,delay:48,duration:14});});
 }
 function frBossCast(b,pattern,isSkill){
-  const c=b.color,curve=frBalanceCurve(stage),phasePower=b._frFinal?[1,1.15,1.32][b._frThunderPhase||0]:1,d=Math.round((isSkill?14:9)*curve.bossDamage*phasePower),w=55;
+  const c=b.color,curve=frBalanceCurve(stage),phasePower=b._frFinal?[1,1.15,1.32][b._frThunderPhase||0]:1,stage11Power=b._frStage11Enhanced?FR_STAGE11_THUNDER.damage:1,d=Math.round((isSkill?14:9)*curve.bossDamage*phasePower*stage11Power),w=55;
   b._frBusyUntil=b.timer+(isSkill?118:76);frBossAnimate(b,isSkill?105:72);
   if(isSkill)frBossWarning(b,'circle',48,{r:82});
   addText(isSkill?'⚠ '+b._frSkillLabels[pattern]:b._frNormalLabel,b.x,b.y-86,c,isSkill?15:12);
@@ -299,18 +317,24 @@ function frBossCast(b,pattern,isSkill){
   else if(pattern==='horizontalCharges'){for(let q=0;q<3;q++)frBossLater(b,q*68,function(){const side=Math.random()<.5?-1:1,y=150+Math.random()*(CH-230);frBossHazard({kind:'line',x:side<0?0:CW,y:y,x2:side<0?CW:0,y2:y,w:44,color:c,damage:d,delay:46,duration:24});});}
   else if(pattern==='bubbleLock'){const x=player.x,y=player.y;for(let q=0;q<3;q++)frBossLater(b,q*38,function(){frBossHazard({kind:'circle',x:x+(Math.random()-.5)*80,y:y+(Math.random()-.5)*80,r:42+q*8,color:c,damage:d,status:{kind:'slow',duration:2500},delay:55,duration:20});});}
   else if(pattern==='waterWalls'){for(let q=0;q<4;q++)frBossLater(b,q*25,function(){frBossWallWithGap(b,q%2?-1:1,c,d);});}
-  else if(pattern==='hiddenSpark'){frBossWarning(b,'cone',42,{angle:frBossAim(b),spread:.38});frBossLater(b,42,function(){const a=frBossAim(b,true);frBossFan(b,3,4.1,d,.2,c,{radius:7,status:{kind:'paralyze',duration:1000}},a);});}
-  else if(pattern==='thunderMarks'){for(let q=0;q<4;q++)frBossLater(b,q*23,function(){frBossHazard({kind:'circle',x:player.x+(Math.random()-.5)*72,y:player.y+(Math.random()-.5)*58,r:42,color:'#fde047',damage:d,status:{kind:'paralyze',duration:1000},delay:46,duration:12});});}
-  else if(pattern==='cloakDash'){for(let q=0;q<3;q++)frBossLater(b,q*62,function(){const a=frBossAim(b,true);frBossWarning(b,'line',38,{angle:a,color:'#c4b5fd'});frBossLater(b,38,function(){b._frDash={vx:Math.cos(a)*9,vy:Math.sin(a)*9,left:22,damage:d,status:{kind:'paralyze',duration:1000}};});});}
+  else if(pattern==='hiddenSpark'){frBossWarning(b,'cone',42,{angle:frBossAim(b),spread:.38});frBossLater(b,42,function(){const a=frBossAim(b,true),count=b._frStage11Rage?4:3;frBossFan(b,count,4.1,d,.2,c,{radius:7,status:{kind:'paralyze',duration:1000}},a);});}
+  else if(pattern==='thunderMarks'){const count=b._frStage11Rage?5:4;for(let q=0;q<count;q++)frBossLater(b,q*23,function(){frBossHazard({kind:'circle',x:player.x+(Math.random()-.5)*72,y:player.y+(Math.random()-.5)*58,r:42,color:'#fde047',damage:d,status:{kind:'paralyze',duration:1000},delay:46,duration:12});});}
+  else if(pattern==='cloakDash'){for(let q=0;q<3;q++)frBossLater(b,q*62,function(){const a=frBossAim(b,true);frBossWarning(b,'line',38,{angle:a,color:'#c4b5fd'});frBossLater(b,38,function(){const speed=9*(b._frStage11Rage?1.1:1);b._frDash={vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,left:22,damage:d,status:{kind:'paralyze',duration:1000}};});});}
   else if(pattern==='staticCage'){const gap=Math.floor(Math.random()*12);for(let i=0;i<12;i++){if(i===gap||i===(gap+1)%12)continue;const a=Math.PI*2*i/12;frBossHazard({kind:'circle',x:player.x+Math.cos(a)*132,y:player.y+Math.sin(a)*132,r:23,color:'#a78bfa',damage:d,status:{kind:'paralyze',duration:1000},delay:58,duration:100});}frBossLater(b,82,function(){frBossRadial(b,10,3.5,d,c,.2);});}
+  else if(pattern==='fiveLaserCannons'){b._frBusyUntil=Math.max(b._frBusyUntil,b.timer+150);for(let q=0;q<5;q++)frBossLater(b,q*24,function(){const a=frBossAim(b,true),reach=Math.max(CW,CH)*1.55;frBossHazard({kind:'line',x:b.x,y:b.y,x2:b.x+Math.cos(a)*reach,y2:b.y+Math.sin(a)*reach,w:13,color:'#ddd6fe',damage:d,status:{kind:'paralyze',duration:1000},delay:30,minDelay:24,duration:10});});}
   else if(pattern==='vajraFan'){frBossWarning(b,'cone',44,{angle:frBossAim(b,true),spread:.58});frBossLater(b,44,function(){frBossFan(b,5,5,d,.15,c,{radius:8},frBossAim(b,true));});}
   else if(pattern==='heavenLances'){for(let q=0;q<3;q++)frBossLater(b,q*64,function(){const a=frBossAim(b,true);frBossWarning(b,'line',46,{angle:a,color:'#38bdf8'});frBossLater(b,46,function(){frBossHazard({kind:'line',x:b.x,y:b.y,x2:b.x+Math.cos(a)*CH*1.5,y2:b.y+Math.sin(a)*CH*1.5,w:38,color:'#7dd3fc',damage:d,status:{kind:'paralyze',duration:1000},delay:0,duration:18});});});}
   else if(pattern==='warDrumRings'){for(let q=0;q<4;q++)frBossLater(b,q*32,function(){frBossRadial(b,12,3.2+q*.28,d,c,q*.23,q===3?{status:{kind:'paralyze',duration:1000}}:null);});}
   else if(pattern==='armorCounter'){b._frArmorCounterUntil=b.timer+105;addText('雷鎧反震',b.x,b.y-104,'#7dd3fc',15);for(let q=0;q<3;q++)frBossLater(b,48+q*26,function(){frBossRadial(b,10,3.7,d,c,q*.3);});}
+  else if(pattern==='sixWayLances'){b._frBusyUntil=Math.max(b._frBusyUntil,b.timer+205);const offset=Math.random()*Math.PI*2;for(let q=0;q<6;q++)frBossLater(b,q*30,function(){const a=offset+Math.PI*2*q/6,sx=CW/2+Math.cos(a)*Math.max(CW,CH),sy=CH/2+Math.sin(a)*Math.max(CW,CH),tx=player.x+(player.vx||0)*12,ty=player.y+(player.vy||0)*12,aim=Math.atan2(ty-sy,tx-sx),reach=Math.max(CW,CH)*1.8;frBossHazard({kind:'line',x:sx,y:sy,x2:sx+Math.cos(aim)*reach,y2:sy+Math.sin(aim)*reach,w:17,color:'#7dd3fc',damage:d,status:{kind:'paralyze',duration:1000},delay:32,minDelay:24,duration:11});});}
+  else if(pattern==='orbitLances'){b._frBusyUntil=Math.max(b._frBusyUntil,b.timer+185);for(let q=0;q<6;q++)frBossLater(b,q*26,function(){const orbit=Math.PI*2*q/6+b.timer*.04,sx=b.x+Math.cos(orbit)*76,sy=b.y+Math.sin(orbit)*76,aim=Math.atan2(player.y-sy,player.x-sx),reach=Math.max(CW,CH)*1.5;frBossHazard({kind:'line',x:sx,y:sy,x2:sx+Math.cos(aim)*reach,y2:sy+Math.sin(aim)*reach,w:16,color:'#bae6fd',damage:d,status:{kind:'paralyze',duration:1000},delay:30,minDelay:24,duration:10});});}
+  else if(pattern==='lanceRush'){b._frBusyUntil=Math.max(b._frBusyUntil,b.timer+285);for(let q=0;q<5;q++)frBossLater(b,q*52,function(){const a=frBossAim(b,true);frBossWarning(b,'line',28,{x:b.x,y:b.y,angle:a,color:'#7dd3fc'});frBossLater(b,28,function(){b._frDash={vx:Math.cos(a)*10,vy:Math.sin(a)*10,left:20,damage:d,status:{kind:'paralyze',duration:1000}};});});}
   else if(pattern==='livingLightning'){const a=frBossAim(b,true);frBossWarning(b,'line',34,{angle:a,color:'#fde047'});frBossLater(b,34,function(){for(let q=-1;q<=1;q++)frBossShot(b,a+q*.12,6.2,d,'#fef08a',7,{status:q===0?{kind:'paralyze',duration:1000}:null});});}
   else if(pattern==='ninefoldJudgment'){for(let q=0;q<9;q++)frBossLater(b,q*15,function(){frBossHazard({kind:'circle',x:player.x+(Math.random()-.5)*120,y:player.y+(Math.random()-.5)*95,r:q===8?72:36,color:'#facc15',damage:d,status:{kind:'paralyze',duration:1000},delay:40,duration:11});});}
   else if(pattern==='thunderDomain'){frBossHazard({kind:'circle',x:CW/2,y:CH*.56,r:105,color:'#fef08a',damage:d,status:{kind:'paralyze',duration:1000},delay:55,duration:25});frBossLater(b,105,function(){frBossHazard({kind:'ring',x:CW/2,y:CH*.56,r:230,inner:108,color:'#facc15',damage:d,status:{kind:'paralyze',duration:1000},delay:48,duration:28});});frBossLater(b,180,function(){frBossRadial(b,16,4,d,c,.1);});}
   else if(pattern==='finalThunderstorm'){for(let q=0;q<10;q++)frBossLater(b,q*16,function(){frBossHazard({kind:'circle',x:30+Math.random()*(CW-60),y:125+Math.random()*(CH-185),r:q>7?64:38,color:'#facc15',damage:d,status:{kind:'paralyze',duration:1000},delay:42,duration:12});});for(let q=0;q<4;q++)frBossLater(b,45+q*40,function(){frBossRadial(b,14,3.8,d,c,q*.31);});}
+  else if(pattern==='crossThunderPillars'){b._frBusyUntil=Math.max(b._frBusyUntil,b.timer+110);const base=Math.floor(Math.random()*8)*Math.PI/4;for(let q=0;q<2;q++){const a=base+q*(Math.PI/2+Math.PI/4),cx=CW*(.32+.36*Math.random()),cy=CH*(.38+.3*Math.random()),reach=Math.max(CW,CH)*1.5;frBossLater(b,q*36,function(){frBossHazard({kind:'line',x:cx-Math.cos(a)*reach,y:cy-Math.sin(a)*reach,x2:cx+Math.cos(a)*reach,y2:cy+Math.sin(a)*reach,w:34,color:'#fef08a',damage:d,status:{kind:'paralyze',duration:1000},delay:32,minDelay:24,duration:22});});}}
+  else if(pattern==='delayedThunderOrbs'){b._frBusyUntil=Math.max(b._frBusyUntil,b.timer+175);for(let q=0;q<3;q++)frBossLater(b,q*46,function(){const tx=player.x+(player.vx||0)*10,ty=player.y+(player.vy||0)*10,a=Math.atan2(ty-b.y,tx-b.x);frBossWarning(b,'line',26,{angle:a,color:'#fef08a'});frBossLater(b,26,function(){frBossShot(b,a,4.5,d,'#fef08a',16,{stopX:tx,stopY:ty,explodeColor:'#facc15',explodeDamage:Math.round(d*1.15),status:{kind:'paralyze',duration:1000}});});});}
 }
 
 const FR_BOSS_SKILL_LABELS={
@@ -324,7 +348,7 @@ const FR_BOSS_SKILL_LABELS={
   fryColumns:'薯條劍雨',lineSlashes:'一閃三斬',orbitFries:'薯條劍陣',tomatoSpiral:'番茄螺旋',contractingCircles:'麵圈束縛',noodleGrid:'麵條九宮格',
   groundEruptions:'濃湯地湧',shieldRadial:'酥皮護盾',insideOutside:'內外翻煮',chickenLegRain:'燉雞天降',creamSweep:'奶油洪流',closingWalls:'奶油合壁',
   tentacleLanes:'八爪拍擊',inkCloud:'墨雲彈幕',centerPull:'深海漩渦',horizontalCharges:'重甲橫衝',bubbleLock:'泡影鎖定',waterWalls:'水牆鉗殺',
-  thunderMarks:'雷印追獵',cloakDash:'披風雷閃',staticCage:'靜電牢籠',heavenLances:'天雷槍陣',warDrumRings:'雷鼓震環',armorCounter:'雷鎧反震',ninefoldJudgment:'九重天罰',thunderDomain:'雷神領域',finalThunderstorm:'終焉雷暴'
+  thunderMarks:'雷印追獵',cloakDash:'披風雷閃',staticCage:'靜電牢籠',fiveLaserCannons:'五連雷射砲',heavenLances:'天雷槍陣',warDrumRings:'雷鼓震環',armorCounter:'雷鎧反震',sixWayLances:'六合雷槍',orbitLances:'雷槍輪陣',lanceRush:'雷槍五突',ninefoldJudgment:'九重天罰',thunderDomain:'雷神領域',finalThunderstorm:'終焉雷暴',crossThunderPillars:'八方雷柱',delayedThunderOrbs:'雷光爆彈'
 };
 const FR_BOSS_NORMAL_LABELS={
   cocoaFan:'可可扇射',jellyBounce:'彈跳果凍',hornFan:'魔角三連',woolSplit:'分裂羊毛',chiliCurve:'辣椒蝠刃',brothTriple:'雪湯三珠',crossCrescent:'苦月交叉',leadBurst:'預判鬼火',chickenShotgun:'唐揚散射',sauceCurve:'蒲燒雙刃',riceFan:'米粒扇射',ringShot:'腸圈彈',iceFan:'榴槤冰片',turnTwin:'芒果折射',crossSlash:'薯條交叉斬',noodleCurve:'麵帶曲射',flakeCross:'酥皮十字',creamSplit:'奶油分裂彈',inkFan:'墨汁三連',clawCrescent:'機爪雙月',hiddenSpark:'隱雷三閃',vajraFan:'金剛雷扇',livingLightning:'閃電追獵'
@@ -333,7 +357,7 @@ function frThunderApplyPhase(b,phase,refill){
   const root=b._frRootDef||b._frDef,kits=root.phaseKits||[],kit=kits[phase]||kits[0];
   b._frThunderPhase=phase;b._frDef=Object.assign({},root,kit);b.name='小雷神';b.color=kit.color;
   b._frSkillBag=frBossShuffle(kit.skills);b._frNormalLabel=FR_BOSS_NORMAL_LABELS[kit.normal]||'雷擊';
-  b._frAttackCd=phase===0?88:phase===1?74:60;b._frAttackCount=0;b._frBusyUntil=b.timer+45;b._frEvents=[];b._frWarnings=[];b._frDash=null;b._frTether=null;b._frArmorCounterUntil=0;
+  b._frAttackCd=phase===0?88:phase===1?74:60;b._frAttackCount=0;b._frSkillCastCount=0;b._frBusyUntil=b.timer+45;b._frEvents=[];b._frWarnings=[];b._frDash=null;b._frTether=null;b._frArmorCounterUntil=0;
   if(refill){b.hp=b.maxHp;b.shield=b.maxShield;b.shieldBroken=false;b.shieldResetTimer=10*60;updateBossHp();updateBossShield();}
   frThunderImage('phase'+(phase+1));
   if(b._frFullEncounter&&phase===0){frThunderImage('transition12');frThunderImage('phase2');}
@@ -345,9 +369,9 @@ function frThunderApplyPhase(b,phase,refill){
 function frThunderStartTransition(b,nextPhase){
   b.hp=0;updateBossHp();b._frEvents=[];b._frWarnings=[];b._frDash=null;b._frTether=null;b._frBusyUntil=Infinity;
   eBullets=[];hazards=hazards.filter(function(h){return h&&h._frThunderField;});
-  b._frTransition={from:b._frThunderPhase,to:nextPhase,start:b.timer,duration:66};
+  b._frTransition={from:b._frThunderPhase,to:nextPhase,start:b.timer,duration:150};
   const line=nextPhase===1?b._frRootDef.phase12:b._frRootDef.phase23;
-  addText('小雷神：「'+line+'」',CW/2,CH*.34,'#fde047',18,-.2);
+  frBossSpeak(b,line,'#fde047');
 }
 function frThunderUpdateTransition(b){
   const tr=b._frTransition;if(!tr)return false;
@@ -359,8 +383,8 @@ function frThunderTakeDamage(b,amount,isQa){
   if(!b._frFullEncounter||b._frThunderPhase>=2){
     const wasDefeated=b._defeated,ratioBefore=b.hp/Math.max(1,b.maxHp);
     frBaseBoss.prototype.takeDamage.call(b,amount,isQa);
-    if(!b._frFullEncounter&&!wasDefeated&&b._defeated&&!b._frStage11DefeatSpoken){b._frStage11DefeatSpoken=true;addText('小雷神：「'+b._frRootDef.stage11Defeat+'」',CW/2,CH*.34,'#a78bfa',18,-.2);}
-    if(b._frFullEncounter&&b._frThunderPhase>=2&&!b._frNearDefeatSpoken&&ratioBefore>.2&&b.hp/Math.max(1,b.maxHp)<=.2){b._frNearDefeatSpoken=true;addText('小雷神：「'+b._frRootDef.nearDefeat+'」',CW/2,CH*.34,'#fde047',18,-.2);}
+    if(!b._frFullEncounter&&!wasDefeated&&b._defeated&&!b._frStage11DefeatSpoken)b._frStage11DefeatSpoken=true;
+    if(b._frFullEncounter&&b._frThunderPhase>=2&&!b._frNearDefeatSpoken&&ratioBefore>.2&&b.hp/Math.max(1,b.maxHp)<=.2){b._frNearDefeatSpoken=true;frBossSpeak(b,b._frRootDef.nearDefeat,'#fde047');}
     return;
   }
   let dealt=Math.max(1,Number(amount)||1);
@@ -377,6 +401,27 @@ function frThunderTakeDamage(b,amount,isQa){
   b.hp=Math.max(0,b.hp-dealt);addText('-'+Math.round(dealt),b.x,b.y-70,'#fde68a',13,-.45);updateBossHp();
   if(typeof frFormRegisterHit==='function')frFormRegisterHit(b,wasAlive);
   if(b.hp<=0)frThunderStartTransition(b,b._frThunderPhase+1);
+}
+function frThunderStage11ClosePressure(b){
+  if(!b._frStage11Enhanced||b._defeated||b._frTransition)return;
+  if(b.timer<(b._frStage11CloseReadyAt||0)){b._frStage11CloseFrames=0;return;}
+  const distance=Math.hypot(player.x-b.x,player.y-b.y);
+  if(distance>FR_STAGE11_THUNDER.closeRadius){b._frStage11CloseFrames=0;return;}
+  b._frStage11CloseFrames=(b._frStage11CloseFrames||0)+1;
+  if(b._frStage11CloseFrames<FR_STAGE11_THUNDER.closeHold)return;
+  b._frStage11CloseFrames=0;b._frStage11CloseReadyAt=b.timer+FR_STAGE11_THUNDER.closeCooldown;b._frDash=null;
+  b._frBusyUntil=Math.max(b._frBusyUntil,b.timer+FR_STAGE11_THUNDER.closeWarn+18);
+  const pulseX=b.x,pulseY=b.y,pulseDamage=Math.round(10*frBalanceCurve(stage).bossDamage*FR_STAGE11_THUNDER.damage);
+  frBossWarning(b,'circle',FR_STAGE11_THUNDER.closeWarn,{x:pulseX,y:pulseY,r:FR_STAGE11_THUNDER.closeRadius,color:'#e9d5ff'});
+  addText('⚠ 雷衣反衝',b.x,b.y-102,'#e9d5ff',14,-.35);
+  frBossLater(b,FR_STAGE11_THUNDER.closeWarn,function(){
+    if(b._defeated)return;
+    const dx=player.x-pulseX,dy=player.y-pulseY,dist=Math.hypot(dx,dy)||1;
+    burst(pulseX,pulseY,'#c4b5fd',22);
+    if(dist>FR_STAGE11_THUNDER.closeRadius+10)return;
+    hurtPlayer(pulseDamage);
+    const push=72;player.x=Math.max(player.radius,Math.min(CW-player.radius,player.x+dx/dist*push));player.y=Math.max(player.radius,Math.min(CH-player.radius,player.y+dy/dist*push));
+  });
 }
 const FR_BOSS_HUD_SAFE_GAP=14;
 function frBossVisualTopExtent(b){
@@ -408,11 +453,17 @@ function frBossInit(b){
   const pool=FR_BOSS_BY_MAP[currentBgIdx]||FR_BOSS_BY_MAP[0];
   b._frDef=pool[Math.floor(Math.random()*pool.length)];b.name=b._frDef.name;b.color=b._frDef.color;
   b.targetY=frBossSafeCenterY(b);b._frEntered=false;
-  b._frEvents=[];b._frWarnings=[];b._frBusyUntil=0;b._frAttackCd=95;b._frAttackCount=0;b._frSkillBag=frBossShuffle(b._frDef.skills);b._frAnimStart=0;b._frAnimUntil=0;b._frDash=null;b._frTether=null;
+  b._frEvents=[];b._frWarnings=[];b._frBusyUntil=0;b._frAttackCd=95;b._frAttackCount=0;b._frSkillCastCount=0;b._frSkillBag=frBossShuffle(b._frDef.skills);b._frAnimStart=0;b._frAnimUntil=0;b._frDash=null;b._frTether=null;
   b._frSkillLabels=FR_BOSS_SKILL_LABELS;b._frNormalLabel=FR_BOSS_NORMAL_LABELS[b._frDef.normal]||'普通攻擊';
   if(b._frFinal){
+    b._frStage11Enhanced=Number(stage)===11;
     b._frFullEncounter=Number(stage)>=FR_BALANCE.progression.maxStage;
     b._frRootDef=b._frDef;frThunderApplyPhase(b,0,false);
+    if(b._frStage11Enhanced){
+      b.maxHp=Math.round(b.maxHp*FR_STAGE11_THUNDER.hp);b.hp=b.maxHp;
+      b.maxShield=Math.round(b.maxShield*FR_STAGE11_THUNDER.shield);b.shield=b.maxShield;
+      b._frAttackCd=Math.floor(88*FR_STAGE11_THUNDER.normalCd);b._frStage11Rage=false;b._frStage11CloseFrames=0;b._frStage11CloseReadyAt=0;
+    }
     const shieldTrack=document.getElementById('bossShieldTrack'),shieldLabel=document.getElementById('bossShieldLbl');if(shieldTrack)shieldTrack.style.display='block';if(shieldLabel)shieldLabel.style.display='block';
   }
   b._frEntryLine=b._frFinal&&b._frFullEncounter?(b._frDef.intro22||b._frDef.intro):b._frDef.intro;
@@ -423,12 +474,13 @@ function frBossInit(b){
 function frBossUpdateCustom(b){
   b.timer++;
   if(b._frFinal&&frThunderUpdateTransition(b))return;
+  if(b._frStage11Enhanced&&!b._frStage11Rage&&b.hp<=b.maxHp*.5){b._frStage11Rage=true;addText('雷幕躁動',b.x,b.y-105,'#c4b5fd',16,-.35);burst(b.x,b.y,'#a78bfa',28);}
   const frFormSlow=typeof frCurrentSlowFactor==='function'?frCurrentSlowFactor(b,performance.now()):(b._frSlowUntil&&performance.now()<b._frSlowUntil?Math.max(.08,Math.min(1,b._frSlowFactor||.45)):1);
   const safeY=frBossSafeCenterY(b);b.targetY=Math.max(b.targetY,safeY);
   if(!b._frEntered){
     if(b.y<safeY){b.y=Math.min(safeY,b.y+2.5);return;}
     b._frEntered=true;
-    if(!b._frIntroSpoken&&b._frEntryLine){b._frIntroSpoken=true;b._frBusyUntil=b.timer+140;addText(b.name+'：「'+b._frEntryLine+'」',CW/2,CH*.34,b.color,18,-.2);}
+    if(!b._frIntroSpoken&&b._frEntryLine){b._frIntroSpoken=true;frBossSpeak(b,b._frEntryLine,b.color);}
   }
   if(b.frozenTimer>0)b.frozenTimer--;
   if(b.shieldBroken){b.shieldResetTimer--;updateBossShield();if(b.shieldResetTimer<=0){b.shield=b.maxShield;b.shieldBroken=false;addText('🛡️護盾重置！',b.x,b.y-50,'#60a5fa');updateBossShield();}}
@@ -438,13 +490,16 @@ function frBossUpdateCustom(b){
   else{if(b.timer%110===0)b.targetX=70+Math.random()*(CW-140);b.x+=(b.targetX-b.x)*.02*frFormSlow;b.y+=(b.targetY-b.y)*.02*frFormSlow;}
   frBossEnforceTopSafeZone(b);
   if(b._frTether){const dist=Math.hypot(player.x-b.x,player.y-b.y);if(b.timer>b._frTether.until||dist>230)b._frTether=null;else if(b.timer-b._frTether.last>42){b._frTether.last=b.timer;if(player.invTimer<=0){hurtPlayer(b._frTether.damage);b.hp=Math.min(b.maxHp,b.hp+b._frTether.damage*1.5);updateBossHp();}}}
+  frThunderStage11ClosePressure(b);
+  const expertStage=Number(stage)>=11,masterStage=Number(stage)>=16;
+  if(expertStage){const castRate=b.timer<b._frBusyUntil?(masterStage?.65:.4):1;b._frAttackCd-=frFormSlow*castRate;}
   if(b.timer<b._frBusyUntil)return;
   const rage=b._frFinal?[1,.86,.7][b._frThunderPhase||0]:(b.hp<b.maxHp*.5?.8:1);
-  b._frAttackCd-=frFormSlow;
+  if(!expertStage)b._frAttackCd-=frFormSlow;
   if(b._frAttackCd<=0){
-    const useSkill=b._frAttackCount%3===2;b._frAttackCount++;
-    if(useSkill){if(!b._frSkillBag.length)b._frSkillBag=frBossShuffle(b._frDef.skills);frBossCast(b,b._frSkillBag.shift(),true);b._frAttackCd=Math.floor(165*rage);}
-    else{frBossCast(b,b._frDef.normal,false);b._frAttackCd=Math.floor(88*rage);}
+    const useSkill=masterStage?b._frAttackCount%2===1:b._frAttackCount%3===2;b._frAttackCount++;
+    if(useSkill){if(!b._frSkillBag.length)b._frSkillBag=frBossShuffle(b._frDef.skills);frBossCast(b,b._frSkillBag.shift(),true);b._frSkillCastCount=(b._frSkillCastCount||0)+1;if(expertStage&&!b._frFinal&&b._frSkillCastCount%2===0)frBossLater(b,88,function(){if(b._defeated)return;addText(masterStage?'菁英追擊':'強化追擊',b.x,b.y-92,'#fef08a',13,-.4);frBossFan(b,masterStage?3:1,masterStage?5.2:5,Math.round(8*frBalanceCurve(stage).bossDamage),.13,b.color,null,frBossAim(b,true));});b._frAttackCd=Math.floor(165*rage*(b._frStage11Enhanced?FR_STAGE11_THUNDER.skillCd:1));}
+    else{frBossCast(b,b._frDef.normal,false);b._frAttackCd=Math.floor(88*rage*(b._frStage11Enhanced?FR_STAGE11_THUNDER.normalCd:1));}
   }
 }
 function frBossDrawWarning(b,w){

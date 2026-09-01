@@ -1127,9 +1127,9 @@
 <script src="food-research-forms.js?v=16"></script>
 <script src="food-research-weapons.js?v=14"></script>
     <script src="food-research-amulets.js?v=3"></script>
-    <script src="food-research-bosses.js?v=16"></script>
+    <script src="food-research-bosses.js?v=18"></script>
     <script src="food-research-ui.js?v=7"></script>
-    <script src="food-research-balance.js?v=9"></script>
+<script src="food-research-balance.js?v=18"></script>
       <script src="food-research-audio.js?v=4"></script>
 
     <script>
@@ -8143,6 +8143,7 @@ const [frPhase, setFrPhase] = useState('camp');
 const [showCharStatus, setShowCharStatus] = useState(false);
 const [partnerStatusTarget, setPartnerStatusTarget] = useState(null);
 const [frEquipRev, setFrEquipRev] = useState(0);
+const [frTrainingRev, setFrTrainingRev] = useState(0);
 const [facilityRebuild, setFacilityRebuild] = useState(null);
 const [selectedRebuildFacility, setSelectedRebuildFacility] = useState('training');
 const [rebuildQuiz, setRebuildQuiz] = useState(null);
@@ -8994,10 +8995,9 @@ if (selectedActivity === 'food_research') {
   {key:'skillPower', label:'🔮 技能修行', costBase:110, max:10, effect:'小招與大招傷害 +2% / Lv'},
  ];
  const getTrainingCost = (stat, lv) => Math.round(stat.costBase * (1 + lv * .55));
- const refreshTrainingPhase = () => {
-  setFrPhase('camp');
-  setTimeout(()=>setFrPhase('training'),10);
- };
+  const refreshTrainingPhase = () => {
+   setFrTrainingRev(rev => rev + 1);
+  };
  const adjustTrainingForTest = (stat, delta) => {
   if (!isSuperAdmin || !stat) return;
   const latest = loadSave();

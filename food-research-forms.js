@@ -53,9 +53,9 @@
     ...form,
     ...skillDetails[form.id],
     skill1Cost:form.rarity==='top'?26:form.rarity==='noble'?24:form.rarity==='rare'?22:20,
-    skill2Cost:form.rarity==='top'?60:form.rarity==='noble'?56:form.rarity==='rare'?52:48,
+    skill2Cost:form.id==='peach_divine'?100:form.rarity==='top'?60:form.rarity==='noble'?56:form.rarity==='rare'?52:48,
     skill1Cooldown:form.rarity==='top'?4:form.rarity==='noble'?4.25:form.rarity==='rare'?4.5:4.75,
-    skill2Cooldown:form.rarity==='top'?9.5:form.rarity==='noble'?10:form.rarity==='rare'?10.5:11,
+    skill2Cooldown:form.id==='peach_divine'?16:form.rarity==='top'?9.5:form.rarity==='noble'?10:form.rarity==='rare'?10.5:11,
     portrait: assetBase + form.id + '-front.png' + assetVersion,
     battle: assetBase + form.id + '-back.png' + assetVersion,
     passiveIcon: assetBase + form.id + '-passive.png' + assetVersion,
@@ -644,7 +644,8 @@ useSkill1=function(){
 };
 
 useSkill2=function(){
-  const cost=(FR_BALANCE.stamina.skill2ByRarity[currentForm.rarity]||52);
+  const formMeta=FR_FORM_MAP[currentForm.id];
+  const cost=(formMeta&&formMeta.skill2Cost)||(FR_BALANCE.stamina.skill2ByRarity[currentForm.rarity]||52);
   if(!gameRunning||stamina<cost||sk2Cd>0)return;stamina-=cost;sk2Cd=currentForm.sk2Cd||20000;
   const id=currentForm.id,c=currentForm.bulletColor,name=currentForm.sk2Name;
   frPlayCast(2,id,c,name);updateHUD();

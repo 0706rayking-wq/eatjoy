@@ -56,8 +56,8 @@
     { id:'m18', name:'八腕妖刀', rarity:'noble', icon:17, pattern:'octo', shape:'triple', arc:70, damage:.72, cooldown:30, range:100, reflect:0, cut:1, guardRatio:.8, hits:3, color:'#e879f9', desc:'高速向左、中、右發動三段亂斬；三段有效軌跡都能斬除普通子彈。' },
 
     { id:'m19', name:'炎龍廚神刀', rarity:'top', icon:18, pattern:'dragon', shape:'slam', width:58, impact:32, damage:1.95, cooldown:40, range:150, reflect:1, guardRatio:.92, burn:true, burnPower:1.25, color:'#f97316', desc:'快速劈出高傷害炎龍斬並強化灼燒路徑；有效軌跡可反彈普通子彈。' },
-    { id:'m20', name:'萬象料理機械臂', rarity:'top', icon:19, pattern:'machine', shape:'dual', width:38, lane:18, damage:1.15, cooldown:30, range:120, reflect:1, cut:1, guardRatio:.82, hits:2, shield:5, color:'#38bdf8', desc:'高速交替發動雙臂突擊，可處理軌跡內全部普通子彈；命中或擋彈時獲得 5 點護盾。' },
-    { id:'m21', name:'白白神廚聖鍋', rarity:'top', icon:20, pattern:'holy', shape:'ring', inner:0, damage:1.75, cooldown:45, range:125, reflect:1, cut:1, guardRatio:1, fullCircle:true, heal:3, shield:6, color:'#fde68a', desc:'更快速釋放全周聖光衝擊，可處理全部普通子彈；命中或擋彈時恢復 3 HP 並獲得 6 點護盾。' },
+    { id:'m20', name:'萬象料理機械臂', rarity:'top', icon:19, pattern:'machine', shape:'dual', width:38, lane:18, damage:1.15, cooldown:30, range:120, reflect:1, cut:1, guardRatio:.82, hits:2, shield:5, supportOnGuardOnly:true, supportCooldown:7000, color:'#38bdf8', desc:'高速雙臂連擊，可處理軌跡內全部普通子彈；成功擋彈時獲得 5 點護盾，每 7 秒觸發一次。' },
+    { id:'m21', name:'白白神廚聖鍋', rarity:'top', icon:20, pattern:'holy', shape:'ring', inner:0, damage:1.75, cooldown:45, range:125, reflect:1, cut:1, guardRatio:1, fullCircle:true, heal:3, shield:6, supportOnGuardOnly:true, supportCooldown:10000, color:'#fde68a', desc:'釋放全周聖光衝擊，可處理全部普通子彈；成功擋彈時恢復 3 HP 並獲得 6 點護盾，每 10 秒觸發一次。' },
   ];
 
   const all = [...ranged, ...melee];
@@ -321,9 +321,14 @@
   function frMeleeGuardActive(def,anim){
    return !!(anim&&anim.active&&(def.reflect||def.cut)&&anim.progress<=(def.guardRatio||.65));
   }
-  function frTriggerMeleeSupport(def,anim){
+  const frMeleeSupportReadyAt={};
+  function frTriggerMeleeSupport(def,anim,source){
    if(!anim||anim.supportTriggered||(!def.shield&&!def.heal))return;
+   if(def.supportOnGuardOnly&&source!=='guard')return;
+   const now=performance.now(),readyAt=frMeleeSupportReadyAt[def.id]||0;
+   if(now<readyAt)return;
    anim.supportTriggered=true;
+   frMeleeSupportReadyAt[def.id]=now+(def.supportCooldown||0);
    if(def.shield){player.shieldActive=true;player.shieldHp=Math.min(80,(player.shieldHp||0)+def.shield);}
    if(def.heal&&player.hp<player.maxHp){player.hp=Math.min(player.maxHp,player.hp+def.heal);if(charSlots[activeChar])charSlots[activeChar].hp=player.hp;}
    updateHUD();
@@ -347,7 +352,7 @@
     eBullets.splice(i,1);
    }
    if(reflected||cut){
-    frTriggerMeleeSupport(def,anim);
+    frTriggerMeleeSupport(def,anim,'guard');
     const now=performance.now();
     if(now-(anim.lastGuardFxAt||0)>90){
      anim.lastGuardFxAt=now;
@@ -413,7 +418,7 @@
     let didHit=false;
     enemies.forEach(function(e){if(meleeTargetHit(d,e,8)){didHit=true;e.takeDamage(base*hits);applyMeleeEffect(d,e,base);burst(e.x,e.y,d.color,Math.min(5,2+hits));}});
     if(boss&&!boss._defeated&&meleeTargetHit(d,boss,22)){didHit=true;boss.takeDamage(base*Math.min(2,hits));spawnImpact(d,boss.x,boss.y,'melee');}
-   if(didHit)frTriggerMeleeSupport(d,swipeAnim);
+   if(didHit)frTriggerMeleeSupport(d,swipeAnim,'hit');
    }else{
    const d=defFor('ranged'),formHaste=typeof frFormAttackSpeedMultiplier==='function'?frFormAttackSpeedMultiplier():1;
    const trainedCooldown=Math.max(6,Math.round((d.cooldown||10)/(1+(activeTraining.rangedSpeed||0)*FR_BALANCE.training.rangedSpeedPerLevel)));

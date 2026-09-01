@@ -53,7 +53,7 @@
     stamina: {
       base: 100,
       perTrainingLevel: 6,
-      regenPerSecond: 5,
+      regenPerSecond: 2.5,
       regenPerTrainingLevel: 0.10,
       dodgeCost: 22,
       skill1ByRarity: { normal: 20, rare: 22, noble: 24, top: 26 },
@@ -136,6 +136,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
       .replace("function reportBossKill(){window.parent.postMessage({type:'FR_BOSS_KILLED',gold},'*');}", "function reportBossKill(){frFlushQuestKills(true);window.parent.postMessage({type:'FR_BOSS_KILLED',gold},'*');}")
       .replace("addText('+100💰'", "addText('+'+frBossCoinReward(stage)+'💰'")
       .replace('score+=this.scoreVal;gold+=100;updateHUD();reportBossKill();', 'score+=this.scoreVal;gold+=frBossCoinReward(stage);updateHUD();reportBossKill();')
+      .replace(/ stageCleared=true;gameRunning=false;\n setTimeout\(\(\)=>\{[\s\S]*?\n \},600\);/, " stageCleared=true;gameRunning=false;\n window.frBeginStageClearTransition({stage:stage,bossName:this.name||'魔王',bossScore:Number(this.scoreVal)||0,bossGold:frBossCoinReward(stage),bossX:Number(this.x)||CW/2,bossY:Number(this.y)||CH*.24,bossColor:this.color||'#fde047',deathLine:(this._frStage11Enhanced&&this._frRootDef&&this._frRootDef.stage11Defeat)||(this._frRootDef&&this._frRootDef.death)||(this._frDef&&this._frDef.death)||'這一戰……是你贏了。'});")
       .replace('gold+=30;updateHUD();', 'const rivalGold=frRivalCoinReward(stage);gold+=rivalGold;score+=frRivalScore(stage);updateHUD();')
       .replace("addText('🎉全數擊敗！+30🪙'", "addText('🎉全數擊敗！+'+frRivalCoinReward(stage)+'🪙'")
       .replace("function goBackToCamp(){window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold},'*');}", "function goBackToCamp(){frFlushQuestKills(true);window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold,score,stage,bossKills:frBossDefeatedCount,durationMs:Math.max(1000,Date.now()-frRunStartedAt),runId:frRunId,completed:!!window.frRunComplete},'*');}")
@@ -182,25 +183,170 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
     for(var v=0;v<3;v++){var off=(v-1)*.24;eBullets.push(new Bullet(r.x,r.y,Math.cos(a6+off)*4.8,Math.sin(a6+off)*4.8,r.atk*rage*.68,'#ef4444',8));}
    }`);
 
-    out = out.replace(
-      "setTimeout(()=>{\n stage++;\n currentBgIdx=frMapForStage(stage);",
-      "setTimeout(()=>{\n if(stage>=FR_BALANCE.progression.maxStage){window.frRunComplete=true;score+=FR_BALANCE.scoring.runClear;const stageKey=SAVE.savedStageKey||('fr_stage_'+(SAVE.playerPhone||'guest'));localStorage.setItem(stageKey,'1');addText('全 22 關制霸！ +'+FR_BALANCE.scoring.runClear+' 分',CW/2,CH*.42,'#fbbf24',22,0);updateHUD();setTimeout(goBackToCamp,2200);return;}\n stage++;\n localStorage.setItem(SAVE.savedStageKey||('fr_stage_'+(SAVE.playerPhone||'guest')),String(stage));\n currentBgIdx=frMapForStage(stage);"
-    );
     return out;
   };
 
   window.FOOD_RESEARCH_BALANCE_PATCH = String.raw`
 ;(function(){
- let frStageStartedAt=performance.now(),frStageHpDamage=0;
+ let frStageStartedAt=performance.now(),frStageHpDamage=0,frStageResultPending=null,frStageTransitionToken=0;
  const frBgCache=document.createElement('canvas'),frBgCtx=frBgCache.getContext('2d');
  let frBgCacheKey='';
 
+ function frEnsureStageTransitionUI(){
+  let overlay=document.getElementById('frStageTransition');
+  if(overlay)return overlay;
+  if(!document.getElementById('frStageTransitionStyle')){
+   const style=document.createElement('style');style.id='frStageTransitionStyle';
+   style.textContent=[
+    "#frStageTransition{position:absolute;inset:0;z-index:76;display:none;overflow:hidden;opacity:0;pointer-events:auto;color:#fff;font-family:'Segoe UI Emoji','Segoe UI Symbol','Segoe UI',sans-serif;touch-action:manipulation;contain:strict;isolation:isolate;transform:translateZ(0);transition:opacity .18s ease}",
+    "#frStageTransition.fr-visible{opacity:1}",
+    "#frStageTransition.fr-leaving{opacity:0}",
+    "#frStageTransition .fr-st-shade{position:absolute;inset:0;background:rgba(6,10,20,.82);opacity:0;will-change:opacity;transition:opacity .24s ease}",
+    "#frStageTransition.fr-phase-lastwords .fr-st-shade{opacity:.28}",
+    "#frStageTransition.fr-phase-result .fr-st-shade,#frStageTransition.fr-phase-final .fr-st-shade{opacity:1}",
+    "#gameCanvas.fr-stage-clear-motion{will-change:transform,opacity;animation:frCanvasRelease .5s cubic-bezier(.2,.72,.3,1) both}",
+    "#frStageTransition .fr-st-death-frame{display:none}",
+    "#frStageTransition .fr-st-death-fx{position:absolute;width:1px;height:1px;left:50%;top:24%;opacity:0;z-index:2}",
+    "#frStageTransition.fr-phase-lastwords .fr-st-death-fx{opacity:1}",
+    "#frStageTransition .fr-st-death-core{position:absolute;left:-31px;top:-31px;width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:40px;color:#fff;background:rgba(255,255,255,.9);box-shadow:0 0 22px var(--boss-color,#fde047);will-change:transform,opacity}",
+    "#frStageTransition.fr-phase-lastwords .fr-st-death-core{animation:frBossVanish .65s ease-out forwards}",
+    "#frStageTransition.fr-phase-lastwords.fr-special-11 .fr-st-death-core{border-radius:8px;background:transparent;font-size:58px;animation-name:frThunderRetreat;animation-duration:.75s;animation-timing-function:ease-in}",
+    "#frStageTransition.fr-phase-lastwords.fr-special-22 .fr-st-death-core{background:#fff;box-shadow:0 0 28px #60a5fa;animation-name:frFinalVanish;animation-duration:.8s;animation-timing-function:ease-out}",
+    "#frStageTransition .fr-st-fragment{position:absolute;left:-3px;top:-3px;width:6px;height:6px;background:#fff;transform:translate3d(0,0,0) rotate(0);opacity:1;will-change:transform,opacity}",
+    "#frStageTransition.fr-phase-lastwords .fr-st-fragment{animation:frFragment .6s ease-out forwards}",
+    "#frStageTransition .fr-st-map-preview{position:absolute;inset:-4% 0 0;background-position:center;background-size:cover;opacity:0;transform:translate3d(0,6%,0) scale(1.015);will-change:transform,opacity;transition:opacity .38s ease,transform .58s cubic-bezier(.2,.75,.25,1)}",
+    "#frStageTransition.fr-phase-route .fr-st-map-preview,#frStageTransition.fr-phase-start .fr-st-map-preview{opacity:.46;transform:translate3d(0,0,0) scale(1)}",
+    "#frStageTransition .fr-st-band{position:absolute;left:0;right:0;top:50%;z-index:4;padding:20px 12px 17px;text-align:center;background:rgba(8,14,28,.92);border-top:1px solid rgba(250,204,21,.72);border-bottom:1px solid rgba(250,204,21,.72);transform:translate3d(0,calc(-50% + 12px),0);opacity:0;will-change:transform,opacity;transition:transform .28s ease,opacity .24s ease}",
+    "#frStageTransition.fr-phase-result .fr-st-band,#frStageTransition.fr-phase-final .fr-st-band{transform:translate3d(0,-50%,0);opacity:1}",
+    "#frStageTransition .fr-st-band.fr-st-swap{animation:frStageSwap .3s ease}",
+    "#frStageTransition .fr-st-kicker{font-size:11px;font-weight:900;color:#fde047;letter-spacing:0;margin-bottom:5px}",
+    "#frStageTransition .fr-st-title{font-size:28px;line-height:1.16;font-weight:900;color:#fff;letter-spacing:0;text-shadow:0 0 18px rgba(250,204,21,.34)}",
+    "#frStageTransition .fr-st-boss{font-size:14px;line-height:1.45;font-weight:800;color:#cbd5e1;margin-top:6px}",
+    "#frStageTransition .fr-st-rewards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;width:min(100%,406px);margin:13px auto 0;background:rgba(148,163,184,.22);border:1px solid rgba(148,163,184,.2);border-radius:8px;overflow:hidden}",
+    "#frStageTransition .fr-st-reward{min-width:0;padding:8px 3px;background:rgba(15,23,42,.94)}",
+    "#frStageTransition .fr-st-reward-label{display:block;font-size:9px;font-weight:800;color:#94a3b8;margin-bottom:2px;white-space:nowrap}",
+    "#frStageTransition .fr-st-reward-value{display:block;font-size:14px;font-weight:900;color:#fef08a;white-space:nowrap}",
+    "#frStageTransition .fr-st-total{margin-top:8px;font-size:11px;font-weight:800;color:#cbd5e1}",
+    "#frStageTransition .fr-st-total strong{font-size:15px;color:#fde047;margin-left:5px}",
+    "#frStageTransition .fr-st-note{min-height:18px;margin-top:8px;font-size:11px;line-height:1.45;font-weight:800;color:#93c5fd}",
+    "#frStageTransition .fr-st-last-words{position:absolute;left:6%;right:6%;bottom:21%;z-index:5;padding:10px 12px;border:1px solid rgba(255,255,255,.22);border-radius:8px;background:rgba(5,10,20,.84);font-size:15px;line-height:1.45;font-weight:900;text-align:center;text-shadow:0 1px 3px #000;opacity:0;transform:translate3d(0,6px,0);transition:opacity .5s ease,transform .5s ease}",
+    "#frStageTransition.fr-phase-lastwords .fr-st-last-words{opacity:1;transform:translate3d(0,0,0)}",
+    "#frStageTransition.fr-lastwords-fade .fr-st-last-words{opacity:0;transform:translate3d(0,4px,0)}",
+    "#frStageTransition .fr-st-next-btn{display:none;width:min(100%,260px);margin:14px auto 0;padding:10px 14px;border:1px solid #facc15;border-radius:8px;background:#ca8a04;color:#fff;font-size:14px;font-weight:900;cursor:pointer;box-shadow:0 3px 0 #713f12}",
+    "#frStageTransition.fr-phase-result .fr-st-next-btn,#frStageTransition.fr-phase-final .fr-st-next-btn{display:block}",
+    "#frStageTransition .fr-st-next-btn:disabled{opacity:.55;cursor:wait}",
+    "#frStageTransition .fr-st-curtain{position:absolute;inset:0;z-index:20;background:#030712;opacity:0;pointer-events:none;will-change:opacity;transition:opacity .35s ease}",
+    "#frStageTransition.fr-switching .fr-st-curtain{opacity:1}",
+    "#frStageTransition.fr-revealing .fr-st-curtain{opacity:0}",
+    "#frStageTransition .fr-st-final-stats,#frStageTransition .fr-st-phases{display:none}",
+    "#frStageTransition.fr-phase-final .fr-st-final-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;width:min(100%,390px);margin:14px auto 0;border:1px solid rgba(148,163,184,.22);border-radius:8px;overflow:hidden;background:rgba(148,163,184,.22)}",
+    "#frStageTransition .fr-st-final-stat{padding:8px 3px;background:rgba(15,23,42,.94)}",
+    "#frStageTransition .fr-st-final-stat small{display:block;font-size:9px;color:#94a3b8;font-weight:800}",
+    "#frStageTransition .fr-st-final-stat strong{display:block;margin-top:2px;font-size:15px;color:#fef08a;white-space:nowrap}",
+    "#frStageTransition.fr-phase-final .fr-st-phases{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;width:min(100%,390px);margin:9px auto 0}",
+    "#frStageTransition .fr-st-phase{padding:6px 2px;border:1px solid rgba(96,165,250,.45);border-radius:8px;background:rgba(30,58,138,.24);font-size:10px;font-weight:900;color:#bfdbfe;white-space:nowrap}",
+    "#frStageTransition .fr-st-start{position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;font-size:42px;font-weight:900;color:#fff;text-shadow:0 0 18px #fde047,0 0 42px rgba(250,204,21,.8);opacity:0;transform:scale(.84)}",
+    "#frStageTransition.fr-phase-start .fr-st-start{animation:frStartCue .5s ease-out forwards}",
+    "#frStageTransition .fr-st-skip{position:absolute;z-index:6;left:0;right:0;bottom:28px;text-align:center;font-size:11px;font-weight:800;color:rgba(255,255,255,.64);opacity:0;transition:opacity .2s ease}",
+    "#frStageTransition.fr-can-skip .fr-st-skip{opacity:1}",
+    "@keyframes frCanvasRelease{0%{transform:translate3d(0,0,0) scale(1);opacity:1}45%{transform:translate3d(0,2px,0) scale(1.006);opacity:.96}100%{transform:translate3d(0,-4px,0) scale(1.012);opacity:.7}}",
+    "@keyframes frBossVanish{0%{transform:scale(.75);opacity:.2}30%{transform:scale(1.22);opacity:1}100%{transform:scale(.12);opacity:0}}",
+    "@keyframes frThunderRetreat{0%{transform:translateY(0) scale(.8);opacity:.2}35%{transform:translateY(-10px) scale(1.25);opacity:1}100%{transform:translateY(-180px) scale(.3);opacity:0}}",
+    "@keyframes frFinalVanish{0%{transform:scale(.65);opacity:.3}35%{transform:scale(1.45);opacity:1}100%{transform:scale(2.4);opacity:0}}",
+    "@keyframes frFragment{0%{transform:translate3d(0,0,0) rotate(0);opacity:1}100%{transform:translate3d(var(--dx),var(--dy),0) rotate(var(--rot));opacity:0}}",
+    "@keyframes frStageSwap{0%{transform:translate3d(0,-50%,0);opacity:1}48%{transform:translate3d(0,calc(-50% - 10px),0);opacity:0}52%{transform:translate3d(0,calc(-50% + 10px),0);opacity:0}100%{transform:translate3d(0,-50%,0);opacity:1}}",
+    "@keyframes frStartCue{0%{opacity:0;transform:scale(.84)}30%{opacity:1;transform:scale(1.08)}75%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(1.08)}}",
+    "@media (prefers-reduced-motion:reduce){#frStageTransition,#frStageTransition *{animation-duration:.01ms!important;transition-duration:.01ms!important}}"
+   ].join('\n');
+   document.head.appendChild(style);
+  }
+  overlay=document.createElement('div');overlay.id='frStageTransition';overlay.setAttribute('role','status');overlay.setAttribute('aria-live','polite');
+   overlay.innerHTML='<canvas class="fr-st-death-frame"></canvas><div class="fr-st-shade"></div><div class="fr-st-death-fx"><div class="fr-st-death-core">✦</div><div class="fr-st-fragments"></div></div><div class="fr-st-band"><div class="fr-st-kicker"></div><div class="fr-st-title"></div><div class="fr-st-boss"></div><div class="fr-st-rewards"><div class="fr-st-reward"><span class="fr-st-reward-label">金幣</span><span class="fr-st-reward-value fr-st-gold">+0</span></div><div class="fr-st-reward"><span class="fr-st-reward-label">關卡分數</span><span class="fr-st-reward-value fr-st-base-score">+0</span></div><div class="fr-st-reward"><span class="fr-st-reward-label">速通</span><span class="fr-st-reward-value fr-st-time">+0</span></div><div class="fr-st-reward"><span class="fr-st-reward-label">無傷</span><span class="fr-st-reward-value fr-st-flawless">未達成</span></div></div><div class="fr-st-total">本關總分<strong class="fr-st-score">+0</strong></div><div class="fr-st-final-stats"><div class="fr-st-final-stat"><small>遠征總分</small><strong class="fr-st-final-score">0</strong></div><div class="fr-st-final-stat"><small>帶回金幣</small><strong class="fr-st-final-gold">0</strong></div><div class="fr-st-final-stat"><small>通關時間</small><strong class="fr-st-final-time">0:00</strong></div></div><div class="fr-st-phases"><div class="fr-st-phase">披風形態 ✓</div><div class="fr-st-phase">雷鎧真身 ✓</div><div class="fr-st-phase">閃電化身 ✓</div></div><div class="fr-st-note"></div><button type="button" class="fr-st-next-btn">下一關</button></div><div class="fr-st-last-words"></div><div class="fr-st-curtain"></div>';
+  document.getElementById('gc').appendChild(overlay);return overlay;
+ }
+
+ function frTransitionText(selector,value){const overlay=document.getElementById('frStageTransition'),node=overlay&&overlay.querySelector(selector);if(node)node.textContent=value;}
+ function frAnimateTransitionBand(){const overlay=document.getElementById('frStageTransition'),band=overlay&&overlay.querySelector('.fr-st-band');if(!band)return;band.classList.remove('fr-st-swap');void band.offsetWidth;band.classList.add('fr-st-swap');}
+ function frFormatTransitionTime(ms){const sec=Math.max(0,Math.floor((Number(ms)||0)/1000)),m=Math.floor(sec/60),s=String(sec%60).padStart(2,'0');return m+':'+s;}
+ function frSpecialSeenKey(stageNum){return 'fr_transition_seen_'+stageNum+'_'+String(SAVE.playerPhone||'guest');}
+ function frUpdateStageTransitionResult(result){
+  if(!result)return;frStageResultPending=Object.assign({},frStageResultPending||{},result);
+  const base=(Number(result.bossScore)||0)+(Number(result.clearScore)||0),time=Number(result.timeScore)||0,flawless=Number(result.flawlessScore)||0,total=Number(result.totalStageScore)||base+time+flawless;
+  frTransitionText('.fr-st-gold','+'+Math.max(0,Math.round(result.bossGold||0)).toLocaleString());
+  frTransitionText('.fr-st-base-score','+'+Math.max(0,Math.round(base)).toLocaleString());
+  frTransitionText('.fr-st-time','+'+Math.max(0,Math.round(time)).toLocaleString());
+  frTransitionText('.fr-st-flawless',flawless>0?'+'+Math.round(flawless).toLocaleString():'未達成');
+  frTransitionText('.fr-st-score','+'+Math.max(0,Math.round(total)).toLocaleString());
+ }
+
+ function frStopClearedStageThreats(){
+  if(Array.isArray(eBullets))eBullets.length=0;if(Array.isArray(bullets))bullets.length=0;if(Array.isArray(enemies))enemies.length=0;if(Array.isArray(hazards))hazards.length=0;
+  if(typeof rivalFightActive!=='undefined')rivalFightActive=false;if(Array.isArray(rivalEnemies))rivalEnemies.length=0;
+  if(player){player.invTimer=Math.max(player.invTimer||0,180);player.vx=0;player.vy=0;}
+ }
+ function frPrepareDeathFx(overlay,info,stageNum){
+  const source=document.getElementById('gameCanvas'),fx=overlay.querySelector('.fr-st-death-fx'),core=overlay.querySelector('.fr-st-death-core'),fragments=overlay.querySelector('.fr-st-fragments');
+  if(source){source.classList.remove('fr-stage-clear-motion');requestAnimationFrame(function(){if(document.documentElement.getAttribute('data-fr-stage-transition')==='active')source.classList.add('fr-stage-clear-motion');});}
+  const x=Math.max(0,Math.min(CW,Number(info&&info.bossX)||CW/2)),y=Math.max(0,Math.min(CH,Number(info&&info.bossY)||CH*.24)),color=String(info&&info.bossColor||'#fde047');
+  fx.style.left=(x/Math.max(1,CW)*100)+'%';fx.style.top=(y/Math.max(1,CH)*100)+'%';fx.style.setProperty('--boss-color',color);core.textContent=stageNum===11||stageNum===22?'⚡':'✦';
+  fragments.innerHTML='';const batch=document.createDocumentFragment();for(let i=0;i<8;i++){const p=document.createElement('i'),a=Math.PI*2*i/8,dist=40+(i%3)*14;p.className='fr-st-fragment';p.style.setProperty('--dx',(Math.cos(a)*dist).toFixed(1)+'px');p.style.setProperty('--dy',(Math.sin(a)*dist).toFixed(1)+'px');p.style.setProperty('--rot',(90+i*61)+'deg');p.style.animationDelay=(i%2*.02)+'s';batch.appendChild(p);}fragments.appendChild(batch);
+ }
+
+ function frBeginStageClearTransition(info){
+  const clearedStage=Math.max(1,Number(info&&info.stage)||stage),token=++frStageTransitionToken,finalStage=clearedStage>=FR_BALANCE.progression.maxStage,special11=clearedStage===11;
+  const overlay=frEnsureStageTransitionUI(),rewards=overlay.querySelector('.fr-st-rewards'),totalRow=overlay.querySelector('.fr-st-total'),band=overlay.querySelector('.fr-st-band'),button=overlay.querySelector('.fr-st-next-btn');
+  const nextStage=clearedStage+1,nextMap=finalStage?null:frMapForStage(nextStage),nextTheme=finalStage?null:BG_THEMES[nextMap];
+  let assetsReady=finalStage,finished=false;
+  const later=function(ms,fn){setTimeout(function(){if(token===frStageTransitionToken)fn();},ms);};
+  frStopClearedStageThreats();frPrepareDeathFx(overlay,info,clearedStage);
+  frStageResultPending={stage:clearedStage,bossName:info&&info.bossName||'魔王',bossGold:Number(info&&info.bossGold)||0,bossScore:Number(info&&info.bossScore)||0,clearScore:0,timeScore:0,flawlessScore:0,totalStageScore:Number(info&&info.bossScore)||0};
+  document.documentElement.setAttribute('data-fr-stage-transition','active');
+  band.style.display='';button.disabled=true;button.textContent=finalStage?'返回營地':'地圖載入中...';
+  overlay.style.display='block';overlay.className=(special11?'fr-special-11 ':'')+(finalStage?'fr-special-22 ':'');overlay.setAttribute('data-phase','lastwords');overlay.setAttribute('data-stage',String(clearedStage));
+  frTransitionText('.fr-st-last-words',(info&&info.bossName||'魔王')+'：「'+(info&&info.deathLine||'這一戰……是你贏了。')+'」');
+  requestAnimationFrame(function(){if(token!==frStageTransitionToken)return;overlay.classList.add('fr-visible','fr-phase-lastwords');});
+
+  function showResult(){
+   if(token!==frStageTransitionToken)return;overlay.classList.remove('fr-phase-lastwords','fr-lastwords-fade');overlay.classList.add(finalStage?'fr-phase-final':'fr-phase-result');overlay.setAttribute('data-phase',finalStage?'final':'result');
+   if(finalStage){
+    rewards.style.display='none';totalRow.style.display='none';frTransitionText('.fr-st-kicker','遠征完成');frTransitionText('.fr-st-title','全 22 關制霸');frTransitionText('.fr-st-boss',(info&&info.bossName||'小雷神')+' · 三階段完全擊破');
+    frTransitionText('.fr-st-final-score',Math.round(score).toLocaleString());frTransitionText('.fr-st-final-gold',Math.round(gold).toLocaleString());frTransitionText('.fr-st-final-time',frFormatTransitionTime(Date.now()-frRunStartedAt));frTransitionText('.fr-st-note','雷霆平息，準備返回營地');button.textContent='返回營地';button.disabled=false;
+   }else{
+    rewards.style.display='grid';totalRow.style.display='block';frTransitionText('.fr-st-kicker',special11?'雷光退去':'BOSS 擊破');frTransitionText('.fr-st-title','第 '+clearedStage+' 關突破');frTransitionText('.fr-st-boss',frStageResultPending.bossName);frUpdateStageTransitionResult(frStageResultPending);
+    frTransitionText('.fr-st-note','下一關：'+(nextTheme?nextTheme.name:'未知區域')+(nextTheme&&nextTheme.text?' · '+nextTheme.text:''));button.textContent=assetsReady?'下一關':'地圖載入中...';button.disabled=!assetsReady;
+   }
+  }
+  function finishRegular(){
+   if(finished||!assetsReady||token!==frStageTransitionToken)return;finished=true;button.disabled=true;overlay.classList.add('fr-switching');
+   later(360,function(){
+    stage=nextStage;localStorage.setItem(SAVE.savedStageKey||('fr_stage_'+(SAVE.playerPhone||'guest')),String(stage));buildStage(stage,true);player.invTimer=Math.max(player.invTimer||0,60);stageCleared=false;updateHUD();
+    const gameCanvas=document.getElementById('gameCanvas');if(gameCanvas)gameCanvas.classList.remove('fr-stage-clear-motion');band.style.display='none';overlay.classList.remove('fr-switching','fr-phase-result');overlay.classList.add('fr-revealing');
+    later(380,function(){overlay.style.display='none';overlay.className='';band.style.display='';document.documentElement.setAttribute('data-fr-stage-transition','ready');if(!window._gamePaused){gameRunning=true;last=performance.now();if(_rafId)cancelAnimationFrame(_rafId);_rafId=requestAnimationFrame(loop);}});
+   });
+  }
+  function finishFinal(){if(finished)return;finished=true;button.disabled=true;overlay.classList.add('fr-switching');later(360,goBackToCamp);}
+
+  later(2000,function(){overlay.classList.add('fr-lastwords-fade');});later(2550,showResult);
+  if(finalStage){
+   window.frRunComplete=true;score+=FR_BALANCE.scoring.runClear;const stageKey=SAVE.savedStageKey||('fr_stage_'+(SAVE.playerPhone||'guest'));localStorage.setItem(stageKey,'1');updateHUD();
+  }else{
+   currentBgIdx=nextMap;preloadBgTheme(currentBgIdx,function(){assetsReady=true;if(overlay.getAttribute('data-phase')==='result'){button.textContent='下一關';button.disabled=false;}});
+  }
+  button.onclick=finalStage?finishFinal:finishRegular;
+ }
+ window.frBeginStageClearTransition=frBeginStageClearTransition;
+ window.frStageTransitionVersion='2026-09-01-dialogue-result-5';
+ frEnsureStageTransitionUI();
+ document.documentElement.setAttribute('data-fr-stage-transition','ready');
+
  function frPrepareStageAssets(){
-  const theme=BG_THEMES[currentBgIdx];
+  const theme=BG_THEMES[currentBgIdx],nextStage=Math.min(FR_BALANCE.progression.maxStage,Math.max(1,Number(stage)||1)+1),nextIdx=frMapForStage(nextStage),nextTheme=BG_THEMES[nextIdx],keepMaps={};
+  if(theme&&theme.map)keepMaps[theme.map]=1;if(nextTheme&&nextTheme.map)keepMaps[nextTheme.map]=1;
   Object.keys(BG_MAP_IMAGES).forEach(function(src){
-   if(!theme||src!==theme.map){const img=BG_MAP_IMAGES[src];if(img){img.onload=null;img.onerror=null;if(img.removeAttribute)img.removeAttribute('src');}delete BG_MAP_IMAGES[src];}
+   if(!keepMaps[src]){const img=BG_MAP_IMAGES[src];if(img){img.onload=null;img.onerror=null;if(img.removeAttribute)img.removeAttribute('src');}delete BG_MAP_IMAGES[src];}
   });
   if(typeof frPreloadBossesForMap==='function')frPreloadBossesForMap(currentBgIdx);
+  if(nextTheme&&nextTheme.map&&nextIdx!==currentBgIdx){const warmNextMap=function(){preloadBgTheme(nextIdx,function(){});};if(window.requestIdleCallback)requestIdleCallback(warmNextMap,{timeout:1200});else setTimeout(warmNextMap,350);}
   frBgCacheKey='';
  }
 
@@ -300,7 +446,8 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
    const elapsed=Math.max(0,(performance.now()-frStageStartedAt)/1000),clear=frStageClearScore(stage);
    const target=48+stage*2.5,time=Math.max(0,Math.round(FR_BALANCE.scoring.timeBonusMax-Math.max(0,elapsed-target)*FR_BALANCE.scoring.timeBonusLossPerSecond));
    const flawless=frStageHpDamage<=0?FR_BALANCE.scoring.flawlessBase+stage*FR_BALANCE.scoring.flawlessPerStage:0;
-   score+=clear+time+flawless;
+    score+=clear+time+flawless;
+    frUpdateStageTransitionResult({stage:stage,bossName:this.name||'魔王',bossGold:frBossCoinReward(stage),bossScore:Number(this.scoreVal)||0,clearScore:clear,timeScore:time,flawlessScore:flawless,totalStageScore:(Number(this.scoreVal)||0)+clear+time+flawless});
    addText('關卡分數 +'+(clear+time+flawless),CW/2,CH*.36,'#fde047',18,0);updateHUD();
   }
   return result;
