@@ -114,6 +114,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
       .replace('const defMult=1-(tr.def||0)*.08;', 'const defMult=Math.max(.55,1-(tr.def||0)*FR_BALANCE.training.defensePerLevel);')
       .replace('const hpBonus=(tr.hp||0)*20;', 'const hpBonus=(tr.hp||0)*FR_BALANCE.training.hpPerLevel;')
       .replace('const stamBonus=(tr.stam||0)*10;', 'const stamBonus=(tr.stam||0)*FR_BALANCE.training.staminaPerLevel;')
+      .replace("Math.ceil(ch.hp)+' / '+ch.maxHp", "Math.ceil(Math.max(0,ch.hp))+' / '+ch.maxHp")
       .replace('const player={x:0,y:0,radius:22,', 'const player={x:0,y:0,radius:17,')
       .replace('const shadowW=25+(moving?Math.cos(now/115)*2:Math.cos(now/360)*1.2);', 'const shadowW=21+(moving?Math.cos(now/115)*1.7:Math.cos(now/360));')
       .replace("ctx.fillStyle='rgba(80,90,82,.20)';ctx.beginPath();ctx.ellipse(0,29,shadowW,6.5,0,0,Math.PI*2);ctx.fill();", "ctx.fillStyle='rgba(80,90,82,.20)';ctx.beginPath();ctx.ellipse(0,25,shadowW,5.5,0,0,Math.PI*2);ctx.fill();")

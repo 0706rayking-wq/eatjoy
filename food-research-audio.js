@@ -105,7 +105,34 @@
  if(typeof frBossCast==='function'){const frAudioBossCast=frBossCast;frBossCast=function(b,pattern,isSkill){if(isSkill)frSfx('bossCast',true);return frAudioBossCast.apply(this,arguments);};}
 
  let frAudioGold=gold;
- const frAudioHud=updateHUD;updateHUD=function(){const before=frAudioGold,result=frAudioHud.apply(this,arguments);if(gold>before)frSfx('coin');frAudioGold=gold;return result;};
+ let frDeathGuardQueued=false;
+ function frQueueDeathGuard(){
+  if(frDeathGuardQueued||!player||player.hp>0||deathSeq)return;
+  frDeathGuardQueued=true;
+  Promise.resolve().then(function(){
+   frDeathGuardQueued=false;
+   if(!player||player.hp>0||deathSeq)return;
+   try{playerDied();}
+   catch(error){
+    console.error('[食研所] 致命傷害後的死亡流程執行失敗',error);
+    if(!deathSeq&&typeof beginFinalDeathSequence==='function')beginFinalDeathSequence();
+   }
+  });
+ }
+ const frAudioHud=updateHUD;
+ updateHUD=function(){
+  const before=frAudioGold;
+  try{
+   const result=frAudioHud.apply(this,arguments);
+   if(gold>before)frSfx('coin');
+   frAudioGold=gold;
+   return result;
+  } finally {
+   // HP 會先更新到 HUD，死亡處理則在呼叫鏈尾端執行。排入微任務可在
+   // 中途發生例外時補上換角／復活流程，也不會和正常的 playerDied 重複。
+   frQueueDeathGuard();
+  }
+ };
  document.addEventListener('click',function(e){
   const option=e.target&&e.target.closest?e.target.closest('#revOpts .qopt'):null;
   if(option)setTimeout(function(){frSfx(option.classList.contains('correct')?'correct':'wrong',true);},0);

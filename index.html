@@ -8129,7 +8129,7 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
      );
     };
 
-    const GameCenter = ({ onBack, config, currentBranch, currentUser, getPublicPath, allUsers = [], isSuperAdmin = false }) => {
+    const GameCenter = ({ onBack, config, currentBranch, currentUser, getPublicPath, triggerNotify, allUsers = [], isSuperAdmin = false }) => {
 const [selectedActivity, setSelectedActivity] = useState(null); // 新增：用來記錄使用者點選了哪個活動
 
 const [leaderboard, setLeaderboard] = useState([]);
@@ -14164,7 +14164,7 @@ return (
         case 'unifiedRules': return <UnifiedRulesPage rulesData={rulesData} onBack={()=>setCurrentPage('home')} user={currentUser} currentBranch={currentBranch} triggerNotify={triggerNotify} getPublicPath={getPublicPath} signatures={signatures} />;
         case 'menu': return <MenuDisplayPage onBack={()=>setCurrentPage('home')} items={menuData?.items} />;
         case 'kitchenReport': return <MonthlyReportPage onBack={()=>setCurrentPage('home')} report={contentStatus?.kitchenReport || {}} assemblyReport={contentStatus?.monthlyAssembly || {}} />;
-        case 'game-center': return <GameCenter onBack={()=>setCurrentPage('home')} config={gameConfig} currentBranch={currentBranch} currentUser={currentUser} getPublicPath={getPublicPath} allUsers={users} isSuperAdmin={isSuperAdmin} />;
+        case 'game-center': return <GameCenter onBack={()=>setCurrentPage('home')} config={gameConfig} currentBranch={currentBranch} currentUser={currentUser} getPublicPath={getPublicPath} triggerNotify={triggerNotify} allUsers={users} isSuperAdmin={isSuperAdmin} />;
         case 'schedule': return <ScheduleSystem onBack={()=>setCurrentPage('home')} currentBranch={currentBranch} isManager={isManager || isSuperAdmin} getPublicPath={getPublicPath} triggerNotify={triggerNotify} publishContent={publishContent} />;
         case 'onboarding': return (
          <div className="p-4 space-y-4 page-enter text-left">
