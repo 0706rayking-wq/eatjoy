@@ -80,7 +80,11 @@
  weaponMap['初始食材砲']=Object.assign({},data.ranged[0],{name:'初始食材砲'});
  weaponMap['初始鍋鏟']=Object.assign({},data.melee[0],{name:'初始鍋鏟'});
  weaponMap['辣油火焰炮']=Object.assign({},data.ranged[9],{name:'辣油火焰炮'});
- function defFor(type){const fallback=type==='ranged'?'初始食材砲':'初始鍋鏟';return weaponMap[(SAVE.equip||{})[type]||fallback]||weaponMap[fallback];}
+ function defFor(type){
+  const fallback=type==='ranged'?'初始食材砲':'初始鍋鏟',base=weaponMap[(SAVE.equip||{})[type]||fallback]||weaponMap[fallback];
+  if(type==='melee'&&currentForm&&currentForm.id==='octopus_samurai')return Object.assign({},base,{range:Math.round((base.range||90)*1.2),cut:1,frFormCut:true,guardRatio:Math.max(base.guardRatio||0,.72)});
+  return base;
+ }
  const rarityRank={normal:0,rare:1,noble:2,top:3};
  const weaponFx=[];
  const frWeaponImgs={melee:{},ranged:{}};
@@ -224,10 +228,10 @@
   if(this.frGravity&&this.age%2===0){
    for(const e of targets){const dx=this.x-e.x,dy=this.y-e.y,d=Math.hypot(dx,dy)||1;if(d<150){e.x+=dx/d*2.2;e.y+=dy/d*2.2;}}
   }
-  if(this.frChain&&this.age%12===0){
-   let best=null,bd=88;
+  if(this.frChain&&this.age%12===0&&(this.frChainCount||0)<(this.frChainMax||1)){
+   let best=null,bd=this.frChainRange||88;
    for(const e of targets){const d=Math.hypot(this.x-e.x,this.y-e.y);if(d<bd&&!this.frChainHits.has(e)){best=e;bd=d;}}
-   if(best){this.frChainHits.add(best);best.takeDamage(this.dmg*.24);burst(best.x,best.y,'#fef08a',5);}
+   if(best){this.frChainHits.add(best);this.frChainCount=(this.frChainCount||0)+1;best.takeDamage(this.dmg*(this.frChainDamage||.24));burst(best.x,best.y,'#fef08a',5);}
   }
   if(this.frSplash&&!this.frSplashDone){
    for(const e of targets){if(Math.hypot(this.x-e.x,this.y-e.y)<this.r+e.r){
@@ -243,9 +247,12 @@
  };
  function makeShot(def,angle,dmgScale,sizeScale,speedScale){
   const sp=(def.pattern==='heavy'||def.pattern==='mortar'?7:11)*(speedScale||1);
-  const am=window._curAtkMult||atkMult;
-  const b=new Bullet(player.x,player.y-18,Math.cos(angle)*sp,Math.sin(angle)*sp,currentForm.bulletDmg*def.damage*(dmgScale||1)*am,def.color,(def.size||6)*(sizeScale||1),!!def.pierce,!!def.homing,!!def.burn);
+  const am=(window._curAtkMult||atkMult)*(typeof frFormDamageMultiplier==='function'?frFormDamageMultiplier():1),formId=currentForm&&currentForm.id;
+  const formSize=formId==='popcorn'?1.55:1,formPierce=formId==='lotus_archer'||formId==='black_garlic_void';
+  const b=new Bullet(player.x,player.y-18,Math.cos(angle)*sp,Math.sin(angle)*sp,currentForm.bulletDmg*def.damage*(dmgScale||1)*am,def.color,(def.size||6)*(sizeScale||1)*formSize,!!def.pierce||formPierce,!!def.homing,!!def.burn);
   b.frVisual=true;b.frRarity=def.rarity||'normal';b.frPattern=def.pattern||'basic';b.frFreeze=def.freeze||0;b.frGravity=!!def.gravity;b.frChain=!!def.chain;b.frChainHits=new Set();b.frSplash=def.splash||0;b.frWave=def.pattern==='popcorn';
+  if(formId==='lemon_battery'&&Math.random()<.28){b.frChain=true;b.frChainRange=110;b.frChainDamage=.28;b.frChainMax=1;}
+  if(formId==='truffle_thunder'){b.frChain=true;b.frChainRange=135;b.frChainDamage=.36;b.frChainMax=3;}
   bullets.push(b);return b;
  }
  function shootRanged(def){
@@ -329,7 +336,7 @@
    for(let i=eBullets.length-1;i>=0;i--){
     const b=eBullets[i];
     if(!b||b.unreflectable||b.frUnreflectable||(b.r||5)>10||!meleeTargetHit(def,b,0))continue;
-    const shouldCut=!!def.cut&&(!def.reflect||(b.r||5)>=8);
+    const shouldCut=!!def.frFormCut||!!def.cut&&(!def.reflect||(b.r||5)>=8);
     if(!shouldCut&&def.reflect){
      const rb=new Bullet(b.x,b.y,-b.vx*1.25,-Math.abs(b.vy)*1.25,base*returnScale,def.color,Math.min(9,(b.r||5)+1),false,false,!!def.burn);
      rb.frVisual=true;rb.frRarity=def.rarity||'normal';rb.frPattern='reflect';bullets.push(rb);reflected++;
@@ -397,15 +404,16 @@
   if(player.weaponCd>0){player.weaponCd--;return;}
   if(currentWeapon==='melee'){
    const d=defFor('melee');
-   player.weaponCd=Math.max(1,Math.floor((d.cooldown||28)/(normalFrenzyTimer>0?2:1)));
+   const formHaste=typeof frFormAttackSpeedMultiplier==='function'?frFormAttackSpeedMultiplier():1;
+   player.weaponCd=Math.max(1,Math.floor((d.cooldown||28)/((normalFrenzyTimer>0?2:1)*formHaste)));
    startSwipe();
-   const am=window._curAtkMult||atkMult,base=currentForm.bulletDmg*d.damage*2.2*am,hits=d.hits||1;
+   const am=(window._curAtkMult||atkMult)*(typeof frFormDamageMultiplier==='function'?frFormDamageMultiplier():1),base=currentForm.bulletDmg*d.damage*2.2*am,hits=d.hits||1;
     let didHit=false;
     enemies.forEach(function(e){if(meleeTargetHit(d,e,8)){didHit=true;e.takeDamage(base*hits);applyMeleeEffect(d,e,base);burst(e.x,e.y,d.color,Math.min(5,2+hits));}});
     if(boss&&!boss._defeated&&meleeTargetHit(d,boss,22)){didHit=true;boss.takeDamage(base*Math.min(2,hits));spawnImpact(d,boss.x,boss.y,'melee');}
     if(didHit)frTriggerMeleeSupport(d,swipeAnim);
    }else{
-   const d=defFor('ranged');player.weaponCd=Math.max(1,Math.floor((d.cooldown||10)/(normalFrenzyTimer>0?2:1)));shootRanged(d);
+   const d=defFor('ranged'),formHaste=typeof frFormAttackSpeedMultiplier==='function'?frFormAttackSpeedMultiplier():1;player.weaponCd=Math.max(1,Math.floor((d.cooldown||10)/((normalFrenzyTimer>0?2:1)*formHaste)));shootRanged(d);
   }
  };
 })();

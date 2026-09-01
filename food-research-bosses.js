@@ -346,15 +346,17 @@ function frThunderTakeDamage(b,amount,isQa){
   }
   let dealt=Math.max(1,Number(amount)||1);
   if(typeof frDamageMultiplier==='function')dealt*=frDamageMultiplier(b);
+  const wasAlive=b.hp>0;
   if(b._frArmorCounterUntil>b.timer){dealt*=.62;if(!b._frCounterPulseAt||b.timer-b._frCounterPulseAt>16){b._frCounterPulseAt=b.timer;frBossRadial(b,8,4,Math.max(7,Math.round(8*frBalanceCurve(stage).bossDamage)),b.color,b.timer*.1);}}
   if(b.shield>0&&!b.shieldBroken){
     const shieldDamage=isQa?Math.floor(b.maxShield*.3):Math.max(1,Math.floor(dealt*.5));
     b.shield=Math.max(0,b.shield-shieldDamage);addText('🛡️'+shieldDamage,b.x,b.y-72,'#7dd3fc',13,-.45);
     if(!isQa){const chip=Math.max(1,Math.floor(dealt*.3));b.hp=Math.max(1,b.hp-chip);addText('-'+chip,b.x,b.y-54,'#fde68a',12,-.4);updateBossHp();}
     if(b.shield<=0){b.shieldBroken=true;b.shieldResetTimer=10*60;addText('護盾破裂',b.x,b.y-90,'#f87171',14,-.45);}
-    updateBossShield();return;
+    updateBossShield();if(typeof frFormRegisterHit==='function')frFormRegisterHit(b,wasAlive);return;
   }
   b.hp=Math.max(0,b.hp-dealt);addText('-'+Math.round(dealt),b.x,b.y-70,'#fde68a',13,-.45);updateBossHp();
+  if(typeof frFormRegisterHit==='function')frFormRegisterHit(b,wasAlive);
   if(b.hp<=0)frThunderStartTransition(b,b._frThunderPhase+1);
 }
 const FR_BOSS_HUD_SAFE_GAP=14;
@@ -402,6 +404,7 @@ function frBossInit(b){
 function frBossUpdateCustom(b){
   b.timer++;
   if(b._frFinal&&frThunderUpdateTransition(b))return;
+  const frFormSlow=typeof frCurrentSlowFactor==='function'?frCurrentSlowFactor(b,performance.now()):(b._frSlowUntil&&performance.now()<b._frSlowUntil?Math.max(.08,Math.min(1,b._frSlowFactor||.45)):1);
   const safeY=frBossSafeCenterY(b);b.targetY=Math.max(b.targetY,safeY);
   if(!b._frEntered){
     if(b.y<safeY){b.y=Math.min(safeY,b.y+2.5);return;}
@@ -412,13 +415,13 @@ function frBossUpdateCustom(b){
   if(b.shieldBroken){b.shieldResetTimer--;updateBossShield();if(b.shieldResetTimer<=0){b.shield=b.maxShield;b.shieldBroken=false;addText('🛡️護盾重置！',b.x,b.y-50,'#60a5fa');updateBossShield();}}
   for(let i=b._frEvents.length-1;i>=0;i--){if(b.timer>=b._frEvents[i].at){const ev=b._frEvents.splice(i,1)[0];ev.fn();}}
   b._frWarnings=b._frWarnings.filter(function(w){return b.timer<=w.end;});
-  if(b._frDash){b.x+=b._frDash.vx;b.y+=b._frDash.vy;b._frDash.left--;if(b._frDash.trail&&b.timer%7===0)frBossHazard({kind:'circle',x:b.x,y:b.y,r:26,color:b.color,damage:Math.max(8,b._frDash.damage*.55),status:b._frDash.status||null,delay:18,duration:55});if(Math.hypot(player.x-b.x,player.y-b.y)<b.r+player.radius&&player.invTimer<=0){hurtPlayer(b._frDash.damage);if(b._frDash.status)frBossApplyStatus(b._frDash.status);}if(b._frDash.left<=0||b.x<45||b.x>CW-45||b.y<safeY||b.y>CH*.62)b._frDash=null;}
-  else{if(b.timer%110===0)b.targetX=70+Math.random()*(CW-140);b.x+=(b.targetX-b.x)*.02;b.y+=(b.targetY-b.y)*.02;}
+  if(b._frDash){b.x+=b._frDash.vx*frFormSlow;b.y+=b._frDash.vy*frFormSlow;b._frDash.left--;if(b._frDash.trail&&b.timer%7===0)frBossHazard({kind:'circle',x:b.x,y:b.y,r:26,color:b.color,damage:Math.max(8,b._frDash.damage*.55),status:b._frDash.status||null,delay:18,duration:55});if(Math.hypot(player.x-b.x,player.y-b.y)<b.r+player.radius&&player.invTimer<=0){hurtPlayer(b._frDash.damage);if(b._frDash.status)frBossApplyStatus(b._frDash.status);}if(b._frDash.left<=0||b.x<45||b.x>CW-45||b.y<safeY||b.y>CH*.62)b._frDash=null;}
+  else{if(b.timer%110===0)b.targetX=70+Math.random()*(CW-140);b.x+=(b.targetX-b.x)*.02*frFormSlow;b.y+=(b.targetY-b.y)*.02*frFormSlow;}
   frBossEnforceTopSafeZone(b);
   if(b._frTether){const dist=Math.hypot(player.x-b.x,player.y-b.y);if(b.timer>b._frTether.until||dist>230)b._frTether=null;else if(b.timer-b._frTether.last>42){b._frTether.last=b.timer;if(player.invTimer<=0){hurtPlayer(b._frTether.damage);b.hp=Math.min(b.maxHp,b.hp+b._frTether.damage*1.5);updateBossHp();}}}
   if(b.timer<b._frBusyUntil)return;
   const rage=b._frFinal?[1,.86,.7][b._frThunderPhase||0]:(b.hp<b.maxHp*.5?.8:1);
-  b._frAttackCd--;
+  b._frAttackCd-=frFormSlow;
   if(b._frAttackCd<=0){
     const useSkill=b._frAttackCount%3===2;b._frAttackCount++;
     if(useSkill){if(!b._frSkillBag.length)b._frSkillBag=frBossShuffle(b._frDef.skills);frBossCast(b,b._frSkillBag.shift(),true);b._frAttackCd=Math.floor(165*rage);}
