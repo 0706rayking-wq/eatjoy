@@ -143,9 +143,9 @@ function frBossApplyStatus(status){
   if(kind==='freeze'){player.frozenTimer=Math.max(player.frozenTimer||0,Math.round(75*scale));addText('冰凍',player.x,player.y-32,'#7dd3fc',13,-.5);}
   else if(kind==='burn'){player.burnTimer=Math.max(player.burnTimer||0,Math.round(240*scale));addText('灼燒',player.x,player.y-32,'#ef4444',13,-.5);}
   else if(kind==='poison'){
-    player.poisoned=true;player.poisonTick=0;window.frPoisonUntil=Math.max(window.frPoisonUntil||0,now+duration);
-    setTimeout(function(){if(performance.now()>=(window.frPoisonUntil||0))player.poisoned=false;},duration+50);
-    addText('中毒',player.x,player.y-32,'#84cc16',13,-.5);
+    if(typeof frApplyPlayerPoison==='function')frApplyPlayerPoison();
+    else{player.poisoned=true;player.poisonTick=0;window.frPoisonUntil=now+20000;}
+    addText('中毒 20秒',player.x,player.y-32,'#84cc16',13,-.5);
   }
   else if(kind==='slow'){window.frSlowUntil=Math.max(window.frSlowUntil||0,now+duration);addText('緩速',player.x,player.y-32,'#60a5fa',13,-.5);}
   else if(kind==='attackDown'){window.frAttackDownUntil=Math.max(window.frAttackDownUntil||0,now+duration);addText('攻擊降低',player.x,player.y-32,'#f59e0b',13,-.5);}

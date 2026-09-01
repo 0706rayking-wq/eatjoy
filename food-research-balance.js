@@ -64,6 +64,7 @@
       critChanceCap: 0.50,
       attackDownMultiplier: 0.72,
       slowMultiplier: 0.62,
+      poisonDurationMs: 20000,
     },
     training: {
       attackPerLevel: 0.05,
@@ -84,6 +85,10 @@
 const FR_BALANCE=${JSON.stringify(balance)};
 const FR_MOBILE_PERF=(window.matchMedia&&window.matchMedia('(pointer: coarse)').matches)||Math.min(window.innerWidth||9999,window.innerHeight||9999)<=520;
 const FR_PERF={enemyBulletCap:FR_MOBILE_PERF?90:110,particleCap:FR_MOBILE_PERF?90:120,textCap:FR_MOBILE_PERF?20:25};
+const FR_POISON_DURATION_MS=FR_BALANCE.combat.poisonDurationMs;
+function frApplyPlayerPoison(){
+ player.poisoned=true;player.poisonTick=0;window.frPoisonUntil=performance.now()+FR_POISON_DURATION_MS;
+}
 function frBalanceCurve(stage){
  const points=FR_BALANCE.progression.curvePoints,s=Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Number(stage)||1));
  let left=points[0],right=points[points.length-1];
@@ -116,6 +121,8 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
       .replace('const stamBonus=(tr.stam||0)*10;', 'const stamBonus=(tr.stam||0)*FR_BALANCE.training.staminaPerLevel;')
       .replace("Math.ceil(ch.hp)+' / '+ch.maxHp", "Math.ceil(Math.max(0,ch.hp))+' / '+ch.maxHp")
       .replace('const player={x:0,y:0,radius:22,', 'const player={x:0,y:0,radius:17,')
+      .replace("if(pDist < this.r + player.radius && !player.poisoned) { player.poisoned = true; player.poisonTick = 0; addText('☠️中毒', player.x, player.y-30, '#a855f7'); }", "if(pDist < this.r + player.radius && !player.poisoned) { frApplyPlayerPoison(); addText('☠️中毒 20秒', player.x, player.y-30, '#a855f7'); }")
+      .replace("if(player.poisoned) {\n if(boss && boss._defeated) { player.poisoned = false; player.poisonTick = 0; }", "if(player.poisoned) {\n if(!window.frPoisonUntil)window.frPoisonUntil=performance.now()+FR_POISON_DURATION_MS;\n if(performance.now()>=window.frPoisonUntil){player.poisoned=false;player.poisonTick=0;window.frPoisonUntil=0;addText('中毒解除',player.x,player.y-30,'#a3e635',13,-.5);}\n if(!player.poisoned){}\n else if(boss && boss._defeated) { player.poisoned = false; player.poisonTick = 0; window.frPoisonUntil=0; }")
       .replace('const shadowW=25+(moving?Math.cos(now/115)*2:Math.cos(now/360)*1.2);', 'const shadowW=21+(moving?Math.cos(now/115)*1.7:Math.cos(now/360));')
       .replace("ctx.fillStyle='rgba(80,90,82,.20)';ctx.beginPath();ctx.ellipse(0,29,shadowW,6.5,0,0,Math.PI*2);ctx.fill();", "ctx.fillStyle='rgba(80,90,82,.20)';ctx.beginPath();ctx.ellipse(0,25,shadowW,5.5,0,0,Math.PI*2);ctx.fill();")
       .replace('ctx.drawImage(heroNormalFloatImg,frame*HERO_FLOAT_FRAME_W,0,HERO_FLOAT_FRAME_W,HERO_FLOAT_FRAME_H,-45,-58,90,90);', 'ctx.drawImage(heroNormalFloatImg,frame*HERO_FLOAT_FRAME_W,0,HERO_FLOAT_FRAME_W,HERO_FLOAT_FRAME_H,-39,-51,78,78);')

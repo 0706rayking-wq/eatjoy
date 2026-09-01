@@ -427,9 +427,7 @@
       '<span class="fr-rule"><span class="fr-rule-icon">&#x1F47F;</span><span><span class="fr-rule-title">' +
       '\u64CA\u6557\u9B54\u738B</span><span class="fr-rule-note">\u91D1\u5E63\u8207\u5206\u6578\u6703\u96A8\u95DC\u5361\u63D0\u5347</span></span></span>' +
       '<span class="fr-rule"><span class="fr-rule-icon">&#x2694;&#xFE0F;</span><span><span class="fr-rule-title">' +
-      '\u8FF4\u907F\u8207\u6B66\u5668</span><span class="fr-rule-note">\u5FEB\u901F\u5207\u63DB\u8FD1\u6230\u3001\u9060\u7A0B</span></span></span>' +
-      '<span class="fr-rule"><span class="fr-rule-icon">&#x1F451;</span><span><span class="fr-rule-title">' +
-      '\u9B54\u738B\u5927\u7D55</span><span class="fr-rule-note">\u79FB\u52D5\u81F3\u6B63\u78BA\u7B54\u6848\u5340</span></span></span>';
+      '\u8FF4\u907F\u8207\u6B66\u5668</span><span class="fr-rule-note">\u5FEB\u901F\u5207\u63DB\u8FD1\u6230\u3001\u9060\u7A0B</span></span></span>';
     const warning = document.createElement('span');
     warning.className = 'fr-start-warning';
     warning.textContent = '\u5168\u54E1\u9663\u4EA1\u5F8C\u7B54\u5C0D 5 \u984C\uFF0C\u624D\u80FD\u5E36\u6230\u5229\u54C1\u56DE\u71DF\u5730\u3002';

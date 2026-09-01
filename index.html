@@ -1127,9 +1127,9 @@
 <script src="food-research-forms.js?v=16"></script>
 <script src="food-research-weapons.js?v=14"></script>
     <script src="food-research-amulets.js?v=3"></script>
-    <script src="food-research-bosses.js?v=20"></script>
-    <script src="food-research-ui.js?v=8"></script>
-<script src="food-research-balance.js?v=18"></script>
+    <script src="food-research-bosses.js?v=21"></script>
+    <script src="food-research-ui.js?v=9"></script>
+<script src="food-research-balance.js?v=19"></script>
       <script src="food-research-audio.js?v=4"></script>
 
     <script>
@@ -10716,7 +10716,9 @@ if (selectedActivity === 'food_research') {
  // Build once per expedition so parent data refreshes do not reload the iframe.
  let foodResearchHTML = foodResearchHTMLRef.current;
  if (!foodResearchHTML) {
-  const balancedGameHtml = GAME_HTML_STATIC.replace('魔王掉100金幣', '魔王獎勵隨關卡提升');
+   const balancedGameHtml = GAME_HTML_STATIC
+    .replace('魔王掉100金幣', '魔王獎勵隨關卡提升')
+    .replace('<br><b style="color:#92400e">魔王大絕→移到正確答案區！</b>', '');
   foodResearchHTML = balancedGameHtml +
    "<scr" + "ipt>\nconst PARTNERS=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(partnerData))) + "'))));\nconst SAVE=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(saveData))) + "'))));\nconst RIVALS=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(rivalDataRef.current))) + "'))));\nconst REVIVAL_QUESTION_BANK=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(revivalQuestionData))) + "'))));\n" +
     gameBodyWithImportedRevivalQuestions +
