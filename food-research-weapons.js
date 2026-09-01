@@ -108,11 +108,11 @@
   const kick=Math.max(0,frRangedKick);
   const shake=kick*Math.sin(performance.now()*.12)*.035;
   ctx.save();
-  ctx.translate(player.x+15,player.y-8+kick*7);
+  ctx.translate(player.x+13,player.y-7+kick*7);
   ctx.rotate(shake+(jDx||0)*.025);
   ctx.globalAlpha=player.alpha==null?1:player.alpha;
   ctx.imageSmoothingEnabled=true;
-  drawWeaponImage(frWeaponImg('ranged',def.icon),58+rank*2,0);
+  drawWeaponImage(frWeaponImg('ranged',def.icon),54+rank*2,0);
   ctx.restore();
   frRangedKick*=.68;
   if(frRangedKick<.025)frRangedKick=0;
@@ -134,9 +134,9 @@
  }
  function drawIdleMeleeWeapon(def){
   if(currentWeapon!=='melee'||!def)return;
-  ctx.save();ctx.translate(player.x-18,player.y-3);ctx.rotate(-.55);
+  ctx.save();ctx.translate(player.x-16,player.y-2);ctx.rotate(-.55);
   ctx.globalAlpha=(player.alpha==null?1:player.alpha)*.9;
-  drawWeaponImage(frWeaponImg('melee',def.icon),55+(rarityRank[def.rarity]||0),0);
+  drawWeaponImage(frWeaponImg('melee',def.icon),52+(rarityRank[def.rarity]||0),0);
   ctx.restore();
  }
  function drawActiveMeleeWeapon(anim){

@@ -1113,12 +1113,12 @@
     <div id="notify-root" style="position:fixed;top:80px;left:0;right:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none;padding:0 16px;isolation:isolate;"></div>
 <script src="food-research-question-bank.js"></script>
 <script src="food-research-question-bank-expansion.js"></script>
-<script src="food-research-forms.js?v=15"></script>
-<script src="food-research-weapons.js?v=13"></script>
+<script src="food-research-forms.js?v=16"></script>
+<script src="food-research-weapons.js?v=14"></script>
     <script src="food-research-amulets.js?v=3"></script>
-    <script src="food-research-bosses.js?v=15"></script>
+    <script src="food-research-bosses.js?v=16"></script>
     <script src="food-research-ui.js?v=7"></script>
-    <script src="food-research-balance.js?v=7"></script>
+    <script src="food-research-balance.js?v=9"></script>
       <script src="food-research-audio.js?v=4"></script>
 
     <script>
@@ -2798,7 +2798,7 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
           </div>
          ))}
         </div>
-       </div>
+        </div>
       </div>
      );
     };
@@ -7950,12 +7950,13 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
     };
 
     // ══ CampChat 聊天室組件 ══════════════════════════════════════════════
-    const CampChat = ({ currentUser, currentBranch, getPublicPath, db, allUsers }) => {
+    const CampChat = ({ currentUser, currentBranch, getPublicPath, db, allUsers, isSuperAdmin = false }) => {
      const { useState: uS, useEffect: uE, useRef: uR } = React;
      const [channel, setChannel] = uS('branch'); // 'branch' | 'all'
      const [messages, setMessages] = uS([]);
      const [input, setInput] = uS('');
      const [sending, setSending] = uS(false);
+     const [clearing, setClearing] = uS(false);
      const bottomRef = uR(null);
 
      uE(() => {
@@ -7992,6 +7993,38 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
       setSending(false);
      };
 
+     const clearChannel = async () => {
+      if (!isSuperAdmin || clearing) return;
+      const label = channel === 'branch' ? `${currentBranch || '本店'}聊天` : '全分店聊天';
+      if (!window.confirm(`確定要清除「${label}」的全部紀錄？\n此動作無法復原。`)) return;
+      if (window.prompt(`請輸入「清除」確認刪除 ${label}`) !== '清除') return;
+      setClearing(true);
+      const colPath = channel === 'branch' ? getPublicPath(`chat_${currentBranch}`) : 'global_chat_all';
+      let deleted = 0;
+      try {
+       while (true) {
+        const snap = await db.collection(colPath).limit(400).get();
+        if (snap.empty) break;
+        const batch = db.batch();
+        snap.docs.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+        deleted += snap.size;
+        if (snap.size < 400) break;
+       }
+       const logPath = channel === 'branch' ? getPublicPath('chat_admin_logs') : 'global_chat_admin_logs';
+       await db.collection(logPath).add({
+        action:'clear_chat', channel, channelPath:colPath, branch:currentBranch || '', count:deleted,
+        actorPhone:currentUser?.phone || '', actorName:currentUser?.name || '最高權限', ts:Date.now()
+       });
+       window.alert(`已清除 ${deleted} 則${label}紀錄。`);
+      } catch (error) {
+       console.error('清除聊天紀錄失敗', error);
+       window.alert('清除失敗，請確認網路與權限後再試。');
+      } finally {
+       setClearing(false);
+      }
+     };
+
      const chLabel = { branch: `🏠 ${currentBranch || '本店'}`, all: '🌐 全分店' };
 
      return (
@@ -8016,6 +8049,12 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
           </button>
          ))}
         </div>
+        {isSuperAdmin && (
+         <button onClick={clearChannel} disabled={clearing} title="清除目前頻道聊天" aria-label="清除目前頻道聊天"
+          style={{marginLeft:'auto',width:'28px',height:'28px',borderRadius:'6px',border:'1px solid #7f1d1d',background:'rgba(127,29,29,.25)',color:'#fca5a5',cursor:clearing?'wait':'pointer',fontSize:'14px'}}>
+          {clearing?'…':'🗑'}
+         </button>
+        )}
        </div>
 
        {/* Messages */}
@@ -8571,7 +8610,7 @@ if (selectedActivity === 'leftover') {
            </>
           )}
          </div>
-        </div>
+         </div>
        </div>
       );
      })()}
@@ -10308,7 +10347,7 @@ if (selectedActivity === 'food_research') {
           </div>
           ))}
          </div>
-        </div>
+         </div>
         <div className="flex-1">
          <div className="text-[10px] font-bold" style={{color:'#8b949e'}}>目前型態</div>
          <div className="text-sm font-black mb-2" style={{color:'#e6edf3'}}>{pf.emoji} {pf.name}</div>
@@ -10943,7 +10982,7 @@ if (selectedActivity === 'food_research') {
    )}
 
    {/* 營地聊天室 */}
-   <CampChat currentUser={currentUser} currentBranch={currentBranch} getPublicPath={getPublicPath} db={db} allUsers={allUsers} />
+    <CampChat currentUser={currentUser} currentBranch={currentBranch} getPublicPath={getPublicPath} db={db} allUsers={allUsers} isSuperAdmin={isSuperAdmin} />
 
   </div>
  );

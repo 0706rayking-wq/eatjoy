@@ -34,7 +34,7 @@ const FR_BOSS_BY_MAP = FR_BOSS_CATALOG.reduce(function(out,item){(out[item.map]|
 const FR_BOSS_IMAGES = {};
 const FR_THUNDER_IMAGES={};
 const FR_THUNDER_SOURCES={
-  phase1:'little-thunder-god-phase1-spritesheet.png',
+  phase1:'little-thunder-god-phase1-spritesheet-v2.png',
   phase2:'little-thunder-god-phase2-spritesheet.png',
   phase3:'little-thunder-god-phase3-spritesheet.png',
   transition12:'little-thunder-god-transition-1-to-2-spritesheet.png',
@@ -45,7 +45,7 @@ function frLoadBossImage(cache,key,src,version){
   const img=new Image();img.decoding='async';img.src='assets/food-research/bosses/'+src+version;cache[key]=img;return img;
 }
 function frBossImage(item){return item?frLoadBossImage(FR_BOSS_IMAGES,item.id,item.sprite,'?v=1'):null;}
-function frThunderImage(key){return FR_THUNDER_SOURCES[key]?frLoadBossImage(FR_THUNDER_IMAGES,key,FR_THUNDER_SOURCES[key],'?v=2'):null;}
+function frThunderImage(key){return FR_THUNDER_SOURCES[key]?frLoadBossImage(FR_THUNDER_IMAGES,key,FR_THUNDER_SOURCES[key],'?v=3'):null;}
 function frReleaseBossImage(img){if(!img)return;img.onload=null;img.onerror=null;if(img.removeAttribute)img.removeAttribute('src');}
 function frPreloadBossesForMap(mapIdx){
   const pool=FR_BOSS_BY_MAP[mapIdx]||[];
@@ -138,10 +138,10 @@ function frBossHurtOnce(h,amount){
 }
 
 class FrBossHazard{
-  constructor(options){Object.assign(this,{age:0,dead:false,delay:55,duration:90,kind:'circle',x:CW/2,y:CH/2,r:60,w:60,h:60,color:'#ef4444',damage:18,lastHit:-999,slow:0,status:null},options||{});}
+  constructor(options){Object.assign(this,{age:0,dead:false,delay:60,duration:90,kind:'circle',x:CW/2,y:CH/2,r:60,w:60,h:60,color:'#ef4444',damage:18,lastHit:-999,slow:0,status:null},options||{});if(this.delay>0)this.delay=Math.max(60,this.delay);}
   update(){
     this.age++;
-    if(this.moveX)this.x+=this.moveX;if(this.moveY)this.y+=this.moveY;
+    if(this.age>this.delay){if(this.moveX)this.x+=this.moveX;if(this.moveY)this.y+=this.moveY;}
     if(this.pull&&this.age>this.delay){player.x+=(this.x-player.x)*this.pull;player.y+=(this.y-player.y)*this.pull;}
     if(this.age<=this.delay)return;
     if(this.age>this.delay+this.duration){this.dead=true;return;}
@@ -157,23 +157,39 @@ class FrBossHazard{
     if(hit&&this.age-this.lastHit>28){frBossHurtOnce(this,this.damage);if(this.slow)frBossApplyStatus({kind:'slow',duration:this.slow*32});if(this.status)frBossApplyStatus(this.status);}
   }
   draw(){
-    const active=this.age>this.delay,pulse=.42+.22*Math.sin(this.age*.35);
-    ctx.save();ctx.globalAlpha=active?.38:pulse;ctx.fillStyle=this.color;ctx.strokeStyle=this.color;ctx.lineWidth=active?4:2.5;ctx.setLineDash(active?[]:[9,7]);
+    const active=this.age>this.delay,pulse=.42+.22*Math.sin(this.age*.35),progress=this.delay>0?Math.max(0,Math.min(1,this.age/this.delay)):1;
+    ctx.save();ctx.globalAlpha=active?.38:.2+pulse*.14;ctx.fillStyle=this.color;ctx.strokeStyle=this.color;ctx.lineWidth=active?4:2.5;ctx.setLineDash(active?[]:[9,7]);
     if(this.kind==='circle'||this.kind==='ring'){
       if(this.kind==='ring'){
         ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);ctx.arc(this.x,this.y,this.inner,0,Math.PI*2,true);if(active)ctx.fill('evenodd');ctx.stroke();
         ctx.beginPath();ctx.arc(this.x,this.y,this.inner,0,Math.PI*2);ctx.stroke();
       }else{ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);if(active)ctx.fill();ctx.stroke();}
     }else if(this.kind==='rect'){ctx.fillRect(this.x-this.w/2,this.y-this.h/2,this.w,this.h);ctx.strokeRect(this.x-this.w/2,this.y-this.h/2,this.w,this.h);}
-    else if(this.kind==='line'){ctx.lineWidth=this.w||22;ctx.beginPath();ctx.moveTo(this.x,this.y);ctx.lineTo(this.x2,this.y2);ctx.stroke();}
-    ctx.setLineDash([]);ctx.restore();
+    else if(this.kind==='line'){ctx.lineWidth=active?(this.w||22):Math.max(3,(this.w||22)*.18);ctx.beginPath();ctx.moveTo(this.x,this.y);ctx.lineTo(this.x2,this.y2);ctx.stroke();}
+    ctx.setLineDash([]);
+    if(!active&&this.delay>0){
+      ctx.globalAlpha=.95;ctx.strokeStyle='#fff7cc';ctx.lineWidth=4;ctx.lineCap='round';ctx.shadowColor=this.color;ctx.shadowBlur=8;
+      if(this.kind==='circle'||this.kind==='ring'){ctx.beginPath();ctx.arc(this.x,this.y,this.r+3,-Math.PI/2,-Math.PI/2+Math.PI*2*progress);ctx.stroke();}
+      else if(this.kind==='line'){ctx.beginPath();ctx.moveTo(this.x,this.y);ctx.lineTo(this.x+(this.x2-this.x)*progress,this.y+(this.y2-this.y)*progress);ctx.stroke();}
+      else if(this.kind==='rect')frBossDrawRectProgress(this,progress);
+      ctx.shadowBlur=0;ctx.lineCap='butt';
+    }
+    ctx.restore();
   }
+}
+function frBossDrawRectProgress(h,progress){
+  const x=h.x-h.w/2,y=h.y-h.h/2,perimeter=2*(h.w+h.h),distance=perimeter*progress;
+  const points=[[x,y],[x+h.w,y],[x+h.w,y+h.h],[x,y+h.h],[x,y]],lengths=[h.w,h.h,h.w,h.h];
+  let remain=distance;ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);
+  for(let i=0;i<4&&remain>0;i++){const used=Math.min(lengths[i],remain),ratio=used/lengths[i];ctx.lineTo(points[i][0]+(points[i+1][0]-points[i][0])*ratio,points[i][1]+(points[i+1][1]-points[i][1])*ratio);remain-=used;}
+  ctx.stroke();
 }
 class FrThunderFieldStrike extends FrBossHazard{
   constructor(x,y,damage){super({kind:'circle',x:x,y:y,r:44,color:'#facc15',damage:damage,status:{kind:'paralyze',duration:1000},delay:58,duration:10});this._frThunderField=true;}
   draw(){
-    const active=this.age>this.delay,pulse=.45+.25*Math.sin(this.age*.5);
+    const active=this.age>this.delay,pulse=.45+.25*Math.sin(this.age*.5),progress=Math.max(0,Math.min(1,this.age/this.delay));
     ctx.save();ctx.globalAlpha=active?.48:pulse;ctx.strokeStyle=active?'#ffffff':'#fde047';ctx.fillStyle=active?'#facc154d':'#facc1518';ctx.lineWidth=active?5:2.5;ctx.setLineDash(active?[]:[8,6]);ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.setLineDash([]);
+    if(!active){ctx.globalAlpha=.95;ctx.strokeStyle='#fff7cc';ctx.lineWidth=4;ctx.setLineDash([]);ctx.beginPath();ctx.arc(this.x,this.y,this.r+3,-Math.PI/2,-Math.PI/2+Math.PI*2*progress);ctx.stroke();}
     if(active){ctx.globalAlpha=.9;ctx.strokeStyle='#fef08a';ctx.lineWidth=7;ctx.shadowBlur=18;ctx.shadowColor='#facc15';ctx.beginPath();ctx.moveTo(this.x-13,this.y-this.r-68);ctx.lineTo(this.x+8,this.y-this.r-35);ctx.lineTo(this.x-5,this.y-this.r-11);ctx.lineTo(this.x+14,this.y+2);ctx.stroke();}
     ctx.restore();
   }

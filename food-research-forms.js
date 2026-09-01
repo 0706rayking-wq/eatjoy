@@ -729,9 +729,9 @@ drawPlayer=function(){
   const frame=Math.floor(performance.now()/frameTime)%4;
   const lift=[0,-2,-5,-2][frame],shadowW=[23,21,19,21][frame];
   ctx.save();ctx.globalAlpha=player.alpha==null?1:player.alpha;ctx.imageSmoothingEnabled=false;
-  ctx.fillStyle='rgba(40,44,52,.20)';ctx.beginPath();ctx.ellipse(player.x,player.y+25,shadowW,5.5,0,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle='rgba(40,44,52,.20)';ctx.beginPath();ctx.ellipse(player.x,player.y+22,shadowW*.88,5,0,0,Math.PI*2);ctx.fill();
   ctx.translate(player.x,player.y+lift);ctx.rotate((jDx||0)*.045);if(player.dodging)ctx.scale(1.08,.94);
-  ctx.drawImage(sheet,frame*FR_BATTLE_CELL,0,FR_BATTLE_CELL,FR_BATTLE_CELL,-42,-53,84,84);
+  ctx.drawImage(sheet,frame*FR_BATTLE_CELL,0,FR_BATTLE_CELL,FR_BATTLE_CELL,-38,-48,76,76);
   ctx.setTransform(1,0,0,1,0,0);
   if(player.shieldActive){ctx.strokeStyle='#67e8f9';ctx.lineWidth=3;ctx.beginPath();ctx.arc(player.x,player.y,34,0,Math.PI*2);ctx.stroke();}
   ctx.restore();
