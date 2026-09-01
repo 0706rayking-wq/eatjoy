@@ -435,17 +435,20 @@
   }
 
   if (SAVE.testMode && startBox) {
+    const testStage = Math.max(11, Math.min(22, Number(SAVE.testStage) || 22));
     const title = startBox.querySelector('h2');
     const startButton = startBox.querySelector('.mbtn.blue');
     const warning = startBox.querySelector('.fr-start-warning');
-    if (title) title.textContent = '\u7b2c 22 \u95dc \u00b7 \u5c0f\u96f7\u795e\u6f14\u7df4';
+    if (title) title.textContent = '\u7b2c ' + testStage + ' \u95dc \u00b7 \u5c0f\u96f7\u795e\u6f14\u7df4';
     if (startButton) startButton.textContent = '\u26a1 \u958b\u59cb\u6f14\u7df4';
-    if (warning) warning.textContent = '\u6f14\u7df4\u6a21\u5f0f\uff1a\u5b8c\u6574\u4e09\u968e\u6bb5\uff0c\u4e0d\u8a08\u91d1\u5e63\u3001\u4efb\u52d9\u3001\u9032\u5ea6\u8207\u6392\u884c\u699c\u3002';
+    if (warning) warning.textContent = testStage === 11
+      ? '\u6f14\u7df4\u6a21\u5f0f\uff1a\u7b2c\u4e00\u578b\u614b\u5b8c\u6574\u6280\u80fd\u7d44\uff0c\u53ea\u6709\u4e00\u689d\u8840\uff0c\u4e0d\u8a08\u4efb\u4f55\u6b63\u5f0f\u7d00\u9304\u3002'
+      : '\u6f14\u7df4\u6a21\u5f0f\uff1a\u5b8c\u6574\u4e09\u968e\u6bb5\uff0c\u4e0d\u8a08\u91d1\u5e63\u3001\u4efb\u52d9\u3001\u9032\u5ea6\u8207\u6392\u884c\u699c\u3002';
     const bossHud = document.getElementById('bossHud');
     if (bossHud) {
       const badge = document.createElement('div');
       badge.id = 'frTestBadge';
-      badge.textContent = '\u26a1 \u7b2c 22 \u95dc\u6f14\u7df4 \u00b7 \u4e0d\u8a08\u734e\u52f5';
+      badge.textContent = '\u26a1 \u7b2c ' + testStage + ' \u95dc\u6f14\u7df4 \u00b7 \u4e0d\u8a08\u734e\u52f5';
       bossHud.appendChild(badge);
     }
   }

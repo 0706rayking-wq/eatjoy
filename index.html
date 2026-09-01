@@ -1127,9 +1127,9 @@
 <script src="food-research-forms.js?v=16"></script>
 <script src="food-research-weapons.js?v=14"></script>
     <script src="food-research-amulets.js?v=3"></script>
-    <script src="food-research-bosses.js?v=21"></script>
-    <script src="food-research-ui.js?v=9"></script>
-<script src="food-research-balance.js?v=19"></script>
+    <script src="food-research-bosses.js?v=22"></script>
+    <script src="food-research-ui.js?v=10"></script>
+<script src="food-research-balance.js?v=20"></script>
       <script src="food-research-audio.js?v=4"></script>
 
     <script>
@@ -8170,6 +8170,7 @@ const rivalDataRef = useRef('[]');
 const chosenPartnersRef = useRef([]);
 const foodResearchHTMLRef = useRef('');
 const frTestModeRef = useRef(false);
+const frTestStageRef = useRef(22);
 const [dailyQuizAnswer, setDailyQuizAnswer] = useState(null);
 const [questRevision, setQuestRevision] = useState(0);
 const dailyQuizLockRef = useRef(false);
@@ -8808,7 +8809,15 @@ if (selectedActivity === 'food_research') {
   weapons:{ranged:['初始食材砲'],melee:['初始鍋鏟']},
   amulets:[],
   treasury:[],
-  quests:null,
+ quests:null,
+  runScore:0,
+  stageBestScores:{},
+  creditedStages:[],
+  uniqueBossStages:[],
+  maxStage:1,
+  scoreLegacyBase:0,
+  scoreRulesVersion:'fr-stage-best-v2',
+  finalClearAwarded:false,
   resetAt
  });
  const saveKey = 'fr_save_' + (currentUser?.phone || 'guest');
@@ -8906,7 +8915,7 @@ if (selectedActivity === 'food_research') {
    runId:String(summary?.runId || ''),
    achievedAt:now,
    updatedAt:now,
-   scoreVersion:'fr-score-v1'
+   scoreVersion:'fr-score-v2'
   };
   const docId = [foodResearchSeasonId, currentUser.phone, currentBranch].map(safeFoodResearchRankId).join('__');
   const ref = db.collection(getPublicPath('food_research_rankings')).doc(docId);
@@ -8918,7 +8927,7 @@ if (selectedActivity === 'food_research') {
    } else {
     tx.set(ref, {
      name:candidate.name, role, department, branch:currentBranch,
-     updatedAt:now, scoreVersion:'fr-score-v1'
+     updatedAt:now, scoreVersion:'fr-score-v2'
     }, { merge:true });
    }
   });
@@ -9811,7 +9820,7 @@ if (selectedActivity === 'food_research') {
      <div style={{...cardStyle, textAlign:'center'}}>
       <div style={{display:'inline-flex',alignItems:'center',gap:'6px',padding:'5px 10px',borderRadius:'999px',border:'1px solid #30363d',background:'#0d1117',color:'#8b949e',fontSize:'10px',fontWeight:900}}>{seasonLabel}</div>
       <div style={{color:'#e6edf3', fontWeight:900, fontSize:'18px', marginTop:'10px'}}>{activeRank.icon} {activeRank.label}</div>
-      <div style={{color:'#8b949e',fontSize:'10px',marginTop:'4px'}}>每月自動開啟新賽季，只計單次遠征最高分</div>
+       <div style={{color:'#8b949e',fontSize:'10px',marginTop:'4px'}}>每月自動開啟新賽季，各關採本季最佳成績計分</div>
        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginTop:'12px'}}>
         <div style={{background:'#0d1117',border:'1px solid #30363d',borderRadius:'10px',padding:'10px'}}><div style={{fontSize:'10px',color:'#8b949e'}}>最近成績</div><div style={{fontSize:'18px',color:'#58a6ff',fontWeight:900}}>{Number(rankSave.lastScore||0).toLocaleString()}</div></div>
         <div style={{background:'#0d1117',border:'1px solid #30363d',borderRadius:'10px',padding:'10px'}}><div style={{fontSize:'10px',color:'#8b949e'}}>歷史最高</div><div style={{fontSize:'18px',color:'#fbbf24',fontWeight:900}}>{Number(rankSave.bestScore||0).toLocaleString()}</div></div>
@@ -9849,8 +9858,8 @@ if (selectedActivity === 'food_research') {
      )}
       <div style={{...cardStyle, color:'#c9d1d9', fontWeight:800, fontSize:'11px', lineHeight:'1.9'}}>
        <div style={{color:'#fbbf24',fontWeight:900,fontSize:'13px',marginBottom:'5px'}}>計分規則</div>
-       小兵、BOSS、入侵者與通關皆會計分；每關依完成速度加分，無傷另有獎勵，制霸第 22 關再獲 5,000 分。<br/>
-       同分時依序比較最高關卡、擊破 BOSS 數、遠征耗時與達成時間。每位員工每月只保留最高成績。
+       小兵、BOSS、入侵者與通關皆會計分；每關依完成速度加分，無傷另有獎勵，制霸第 22 關再獲一次 5,000 分。<br/>
+       每關只保存本季最佳成績；倒退重打若刷新紀錄，只增加新舊分數差額。同分時依序比較歷史最高關卡、首次擊破 BOSS 數、遠征耗時與達成時間。
       </div>
      {renderPartnerStatusModal()}
     </div>
@@ -10509,11 +10518,12 @@ if (selectedActivity === 'food_research') {
      return [...prev, u];
     });
    };
-   const handleDeparture = async (testMode=false) => {
+   const handleDeparture = async (testMode=false,testStage=22) => {
     if (testMode && !isSuperAdmin) return;
     if (departureInProgressRef.current) return;
     departureInProgressRef.current = true;
     frTestModeRef.current = !!testMode;
+    frTestStageRef.current = testMode ? Math.max(11,Math.min(22,Number(testStage)||22)) : 22;
     expeditionRunRef.current = {
      id:`${testMode?'test_':''}${currentUser?.phone || 'guest'}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
      startedAt:Date.now()
@@ -10610,9 +10620,12 @@ if (selectedActivity === 'food_research') {
      <div style={{...cardStyle}}>
       <div style={{fontSize:'11px', color:'#58a6ff', fontWeight:900, marginBottom:'7px'}}>{'\u6700\u9AD8\u6B0A\u9650\uFF1A\u8D77\u59CB\u5730\u5716'}</div>
       <div style={{padding:'10px', marginBottom:'10px', border:'1px solid #fbbf24', borderRadius:'10px', background:'rgba(251,191,36,.08)'}}>
-       <div style={{color:'#fde047', fontSize:'13px', fontWeight:900}}>⚡ 第 22 關小雷神演練場</div>
-       <div style={{color:'#c9d1d9', fontSize:'10px', lineHeight:'1.55', marginTop:'4px'}}>固定雷霆之境與第 22 關難度，完整體驗三階段、護盾與轉場。可帶目前選擇的夥伴，測試不計入任何正式獎勵或紀錄。</div>
-       <button onClick={() => { if(!window._gameJsReady){ triggerNotify('遊戲載入中，請稍候...','info'); return; } handleDeparture(true); }} style={{...btnGold, marginTop:'9px', padding:'11px 12px'}}>⚡ 直接挑戰第 22 關</button>
+       <div style={{color:'#fde047', fontSize:'13px', fontWeight:900}}>⚡ 小雷神演練場</div>
+       <div style={{color:'#c9d1d9', fontSize:'10px', lineHeight:'1.55', marginTop:'4px'}}>可直接測試第 11 關第一型態完整技能組，或第 22 關三階段決戰。可帶目前選擇的夥伴，測試不計入正式獎勵、進度及排行榜。</div>
+       <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'7px',marginTop:'9px'}}>
+        <button onClick={() => { if(!window._gameJsReady){ triggerNotify('遊戲載入中，請稍候...','info'); return; } handleDeparture(true,11); }} style={{...btnGold,padding:'11px 8px'}}>⚡ 測試第 11 關</button>
+        <button onClick={() => { if(!window._gameJsReady){ triggerNotify('遊戲載入中，請稍候...','info'); return; } handleDeparture(true,22); }} style={{...btnGold,padding:'11px 8px'}}>⚡ 測試第 22 關</button>
+       </div>
       </div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'6px'}}>
        {FR_MAP_OPTIONS.map(m=>{
@@ -10688,6 +10701,13 @@ if (selectedActivity === 'food_research') {
   equippedForm: FOOD_RESEARCH_FORM_MAP[s2.equippedForm] ? s2.equippedForm : 'normal',
    gold: s2.gold||0,
    runScore: frTestModeRef.current ? 0 : (s2.runScore||0),
+   stageBestScores: frTestModeRef.current ? {} : (s2.stageBestScores||{}),
+   creditedStages: frTestModeRef.current ? [] : (s2.creditedStages||[]),
+   uniqueBossStages: frTestModeRef.current ? [] : (s2.uniqueBossStages||[]),
+   maxStage: frTestModeRef.current ? frTestStageRef.current : (s2.maxStage||1),
+   scoreLegacyBase: frTestModeRef.current ? 0 : (Number.isFinite(Number(s2.scoreLegacyBase)) ? Number(s2.scoreLegacyBase) : Number(s2.runScore||0)),
+   scoreRulesVersion: frTestModeRef.current ? 'fr-stage-best-v2' : (s2.scoreRulesVersion||''),
+   finalClearAwarded: frTestModeRef.current ? false : !!s2.finalClearAwarded,
   quests: s2.quests||null,
   playerName: currentUser?.name || (isSuperAdmin ? '主廚' : '玩家'),
   playerPhone: playerPhone,
@@ -10696,7 +10716,7 @@ if (selectedActivity === 'food_research') {
   savedStageKey: savedStageKey,
   isSuperAdmin: !!isSuperAdmin,
    testMode: !!frTestModeRef.current,
-   testStage: frTestModeRef.current ? 22 : null,
+   testStage: frTestModeRef.current ? frTestStageRef.current : null,
    startMapIdx: frTestModeRef.current ? 10 : (isSuperAdmin && frStartMapIdx !== 'random' ? Number(frStartMapIdx) : null),
   });
   const configuredRevivalQuestions = foodResearchQuestionBank;
@@ -10765,23 +10785,43 @@ if (selectedActivity === 'food_research') {
      }
      };
      document.addEventListener('visibilitychange', visHandler);
+     const foodResearchProgressPatch = progress => {
+      const p = progress && typeof progress === 'object' ? progress : {};
+      return {
+       runScore:Math.max(0,Math.round(Number(p.score)||0)),
+       stageBestScores:p.stageBestScores && typeof p.stageBestScores === 'object' ? p.stageBestScores : {},
+       creditedStages:Array.isArray(p.creditedStages) ? p.creditedStages.map(Number).filter(Number.isFinite) : [],
+       uniqueBossStages:Array.isArray(p.uniqueBossStages) ? p.uniqueBossStages.map(Number).filter(Number.isFinite) : [],
+       maxStage:Math.max(1,Math.min(22,Math.round(Number(p.maxStage)||1))),
+       scoreLegacyBase:Math.max(0,Math.round(Number(p.scoreLegacyBase)||0)),
+       scoreRulesVersion:'fr-stage-best-v2',
+       finalClearAwarded:!!p.finalClearAwarded
+      };
+     };
      const handler = msg => {
      if (!msg.data) return;
+     if (msg.data.type === 'FR_STAGE_SCORE_UPDATE') {
+      if (!frTestModeRef.current) writeSave(foodResearchProgressPatch(msg.data.progress));
+      return;
+     }
      if (msg.data.type === 'FR_BACK_TO_CAMP') {
        const wasTestMode = frTestModeRef.current;
+       const testedStage = frTestStageRef.current;
        if (!wasTestMode) {
         const cur = loadSave();
-        const finalScore = Math.max(0, Number(msg.data.score)||0);
+        const progressPatch = foodResearchProgressPatch(msg.data.progress || {score:msg.data.score,maxStage:msg.data.maxStage});
+        const finalScore = Math.max(0, Number(progressPatch.runScore)||0);
         writeSave({
+         ...progressPatch,
          gold: (cur.gold || 0) + (msg.data.gold || 0),
          lastScore: finalScore,
          bestScore: Math.max(Number(cur.bestScore)||0, finalScore),
-         runScore: msg.data.completed ? 0 : finalScore
+         runScore: finalScore
         });
         if (finalScore > 0) {
          syncFoodResearchRanking({
           score:finalScore,
-          stage:msg.data.stage,
+          stage:msg.data.maxStage || progressPatch.maxStage || msg.data.stage,
           bossKills:msg.data.bossKills,
           durationMs:msg.data.durationMs,
           completed:msg.data.completed,
@@ -10789,11 +10829,12 @@ if (selectedActivity === 'food_research') {
          }).catch(error => console.error('同步食研所排行榜失敗', error));
         }
        } else {
-        triggerNotify('第 22 關演練結束，測試結果未計入正式紀錄。','success');
+        triggerNotify('第 '+testedStage+' 關演練結束，測試結果未計入正式紀錄。','success');
        }
       window.removeEventListener('message', handler);
       foodResearchHTMLRef.current='';
       frTestModeRef.current=false;
+      frTestStageRef.current=22;
       setFrPhase('camp');
       return;
      }
@@ -10849,6 +10890,7 @@ if (selectedActivity === 'food_research') {
        window.removeEventListener('message', handler);
        foodResearchHTMLRef.current='';
        frTestModeRef.current=false;
+       frTestStageRef.current=22;
        triggerNotify('演練已結束，裝備與正式紀錄不受影響。','info');
        setFrPhase('camp');
        return;
@@ -10858,15 +10900,19 @@ if (selectedActivity === 'food_research') {
       const walletBefore = Math.max(0, Number(cur.gold)||0);
       const penaltyRate = Math.max(0, Math.min(.2, Number(pen.walletRate)||.2));
       const walletFee = Math.round(walletBefore * penaltyRate);
-      writeSave({ gold:Math.max(0, walletBefore-walletFee), runScore:0 });
-      triggerNotify('遠征失敗：本場金幣與分數未帶回，另支付 '+walletFee+' 金幣。武器與護符已保留。','warning');
+      const progressPatch = foodResearchProgressPatch(msg.data.progress || {score:msg.data.score,maxStage:msg.data.maxStage});
+      writeSave({ ...progressPatch, gold:Math.max(0, walletBefore-walletFee) });
+      const failure=msg.data.failure||{},rollbackText=failure.rolledBack?('，關卡已由第 '+failure.failedStage+' 關退回第 '+failure.rollbackStage+' 關'):'';
+      triggerNotify('遠征失敗：本關未完成分數不計，另支付 '+walletFee+' 金幣'+rollbackText+'。武器與護符已保留。','warning');
       window.removeEventListener('message', handler);
       foodResearchHTMLRef.current='';
+      frTestStageRef.current=22;
       setFrPhase('camp');
      }
      if (msg.data.type === 'FOOD_RESEARCH_BACK') {
       window.removeEventListener('message', handler);
       foodResearchHTMLRef.current='';
+      frTestStageRef.current=22;
       frTestModeRef.current=false;
       setSelectedActivity(null);
      }

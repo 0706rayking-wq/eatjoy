@@ -504,6 +504,11 @@ function frBossInit(b){
     b._frFullEncounter=Number(stage)>=FR_BALANCE.progression.maxStage;
     b._frRootDef=b._frDef;frThunderApplyPhase(b,0,false);
     if(b._frStage11Enhanced){
+      const firstFormKit=(b._frRootDef.phaseKits&&b._frRootDef.phaseKits[0])||{};
+      b._frDef=Object.assign({},b._frRootDef,firstFormKit);
+      b._frSkillBag=frBossShuffle((firstFormKit.skills||b._frRootDef.skills||[]).slice());
+      b._frNormalLabel=FR_BOSS_NORMAL_LABELS[firstFormKit.normal||b._frRootDef.normal]||'隱雷三閃';
+      b._frStage11SkillKitApplied=true;
       b.maxHp=Math.round(b.maxHp*FR_STAGE11_THUNDER.hp);b.hp=b.maxHp;
       b.maxShield=Math.round(b.maxShield*FR_STAGE11_THUNDER.shield);b.shield=b.maxShield;
       b._frAttackCd=Math.floor(88*FR_STAGE11_THUNDER.normalCd);b._frStage11Rage=false;b._frStage11CloseFrames=0;b._frStage11CloseReadyAt=0;

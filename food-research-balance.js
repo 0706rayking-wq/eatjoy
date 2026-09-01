@@ -5,6 +5,12 @@
       maxStage: 22,
       cycleLength: 11,
       finalMap: 10,
+      rollback: [
+        { min: 22, max: 22, amount: 1 },
+        { min: 19, max: 21, amount: 3 },
+        { min: 16, max: 18, amount: 2 },
+        { min: 12, max: 15, amount: 1 },
+      ],
       activeEnemyCaps: [
         { stage: 1, cap: 6 },
         { stage: 5, cap: 8 },
@@ -146,11 +152,12 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
       .replace(/ stageCleared=true;gameRunning=false;\n setTimeout\(\(\)=>\{[\s\S]*?\n \},600\);/, " stageCleared=true;gameRunning=false;\n window.frBeginStageClearTransition({stage:stage,bossName:this.name||'魔王',bossScore:Number(this.scoreVal)||0,bossGold:frBossCoinReward(stage),bossX:Number(this.x)||CW/2,bossY:Number(this.y)||CH*.24,bossColor:this.color||'#fde047',deathLine:(this._frStage11Enhanced&&this._frRootDef&&this._frRootDef.stage11Defeat)||(this._frRootDef&&this._frRootDef.death)||(this._frDef&&this._frDef.death)||'這一戰……是你贏了。'});")
       .replace('gold+=30;updateHUD();', 'const rivalGold=frRivalCoinReward(stage);gold+=rivalGold;score+=frRivalScore(stage);updateHUD();')
       .replace("addText('🎉全數擊敗！+30🪙'", "addText('🎉全數擊敗！+'+frRivalCoinReward(stage)+'🪙'")
-      .replace("function goBackToCamp(){window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold},'*');}", "function goBackToCamp(){frFlushQuestKills(true);window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold,score,stage,bossKills:frBossDefeatedCount,durationMs:Math.max(1000,Date.now()-frRunStartedAt),runId:frRunId,completed:!!window.frRunComplete},'*');}")
+      .replace("function goBackToCamp(){window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold},'*');}", "function goBackToCamp(){frFlushQuestKills(true);window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold,score,stage,maxStage:frHistoricalMaxStage,bossKills:frBossDefeatedCount,durationMs:Math.max(1000,Date.now()-frRunStartedAt),runId:frRunId,completed:!!window.frRunComplete,progress:frProgressPayload(),failure:frFailureSummary},'*');}")
       .replace('currentBgIdx=Math.floor(Math.random()*BG_THEMES.length);', 'currentBgIdx=frMapForStage(stage);')
       .replace(/currentBgIdx = pickInitialBgIdx\(\);/g, "currentBgIdx = SAVE.startMapIdx!=null ? pickInitialBgIdx() : frMapForStage(stage);")
       .replace('stage=Math.max(1,savedS);', 'stage=SAVE.testMode?Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Number(SAVE.testStage)||FR_BALANCE.progression.maxStage)):Math.max(1,savedS);')
-      .replace('stage=Math.max(1,savedStage-1)||1;score=0;', 'stage=SAVE.testMode?Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Number(SAVE.testStage)||FR_BALANCE.progression.maxStage)):(Math.max(1,savedStage-1)||1);score=0;')
+      .replace('stage=Math.max(1,savedStage-1)||1;score=0;', 'stage=SAVE.testMode?Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Number(SAVE.testStage)||FR_BALANCE.progression.maxStage)):(savedStage>=11?savedStage:(Math.max(1,savedStage-1)||1));score=Number(SAVE.runScore||0);')
+      .replace("window.parent.postMessage({type:'FR_PENALTY_RETURN',penalty:pen},'*');", "window.parent.postMessage({type:'FR_PENALTY_RETURN',penalty:pen,score:score,stage:(frFailureSummary&&frFailureSummary.rollbackStage)||stage,maxStage:frHistoricalMaxStage,bossKills:frBossDefeatedCount,progress:frProgressPayload(),failure:frFailureSummary},'*');")
       .replace('const spd=player.speed*(currentWeapon===\'melee\'?1.1:1)*(normalFrenzyTimer>0?2:1);', "const statusMove=(window.frSlowUntil&&performance.now()<window.frSlowUntil)?FR_BALANCE.combat.slowMultiplier:1;const formMove=typeof frFormMoveMultiplier==='function'?frFormMoveMultiplier():1;const spd=player.speed*(currentWeapon==='melee'?1.1:1)*(normalFrenzyTimer>0?2:1)*statusMove*formMove;")
       .replace('if(e.hp<=0)enemies.splice(i,1);', 'if(e.hp<=0)enemies.splice(i,1);')
       .replace('if(Math.hypot(player.x-e.x,player.y-e.y)<player.radius+e.r&&player.invTimer<=0)hurtPlayer(10);', 'if(Math.hypot(player.x-e.x,player.y-e.y)<player.radius+e.r&&player.invTimer<=0)hurtPlayer(e.atk||10);')
@@ -195,9 +202,49 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
 
   window.FOOD_RESEARCH_BALANCE_PATCH = String.raw`
 ;(function(){
- let frStageStartedAt=performance.now(),frStageHpDamage=0,frStageResultPending=null,frStageTransitionToken=0;
+ let frStageStartedAt=performance.now(),frStageHpDamage=0,frStageResultPending=null,frStageTransitionToken=0,frStageScoreAtStart=Number(score)||0;
+ const frStageBestScores=Object.assign({},SAVE.stageBestScores||{});
+ const frCreditedStages=new Set((SAVE.creditedStages||[]).map(Number).filter(Number.isFinite));
+ const frUniqueBossStages=new Set((SAVE.uniqueBossStages||[]).map(Number).filter(Number.isFinite));
+ const frScoreLegacyBase=Number.isFinite(Number(SAVE.scoreLegacyBase))?Number(SAVE.scoreLegacyBase):Math.max(0,Number(SAVE.runScore)||0);
+ let frHistoricalMaxStage=Math.max(1,Number(SAVE.maxStage)||1),frFinalClearAwarded=!!SAVE.finalClearAwarded,frScoringMigrated=SAVE.scoreRulesVersion==='fr-stage-best-v2',frFailureSummary=null;
+ frBossDefeatedCount=frUniqueBossStages.size;
  const frBgCache=document.createElement('canvas'),frBgCtx=frBgCache.getContext('2d');
  let frBgCacheKey='';
+
+ function frFailureRollbackStage(value){
+  const failed=Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Math.round(Number(value)||1)));
+  if(failed<=11)return failed;
+  const rule=(FR_BALANCE.progression.rollback||[]).find(function(item){return failed>=item.min&&failed<=item.max;});
+  return Math.max(11,failed-Math.max(0,Number(rule&&rule.amount)||0));
+ }
+ function frProgressPayload(){
+  return {score:Math.max(0,Math.round(Number(score)||0)),stageBestScores:Object.assign({},frStageBestScores),creditedStages:Array.from(frCreditedStages).sort(function(a,b){return a-b;}),uniqueBossStages:Array.from(frUniqueBossStages).sort(function(a,b){return a-b;}),maxStage:Math.max(1,Math.min(22,Math.round(frHistoricalMaxStage||1))),scoreLegacyBase:Math.max(0,Math.round(frScoreLegacyBase)),scoreRulesVersion:'fr-stage-best-v2',finalClearAwarded:!!frFinalClearAwarded};
+ }
+ function frSyncStageProgress(){if(SAVE.testMode)return;window.parent.postMessage({type:'FR_STAGE_SCORE_UPDATE',progress:frProgressPayload()},'*');}
+ function frInitializeScoring(startStage){
+  const current=Math.max(1,Math.min(22,Math.round(Number(startStage)||1)));frHistoricalMaxStage=Math.max(frHistoricalMaxStage,current);
+  if(frScoringMigrated)return;
+  for(let s=1;s<current;s++)frUniqueBossStages.add(s);
+  for(let s=11;s<current;s++)frCreditedStages.add(s);
+  frBossDefeatedCount=frUniqueBossStages.size;frScoringMigrated=true;frSyncStageProgress();
+ }
+ function frHandlePartyFailure(){
+  const failed=Math.max(1,Math.round(Number(stage)||1)),rollback=SAVE.testMode?failed:frFailureRollbackStage(failed),stageKey=SAVE.savedStageKey||('fr_stage_'+(SAVE.playerPhone||'guest'));
+  score=Math.max(0,Math.round(Number(frStageScoreAtStart)||0));
+  localStorage.setItem(stageKey,String(rollback));
+  frFailureSummary={failedStage:failed,rollbackStage:rollback,rolledBack:rollback<failed};
+  frSyncStageProgress();updateHUD();
+ }
+ function frRenderFailureRollback(){
+  const modal=document.getElementById('revModal'),box=modal&&modal.querySelector('.mbox');if(!box||!frFailureSummary)return;
+  let note=document.getElementById('frFailureRollbackNote');if(!note){note=document.createElement('div');note.id='frFailureRollbackNote';note.style.cssText='margin:0 0 10px;padding:9px 10px;border:1px solid #f87171;border-radius:9px;background:#450a0a;color:#fecaca;font-size:12px;font-weight:900;line-height:1.55';const title=box.querySelector('h2');if(title&&title.nextSibling)box.insertBefore(note,title.nextSibling);else box.prepend(note);}
+  const info=frFailureSummary;note.textContent=info.rolledBack?('挑戰失敗：第 '+info.failedStage+' 關 → 退回第 '+info.rollbackStage+' 關，本關未完成分數不計。'):('挑戰失敗：留在第 '+info.failedStage+' 關，本關未完成分數不計。');
+ }
+ const frRollbackBaseFinalDeath=beginFinalDeathSequence;
+ beginFinalDeathSequence=function(){frHandlePartyFailure();return frRollbackBaseFinalDeath.apply(this,arguments);};
+ const frRollbackBaseRevival=showRevivalQuiz;
+ showRevivalQuiz=function(){const result=frRollbackBaseRevival.apply(this,arguments);frRenderFailureRollback();return result;};
 
  function frEnsureStageTransitionUI(){
   let overlay=document.getElementById('frStageTransition');
@@ -268,7 +315,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
    document.head.appendChild(style);
   }
   overlay=document.createElement('div');overlay.id='frStageTransition';overlay.setAttribute('role','status');overlay.setAttribute('aria-live','polite');
-   overlay.innerHTML='<canvas class="fr-st-death-frame"></canvas><div class="fr-st-shade"></div><div class="fr-st-death-fx"><div class="fr-st-death-core">✦</div><div class="fr-st-fragments"></div></div><div class="fr-st-band"><div class="fr-st-kicker"></div><div class="fr-st-title"></div><div class="fr-st-boss"></div><div class="fr-st-rewards"><div class="fr-st-reward"><span class="fr-st-reward-label">金幣</span><span class="fr-st-reward-value fr-st-gold">+0</span></div><div class="fr-st-reward"><span class="fr-st-reward-label">關卡分數</span><span class="fr-st-reward-value fr-st-base-score">+0</span></div><div class="fr-st-reward"><span class="fr-st-reward-label">速通</span><span class="fr-st-reward-value fr-st-time">+0</span></div><div class="fr-st-reward"><span class="fr-st-reward-label">無傷</span><span class="fr-st-reward-value fr-st-flawless">未達成</span></div></div><div class="fr-st-total">本關總分<strong class="fr-st-score">+0</strong></div><div class="fr-st-final-stats"><div class="fr-st-final-stat"><small>遠征總分</small><strong class="fr-st-final-score">0</strong></div><div class="fr-st-final-stat"><small>帶回金幣</small><strong class="fr-st-final-gold">0</strong></div><div class="fr-st-final-stat"><small>通關時間</small><strong class="fr-st-final-time">0:00</strong></div></div><div class="fr-st-phases"><div class="fr-st-phase">披風形態 ✓</div><div class="fr-st-phase">雷鎧真身 ✓</div><div class="fr-st-phase">閃電化身 ✓</div></div><div class="fr-st-note"></div><button type="button" class="fr-st-next-btn">下一關</button></div><div class="fr-st-last-words"></div><div class="fr-st-curtain"></div>';
+   overlay.innerHTML='<canvas class="fr-st-death-frame"></canvas><div class="fr-st-shade"></div><div class="fr-st-death-fx"><div class="fr-st-death-core">✦</div><div class="fr-st-fragments"></div></div><div class="fr-st-band"><div class="fr-st-kicker"></div><div class="fr-st-title"></div><div class="fr-st-boss"></div><div class="fr-st-rewards"><div class="fr-st-reward"><span class="fr-st-reward-label">金幣</span><span class="fr-st-reward-value fr-st-gold">+0</span></div><div class="fr-st-reward"><span class="fr-st-reward-label">關卡分數</span><span class="fr-st-reward-value fr-st-base-score">+0</span></div><div class="fr-st-reward"><span class="fr-st-reward-label">速通</span><span class="fr-st-reward-value fr-st-time">+0</span></div><div class="fr-st-reward"><span class="fr-st-reward-label">無傷</span><span class="fr-st-reward-value fr-st-flawless">未達成</span></div></div><div class="fr-st-total">排行榜增加<strong class="fr-st-score">+0</strong></div><div class="fr-st-final-stats"><div class="fr-st-final-stat"><small>遠征總分</small><strong class="fr-st-final-score">0</strong></div><div class="fr-st-final-stat"><small>帶回金幣</small><strong class="fr-st-final-gold">0</strong></div><div class="fr-st-final-stat"><small>通關時間</small><strong class="fr-st-final-time">0:00</strong></div></div><div class="fr-st-phases"><div class="fr-st-phase">披風形態 ✓</div><div class="fr-st-phase">雷鎧真身 ✓</div><div class="fr-st-phase">閃電化身 ✓</div></div><div class="fr-st-note"></div><button type="button" class="fr-st-next-btn">下一關</button></div><div class="fr-st-last-words"></div><div class="fr-st-curtain"></div>';
   document.getElementById('gc').appendChild(overlay);return overlay;
  }
 
@@ -320,7 +367,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
     frTransitionText('.fr-st-final-score',Math.round(score).toLocaleString());frTransitionText('.fr-st-final-gold',Math.round(gold).toLocaleString());frTransitionText('.fr-st-final-time',frFormatTransitionTime(Date.now()-frRunStartedAt));frTransitionText('.fr-st-note','雷霆平息，準備返回營地');button.textContent='返回營地';button.disabled=false;
    }else{
     rewards.style.display='grid';totalRow.style.display='block';frTransitionText('.fr-st-kicker',special11?'雷光退去':'BOSS 擊破');frTransitionText('.fr-st-title','第 '+clearedStage+' 關突破');frTransitionText('.fr-st-boss',frStageResultPending.bossName);frUpdateStageTransitionResult(frStageResultPending);
-    frTransitionText('.fr-st-note','下一關：'+(nextTheme?nextTheme.name:'未知區域')+(nextTheme&&nextTheme.text?' · '+nextTheme.text:''));button.textContent=assetsReady?'下一關':'地圖載入中...';button.disabled=!assetsReady;
+    const scoreNote=frStageResultPending.scoreNote?(' · '+frStageResultPending.scoreNote):'';frTransitionText('.fr-st-note','下一關：'+(nextTheme?nextTheme.name:'未知區域')+(nextTheme&&nextTheme.text?' · '+nextTheme.text:'')+scoreNote);button.textContent=assetsReady?'下一關':'地圖載入中...';button.disabled=!assetsReady;
    }
   }
   function finishRegular(){
@@ -335,7 +382,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
 
   later(2000,function(){overlay.classList.add('fr-lastwords-fade');});later(2550,showResult);
   if(finalStage){
-   window.frRunComplete=true;score+=FR_BALANCE.scoring.runClear;const stageKey=SAVE.savedStageKey||('fr_stage_'+(SAVE.playerPhone||'guest'));localStorage.setItem(stageKey,'1');updateHUD();
+   window.frRunComplete=true;if(!frFinalClearAwarded){score+=FR_BALANCE.scoring.runClear;frFinalClearAwarded=true;}frHistoricalMaxStage=22;const stageKey=SAVE.savedStageKey||('fr_stage_'+(SAVE.playerPhone||'guest'));localStorage.setItem(stageKey,'1');frSyncStageProgress();updateHUD();
   }else{
    currentBgIdx=nextMap;preloadBgTheme(currentBgIdx,function(){assetsReady=true;if(overlay.getAttribute('data-phase')==='result'){button.textContent='下一關';button.disabled=false;}});
   }
@@ -401,7 +448,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
 
  const frBalancedBuildStage=buildStage;
  buildStage=function(s,keepPlayerPos){
-  frBalancedBuildStage(s,keepPlayerPos);frPrepareStageAssets();frStageStartedAt=performance.now();frStageHpDamage=0;
+  frBalancedBuildStage(s,keepPlayerPos);frPrepareStageAssets();frStageStartedAt=performance.now();frStageHpDamage=0;frFailureSummary=null;frInitializeScoring(s);frStageScoreAtStart=Math.max(0,Number(score)||0);
   window.frSlowUntil=0;window.frAttackDownUntil=0;window.frPoisonUntil=0;window.frBossStatusCooldown={};player.poisoned=false;player.poisonTick=0;player.burnTimer=0;player.frozenTimer=0;
   const c=frBalanceCurve(s);
   if(currentBgIdx===FR_BALANCE.progression.finalMap){spawnQueue=[];stageInitSpawnLen=0;bossIntroTimer=1;mapCameraTargetY=0;return;}
@@ -449,13 +496,22 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
   const wasAlive=!this._defeated&&this.hp>0,debuff=window.frAttackDownUntil&&performance.now()<window.frAttackDownUntil?FR_BALANCE.combat.attackDownMultiplier:1;
   const result=frBalancedBossDamage.call(this,amount*debuff,isQa);
   if(wasAlive&&this._defeated){
-   frBossDefeatedCount++;
    const elapsed=Math.max(0,(performance.now()-frStageStartedAt)/1000),clear=frStageClearScore(stage);
    const target=48+stage*2.5,time=Math.max(0,Math.round(FR_BALANCE.scoring.timeBonusMax-Math.max(0,elapsed-target)*FR_BALANCE.scoring.timeBonusLossPerSecond));
    const flawless=frStageHpDamage<=0?FR_BALANCE.scoring.flawlessBase+stage*FR_BALANCE.scoring.flawlessPerStage:0;
-    score+=clear+time+flawless;
-    frUpdateStageTransitionResult({stage:stage,bossName:this.name||'魔王',bossGold:frBossCoinReward(stage),bossScore:Number(this.scoreVal)||0,clearScore:clear,timeScore:time,flawlessScore:flawless,totalStageScore:(Number(this.scoreVal)||0)+clear+time+flawless});
-   addText('關卡分數 +'+(clear+time+flawless),CW/2,CH*.36,'#fde047',18,0);updateHUD();
+   score+=clear+time+flawless;
+   const stageNum=Math.max(1,Math.round(Number(stage)||1)),rawStageScore=Math.max(0,Math.round(score-frStageScoreAtStart)),hadCredit=frCreditedStages.has(stageNum),hasRecordedBest=Object.prototype.hasOwnProperty.call(frStageBestScores,String(stageNum)),oldBest=Math.max(0,Number(frStageBestScores[stageNum])||0);
+   let awarded=rawStageScore,scoreNote='首次通關完整計分';
+   if(hadCredit){
+    if(!hasRecordedBest){awarded=0;scoreNote='既有通關已計分';}
+    else{awarded=Math.max(0,rawStageScore-oldBest);scoreNote=awarded>0?('刷新本關最佳，只增加 '+awarded.toLocaleString()+' 分'):'未超越本關最佳，不重複計分';}
+   }
+   score=frStageScoreAtStart+awarded;
+   if(!hasRecordedBest||rawStageScore>oldBest)frStageBestScores[stageNum]=rawStageScore;
+   frCreditedStages.add(stageNum);frHistoricalMaxStage=Math.max(frHistoricalMaxStage,Math.min(22,stageNum+1));
+   if(!frUniqueBossStages.has(stageNum)){frUniqueBossStages.add(stageNum);frBossDefeatedCount=frUniqueBossStages.size;}
+   frUpdateStageTransitionResult({stage:stageNum,bossName:this.name||'魔王',bossGold:frBossCoinReward(stageNum),bossScore:Number(this.scoreVal)||0,clearScore:clear,timeScore:time,flawlessScore:flawless,totalStageScore:awarded,rawStageScore:rawStageScore,previousBest:oldBest,scoreNote:scoreNote});
+   addText(awarded>0?('排行榜 +'+awarded):'本關已計分',CW/2,CH*.36,awarded>0?'#fde047':'#93c5fd',18,0);frSyncStageProgress();updateHUD();
   }
   return result;
  };
