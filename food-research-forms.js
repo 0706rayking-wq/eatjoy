@@ -29,7 +29,7 @@
     { id:'popcorn', rarity:'normal', name:'爆米花', emoji:'🍿', passive:'遠程子彈尺寸與命中範圍增加 55%', skill1:'爆米花散射', skill2:'玉米重砲', color:'#fde68a' },
     { id:'healing_mushroom', rarity:'normal', name:'療癒蘑菇', emoji:'🍄', passive:'每 5 秒自動治療', skill1:'蘑菇替身', skill2:'療癒菌林', color:'#f9a8d4' },
     { id:'garlic_knight', rarity:'normal', name:'蒜頭騎士', emoji:'🧄', passive:'異常狀態時間減半', skill1:'聖蒜淨化', skill2:'無垢聖域', color:'#f5f5dc' },
-    { id:'chili_sprite', rarity:'normal', name:'辣椒精靈', emoji:'🌶️', passive:'周遭敵人持續灼燒', skill1:'焚風', skill2:'烈焰油海', color:'#fb7185' },
+    { id:'chili_sprite', rarity:'normal', name:'辣椒精靈', emoji:'🌶️', passive:'150 範圍內的敵人持續灼燒', skill1:'焚風', skill2:'烈焰油海', color:'#fb7185' },
     { id:'lotus_archer', rarity:'normal', name:'蓮藕射手', emoji:'🏹', passive:'遠程攻擊額外貫穿', skill1:'連環藕矢', skill2:'九孔光陣', color:'#fda4af' },
     { id:'potato_armor', rarity:'normal', name:'馬鈴薯裝甲', emoji:'🥔', passive:'受到的傷害降低 20%', skill1:'澱粉彈牆', skill2:'大地震盪', color:'#d6a86e' },
     { id:'lemon_battery', rarity:'normal', name:'檸檬電池', emoji:'🍋', passive:'遠程攻擊有 28% 機率觸發連鎖電流', skill1:'彈跳電球', skill2:'超載電網', color:'#facc15' },
@@ -41,12 +41,12 @@
     { id:'salmon_ronin', rarity:'rare', name:'鮭魚浪客', emoji:'🍣', passive:'閃避後 3 秒內攻擊、攻速與移速提升 25%', skill1:'逆流一閃', skill2:'鮭潮斷浪', color:'#fb7185' },
     { id:'beef_berserker', rarity:'rare', name:'牛排狂戰士', emoji:'🥩', passive:'血量越低，攻擊最高 +45%、攻速最高 +55%', skill1:'猛牛挑釁', skill2:'血宴不倒', color:'#dc2626' },
 
-    { id:'puffer_alchemist', rarity:'noble', name:'河豚毒師', emoji:'🐡', passive:'毒霧每 0.75 秒疊加中毒，最高 5 層', skill1:'萬毒棘輪', skill2:'死海劇毒', color:'#a3e635' },
+    { id:'puffer_alchemist', rarity:'noble', name:'河豚毒師', emoji:'🐡', passive:'160 範圍毒霧每 0.75 秒疊毒，最高 5 層', skill1:'萬毒棘輪', skill2:'死海劇毒', color:'#a3e635' },
     { id:'black_garlic_void', rarity:'noble', name:'黑蒜虛空使', emoji:'⚫', passive:'造成傷害 +12%，遠程攻擊額外貫穿', skill1:'蒜核黑洞', skill2:'虛無貫星砲', color:'#818cf8' },
     { id:'lobster_general', rarity:'noble', name:'龍蝦將軍', emoji:'🦞', passive:'每 8 秒獲得護甲，護盾格擋後 4 秒內傷害 +25%', skill1:'赤甲納彈', skill2:'百砲返還', color:'#ef4444' },
     { id:'truffle_thunder', rarity:'noble', name:'松露雷神', emoji:'⚡', passive:'所有遠程攻擊附帶不衰減連鎖電流', skill1:'追身雷雲', skill2:'萬雷天牢', color:'#60a5fa' },
 
-    { id:'dragonfruit_emperor', rarity:'top', name:'火龍果龍皇', emoji:'🐉', passive:'灼燒光環，擊破敵人有 35% 機率爆破', skill1:'龍星雨', skill2:'焚界龍息', color:'#f43f5e' },
+    { id:'dragonfruit_emperor', rarity:'top', name:'火龍果龍皇', emoji:'🐉', passive:'185 範圍灼燒光環，擊破敵人有 35% 機率爆破', skill1:'龍星雨', skill2:'焚界龍息', color:'#f43f5e' },
     { id:'peach_divine', rarity:'top', name:'仙桃神使', emoji:'🍑', passive:'每場戰鬥首次死亡可復活', skill1:'仙影分身', skill2:'蟠桃回天', color:'#f9a8d4' },
     { id:'cocoa_popsicle_wargod', rarity:'top', name:'可可冰棒戰神', emoji:'🍫', passive:'攻擊累積 5 層寒氣後凍結並觸發碎冰爆破', skill1:'冰棒巨斧', skill2:'極凍戰神', color:'#67e8f9' },
   ].map((form) => ({
@@ -559,7 +559,12 @@ function frPufferPoisonWave(radius,damage){
     frApplyDamage(target,dealt*(window._curAtkMult||atkMult)*frFormDamageMultiplier());burst(target.x,target.y,'#a3e635',4);
   });
 }
-function frPufferAuraTick(){frPufferPoisonWave(105,null);}
+const FR_PASSIVE_AURAS={
+  chili_sprite:{radius:150,color:'#fb7185',fill:'rgba(251,113,133,.055)',dash:[7,7]},
+  puffer_alchemist:{radius:160,color:'#a3e635',fill:'rgba(163,230,53,.055)',dash:[3,8]},
+  dragonfruit_emperor:{radius:185,color:'#f97316',fill:'rgba(249,115,22,.07)',dash:[12,7]}
+};
+function frPufferAuraTick(){frPufferPoisonWave(FR_PASSIVE_AURAS.puffer_alchemist.radius,null);}
 
 setInterval(function(){
   if(!gameRunning||!currentForm)return;
@@ -570,9 +575,9 @@ setInterval(function(){
   if(id==='healing_mushroom'&&ready(id,5000))frHeal(4);
   if(id==='honey_priest'&&ready(id,4500)){if(player.hp<player.maxHp)frHeal(5);else{player.shieldActive=true;player.shieldHp=Math.max(player.shieldHp||0,20);}}
   if(id==='lobster_general'&&ready(id,8000)){player.shieldActive=true;player.shieldHp=Math.max(player.shieldHp||0,45);}
-  if(id==='chili_sprite'&&ready(id+':aura',750))frDamage(3,90,'#fb7185');
+  if(id==='chili_sprite'&&ready(id+':aura',750))frDamage(3,FR_PASSIVE_AURAS.chili_sprite.radius,'#fb7185');
   if(id==='puffer_alchemist'&&ready(id+':aura',750))frPufferAuraTick();
-  if(id==='dragonfruit_emperor'&&ready(id+':aura',650))frDamage(5,120,'#f43f5e');
+  if(id==='dragonfruit_emperor'&&ready(id+':aura',500))frDamage(5,FR_PASSIVE_AURAS.dragonfruit_emperor.radius,'#f43f5e');
   if(id==='cheese_mage'&&ready(id+':slow',600))frSlowAll(900,.72);
 },250);
 
@@ -666,6 +671,17 @@ useSkill2=function(){
 };
 
 const frOriginalDrawPlayer=drawPlayer;
+function frDrawPassiveAura(){
+  if(!gameRunning||!currentForm)return;
+  const aura=FR_PASSIVE_AURAS[currentForm.id];if(!aura)return;
+  const now=performance.now(),pulse=.5+.5*Math.sin(now*.005),radius=aura.radius+pulse*2;
+  ctx.save();ctx.translate(player.x,player.y);ctx.globalCompositeOperation='source-over';
+  ctx.fillStyle=aura.fill;ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.fill();
+  ctx.globalAlpha=.48+pulse*.18;ctx.strokeStyle=aura.color;ctx.lineWidth=currentForm.id==='dragonfruit_emperor'?3:2;
+  ctx.setLineDash(aura.dash);ctx.lineDashOffset=-now*.02;ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.stroke();
+  ctx.globalAlpha=.16+pulse*.08;ctx.lineWidth=8;ctx.setLineDash([]);ctx.beginPath();ctx.arc(0,0,radius-3,0,Math.PI*2);ctx.stroke();
+  ctx.restore();
+}
 function frDrawMeleeSwipe(){
   if(!swipeAnim||!swipeAnim.active)return;
   const p=Math.max(0,Math.min(1,swipeAnim.progress||0));
@@ -694,6 +710,7 @@ function frDrawMeleeSwipe(){
   ctx.restore();
 }
 drawPlayer=function(){
+  frDrawPassiveAura();
   if(!currentForm||!currentForm.id||currentForm.id==='normal'){frOriginalDrawPlayer();return;}
   const img=frImg(currentForm.id,'battle');
   if(!img||!img.complete||!img.naturalWidth){frOriginalDrawPlayer();return;}
