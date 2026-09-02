@@ -50,6 +50,21 @@ assert.deepEqual(explanationDepartmentValues(
   { NUEIP_FRONT_WASH_DEPARTMENT_VALUES: '15451_103017,15451_103018' }
 ), ['15451_103017', '15451_103018', '15451_0']);
 assert.deepEqual(explanationDepartmentValues(
+  { department: '南港三井Lalaport外場' },
+  '15451',
+  {}
+), ['15451_103015', '15451_0']);
+assert.deepEqual(explanationDepartmentValues(
+  { department: '洗滌' },
+  '15451',
+  {}
+), ['15451_103017', '15451_0']);
+assert.deepEqual(explanationDepartmentValues(
+  { department: '行政' },
+  '15451',
+  {}
+), ['15451_103018', '15451_0']);
+assert.deepEqual(explanationDepartmentValues(
   { department: '行政' },
   '15451',
   { NUEIP_ADMIN_WASH_DEPARTMENT_VALUES: '15451_103018,15451_103019' }
