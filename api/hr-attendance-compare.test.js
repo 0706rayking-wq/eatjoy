@@ -5,6 +5,7 @@ const {
   compareAttendance,
   departmentExplanationRecords,
   formatLineMessages,
+  includeExplanationSyncFailures,
   normalizeDate,
   parseAllOptions,
   parseAttendanceHtml,
@@ -13,6 +14,26 @@ const {
   uniqueAttendance,
   wrapLine
 } = require('./hr-attendance-compare')._test;
+
+const partialExplanationResult = includeExplanationSyncFailures({
+  issues: [],
+  normalCount: 2,
+  offMatchedCount: 0,
+  normalRecords: [
+    { employeeNumber: '1001', name: '甲' },
+    { employeeNumber: '1002', name: '乙' }
+  ]
+}, {
+  failed: 1,
+  results: [
+    { employeeNumber: '1001', name: '甲', status: 'updated' },
+    { employeeNumber: '1002', name: '乙', status: 'error', message: '修改視窗逾時' }
+  ]
+});
+assert.equal(partialExplanationResult.normalCount, 1);
+assert.deepEqual(partialExplanationResult.normalRecords.map((record) => record.employeeNumber), ['1001']);
+assert.equal(partialExplanationResult.issues[0].type, 'explanation_sync');
+assert.match(partialExplanationResult.issues[0].detail, /修改視窗逾時/);
 
 const departmentRecords = departmentExplanationRecords({
   sheet_type: '外場／洗滌',

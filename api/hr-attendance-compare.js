@@ -1073,7 +1073,8 @@ function formatLineMessages(date, comparison, schedule = {}, silentNames = []) {
       missing_nueip: '名冊不符',
       name_ambiguous: '姓名不明',
       schedule_review: '班表待確認',
-      paper_late: '遲到註記'
+      paper_late: '遲到註記',
+      explanation_sync: '說明寫入失敗'
     };
     lines.push(`${index + 1}.${issue.name}｜${labels[issue.type] || '需確認'}`);
     if (issue.expected) lines.push(`下班條：${issue.expected}`);
@@ -1115,6 +1116,30 @@ function normalizeDate(value, now = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function includeExplanationSyncFailures(comparison, explanationSync) {
+  const failedResults = (Array.isArray(explanationSync?.results) ? explanationSync.results : [])
+    .filter((result) => result?.status === 'error');
+  if (failedResults.length === 0) return comparison;
+
+  const failedNumbers = new Set(failedResults.map((result) => String(result.employeeNumber || '').trim()));
+  const remainingNormalRecords = (comparison.normalRecords || [])
+    .filter((record) => !failedNumbers.has(String(record.employeeNumber || '').trim()));
+  const removedNormalCount = Math.max(0, (comparison.normalRecords || []).length - remainingNormalRecords.length);
+  const explanationIssues = failedResults.map((result) => ({
+    type: 'explanation_sync',
+    name: result.name || result.employeeNumber || '員工',
+    detail: `打卡時間寫入說明失敗：${String(result.message || 'NUEIP未完成寫入').slice(0, 120)}`,
+    employeeNumber: result.employeeNumber || ''
+  }));
+
+  return {
+    ...comparison,
+    issues: [...(comparison.issues || []), ...explanationIssues],
+    normalRecords: remainingNormalRecords,
+    normalCount: Math.max(0, Number(comparison.normalCount || 0) - removedNormalCount)
+  };
+}
+
 async function handler(request, response) {
   if (['sync_explanations', 'preview_schedule', 'sync_schedule'].includes(request.body?.action)) {
     return explanationSyncHandler(request, response);
@@ -1138,22 +1163,16 @@ async function handler(request, response) {
         records,
         request.body?.mode === 'preview' ? 'preview' : 'commit'
       );
-      if (explanationSync.failed > 0) {
-        return response.status(502).json({
-          status: 'error',
-          message: `NUEIP打卡說明有${explanationSync.failed}筆寫入失敗，已停止後續比對`,
-          explanationSync
-        });
-      }
       return response.status(200).json({
         ...schedule,
         date,
         attendanceSnapshot: attendance,
         explanationSync: {
-          status: explanationSync.status,
+          status: explanationSync.failed > 0 ? 'partial' : explanationSync.status,
           updated: explanationSync.updated || 0,
           unchanged: explanationSync.unchanged || 0,
-          failed: explanationSync.failed || 0
+          failed: explanationSync.failed || 0,
+          results: explanationSync.results || []
         }
       });
     }
@@ -1171,13 +1190,6 @@ async function handler(request, response) {
       : await loadNueipAttendance(date, schedule);
     const departmentRecords = departmentExplanationRecords(schedule, attendance, date);
     const explanationSync = await explanationSyncHandler.syncExplanationRecords(departmentRecords, 'commit');
-    if (explanationSync.failed > 0) {
-      return response.status(502).json({
-        status: 'error',
-        message: `NUEIP打卡說明有${explanationSync.failed}筆寫入失敗，已停止後續比對`,
-        explanationSync
-      });
-    }
     const excludedNames = String(process.env.NUEIP_EXCLUDED_NAMES || '黃遠志')
       .split(',')
       .map((name) => name.trim())
@@ -1186,7 +1198,10 @@ async function handler(request, response) {
       .split(',')
       .map((name) => name.trim())
       .filter(Boolean);
-    const comparison = compareAttendance(schedule, attendance, excludedNames);
+    const comparison = includeExplanationSyncFailures(
+      compareAttendance(schedule, attendance, excludedNames),
+      explanationSync
+    );
     const lineMessages = formatLineMessages(date, comparison, schedule, silentLineNames);
     const lineMessageObjects = lineMessages.map((text) => ({ type: 'text', text })).slice(0, 5);
     return response.status(200).json({
@@ -1194,10 +1209,11 @@ async function handler(request, response) {
       date,
       attendanceCount: attendance.length,
       explanationSync: {
-        status: explanationSync.status,
+        status: explanationSync.failed > 0 ? 'partial' : explanationSync.status,
         updated: explanationSync.updated || 0,
         unchanged: explanationSync.unchanged || 0,
-        failed: explanationSync.failed || 0
+        failed: explanationSync.failed || 0,
+        results: explanationSync.results || []
       },
       ...comparison,
       lineMessages,
@@ -1219,6 +1235,7 @@ module.exports._test = {
   compareAttendance,
   departmentExplanationRecords,
   formatLineMessages,
+  includeExplanationSyncFailures,
   normalizeDate,
   normalizeName,
   parseAllOptions,
