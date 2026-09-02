@@ -1126,7 +1126,7 @@
 <script src="food-research-question-bank-expansion.js"></script>
 <script src="food-research-forms.js?v=17"></script>
 <script src="food-research-weapons.js?v=14"></script>
-    <script src="food-research-amulets.js?v=3"></script>
+<script src="food-research-amulets.js?v=5"></script>
     <script src="food-research-bosses.js?v=24"></script>
     <script src="food-research-ui.js?v=10"></script>
 <script src="food-research-balance.js?v=21"></script>
@@ -1163,6 +1163,18 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
     const getFoodResearchQuestionParts = (item) => Array.isArray(item)
      ? {q:item[0], opts:item.slice(1,5), ans:Number(item[5]) || 0}
      : {q:item?.q, opts:[item?.a,item?.b,item?.c,item?.d], ans:Number(item?.ansIdx) || 0};
+    const correctKnownFoodResearchQuestion = (item) => {
+     const question = getFoodResearchQuestionParts(item);
+     if (!String(question.q || '').includes('食物的復熱') || !String(question.q || '').includes('再次加熱')) return item;
+     const correctIndex = question.opts.findIndex(option => /75\s*(?:°\s*C|℃)/i.test(String(option || '')));
+     if (correctIndex < 0) return item;
+     if (Array.isArray(item)) {
+      const corrected = [...item];
+      corrected[5] = correctIndex;
+      return corrected;
+     }
+     return {...item, ansIdx:correctIndex, answer:question.opts[correctIndex]};
+    };
     const isFoodResearchQuestionLengthSafe = (item) => {
      const question = getFoodResearchQuestionParts(item);
      if (!question.q || question.opts.length !== 4 || question.opts.some(option => !option)) return false;
@@ -8165,6 +8177,7 @@ const [leftoverDishForms, setLeftoverDishForms] = useState({});
 
 const [chosenPartners, setChosenPartners] = useState([]);
 const [frStartMapIdx, setFrStartMapIdx] = useState('random');
+const [frSelectedTestStage, setFrSelectedTestStage] = useState(22);
 // useRef 避免背景 Firestore 讀取完成後觸發 re-render 導致 iframe 重載
 const rivalDataRef = useRef('[]');
 const chosenPartnersRef = useRef([]);
@@ -8257,9 +8270,9 @@ const defaultActivities = [
  { id: 'gathering', title: '饗聚一堂', subtitle: '員餐與茶點', img: null, isOpen: false }
 ];
 const activities = config?.activities || defaultActivities;
-const rawFoodResearchQuestionBank = config?.questionBankVersion === FOOD_RESEARCH_QUESTION_BANK_VERSION && config?.questions?.length
+const rawFoodResearchQuestionBank = (config?.questionBankVersion === FOOD_RESEARCH_QUESTION_BANK_VERSION && config?.questions?.length
  ? config.questions
- : mergeFoodResearchQuestions(FOOD_RESEARCH_QUESTIONS, config?.questions || []);
+ : mergeFoodResearchQuestions(FOOD_RESEARCH_QUESTIONS, config?.questions || [])).map(correctKnownFoodResearchQuestion);
 const foodResearchQuestionBank = getLengthSafeFoodResearchQuestions(rawFoodResearchQuestionBank);
 const LEFTOVER_ITEMS = [
  { id:'cooked', label:'熟食剩食', desc:'讓可再運用的熟食剩食變成新料理', img:'assets/leftover/leftover-cooked-card.png' },
@@ -10523,7 +10536,7 @@ if (selectedActivity === 'food_research') {
     if (departureInProgressRef.current) return;
     departureInProgressRef.current = true;
     frTestModeRef.current = !!testMode;
-    frTestStageRef.current = testMode ? Math.max(11,Math.min(22,Number(testStage)||22)) : 22;
+    frTestStageRef.current = testMode ? Math.max(1,Math.min(22,Math.round(Number(testStage)||22))) : 22;
     expeditionRunRef.current = {
      id:`${testMode?'test_':''}${currentUser?.phone || 'guest'}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
      startedAt:Date.now()
@@ -10618,15 +10631,18 @@ if (selectedActivity === 'food_research') {
      </div>
      {isSuperAdmin && (
      <div style={{...cardStyle}}>
-      <div style={{fontSize:'11px', color:'#58a6ff', fontWeight:900, marginBottom:'7px'}}>{'\u6700\u9AD8\u6B0A\u9650\uFF1A\u8D77\u59CB\u5730\u5716'}</div>
-      <div style={{padding:'10px', marginBottom:'10px', border:'1px solid #fbbf24', borderRadius:'10px', background:'rgba(251,191,36,.08)'}}>
-       <div style={{color:'#fde047', fontSize:'13px', fontWeight:900}}>⚡ 小雷神演練場</div>
-       <div style={{color:'#c9d1d9', fontSize:'10px', lineHeight:'1.55', marginTop:'4px'}}>可直接測試第 11 關第一型態完整技能組，或第 22 關三階段決戰。可帶目前選擇的夥伴，測試不計入正式獎勵、進度及排行榜。</div>
-       <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'7px',marginTop:'9px'}}>
-        <button onClick={() => { if(!window._gameJsReady){ triggerNotify('遊戲載入中，請稍候...','info'); return; } handleDeparture(true,11); }} style={{...btnGold,padding:'11px 8px'}}>⚡ 測試第 11 關</button>
-        <button onClick={() => { if(!window._gameJsReady){ triggerNotify('遊戲載入中，請稍候...','info'); return; } handleDeparture(true,22); }} style={{...btnGold,padding:'11px 8px'}}>⚡ 測試第 22 關</button>
+       <div style={{fontSize:'11px', color:'#58a6ff', fontWeight:900, marginBottom:'7px'}}>最高權限測試工具</div>
+       <div style={{padding:'10px', marginBottom:'10px', border:'1px solid #fbbf24', borderRadius:'10px', background:'rgba(251,191,36,.08)'}}>
+        <div style={{color:'#fde047', fontSize:'13px', fontWeight:900}}>🧪 自選關卡演練</div>
+        <div style={{color:'#c9d1d9', fontSize:'10px', lineHeight:'1.55', marginTop:'4px'}}>可從第 1～22 關任選起點並帶著目前選擇的夥伴測試。演練不會取得獎勵，也不會改動正式進度、每日任務或排行榜。</div>
+        <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1.15fr)',gap:'7px',marginTop:'9px'}}>
+         <select value={frSelectedTestStage} onChange={event=>setFrSelectedTestStage(Math.max(1,Math.min(22,Number(event.target.value)||1)))} aria-label="選擇測試關卡" style={{width:'100%',border:'1px solid #d97706',borderRadius:'8px',background:'#161b22',color:'#fde047',fontSize:'11px',fontWeight:900,padding:'10px 8px'}}>
+          {Array.from({length:22},(_,index)=>index+1).map(stageNumber=><option key={stageNumber} value={stageNumber}>{stageNumber===11?'第 11 關 · 小雷神初戰':stageNumber===22?'第 22 關 · 小雷神決戰':`第 ${stageNumber} 關`}</option>)}
+         </select>
+         <button onClick={() => { if(!window._gameJsReady){ triggerNotify('遊戲載入中，請稍候...','info'); return; } handleDeparture(true,frSelectedTestStage); }} style={{...btnGold,padding:'11px 8px'}}>開始測試第 {frSelectedTestStage} 關</button>
+        </div>
        </div>
-      </div>
+       <div style={{fontSize:'11px', color:'#58a6ff', fontWeight:900, marginBottom:'7px'}}>正式出征起始地圖</div>
       <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:'6px'}}>
        {FR_MAP_OPTIONS.map(m=>{
         const active = frStartMapIdx === m.id;
@@ -10717,7 +10733,7 @@ if (selectedActivity === 'food_research') {
   isSuperAdmin: !!isSuperAdmin,
    testMode: !!frTestModeRef.current,
    testStage: frTestModeRef.current ? frTestStageRef.current : null,
-   startMapIdx: frTestModeRef.current ? 10 : (isSuperAdmin && frStartMapIdx !== 'random' ? Number(frStartMapIdx) : null),
+    startMapIdx: frTestModeRef.current ? null : (isSuperAdmin && frStartMapIdx !== 'random' ? Number(frStartMapIdx) : null),
   });
   const configuredRevivalQuestions = foodResearchQuestionBank;
   const revivalQuestionData = JSON.stringify(configuredRevivalQuestions.map((item,index) => {
@@ -11153,9 +11169,9 @@ if (selectedActivity === 'food_research') {
 const bossName = config.bossName || '被感染的小雷神';
 const bossImgHtml = config.bossImg ? `<img src="${config.bossImg}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 50%; border: 4px solid #ef4444; background: white; box-shadow: 0 4px 10px -1px rgba(0, 0, 0, 0.2);" alt="Boss">` : `<div style="font-size:70px; line-height: 1; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.2));">👿</div>`;
 const bgImgHtml = config.bgImg ? `<div class="absolute inset-0 bg-cover bg-center opacity-30 z-0 pointer-events-none" style="background-image: url('${config.bgImg}');"></div>` : `<div class="absolute inset-0 bg-white z-0 pointer-events-none"></div>`;
- const activeQuestionBank = config.questionBankVersion === FOOD_RESEARCH_QUESTION_BANK_VERSION && config.questions?.length
+ const activeQuestionBank = (config.questionBankVersion === FOOD_RESEARCH_QUESTION_BANK_VERSION && config.questions?.length
   ? (config.questions || [])
-  : mergeFoodResearchQuestions(FOOD_RESEARCH_QUESTIONS, config.questions || []);
+  : mergeFoodResearchQuestions(FOOD_RESEARCH_QUESTIONS, config.questions || [])).map(correctKnownFoodResearchQuestion);
  const safeQuestions = activeQuestionBank.length > 0 
   ? activeQuestionBank.map(item => Array.isArray(item) ? item : [item.q, item.a, item.b, item.c, item.d, item.ansIdx]) 
  : [["請通知行政主廚至後台設定題目！", "知道", "了解", "收到", "明白", 0]];
