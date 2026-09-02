@@ -1124,12 +1124,12 @@
     <div id="notify-root" style="position:fixed;top:80px;left:0;right:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none;padding:0 16px;isolation:isolate;"></div>
 <script src="food-research-question-bank.js"></script>
 <script src="food-research-question-bank-expansion.js"></script>
-<script src="food-research-forms.js?v=16"></script>
+<script src="food-research-forms.js?v=17"></script>
 <script src="food-research-weapons.js?v=14"></script>
     <script src="food-research-amulets.js?v=3"></script>
-    <script src="food-research-bosses.js?v=22"></script>
+    <script src="food-research-bosses.js?v=24"></script>
     <script src="food-research-ui.js?v=10"></script>
-<script src="food-research-balance.js?v=20"></script>
+<script src="food-research-balance.js?v=21"></script>
       <script src="food-research-audio.js?v=4"></script>
 
     <script>
@@ -8966,7 +8966,7 @@ if (selectedActivity === 'food_research') {
  const weapons      = save.weapons  || { ranged:['初始食材砲'], melee:['初始鍋鏟'] };
  const amulets      = normalizeAmuletNames(save.amulets);
 
- const FOOD_DRAW_COST = window.FOOD_RESEARCH_BALANCE?.economy?.foodDraw || 350;
+ const FOOD_DRAW_COST = window.FOOD_RESEARCH_BALANCE?.economy?.foodDraw || 500;
  const shopItems = FOOD_RESEARCH_FORM_CATALOG;
  const drawFoodForm = () => {
   const latest=loadSave();
@@ -9535,7 +9535,7 @@ if (selectedActivity === 'food_research') {
  const PARTNER_FORM_ABILITIES = {
   normal:[
    {label:'被動技能',name:'MHP+10',desc:'全隊最大 HP +10，可與隊友共享並疊加。'},
-   {label:'小招',name:'舔傷口',desc:'回復目前角色 HP 5。｜氣力 20｜冷卻 2 秒'},
+    {label:'小招',name:'舔傷口',desc:'回復目前角色 HP 10。｜氣力 20｜冷卻 2 秒'},
    {label:'大招',name:'亢奮',desc:'8 秒內提高整個隊伍的移動速度及攻擊速度至 2 倍。｜氣力 48｜冷卻 6 秒'},
   ],
  };
@@ -10404,7 +10404,7 @@ if (selectedActivity === 'food_research') {
    const PARTNER_FORM_ABILITIES = {
     normal:[
      {label:'被動技能',name:'MHP+10',desc:'全隊最大 HP +10，可與隊友共享並疊加。'},
-     {label:'小招',name:'舔傷口',desc:'回復目前角色 HP 5。｜氣力 20｜冷卻 2 秒'},
+     {label:'小招',name:'舔傷口',desc:'回復目前角色 HP 10。｜氣力 20｜冷卻 2 秒'},
      {label:'大招',name:'亢奮',desc:'8 秒內提高整個隊伍的移動速度及攻擊速度至 2 倍。｜氣力 48｜冷卻 6 秒'},
     ],
    };
@@ -10939,7 +10939,7 @@ if (selectedActivity === 'food_research') {
  const CAMP_FORM_ABILITIES = {
   normal:[
    {label:'被動技能',name:'MHP+10',desc:'全隊最大 HP +10，可與隊友共享並疊加。'},
-   {label:'小招',name:'舔傷口',desc:'回復目前角色 HP 5。｜氣力 20｜冷卻 2 秒'},
+   {label:'小招',name:'舔傷口',desc:'回復目前角色 HP 10。｜氣力 20｜冷卻 2 秒'},
    {label:'大招',name:'亢奮',desc:'8 秒內提高整個隊伍的移動速度及攻擊速度至 2 倍。｜氣力 48｜冷卻 6 秒'},
   ],
  };

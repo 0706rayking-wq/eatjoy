@@ -9,7 +9,7 @@
         { min: 22, max: 22, amount: 1 },
         { min: 19, max: 21, amount: 3 },
         { min: 16, max: 18, amount: 2 },
-        { min: 12, max: 15, amount: 1 },
+        { min: 9, max: 15, amount: 1 },
       ],
       activeEnemyCaps: [
         { stage: 1, cap: 6 },
@@ -46,7 +46,7 @@
       runClear: 5000,
     },
     economy: {
-      foodDraw: 350,
+      foodDraw: 500,
       weaponDraw: 500,
       amuletDraw: 250,
       enemyDropChance: { 1: 0.28, 2: 0.38, 3: 0.48 },
@@ -156,7 +156,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
       .replace('currentBgIdx=Math.floor(Math.random()*BG_THEMES.length);', 'currentBgIdx=frMapForStage(stage);')
       .replace(/currentBgIdx = pickInitialBgIdx\(\);/g, "currentBgIdx = SAVE.startMapIdx!=null ? pickInitialBgIdx() : frMapForStage(stage);")
       .replace('stage=Math.max(1,savedS);', 'stage=SAVE.testMode?Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Number(SAVE.testStage)||FR_BALANCE.progression.maxStage)):Math.max(1,savedS);')
-      .replace('stage=Math.max(1,savedStage-1)||1;score=0;', 'stage=SAVE.testMode?Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Number(SAVE.testStage)||FR_BALANCE.progression.maxStage)):(savedStage>=11?savedStage:(Math.max(1,savedStage-1)||1));score=Number(SAVE.runScore||0);')
+      .replace('stage=Math.max(1,savedStage-1)||1;score=0;', 'stage=SAVE.testMode?Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Number(SAVE.testStage)||FR_BALANCE.progression.maxStage)):(savedStage>=8?savedStage:(Math.max(1,savedStage-1)||1));score=Number(SAVE.runScore||0);')
       .replace("window.parent.postMessage({type:'FR_PENALTY_RETURN',penalty:pen},'*');", "window.parent.postMessage({type:'FR_PENALTY_RETURN',penalty:pen,score:score,stage:(frFailureSummary&&frFailureSummary.rollbackStage)||stage,maxStage:frHistoricalMaxStage,bossKills:frBossDefeatedCount,progress:frProgressPayload(),failure:frFailureSummary},'*');")
       .replace('const spd=player.speed*(currentWeapon===\'melee\'?1.1:1)*(normalFrenzyTimer>0?2:1);', "const statusMove=(window.frSlowUntil&&performance.now()<window.frSlowUntil)?FR_BALANCE.combat.slowMultiplier:1;const formMove=typeof frFormMoveMultiplier==='function'?frFormMoveMultiplier():1;const spd=player.speed*(currentWeapon==='melee'?1.1:1)*(normalFrenzyTimer>0?2:1)*statusMove*formMove;")
       .replace('if(e.hp<=0)enemies.splice(i,1);', 'if(e.hp<=0)enemies.splice(i,1);')
@@ -214,9 +214,9 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
 
  function frFailureRollbackStage(value){
   const failed=Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Math.round(Number(value)||1)));
-  if(failed<=11)return failed;
+  if(failed<=8)return failed;
   const rule=(FR_BALANCE.progression.rollback||[]).find(function(item){return failed>=item.min&&failed<=item.max;});
-  return Math.max(11,failed-Math.max(0,Number(rule&&rule.amount)||0));
+  return Math.max(8,failed-Math.max(0,Number(rule&&rule.amount)||0));
  }
  function frProgressPayload(){
   return {score:Math.max(0,Math.round(Number(score)||0)),stageBestScores:Object.assign({},frStageBestScores),creditedStages:Array.from(frCreditedStages).sort(function(a,b){return a-b;}),uniqueBossStages:Array.from(frUniqueBossStages).sort(function(a,b){return a-b;}),maxStage:Math.max(1,Math.min(22,Math.round(frHistoricalMaxStage||1))),scoreLegacyBase:Math.max(0,Math.round(frScoreLegacyBase)),scoreRulesVersion:'fr-stage-best-v2',finalClearAwarded:!!frFinalClearAwarded};
@@ -439,8 +439,9 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
  Boss=class extends FrBalancedBossBase{
   constructor(stg){
    super(stg);
-   const c=frBalanceCurve(stg||stage);
-   this.maxHp=Math.round(1100*c.bossHp);this.hp=this.maxHp;
+   const stageNum=Math.max(1,Math.round(Number(stg||stage)||1)),c=frBalanceCurve(stageNum);
+   const lateBossHp=stageNum>=19&&stageNum<=21?1.55:stageNum>=16&&stageNum<=18?1.40:stageNum>=12&&stageNum<=15?1.25:1;
+   this.maxHp=Math.round(1100*c.bossHp*lateBossHp);this.hp=this.maxHp;
    this.maxShield=Math.round(this.maxHp*.28);this.shield=this.maxShield;
    this.scoreVal=frBossScore(stg||stage);updateBossHp();updateBossShield();
   }

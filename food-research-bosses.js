@@ -63,10 +63,10 @@ function frBossShuffle(list){
 }
 function frBossTempo(stageNum){
   const s=Number(stageNum)||1;
-  if(s>=19&&s<=21)return {normalCd:65,skillCd:100,normalBusy:58,skillBusy:88,busyRate:.82,eventScale:.65,warningMin:24};
-  if(s>=16&&s<=18)return {normalCd:70,skillCd:110,normalBusy:62,skillBusy:96,busyRate:.72,eventScale:.76,warningMin:28};
-  if(s>=12&&s<=15)return {normalCd:74,skillCd:120,normalBusy:68,skillBusy:102,busyRate:.58,eventScale:.88,warningMin:32};
-  return {normalCd:88,skillCd:165,normalBusy:76,skillBusy:118,busyRate:s>=16?.65:s>=11?.4:0,eventScale:1,warningMin:0};
+  if(s>=19&&s<=21)return {normalCd:47,skillCd:72,normalBusy:42,skillBusy:63,busyRate:.86,eventScale:.52,warningMin:27,moveRetarget:48,moveRate:.032};
+  if(s>=16&&s<=18)return {normalCd:55,skillCd:86,normalBusy:48,skillBusy:75,busyRate:.76,eventScale:.64,warningMin:31,moveRetarget:60,moveRate:.029};
+  if(s>=12&&s<=15)return {normalCd:63,skillCd:102,normalBusy:58,skillBusy:87,busyRate:.62,eventScale:.78,warningMin:38,moveRetarget:72,moveRate:.026};
+  return {normalCd:88,skillCd:165,normalBusy:76,skillBusy:118,busyRate:s>=16?.65:s>=11?.4:0,eventScale:1,warningMin:0,moveRetarget:110,moveRate:.02};
 }
 function frBossHighStageSkillPool(b){
   const pool=(b&&b._frDef&&b._frDef.skills||[]).slice();
@@ -533,29 +533,37 @@ function frBossUpdateCustom(b){
   }
   if(b.frozenTimer>0)b.frozenTimer--;
   if(b.shieldBroken){b.shieldResetTimer--;updateBossShield();if(b.shieldResetTimer<=0){b.shield=b.maxShield;b.shieldBroken=false;addText('🛡️護盾重置！',b.x,b.y-50,'#60a5fa');updateBossShield();}}
-  const highStage=Number(stage)>=12&&Number(stage)<=21,hpRatio=b.hp/Math.max(1,b.maxHp);
+  const highStage=Number(stage)>=12&&Number(stage)<=21,hpRatio=b.hp/Math.max(1,b.maxHp),tempo=frBossTempo(stage);
   if(highStage&&b._frDef.masterSkill&&!b._frMasterSkillUnlocked&&hpRatio<=.6){b._frMasterSkillUnlocked=true;b._frSkillBag=frBossShuffle(frBossHighStageSkillPool(b));addText('專屬招式解放',b.x,b.y-104,'#fef08a',14,-.4);}
   if(highStage&&b._frDef.masterSkill&&!b._frSignatureReady&&!b._frSignatureUsed&&hpRatio<=.3){b._frSignatureReady=true;b._frAttackCd=Math.min(b._frAttackCd,20);addText('瀕死猛攻',b.x,b.y-104,'#fb7185',15,-.4);}
   for(let i=b._frEvents.length-1;i>=0;i--){if(b.timer>=b._frEvents[i].at){const ev=b._frEvents.splice(i,1)[0];ev.fn();}}
   b._frWarnings=b._frWarnings.filter(function(w){return b.timer<=w.end;});
   if(b._frDash){b.x+=b._frDash.vx*frFormSlow;b.y+=b._frDash.vy*frFormSlow;b._frDash.left--;if(b._frDash.trail&&b.timer%7===0)frBossHazard({kind:'circle',x:b.x,y:b.y,r:26,color:b.color,damage:Math.max(8,b._frDash.damage*.55),status:b._frDash.status||null,delay:18,duration:55});if(Math.hypot(player.x-b.x,player.y-b.y)<b.r+player.radius&&player.invTimer<=0){hurtPlayer(b._frDash.damage);if(b._frDash.status)frBossApplyStatus(b._frDash.status);}if(b._frDash.left<=0||b.x<45||b.x>CW-45||b.y<safeY||b.y>CH*.62)b._frDash=null;}
-  else{if(b.timer%110===0)b.targetX=70+Math.random()*(CW-140);b.x+=(b.targetX-b.x)*.02*frFormSlow;b.y+=(b.targetY-b.y)*.02*frFormSlow;}
+  else{
+    const moveRage=highStage&&hpRatio<=.3?1.15:1;
+    if(b.timer%tempo.moveRetarget===0)b.targetX=70+Math.random()*(CW-140);
+    b.x+=(b.targetX-b.x)*tempo.moveRate*moveRage*frFormSlow;b.y+=(b.targetY-b.y)*tempo.moveRate*moveRage*frFormSlow;
+  }
   frBossEnforceTopSafeZone(b);
   if(b._frTether){const dist=Math.hypot(player.x-b.x,player.y-b.y);if(b.timer>b._frTether.until||dist>230)b._frTether=null;else if(b.timer-b._frTether.last>42){b._frTether.last=b.timer;if(player.invTimer<=0){hurtPlayer(b._frTether.damage);b.hp=Math.min(b.maxHp,b.hp+b._frTether.damage*1.5);updateBossHp();}}}
   frThunderStage11ClosePressure(b);
-  const expertStage=Number(stage)>=11,masterStage=Number(stage)>=16,tempo=frBossTempo(stage);
+  const expertStage=Number(stage)>=11,masterStage=Number(stage)>=16;
   if(expertStage){const castRate=b.timer<b._frBusyUntil?tempo.busyRate:1;b._frAttackCd-=frFormSlow*castRate;}
   if(b.timer<b._frBusyUntil)return;
   const rage=b._frFinal?[1,.86,.7][b._frThunderPhase||0]:(b.hp<b.maxHp*.5?.8:1)*(highStage&&hpRatio<=.3?.88:1);
   if(!expertStage)b._frAttackCd-=frFormSlow;
   if(b._frAttackCd<=0){
-    const useSkill=masterStage?b._frAttackCount%2===1:b._frAttackCount%3===2;b._frAttackCount++;
+    const forceSignature=!!(b._frSignatureReady&&b._frDef.masterSkill);
+    const enragedSkill=highStage&&hpRatio<=.3;
+    const useSkill=forceSignature||enragedSkill||(masterStage?b._frAttackCount%2===1:b._frAttackCount%3===2);b._frAttackCount++;
     if(useSkill){
       let skill;
       if(b._frSignatureReady&&b._frDef.masterSkill){skill=b._frDef.masterSkill;b._frSignatureReady=false;b._frSignatureUsed=true;}
       else{if(!b._frSkillBag.length)b._frSkillBag=frBossShuffle(frBossHighStageSkillPool(b));skill=b._frSkillBag.shift();}
       frBossCast(b,skill,true);b._frSkillCastCount=(b._frSkillCastCount||0)+1;
-      if(expertStage&&!b._frFinal&&b._frSkillCastCount%2===0)frBossLater(b,72,function(){if(b._defeated)return;addText(masterStage?'菁英追擊':'強化追擊',b.x,b.y-92,'#fef08a',13,-.4);frBossCast(b,b._frDef.normal,false);});
+      const followUpEvery=highStage&&Number(stage)<=15?1:2;
+      if(expertStage&&!b._frFinal&&b._frSkillCastCount%followUpEvery===0)frBossLater(b,42,function(){if(b._defeated)return;addText(masterStage?'菁英追擊':'強化追擊',b.x,b.y-92,'#fef08a',13,-.4);frBossCast(b,b._frDef.normal,false);});
+      if(highStage)b.targetX=b.x<CW/2?CW*(.62+Math.random()*.2):CW*(.18+Math.random()*.2);
       b._frAttackCd=Math.floor(tempo.skillCd*rage*(b._frStage11Enhanced?FR_STAGE11_THUNDER.skillCd:1));
     }
     else{frBossCast(b,b._frDef.normal,false);b._frAttackCd=Math.floor(tempo.normalCd*rage*(b._frStage11Enhanced?FR_STAGE11_THUNDER.normalCd:1));}

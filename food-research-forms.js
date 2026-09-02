@@ -616,7 +616,7 @@ useSkill1=function(){
   setTimeout(function(){
     if(!gameRunning)return;
     burst(player.x,player.y,c,16);
-    if(id==='normal'){frHeal(5);burst(player.x,player.y,'#86efac',10);}
+    if(id==='normal'){frHeal(10);burst(player.x,player.y,'#86efac',10);}
     else if(id==='onion_guard'){frClearBullets(150);frDamage(24,145,c);frForEachEnemy(function(e){const a=Math.atan2(e.y-player.y,e.x-player.x);e.x+=Math.cos(a)*35;e.y+=Math.sin(a)*35;});}
     else if(id==='popcorn')frFan(11,16,c,false,false);
     else if(id==='healing_mushroom'){player.invTimer=150;frClearBullets(115);frHeal(12);}
