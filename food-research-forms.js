@@ -390,7 +390,8 @@ function frProfileFx(id,level,color){
 }
 function frPlayCast(level,id,color,name){
   const now=performance.now(),profile=frProfileFor(id),strong=level===2;
-  frSoundFx(profile,level);frProfileFx(id,level,color);frShakeFx(strong?7:3,strong?440:210);
+  frSoundFx(profile,level);frShakeFx(strong?7:3,strong?440:210);
+  if(!window.FOOD_RESEARCH_SKILLS_V2_ACTIVE)frProfileFx(id,level,color);
   if(strong){frFreezeFx(35);frFlashFx(color,220,.14);frFxState.cutin={id:id,name:name,color:color,s:now,d:480};}
   else{frRingFx(player.x,player.y,'#ffffff',72,310,3);}
 }
@@ -434,6 +435,7 @@ function frFxLoop(now){
 const frOriginalFire=fire;
 fire=function(){
   frOriginalFire.apply(this,arguments);
+  if(window.FOOD_RESEARCH_SKILLS_V2_ACTIVE)return;
   const b=bullets[bullets.length-1];if(!b)return;
   const id=currentForm.id;
   if(id==='popcorn')b.r*=1.55;

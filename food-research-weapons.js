@@ -343,7 +343,8 @@
     if(!b||b.unreflectable||b.frUnreflectable||(b.r||5)>10||!meleeTargetHit(def,b,0))continue;
     const shouldCut=!!def.frFormCut||!!def.cut&&(!def.reflect||(b.r||5)>=8);
     if(!shouldCut&&def.reflect){
-     const rb=new Bullet(b.x,b.y,-b.vx*1.25,-Math.abs(b.vy)*1.25,base*returnScale,def.color,Math.min(9,(b.r||5)+1),false,false,!!def.burn);
+     const lobsterBonus=typeof charSlots!=='undefined'&&charSlots.some(function(ch){return ch&&ch.formId==='lobster_general';})?1.4:1;
+     const rb=new Bullet(b.x,b.y,-b.vx*1.25,-Math.abs(b.vy)*1.25,base*returnScale*lobsterBonus,def.color,Math.min(9,(b.r||5)+1),false,false,!!def.burn);
      rb.frVisual=true;rb.frRarity=def.rarity||'normal';rb.frPattern='reflect';bullets.push(rb);reflected++;
     }else{
      cut++;

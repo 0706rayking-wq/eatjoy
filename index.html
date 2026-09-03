@@ -1124,9 +1124,9 @@
     <div id="notify-root" style="position:fixed;top:80px;left:0;right:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none;padding:0 16px;isolation:isolate;"></div>
 <script src="food-research-question-bank.js"></script>
 <script src="food-research-question-bank-expansion.js"></script>
-<script src="food-research-forms.js?v=19"></script>
-<script src="food-research-skills-v2.js?v=2"></script>
-<script src="food-research-weapons.js?v=14"></script>
+<script src="food-research-forms.js?v=20"></script>
+<script src="food-research-skills-v2.js?v=3"></script>
+<script src="food-research-weapons.js?v=15"></script>
 <script src="food-research-amulets.js?v=5"></script>
     <script src="food-research-bosses.js?v=25"></script>
     <script src="food-research-ui.js?v=11"></script>
@@ -9648,8 +9648,8 @@ if (selectedActivity === 'food_research') {
  const PARTNER_FORM_ABILITIES = {
   normal:[
    {label:'被動技能',name:'MHP+10',desc:'全隊最大 HP +10，可與隊友共享並疊加。'},
-    {label:'小招',name:'舔傷口',desc:'回復目前角色 HP 10。｜氣力 20｜冷卻 2 秒'},
-   {label:'大招',name:'亢奮',desc:'8 秒內提高整個隊伍的移動速度及攻擊速度至 2 倍。｜氣力 48｜冷卻 6 秒'},
+    {label:'小招',name:'舔傷口',desc:'立即回復目前角色 10 HP。｜氣力 20｜冷卻 3 秒'},
+   {label:'大招',name:'亢奮',desc:'全隊移動速度與攻擊速度提升 35%，持續 6 秒。｜氣力 48｜冷卻 14 秒'},
   ],
  };
  FOOD_RESEARCH_FORM_CATALOG.forEach(form=>{
@@ -10517,8 +10517,8 @@ if (selectedActivity === 'food_research') {
    const PARTNER_FORM_ABILITIES = {
     normal:[
      {label:'被動技能',name:'MHP+10',desc:'全隊最大 HP +10，可與隊友共享並疊加。'},
-     {label:'小招',name:'舔傷口',desc:'回復目前角色 HP 10。｜氣力 20｜冷卻 2 秒'},
-     {label:'大招',name:'亢奮',desc:'8 秒內提高整個隊伍的移動速度及攻擊速度至 2 倍。｜氣力 48｜冷卻 6 秒'},
+     {label:'小招',name:'舔傷口',desc:'立即回復目前角色 10 HP。｜氣力 20｜冷卻 3 秒'},
+     {label:'大招',name:'亢奮',desc:'全隊移動速度與攻擊速度提升 35%，持續 6 秒。｜氣力 48｜冷卻 14 秒'},
     ],
    };
    FOOD_RESEARCH_FORM_CATALOG.forEach(form=>{
@@ -11060,8 +11060,8 @@ if (selectedActivity === 'food_research') {
  const CAMP_FORM_ABILITIES = {
   normal:[
    {label:'被動技能',name:'MHP+10',desc:'全隊最大 HP +10，可與隊友共享並疊加。'},
-   {label:'小招',name:'舔傷口',desc:'回復目前角色 HP 10。｜氣力 20｜冷卻 2 秒'},
-   {label:'大招',name:'亢奮',desc:'8 秒內提高整個隊伍的移動速度及攻擊速度至 2 倍。｜氣力 48｜冷卻 6 秒'},
+   {label:'小招',name:'舔傷口',desc:'立即回復目前角色 10 HP。｜氣力 20｜冷卻 3 秒'},
+   {label:'大招',name:'亢奮',desc:'全隊移動速度與攻擊速度提升 35%，持續 6 秒。｜氣力 48｜冷卻 14 秒'},
   ],
  };
  FOOD_RESEARCH_FORM_CATALOG.forEach(form=>{
