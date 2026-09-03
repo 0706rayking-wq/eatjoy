@@ -8,7 +8,7 @@
     { id:'a06', name:'鷹眼御守', emoji:'🎯', desc:'暴擊率 +6%', effects:{ crit:0.06 } },
     { id:'a07', name:'武神御守', emoji:'⚔️', desc:'近戰武器傷害 +15%', effects:{ meleeDamage:0.15 } },
     { id:'a08', name:'替身御守', emoji:'🪆', desc:'每次遠征抵擋 1 次致命攻擊，保留 1 HP', effects:{ lethalGuard:1 } },
-    { id:'a09', name:'招財御守', emoji:'🪙', desc:'擊敗敵人有 10% 機率額外獲得 1 金幣', effects:{ extraCoinChance:0.10 } },
+    { id:'a09', name:'招財御守', emoji:'🪙', desc:'擊敗敵人有 10% 機率額外獲得 2 金幣', effects:{ extraCoinChance:0.10, extraCoinAmount:2 } },
     { id:'a10', name:'逆境御守', emoji:'🩸', desc:'HP 越低攻擊越高，最高 +25%', effects:{ lowHpAttack:0.25 } },
     { id:'a11', name:'甘露御守', emoji:'💧', desc:'每 3 秒回復最大 HP 的 2%', effects:{ hpRegenPct:0.02 } },
     { id:'a12', name:'迅擊御守', emoji:'💨', desc:'攻擊速度 +8%', effects:{ attackSpeed:0.08 } },
@@ -19,7 +19,7 @@
     { id:'a17', name:'星芒御守', emoji:'✨', desc:'暴擊率 +5%，暴擊傷害 +15%', effects:{ crit:0.05, critDamage:0.15 } },
     { id:'a18', name:'殘影御守', emoji:'👣', desc:'迴避無敵時間 +20%', effects:{ dodgeDuration:0.20 } },
     { id:'a19', name:'鎮魂御守', emoji:'🔔', desc:'攻擊有 6% 機率使敵人暈眩 0.8 秒', effects:{ stunChance:0.06 } },
-    { id:'a20', name:'影分身御守', emoji:'👥', desc:'召喚小分身，每 0.9 秒複製 25% 火力', effects:{ cloneFire:0.25 } },
+    { id:'a20', name:'影分身御守', emoji:'👥', desc:'召喚小分身，每 0.6 秒複製 25% 火力', effects:{ cloneFire:0.25, cloneInterval:600 } },
     { id:'a21', name:'清淨御守', emoji:'🪷', desc:'受到的灼燒與中毒傷害 -50%', effects:{ statusResist:0.50 } },
     { id:'a22', name:'狂風御守', emoji:'🌪️', desc:'擊敗敵人後攻擊速度 +15%，持續 3 秒', effects:{ killHaste:0.15 } },
     { id:'a23', name:'穿雲御守', emoji:'🏹', desc:'每第 6 發子彈獲得 1 次貫穿', effects:{ sixthPierce:6 } },
@@ -28,7 +28,6 @@
     { id:'a26', name:'巨刃御守', emoji:'🥢', desc:'近戰攻擊範圍 +15%', effects:{ meleeRange:0.15 } },
     { id:'a27', name:'彈心御守', emoji:'🔵', desc:'遠程子彈尺寸 +15%', effects:{ projectileSize:0.15 } },
     { id:'a28', name:'爆破御守', emoji:'💥', desc:'擊敗敵人有 10% 機率爆破，對周圍造成 30 傷害', effects:{ deathExplosion:0.10, explosionDamage:30 } },
-    { id:'a29', name:'磁引御守', emoji:'🧲', desc:'金幣吸附範圍 +60%', effects:{ coinMagnet:0.60 } },
     { id:'a30', name:'金剛御守', emoji:'💎', desc:'每 15 秒生成 18 點防護罩', effects:{ autoShield:18 } },
     { id:'a31', name:'鎮雷御守', emoji:'⚡', desc:'受到麻痺的狀態時間減半', effects:{ paralyzeDuration:0.50 } },
   ];
@@ -127,7 +126,7 @@
   if(b.stunChance&&Math.random()<b.stunChance){target.frozenTimer=Math.max(target.frozenTimer||0,48);addText('暈眩',target.x,target.y-18,'#facc15',12,-.5);}
   if(b.lifeSteal&&now-frState.lastHeal>=600&&player.hp>0&&player.hp<player.maxHp){frState.lastHeal=now;player.hp=Math.min(player.maxHp,player.hp+b.lifeSteal);if(charSlots[activeChar])charSlots[activeChar].hp=player.hp;addText('+1 HP',player.x,player.y-22,'#4ade80',11,-.45);}
   if(wasAlive&&target.hp<=0){
-   if(b.extraCoinChance&&Math.random()<b.extraCoinChance){gold+=1;addText('+1 額外金幣',target.x,target.y-30,'#fde047',11,-.5);updateHUD();}
+   if(b.extraCoinChance&&Math.random()<b.extraCoinChance){const amount=Math.max(1,Math.round(b.extraCoinAmount||1));gold+=amount;addText('+'+amount+' 額外金幣',target.x,target.y-30,'#fde047',11,-.5);updateHUD();}
    if(b.killHaste)frState.killHasteUntil=now+3000;
    if(b.deathExplosion&&Math.random()<b.deathExplosion){const blast=b.explosionDamage||30;burst(target.x,target.y,'#fb923c',22);enemies.forEach(function(enemy){if(enemy!==target&&enemy.hp>0&&Math.hypot(enemy.x-target.x,enemy.y-target.y)<=90)enemy.takeDamage(blast);});if(boss&&!boss._defeated&&Math.hypot(boss.x-target.x,boss.y-target.y)<=90)boss.takeDamage(blast);}
   }
@@ -157,12 +156,29 @@
  doDodge=function(){frDoDodge();const b=frActiveAmuletBonus();if(player.dodging&&b.dodgeDuration)player.invTimer=Math.max(player.invTimer,Math.round(60*(1+b.dodgeDuration)));};
  if(typeof dodge==='function'){const frDodge=dodge;dodge=function(){frDodge();const b=frActiveAmuletBonus();if(b.dodgeDuration)player.invTimer=Math.max(player.invTimer,Math.round(60*(1+b.dodgeDuration)));};}
 
- const frCoinUpdate=Coin.prototype.update;
- Coin.prototype.update=function(){frCoinUpdate.call(this);const b=frActiveAmuletBonus();if(!b.coinMagnet)return;const dx=player.x-this.x,dy=player.y-this.y,d=Math.hypot(dx,dy);if(d<180*(1+b.coinMagnet)){this.vx+=dx*.008;this.vy+=dy*.008;}};
+ function frClonePosition(){const side=player.x<64?1:-1;return{x:player.x+side*38,y:player.y+10};}
+ function frDrawMiniClone(){
+  const pos=frClonePosition(),now=performance.now();
+  ctx.save();ctx.translate(pos.x,pos.y);ctx.imageSmoothingEnabled=false;
+  ctx.globalAlpha=.2;ctx.fillStyle='#a78bfa';ctx.shadowBlur=12;ctx.shadowColor='#8b5cf6';ctx.beginPath();ctx.arc(0,0,21,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+  ctx.globalAlpha=.72;
+  if(currentForm&&currentForm.id&&currentForm.id!=='normal'&&typeof frImg==='function'&&typeof frBuildBattleSheet==='function'){
+   const img=frImg(currentForm.id,'battle'),sheet=img&&img.complete&&img.naturalWidth?frBuildBattleSheet(currentForm.id,img):null;
+   if(sheet){const frame=Math.floor(now/155)%4;ctx.drawImage(sheet,frame*FR_BATTLE_CELL,0,FR_BATTLE_CELL,FR_BATTLE_CELL,-23,-29,46,46);}
+   else{ctx.font='22px Segoe UI Emoji, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(currentForm.emoji||'✨',0,0);}
+  }else if(heroNormalFloatImg&&heroNormalFloatImg.complete&&heroNormalFloatImg.naturalWidth){
+   const frame=Math.floor(now/155)%HERO_FLOAT_FRAMES;ctx.drawImage(heroNormalFloatImg,frame*HERO_FLOAT_FRAME_W,0,HERO_FLOAT_FRAME_W,HERO_FLOAT_FRAME_H,-23,-29,46,46);
+  }else if(heroNormalImg&&heroNormalImg.complete&&heroNormalImg.naturalWidth){
+   ctx.drawImage(heroNormalImg,-15,-25,30,35);
+  }else{
+   ctx.font='22px Segoe UI Emoji, sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText((currentForm&&currentForm.emoji)||'✨',0,0);
+  }
+  ctx.globalAlpha=.7;ctx.strokeStyle='#c4b5fd';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(0,0,21,0,Math.PI*2);ctx.stroke();ctx.restore();
+ }
  const frDrawPlayer=drawPlayer;
  drawPlayer=function(){
   const b=frActiveAmuletBonus();
-  if(b.cloneFire){ctx.save();ctx.globalAlpha=.42;ctx.fillStyle='#c4b5fd';ctx.shadowBlur=12;ctx.shadowColor='#8b5cf6';ctx.beginPath();ctx.arc(player.x-38,player.y+12,13,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fff';ctx.font='14px Segoe UI Emoji, sans-serif';ctx.textAlign='center';ctx.fillText(currentForm.emoji||'✨',player.x-38,player.y+17);ctx.restore();}
+  if(b.cloneFire)frDrawMiniClone();
   frDrawPlayer();
  };
  setInterval(function(){
@@ -172,7 +188,7 @@
   if(b.staminaRegen)stamina=Math.min(maxStamina,stamina+FR_BALANCE.stamina.regenPerSecond*.05*(1+(training.stamRegen||0)*FR_BALANCE.stamina.regenPerTrainingLevel)*b.staminaRegen);
   if(b.hpRegenPct&&now-frState.lastRegen>=3000){frState.lastRegen=now;const heal=Math.max(1,Math.ceil(player.maxHp*b.hpRegenPct));player.hp=Math.min(player.maxHp,player.hp+heal);if(ch)ch.hp=player.hp;addText('+'+heal+' HP',player.x,player.y-24,'#4ade80',11,-.45);updateHUD();}
   if(b.autoShield&&now-frState.lastShield>=15000){frState.lastShield=now;player.shieldActive=true;player.shieldHp=Math.max(player.shieldHp||0,b.autoShield);addText('金剛護盾',player.x,player.y-28,'#67e8f9',12,-.5);burst(player.x,player.y,'#67e8f9',12);}
-  if(b.cloneFire&&now-frState.lastClone>=900&&!qaActive){frState.lastClone=now;const target=findClosest(player.x-38,player.y+12,500);if(target){const a=Math.atan2(target.y-(player.y+12),target.x-(player.x-38));fire(player.x-38,player.y+12,Math.cos(a)*9,Math.sin(a)*9,'#a78bfa',(currentForm.bulletDmg||12)*b.cloneFire,4,true,false);}}
+  if(b.cloneFire&&now-frState.lastClone>=Math.max(250,b.cloneInterval||900)&&!qaActive){frState.lastClone=now;const pos=frClonePosition(),target=findClosest(pos.x,pos.y,500);if(target){const a=Math.atan2(target.y-pos.y,target.x-pos.x);fire(pos.x,pos.y,Math.cos(a)*9,Math.sin(a)*9,'#a78bfa',(currentForm.bulletDmg||12)*b.cloneFire,4,true,false);}}
  },50);
 })();
 `;

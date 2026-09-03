@@ -92,6 +92,20 @@ const FR_BALANCE=${JSON.stringify(balance)};
 const FR_MOBILE_PERF=(window.matchMedia&&window.matchMedia('(pointer: coarse)').matches)||Math.min(window.innerWidth||9999,window.innerHeight||9999)<=520;
 const FR_PERF={enemyBulletCap:FR_MOBILE_PERF?90:110,particleCap:FR_MOBILE_PERF?90:120,textCap:FR_MOBILE_PERF?20:25};
 const FR_POISON_DURATION_MS=FR_BALANCE.combat.poisonDurationMs;
+function frLateStageBoost(stageNum){
+ const s=Math.max(1,Math.round(Number(stageNum)||1));
+ if(s>=22)return {enemyHp:1,enemyDamage:1,bossHp:1.15,bossDamage:1.10,eliteChance:0,eliteCap:0};
+ if(s>=19)return {enemyHp:1.16,enemyDamage:1.12,bossHp:1.30,bossDamage:1.14,eliteChance:.35,eliteCap:2};
+ if(s>=16)return {enemyHp:1.12,enemyDamage:1.08,bossHp:1.22,bossDamage:1.10,eliteChance:.25,eliteCap:1};
+ if(s>=12)return {enemyHp:1.08,enemyDamage:1.05,bossHp:1.15,bossDamage:1.05,eliteChance:.15,eliteCap:1};
+ return {enemyHp:1,enemyDamage:1,bossHp:1,bossDamage:1,eliteChance:0,eliteCap:0};
+}
+function frBossFallenCount(){
+ if((Number(stage)||1)<12||!Array.isArray(charSlots))return 0;
+ return Math.min(2,charSlots.reduce(function(total,ch){return total+(ch&&ch.alive===false?1:0);},0));
+}
+function frBossDamageScale(stageNum){return frLateStageBoost(stageNum).bossDamage*(1+frBossFallenCount()*.04);}
+function frBossWarSpeedScale(stageNum){const fallen=(Number(stageNum)||1)>=12?frBossFallenCount():0;return fallen?1/Math.max(.82,1-fallen*.06):1;}
 function frApplyPlayerPoison(){
  player.poisoned=true;player.poisonTick=0;window.frPoisonUntil=performance.now()+FR_POISON_DURATION_MS;
 }
@@ -161,7 +175,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
       .replace('const spd=player.speed*(currentWeapon===\'melee\'?1.1:1)*(normalFrenzyTimer>0?2:1);', "const statusMove=(window.frSlowUntil&&performance.now()<window.frSlowUntil)?FR_BALANCE.combat.slowMultiplier:1;const formMove=typeof frFormMoveMultiplier==='function'?frFormMoveMultiplier():1;const spd=player.speed*(currentWeapon==='melee'?1.1:1)*(normalFrenzyTimer>0?2:1)*statusMove*formMove;")
       .replace('if(e.hp<=0)enemies.splice(i,1);', 'if(e.hp<=0)enemies.splice(i,1);')
       .replace('if(Math.hypot(player.x-e.x,player.y-e.y)<player.radius+e.r&&player.invTimer<=0)hurtPlayer(10);', 'if(Math.hypot(player.x-e.x,player.y-e.y)<player.radius+e.r&&player.invTimer<=0)hurtPlayer(e.atk||10);')
-      .replace('if(Math.hypot(player.x-boss.x,player.y-boss.y)<player.radius+boss.r&&player.invTimer<=0)hurtPlayer(20);', 'if(Math.hypot(player.x-boss.x,player.y-boss.y)<player.radius+boss.r&&player.invTimer<=0)hurtPlayer(Math.round(12*frBalanceCurve(stage).bossDamage));')
+      .replace('if(Math.hypot(player.x-boss.x,player.y-boss.y)<player.radius+boss.r&&player.invTimer<=0)hurtPlayer(20);', 'if(Math.hypot(player.x-boss.x,player.y-boss.y)<player.radius+boss.r&&player.invTimer<=0)hurtPlayer(Math.round(12*frBalanceCurve(stage).bossDamage*frBossDamageScale(stage)));')
       .replace('hurtPlayer(b.dmg);burst(b.x,b.y,b.color,5);', "hurtPlayer(b.dmg);if(b.frStatus&&typeof frBossApplyStatus==='function')frBossApplyStatus(b.frStatus);burst(b.x,b.y,b.color,5);")
       .replace('this.hp-=amt*atkMult;addText(Math.floor(amt*atkMult).toString(),this.x,this.y,\'#78350f\');', "this.hp-=amt;addText(Math.floor(amt).toString(),this.x,this.y,'#78350f');")
       .replace('const shieldDmg=isQa?Math.floor(this.maxShield*.3):Math.floor(amt*atkMult*.5);', 'const shieldDmg=isQa?Math.floor(this.maxShield*.3):Math.floor(amt*.5);')
@@ -430,15 +444,62 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
   ctx.drawImage(frBgCache,0,0);
  };
 
+ function frEliteAliveCount(){return Array.isArray(enemies)?enemies.filter(function(e){return e&&e.hp>0&&e._frEliteKind;}).length:0;}
+ function frRollEliteKind(type,stg){
+  const late=frLateStageBoost(stg);
+  if(!late.eliteCap||frEliteAliveCount()>=late.eliteCap||Math.random()>=late.eliteChance)return '';
+  const choices=type===1?['tank','dasher']:type===2?['sniper','support']:['support','sniper'];
+  return choices[Math.floor(Math.random()*choices.length)];
+ }
+ const FR_ELITE_META={tank:{name:'重甲',color:'#f59e0b'},sniper:{name:'狙擊',color:'#fb7185'},support:{name:'支援',color:'#34d399'},dasher:{name:'突進',color:'#60a5fa'}};
+
  const FrBalancedEnemyBase=Enemy;
  Enemy=class extends FrBalancedEnemyBase{
   constructor(x,y,type,hp,sv,stg){
    super(x,y,type,hp,sv,stg);
-   const c=frBalanceCurve(stg||stage),baseHp=type===1?38:type===2?50:62;
-   this.maxHp=Math.round(baseHp*c.enemyHp);this.hp=this.maxHp;
-   this.atk=Math.round((type===1?8:type===2?11:14)*c.enemyDamage);
+   const stageNum=stg||stage,c=frBalanceCurve(stageNum),late=frLateStageBoost(stageNum),baseHp=type===1?38:type===2?50:62;
+   this.maxHp=Math.round(baseHp*c.enemyHp*late.enemyHp);this.hp=this.maxHp;
+   this.atk=Math.round((type===1?8:type===2?11:14)*c.enemyDamage*late.enemyDamage);
    this.vy*=c.enemySpeed/(1+(stg||stage)*.04);
    this.scoreVal=frEnemyScore(type,stg||stage);
+   this._frEliteKind=frRollEliteKind(type,stageNum);this._frEliteNext=90+Math.floor(Math.random()*75);this._frEliteAim=null;this._frEliteDash=null;this._frEliteHasteUntil=0;
+   if(this._frEliteKind==='tank'){this.maxHp=Math.round(this.maxHp*1.65);this.hp=this.maxHp;this.atk=Math.round(this.atk*1.15);this.vy*=.72;this.r+=4;this.scoreVal=Math.round(this.scoreVal*1.65);}
+   else if(this._frEliteKind==='sniper'){this.maxHp=Math.round(this.maxHp*1.18);this.hp=this.maxHp;this.atk=Math.round(this.atk*1.30);this.vy*=.82;this.scoreVal=Math.round(this.scoreVal*1.45);}
+   else if(this._frEliteKind==='support'){this.maxHp=Math.round(this.maxHp*1.25);this.hp=this.maxHp;this.atk=Math.max(1,Math.round(this.atk*.90));this.vy*=.85;this.scoreVal=Math.round(this.scoreVal*1.50);}
+   else if(this._frEliteKind==='dasher'){this.maxHp=Math.round(this.maxHp*1.15);this.hp=this.maxHp;this.atk=Math.round(this.atk*1.25);this.vy*=.90;this.scoreVal=Math.round(this.scoreVal*1.45);}
+  }
+  update(){
+   const now=performance.now(),ox=this.x,oy=this.y;
+   if(this._frEliteDash){
+    this.timer++;const slow=this.frozenTimer>0?.4:1;if(this.frozenTimer>0)this.frozenTimer--;
+    this.x+=this._frEliteDash.vx*slow;this.y+=this._frEliteDash.vy*slow;this._frEliteDash.left--;
+    if(this._frEliteDash.left<=0)this._frEliteDash=null;
+    if(this.y>CH+60)this.hp=0;
+   }else{
+    super.update();
+    if(this._frEliteHasteUntil>now){this.x+=(this.x-ox)*.18;this.y+=(this.y-oy)*.18;}
+   }
+   if(this.hp<=0||!this._frEliteKind)return;
+   if(this._frEliteKind==='sniper'){
+    if(!this._frEliteAim&&this.timer>=this._frEliteNext&&this.y>35&&this.y<CH*.62){this._frEliteAim={x:player.x,y:player.y,fireAt:this.timer+30};this._frEliteNext=this.timer+145;}
+    if(this._frEliteAim&&this.timer>=this._frEliteAim.fireAt){const a=Math.atan2(this._frEliteAim.y-this.y,this._frEliteAim.x-this.x);eBullets.push(new Bullet(this.x,this.y,Math.cos(a)*6.2,Math.sin(a)*6.2,Math.round(this.atk*1.15),'#fb7185',7));this._frEliteAim=null;}
+   }else if(this._frEliteKind==='support'&&this.timer>=this._frEliteNext){
+    this._frEliteNext=this.timer+210;let helped=0;
+    enemies.forEach(function(e){if(!e||e.hp<=0||Math.hypot(e.x-this.x,e.y-this.y)>135)return;e.hp=Math.min(e.maxHp,e.hp+Math.max(1,Math.round(e.maxHp*.08)));e._frEliteHasteUntil=now+3000;helped++;},this);
+    if(helped){addText('菁英鼓舞',this.x,this.y-46,'#34d399',12,-.4);burst(this.x,this.y,'#34d399',10);}
+   }else if(this._frEliteKind==='dasher'){
+    if(!this._frEliteAim&&this.timer>=this._frEliteNext&&this.y>30&&this.y<CH*.58){this._frEliteAim={x:player.x,y:player.y,fireAt:this.timer+30,dash:true};this._frEliteNext=this.timer+175;}
+    if(this._frEliteAim&&this.timer>=this._frEliteAim.fireAt){const dx=this._frEliteAim.x-this.x,dy=this._frEliteAim.y-this.y,d=Math.hypot(dx,dy)||1;this._frEliteDash={vx:dx/d*7.2,vy:dy/d*7.2,left:24};this._frEliteAim=null;}
+   }
+  }
+  draw(){
+   super.draw();if(!this._frEliteKind)return;
+   const meta=FR_ELITE_META[this._frEliteKind],pulse=1+Math.sin(this.timer*.15)*.08;
+   ctx.save();ctx.translate(this.x,this.y);ctx.strokeStyle=meta.color;ctx.shadowColor=meta.color;ctx.shadowBlur=10;ctx.lineWidth=3;ctx.globalAlpha=.85;ctx.beginPath();ctx.arc(0,-5,(this.r+12)*pulse,0,Math.PI*2);ctx.stroke();
+   ctx.shadowBlur=0;ctx.fillStyle=meta.color;ctx.font='900 10px sans-serif';ctx.textAlign='center';ctx.fillText(meta.name,0,-this.r-27);
+   if(this._frEliteAim){ctx.globalAlpha=.35+.25*Math.sin(this.timer*.65);ctx.strokeStyle=this._frEliteKind==='dasher'?'#60a5fa':'#fb7185';ctx.lineWidth=this._frEliteKind==='dasher'?8:3;ctx.setLineDash([9,7]);ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(this._frEliteAim.x-this.x,this._frEliteAim.y-this.y);ctx.stroke();ctx.setLineDash([]);}
+   if(this._frEliteKind==='support'){ctx.globalAlpha=.2;ctx.fillStyle='#34d399';ctx.beginPath();ctx.arc(0,0,38+Math.sin(this.timer*.1)*5,0,Math.PI*2);ctx.fill();}
+   ctx.restore();
   }
  };
 
@@ -446,9 +507,9 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
  Boss=class extends FrBalancedBossBase{
   constructor(stg){
    super(stg);
-   const stageNum=Math.max(1,Math.round(Number(stg||stage)||1)),c=frBalanceCurve(stageNum);
+   const stageNum=Math.max(1,Math.round(Number(stg||stage)||1)),c=frBalanceCurve(stageNum),late=frLateStageBoost(stageNum);
    const lateBossHp=stageNum>=19&&stageNum<=21?1.55:stageNum>=16&&stageNum<=18?1.40:stageNum>=12&&stageNum<=15?1.25:1;
-   this.maxHp=Math.round(1100*c.bossHp*lateBossHp);this.hp=this.maxHp;
+   this.maxHp=Math.round(1100*c.bossHp*lateBossHp*late.bossHp);this.hp=this.maxHp;
    this.maxShield=Math.round(this.maxHp*.28);this.shield=this.maxShield;
    this.scoreVal=frBossScore(stg||stage);updateBossHp();updateBossShield();
   }

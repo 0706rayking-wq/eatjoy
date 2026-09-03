@@ -256,7 +256,7 @@ class FrThunderChaserOrb{
     if(this.y<108+this.r){this.y=108+this.r;this.vy=Math.abs(this.vy)*.75;}
     else if(this.y>CH-this.r){this.y=CH-this.r;this.vy=-Math.abs(this.vy)*.75;}
     if(dist<this.r+player.radius&&this.hitCooldown<=0&&player.invTimer<=0){
-      const nx=dx/dist,ny=dy/dist,damage=Math.round(10*frBalanceCurve(stage).bossDamage);
+      const nx=dx/dist,ny=dy/dist,damage=Math.round(10*frBalanceCurve(stage).bossDamage*frBossDamageScale(stage));
       hurtPlayer(damage);this.hitCooldown=62;this.vx=-nx*4.8;this.vy=-ny*4.8;
       player.x=Math.max(player.radius,Math.min(CW-player.radius,player.x+nx*54));
       player.y=Math.max(108+player.radius,Math.min(CH-player.radius,player.y+ny*54));
@@ -283,7 +283,7 @@ function frThunderEnsureChaserOrbs(){
   for(let i=0;i<2;i++)if(!used[i])hazards.push(new FrThunderChaserOrb(i));
 }
 function frThunderSpawnFieldPair(){
-  const curve=frBalanceCurve(stage),damage=Math.round(11*curve.bossDamage),points=[];
+  const curve=frBalanceCurve(stage),damage=Math.round(11*curve.bossDamage*frBossDamageScale(stage)),points=[];
   for(let i=0;i<2;i++){
     let x,y,tries=0;
     do{x=38+Math.random()*(CW-76);y=145+Math.random()*(CH-210);tries++;}while(points.length&&Math.hypot(x-points[0].x,y-points[0].y)<105&&tries<12);
@@ -312,7 +312,7 @@ function frBossMeteor(b,count,color,damage,largeLast,status){
   for(let i=0;i<count;i++)frBossLater(b,i*18,function(){const x=35+Math.random()*(CW-70),y=130+Math.random()*(CH-210);frBossHazard({kind:'circle',x:x,y:y,r:largeLast&&i===count-1?88:42,color:color,damage:damage,status:status||null,delay:48,duration:14});});
 }
 function frBossCast(b,pattern,isSkill){
-  const c=b.color,curve=frBalanceCurve(stage),phasePower=b._frFinal?[1,1.15,1.32][b._frThunderPhase||0]:1,stage11Power=b._frStage11Enhanced?FR_STAGE11_THUNDER.damage:1,d=Math.round((isSkill?14:9)*curve.bossDamage*phasePower*stage11Power),w=55,tempo=frBossTempo(stage);
+  const c=b.color,curve=frBalanceCurve(stage),phasePower=b._frFinal?[1,1.15,1.32][b._frThunderPhase||0]:1,stage11Power=b._frStage11Enhanced?FR_STAGE11_THUNDER.damage:1,d=Math.round((isSkill?14:9)*curve.bossDamage*frBossDamageScale(stage)*phasePower*stage11Power),w=55,tempo=frBossTempo(stage);
   b._frBusyUntil=b.timer+(isSkill?tempo.skillBusy:tempo.normalBusy);frBossAnimate(b,isSkill?105:72);
   if(isSkill)frBossWarning(b,'circle',48,{r:82});
   addText(isSkill?'⚠ '+b._frSkillLabels[pattern]:b._frNormalLabel,b.x,b.y-86,c,isSkill?15:12);
@@ -483,7 +483,7 @@ function frThunderTakeDamage(b,amount,isQa){
   let dealt=Math.max(1,Number(amount)||1);
   if(typeof frDamageMultiplier==='function')dealt*=frDamageMultiplier(b);
   const wasAlive=b.hp>0;
-  if(b._frArmorCounterUntil>b.timer){dealt*=.62;if(!b._frCounterPulseAt||b.timer-b._frCounterPulseAt>16){b._frCounterPulseAt=b.timer;frBossRadial(b,8,4,Math.max(7,Math.round(8*frBalanceCurve(stage).bossDamage)),b.color,b.timer*.1);}}
+  if(b._frArmorCounterUntil>b.timer){dealt*=.62;if(!b._frCounterPulseAt||b.timer-b._frCounterPulseAt>16){b._frCounterPulseAt=b.timer;frBossRadial(b,8,4,Math.max(7,Math.round(8*frBalanceCurve(stage).bossDamage*frBossDamageScale(stage))),b.color,b.timer*.1);}}
   if(b.shield>0&&!b.shieldBroken){
     const shieldDamage=isQa?Math.floor(b.maxShield*.3):Math.max(1,Math.floor(dealt*.5));
     b.shield=Math.max(0,b.shield-shieldDamage);addText('🛡️'+shieldDamage,b.x,b.y-72,'#7dd3fc',13,-.45);
@@ -504,7 +504,7 @@ function frThunderStage11ClosePressure(b){
   if(b._frStage11CloseFrames<FR_STAGE11_THUNDER.closeHold)return;
   b._frStage11CloseFrames=0;b._frStage11CloseReadyAt=b.timer+FR_STAGE11_THUNDER.closeCooldown;b._frDash=null;
   b._frBusyUntil=Math.max(b._frBusyUntil,b.timer+FR_STAGE11_THUNDER.closeWarn+18);
-  const pulseX=b.x,pulseY=b.y,pulseDamage=Math.round(10*frBalanceCurve(stage).bossDamage*FR_STAGE11_THUNDER.damage);
+  const pulseX=b.x,pulseY=b.y,pulseDamage=Math.round(10*frBalanceCurve(stage).bossDamage*frBossDamageScale(stage)*FR_STAGE11_THUNDER.damage);
   frBossWarning(b,'circle',FR_STAGE11_THUNDER.closeWarn,{x:pulseX,y:pulseY,r:FR_STAGE11_THUNDER.closeRadius,color:'#e9d5ff'});
   addText('⚠ 雷衣反衝',b.x,b.y-102,'#e9d5ff',14,-.35);
   frBossLater(b,FR_STAGE11_THUNDER.closeWarn,function(){
@@ -582,7 +582,8 @@ function frBossUpdateCustom(b){
   }
   if(b.frozenTimer>0)b.frozenTimer--;
   if(b.shieldBroken){b.shieldResetTimer--;updateBossShield();if(b.shieldResetTimer<=0){b.shield=b.maxShield;b.shieldBroken=false;addText('🛡️護盾重置！',b.x,b.y-50,'#60a5fa');updateBossShield();}}
-  const highStage=Number(stage)>=12&&Number(stage)<=21,hpRatio=b.hp/Math.max(1,b.maxHp),tempo=frBossTempo(stage);
+  const highStage=Number(stage)>=12&&Number(stage)<=21,hpRatio=b.hp/Math.max(1,b.maxHp),tempo=frBossTempo(stage),warFallen=typeof frBossFallenCount==='function'?frBossFallenCount():0;
+  if(warFallen>(b._frWarSpiritShown||0)){b._frWarSpiritShown=warFallen;addText('BOSS 戰意 '+warFallen+' 層',b.x,b.y-112,'#fb7185',15,-.4);burst(b.x,b.y,'#fb7185',18);}
   if(highStage&&b._frDef.masterSkill&&!b._frMasterSkillUnlocked&&hpRatio<=.6){b._frMasterSkillUnlocked=true;b._frSkillBag=frBossShuffle(frBossHighStageSkillPool(b));addText('專屬招式解放',b.x,b.y-104,'#fef08a',14,-.4);}
   if(highStage&&b._frDef.masterSkill&&!b._frSignatureReady&&!b._frSignatureUsed&&hpRatio<=.3){b._frSignatureReady=true;b._frAttackCd=Math.min(b._frAttackCd,20);addText('瀕死猛攻',b.x,b.y-104,'#fb7185',15,-.4);}
   for(let i=b._frEvents.length-1;i>=0;i--){if(b.timer>=b._frEvents[i].at){const ev=b._frEvents.splice(i,1)[0];ev.fn();}}
@@ -596,8 +597,8 @@ function frBossUpdateCustom(b){
   frBossEnforceTopSafeZone(b);
   if(b._frTether){const dist=Math.hypot(player.x-b.x,player.y-b.y);if(b.timer>b._frTether.until||dist>230)b._frTether=null;else if(b.timer-b._frTether.last>42){b._frTether.last=b.timer;if(player.invTimer<=0){hurtPlayer(b._frTether.damage);b.hp=Math.min(b.maxHp,b.hp+b._frTether.damage*1.5);updateBossHp();}}}
   frThunderStage11ClosePressure(b);
-  const expertStage=Number(stage)>=11,masterStage=Number(stage)>=16;
-  if(expertStage){const castRate=b.timer<b._frBusyUntil?tempo.busyRate:1;b._frAttackCd-=frFormSlow*castRate;}
+  const expertStage=Number(stage)>=11,masterStage=Number(stage)>=16,warSpeed=typeof frBossWarSpeedScale==='function'?frBossWarSpeedScale(stage):1;
+  if(expertStage){const castRate=b.timer<b._frBusyUntil?tempo.busyRate:1;b._frAttackCd-=frFormSlow*castRate*warSpeed;}
   if(b.timer<b._frBusyUntil)return;
   const rage=b._frFinal?[1,.86,.7][b._frThunderPhase||0]:(b.hp<b.maxHp*.5?.8:1)*(highStage&&hpRatio<=.3?.88:1);
   if(!expertStage)b._frAttackCd-=frFormSlow;
