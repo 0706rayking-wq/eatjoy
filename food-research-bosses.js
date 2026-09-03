@@ -234,6 +234,54 @@ class FrThunderFieldStrike extends FrBossHazard{
 }
 function frBossHazard(options){const h=new FrBossHazard(options);hazards.push(h);return h;}
 let frThunderArenaTimer=70;
+class FrThunderChaserOrb{
+  constructor(index){
+    this._frThunderChaser=true;this.index=index||0;this.age=0;this.dead=false;this.r=23;this.hitCooldown=0;
+    this.x=this.index?CW-58:58;this.y=135+this.index*54;
+    this.vx=this.index?-1.1:1.1;this.vy=.45;
+  }
+  update(){
+    this.age++;if(this.hitCooldown>0)this.hitCooldown--;
+    if(Number(stage)!==11||currentBgIdx!==10||stageCleared){this.dead=true;return;}
+    const dx=player.x-this.x,dy=player.y-this.y,dist=Math.hypot(dx,dy)||1;
+    const other=hazards.find(function(h){return h&&h!==this&&h._frThunderChaser&&!h.dead;},this);
+    let ax=dx/dist*.055,ay=dy/dist*.055;
+    if(other){const odx=this.x-other.x,ody=this.y-other.y,od=Math.hypot(odx,ody)||1;if(od<82){const repel=(82-od)/82*.11;ax+=odx/od*repel;ay+=ody/od*repel;}}
+    this.vx+=ax;this.vy+=ay;
+    const maxSpeed=2.35,speed=Math.hypot(this.vx,this.vy)||1;
+    if(speed>maxSpeed){this.vx=this.vx/speed*maxSpeed;this.vy=this.vy/speed*maxSpeed;}
+    this.x+=this.vx;this.y+=this.vy;
+    if(this.x<this.r){this.x=this.r;this.vx=Math.abs(this.vx)*.75;}
+    else if(this.x>CW-this.r){this.x=CW-this.r;this.vx=-Math.abs(this.vx)*.75;}
+    if(this.y<108+this.r){this.y=108+this.r;this.vy=Math.abs(this.vy)*.75;}
+    else if(this.y>CH-this.r){this.y=CH-this.r;this.vy=-Math.abs(this.vy)*.75;}
+    if(dist<this.r+player.radius&&this.hitCooldown<=0&&player.invTimer<=0){
+      const nx=dx/dist,ny=dy/dist,damage=Math.round(10*frBalanceCurve(stage).bossDamage);
+      hurtPlayer(damage);this.hitCooldown=62;this.vx=-nx*4.8;this.vy=-ny*4.8;
+      player.x=Math.max(player.radius,Math.min(CW-player.radius,player.x+nx*54));
+      player.y=Math.max(108+player.radius,Math.min(CH-player.radius,player.y+ny*54));
+      player.vx=nx*4.5;player.vy=ny*4.5;
+      burst(this.x,this.y,'#fde047',14);addText('雷球擊退',player.x,player.y-34,'#fde047',13,-.45);
+    }
+  }
+  draw(){
+    const pulse=.5+.5*Math.sin(this.age*.24+this.index*Math.PI),trail=Math.atan2(this.vy,this.vx);
+    ctx.save();ctx.translate(this.x,this.y);ctx.rotate(trail);
+    const grad=ctx.createRadialGradient(0,0,3,0,0,this.r+12);grad.addColorStop(0,'rgba(255,255,255,.98)');grad.addColorStop(.24,'rgba(254,240,138,.98)');grad.addColorStop(.58,'rgba(59,130,246,.78)');grad.addColorStop(1,'rgba(30,64,175,0)');
+    ctx.globalAlpha=.28;ctx.fillStyle='#60a5fa';ctx.beginPath();ctx.ellipse(-18,0,30+pulse*8,12+pulse*3,0,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=1;ctx.shadowBlur=18+pulse*8;ctx.shadowColor='#60a5fa';ctx.fillStyle='#1d4ed8';ctx.beginPath();ctx.arc(0,0,this.r,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=grad;ctx.beginPath();ctx.arc(0,0,this.r+10,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#bfdbfe';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,this.r+2+pulse*3,0,Math.PI*2);ctx.stroke();
+    ctx.shadowBlur=8;ctx.strokeStyle='#ffffff';ctx.lineWidth=2.5;ctx.lineCap='round';
+    for(let i=0;i<4;i++){const a=this.age*.16+i*Math.PI/2;ctx.beginPath();ctx.moveTo(Math.cos(a)*5,Math.sin(a)*5);ctx.lineTo(Math.cos(a+.32)*(this.r*.58),Math.sin(a+.32)*(this.r*.58));ctx.lineTo(Math.cos(a-.18)*(this.r+7+pulse*4),Math.sin(a-.18)*(this.r+7+pulse*4));ctx.stroke();}
+    ctx.restore();
+  }
+}
+function frThunderEnsureChaserOrbs(){
+  const active=hazards.filter(function(h){return h&&h._frThunderChaser&&!h.dead;});
+  if(Number(stage)!==11||currentBgIdx!==10||stageCleared){active.forEach(function(h){h.dead=true;});return;}
+  const used={};active.forEach(function(h){used[h.index]=true;});
+  for(let i=0;i<2;i++)if(!used[i])hazards.push(new FrThunderChaserOrb(i));
+}
 function frThunderSpawnFieldPair(){
   const curve=frBalanceCurve(stage),damage=Math.round(11*curve.bossDamage),points=[];
   for(let i=0;i<2;i++){
@@ -244,6 +292,7 @@ function frThunderSpawnFieldPair(){
 }
 function frThunderArenaTick(){
   if(frPlayerParalyzed()&&player){player.vx=0;player.vy=0;}
+  frThunderEnsureChaserOrbs();
   const active=hazards.filter(function(h){return h&&h._frThunderField&&!h.dead;}).length;
   frThunderArenaTimer--;if(frThunderArenaTimer<=0&&active===0){frThunderSpawnFieldPair();frThunderArenaTimer=150+Math.floor(Math.random()*65);}
 }
@@ -621,7 +670,9 @@ useSkill2=function(){if(frPlayerParalyzed())return;return frThunderBaseSkill2();
 const frThunderBaseSwitchChar=switchToChar;
 switchToChar=function(index){if(frPlayerParalyzed())return;return frThunderBaseSwitchChar(index);};
 const frThunderBaseBuildStage=buildStage;
-buildStage=function(){window.frParalyzedUntil=0;frThunderArenaTimer=70;return frThunderBaseBuildStage.apply(this,arguments);};
+buildStage=function(){window.frParalyzedUntil=0;frThunderArenaTimer=70;const result=frThunderBaseBuildStage.apply(this,arguments);frThunderEnsureChaserOrbs();return result;};
+
+window.frStage11LightningOrbs=function(){return hazards.filter(function(h){return h&&h._frThunderChaser&&!h.dead;});};
 
 window.addEventListener('keydown',function(event){
   let localTest=false;
