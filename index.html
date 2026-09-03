@@ -1124,7 +1124,7 @@
     <div id="notify-root" style="position:fixed;top:80px;left:0;right:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none;padding:0 16px;isolation:isolate;"></div>
 <script src="food-research-question-bank.js"></script>
 <script src="food-research-question-bank-expansion.js"></script>
-<script src="food-research-forms.js?v=17"></script>
+<script src="food-research-forms.js?v=18"></script>
 <script src="food-research-weapons.js?v=14"></script>
 <script src="food-research-amulets.js?v=5"></script>
     <script src="food-research-bosses.js?v=24"></script>
@@ -8141,7 +8141,7 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
      );
     };
 
-    const GameCenter = ({ onBack, config, currentBranch, currentUser, getPublicPath, triggerNotify, allUsers = [], isSuperAdmin = false }) => {
+    const GameCenter = ({ onBack, config, currentBranch, currentUser, getPublicPath, triggerNotify, allUsers = [], globalBranches = [], isSuperAdmin = false }) => {
 const [selectedActivity, setSelectedActivity] = useState(null); // 新增：用來記錄使用者點選了哪個活動
 
 const [leaderboard, setLeaderboard] = useState([]);
@@ -8163,6 +8163,12 @@ const [rebuildAnswerResult, setRebuildAnswerResult] = useState(null);
 const [rebuildFeedback, setRebuildFeedback] = useState('');
 const [rebuildSaving, setRebuildSaving] = useState(false);
 const rebuildRecentQuestionsRef = useRef([]);
+const getRebuildBranchScope = () => {
+ const configured = [...new Set([...(globalBranches || []), currentBranch].filter(Boolean))];
+ return currentBranch === '測試分店'
+  ? ['測試分店']
+  : configured.filter(branch => branch !== '測試分店');
+};
 const [leftoverSubmissions, setLeftoverSubmissions] = useState([]);
 const [leftoverProgress, setLeftoverProgress] = useState({ approvedItems: [], comments: {} });
 const [leftoverPending, setLeftoverPending] = useState([]);
@@ -8342,14 +8348,44 @@ useEffect(() => {
 }, [currentUser, currentBranch, getPublicPath]);
 
 useEffect(() => {
- if (selectedActivity !== 'food_research' || !currentBranch) return;
- const ref = db.doc(getPublicPath(`food_research_rebuild/${currentBranch}`));
- const unsub = ref.onSnapshot(
-  doc => setFacilityRebuild(doc.exists ? doc.data() : { facilities: {}, dailyPlayers: {}, dailyWrongs: {} }),
-  () => setFacilityRebuild({ facilities: {}, dailyPlayers: {}, dailyWrongs: {} })
- );
- return () => unsub();
-}, [selectedActivity, currentBranch, getPublicPath]);
+ if (selectedActivity !== 'food_research') return;
+ const branches = getRebuildBranchScope();
+ if (!branches.length) return;
+ const branchData = {};
+ const publishAggregate = () => {
+  const aggregate = { facilities: {}, dailyPlayers: {}, dailyWrongs: {}, branches: {} };
+  Object.entries(branchData).forEach(([branch, data]) => {
+   aggregate.branches[branch] = data;
+   Object.entries(data.facilities || {}).forEach(([facilityId, facility]) => {
+    const target = aggregate.facilities[facilityId] || { totalCorrect: 0, completed: false };
+    target.totalCorrect += Math.max(0, Number(facility?.totalCorrect || 0));
+    target.completed = target.completed || !!facility?.completed || !!facility?.completedAt;
+    target.updatedAt = Math.max(Number(target.updatedAt || 0), Number(facility?.updatedAt || 0));
+    aggregate.facilities[facilityId] = target;
+   });
+   Object.entries(data.dailyPlayers || {}).forEach(([dateKey, players]) => {
+    const target = aggregate.dailyPlayers[dateKey] || {};
+    Object.entries(players || {}).forEach(([playerKey, count]) => {
+     target[playerKey] = Math.max(Number(target[playerKey] || 0), Number(count || 0));
+    });
+    aggregate.dailyPlayers[dateKey] = target;
+   });
+   Object.entries(data.dailyWrongs || {}).forEach(([dateKey, players]) => {
+    const target = aggregate.dailyWrongs[dateKey] || {};
+    Object.entries(players || {}).forEach(([playerKey, count]) => {
+     target[playerKey] = Math.max(Number(target[playerKey] || 0), Number(count || 0));
+    });
+    aggregate.dailyWrongs[dateKey] = target;
+   });
+  });
+  setFacilityRebuild(aggregate);
+ };
+ const unsubs = branches.map(branch => db.doc(getPublicPath(`food_research_rebuild/${branch}`)).onSnapshot(
+  doc => { branchData[branch] = doc.exists ? (doc.data() || {}) : {}; publishAggregate(); },
+  () => { branchData[branch] = {}; publishAggregate(); }
+ ));
+ return () => unsubs.forEach(unsub => unsub());
+}, [selectedActivity, currentBranch, globalBranches.join('|'), getPublicPath]);
 
 useEffect(() => {
  if (selectedActivity !== 'leftover') return;
@@ -9158,11 +9194,13 @@ if (selectedActivity === 'food_research') {
   try { return JSON.parse(JSON.stringify(data || getBlankRebuildSave())); }
   catch { return getBlankRebuildSave(); }
  };
- const branchRebuildUsers = allUsers.filter(u =>
-  u.status === 'approved' &&
-  (Array.isArray(u.branch) ? u.branch.includes(currentBranch) : u.branch === currentBranch)
- );
- const liveRebuildUser = branchRebuildUsers.find(u => u.phone === currentUser?.phone) || liveUser || currentUser || {};
+ const rebuildBranches = getRebuildBranchScope();
+ const rebuildUsers = allUsers.filter(u => {
+  if (u.status !== 'approved') return false;
+  const userBranches = Array.isArray(u.branch) ? u.branch : [u.branch];
+  return userBranches.some(branch => rebuildBranches.includes(branch));
+ });
+ const liveRebuildUser = rebuildUsers.find(u => u.phone === currentUser?.phone) || liveUser || currentUser || {};
  const personalRebuild = liveRebuildUser.gameRebuild || getBlankRebuildSave();
  const personalDaily = (personalRebuild.daily || {})[rebuildTodayKey] || {};
  const rebuildDailyPlayers = (rebuildData.dailyPlayers || {})[rebuildTodayKey] || {};
@@ -9177,11 +9215,11 @@ if (selectedActivity === 'food_research') {
  const getFacilityProgress = (facilityId) => {
   const shared = ((rebuildData.facilities || {})[facilityId]) || {};
   const sharedTotal = Math.max(0, Number(shared.totalCorrect || 0));
-  const userTotal = branchRebuildUsers.reduce((sum, user) => sum + getUserFacilityCorrect(user, facilityId), 0);
-  const completedByUser = branchRebuildUsers.some(user => getUserFacilityCompleted(user, facilityId)) || getUserFacilityCompleted(liveRebuildUser, facilityId);
+  const userTotal = rebuildUsers.reduce((sum, user) => sum + getUserFacilityCorrect(user, facilityId), 0)
+   + (rebuildUsers.some(user => user.phone === liveRebuildUser.phone) ? 0 : getUserFacilityCorrect(liveRebuildUser, facilityId));
   const total = Math.max(0, Math.min(REBUILD_TARGET, sharedTotal + userTotal));
   const percent = Math.min(100, Math.floor((total / REBUILD_TARGET) * 100));
-  return { total, percent, complete: !!shared.completed || !!shared.completedAt || sharedTotal >= REBUILD_TARGET || completedByUser || total >= REBUILD_TARGET };
+  return { total, percent, complete: total >= REBUILD_TARGET };
  };
  const rebuildFacilityProgress = getFacilityProgress(selectedRebuildFacility);
  const rebuildTotal = rebuildFacilityProgress.total;
@@ -9256,7 +9294,7 @@ if (selectedActivity === 'food_research') {
    const currentFacility = { ...(facilities[facilityId] || {}) };
    facilities[facilityId] = {
     ...currentFacility,
-    totalCorrect: Math.max(REBUILD_TARGET, Number(currentFacility.totalCorrect || 0)),
+    totalCorrect: Math.max(0, Number(currentFacility.totalCorrect || 0)),
     completed: true,
     completedAt: currentFacility.completedAt || now,
     updatedAt: now
@@ -9268,7 +9306,7 @@ if (selectedActivity === 'food_research') {
    const facilities = { ...(base.facilities || {}) };
    facilities[facilityId] = {
     ...(facilities[facilityId] || {}),
-    totalCorrect: Math.max(REBUILD_TARGET, Number(facilities[facilityId]?.totalCorrect || 0)),
+    totalCorrect: Math.max(0, Number(facilities[facilityId]?.totalCorrect || 0)),
     completed: true,
     completedAt: facilities[facilityId]?.completedAt || now,
     updatedAt: now
@@ -9465,24 +9503,28 @@ if (selectedActivity === 'food_research') {
   setRebuildSaving(true);
   try {
    const now = Date.now();
-   const ref = db.doc(getPublicPath(`food_research_rebuild/${currentBranch}`));
+   const targetBranches = getRebuildBranchScope();
+   const refs = targetBranches.map(branch => db.doc(getPublicPath(`food_research_rebuild/${branch}`)));
    await db.runTransaction(async tx => {
-    const snap = await tx.get(ref);
-    const data = snap.exists ? snap.data() : {};
-    const facilities = { ...(data.facilities || {}) };
-    ids.forEach(id => {
-     facilities[id] = {
-      ...(facilities[id] || {}),
-      totalCorrect: mode === 'complete' ? REBUILD_TARGET : 0,
-      completed: mode === 'complete',
-      updatedAt: now,
-      testOverride: true
-     };
+    const snaps = await Promise.all(refs.map(ref => tx.get(ref)));
+    snaps.forEach((snap, index) => {
+     const data = snap.exists ? snap.data() : {};
+     const facilities = { ...(data.facilities || {}) };
+     ids.forEach(id => {
+      const testTotal = mode === 'complete' && index === 0 ? REBUILD_TARGET : 0;
+      facilities[id] = {
+       ...(facilities[id] || {}),
+       totalCorrect: testTotal,
+       completed: testTotal >= REBUILD_TARGET,
+       updatedAt: now,
+       testOverride: true
+      };
+     });
+     tx.set(refs[index], { facilities, updatedAt: now, branch: targetBranches[index], sharedAcrossBranches: true }, { merge: true });
     });
-    tx.set(ref, { facilities, updatedAt: now, branch: currentBranch }, { merge: true });
    });
    if (mode === 'reset') {
-    const usersToReset = branchRebuildUsers.filter(u => u.phone);
+    const usersToReset = rebuildUsers.filter(u => u.phone);
     for (let i = 0; i < usersToReset.length; i += 450) {
      const batch = db.batch();
      usersToReset.slice(i, i + 450).forEach(user => {
@@ -9668,9 +9710,9 @@ if (selectedActivity === 'food_research') {
     <div className="flex-1 overflow-y-auto p-4 space-y-4">
      <div style={{...cardStyle, textAlign:'center'}}>
       <div style={{fontSize:'42px', marginBottom:'6px'}}>{rebuildComplete ? '🏗️✨' : '🏗️'}</div>
-      <div style={{color:'#e6edf3', fontWeight:900, fontSize:'18px'}}>{rebuildComplete ? '設施重建完成' : '分店共同重建中'}</div>
+       <div style={{color:'#e6edf3', fontWeight:900, fontSize:'18px'}}>{rebuildComplete ? '設施重建完成' : '全台六間分店共同重建中'}</div>
       <div style={{color:'#8b949e', fontSize:'12px', lineHeight:'1.6', marginTop:'6px'}}>
-       每個設施各自需要答對 {REBUILD_TARGET} 題才會完工，答對每題獲得 {REBUILD_REWARD} 金幣。<br/>
+       六間分店共同推進，每個設施全台累積答對 {REBUILD_TARGET} 題才會完工，答對每題獲得 {REBUILD_REWARD} 金幣。<br/>
        每位玩家每日最多協助 {REBUILD_PLAYER_LIMIT} 題，四個設施合計；答錯 {REBUILD_WRONG_LIMIT} 題後當天暫停施工。
       </div>
       <div style={{marginTop:'14px', height:'12px', background:'#21262d', borderRadius:'999px', overflow:'hidden', border:'1px solid #30363d'}}>
@@ -14212,7 +14254,7 @@ return (
         case 'unifiedRules': return <UnifiedRulesPage rulesData={rulesData} onBack={()=>setCurrentPage('home')} user={currentUser} currentBranch={currentBranch} triggerNotify={triggerNotify} getPublicPath={getPublicPath} signatures={signatures} />;
         case 'menu': return <MenuDisplayPage onBack={()=>setCurrentPage('home')} items={menuData?.items} />;
         case 'kitchenReport': return <MonthlyReportPage onBack={()=>setCurrentPage('home')} report={contentStatus?.kitchenReport || {}} assemblyReport={contentStatus?.monthlyAssembly || {}} />;
-        case 'game-center': return <GameCenter onBack={()=>setCurrentPage('home')} config={gameConfig} currentBranch={currentBranch} currentUser={currentUser} getPublicPath={getPublicPath} triggerNotify={triggerNotify} allUsers={users} isSuperAdmin={isSuperAdmin} />;
+        case 'game-center': return <GameCenter onBack={()=>setCurrentPage('home')} config={gameConfig} currentBranch={currentBranch} currentUser={currentUser} getPublicPath={getPublicPath} triggerNotify={triggerNotify} allUsers={users} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} />;
         case 'schedule': return <ScheduleSystem onBack={()=>setCurrentPage('home')} currentBranch={currentBranch} isManager={isManager || isSuperAdmin} getPublicPath={getPublicPath} triggerNotify={triggerNotify} publishContent={publishContent} />;
         case 'onboarding': return (
          <div className="p-4 space-y-4 page-enter text-left">
