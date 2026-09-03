@@ -152,10 +152,10 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
       .replace(/ stageCleared=true;gameRunning=false;\n setTimeout\(\(\)=>\{[\s\S]*?\n \},600\);/, " stageCleared=true;gameRunning=false;\n window.frBeginStageClearTransition({stage:stage,bossName:this.name||'魔王',bossScore:Number(this.scoreVal)||0,bossGold:frBossCoinReward(stage),bossX:Number(this.x)||CW/2,bossY:Number(this.y)||CH*.24,bossColor:this.color||'#fde047',deathLine:(this._frStage11Enhanced&&this._frRootDef&&this._frRootDef.stage11Defeat)||(this._frRootDef&&this._frRootDef.death)||(this._frDef&&this._frDef.death)||'這一戰……是你贏了。'});")
       .replace('gold+=30;updateHUD();', 'const rivalGold=frRivalCoinReward(stage);gold+=rivalGold;score+=frRivalScore(stage);updateHUD();')
       .replace("addText('🎉全數擊敗！+30🪙'", "addText('🎉全數擊敗！+'+frRivalCoinReward(stage)+'🪙'")
-      .replace("function goBackToCamp(){window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold},'*');}", "function goBackToCamp(){frFlushQuestKills(true);window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold,score,stage,maxStage:frHistoricalMaxStage,bossKills:frBossDefeatedCount,durationMs:Math.max(1000,Date.now()-frRunStartedAt),runId:frRunId,completed:!!window.frRunComplete,progress:frProgressPayload(),failure:frFailureSummary},'*');}")
+      .replace("function goBackToCamp(){window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold},'*');}", "function goBackToCamp(){if(typeof frFlushQuestKills==='function')frFlushQuestKills(true);const detail=typeof window.frGetReturnPayload==='function'?window.frGetReturnPayload():{};window.parent.postMessage(Object.assign({type:'FR_BACK_TO_CAMP',gold,score,stage},detail),'*');}")
       .replace('currentBgIdx=Math.floor(Math.random()*BG_THEMES.length);', 'currentBgIdx=frMapForStage(stage);')
       .replace(/currentBgIdx = pickInitialBgIdx\(\);/g, "currentBgIdx = SAVE.startMapIdx!=null ? pickInitialBgIdx() : frMapForStage(stage);")
-      .replace('stage=Math.max(1,savedS);', 'stage=SAVE.testMode?Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Number(SAVE.testStage)||FR_BALANCE.progression.maxStage)):Math.max(1,savedS);')
+      .replace('stage=Math.max(1,savedS);', 'stage=SAVE.testMode?Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Number(SAVE.testStage)||FR_BALANCE.progression.maxStage)):Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Number(SAVE.resumeStage)||Number(SAVE.maxStage)||savedS||1));')
       .replace('stage=Math.max(1,savedStage-1)||1;score=0;', 'stage=SAVE.testMode?Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Number(SAVE.testStage)||FR_BALANCE.progression.maxStage)):(savedStage>=8?savedStage:(Math.max(1,savedStage-1)||1));score=Number(SAVE.runScore||0);')
       .replace("window.parent.postMessage({type:'FR_PENALTY_RETURN',penalty:pen},'*');", "window.parent.postMessage({type:'FR_PENALTY_RETURN',penalty:pen,score:score,stage:(frFailureSummary&&frFailureSummary.rollbackStage)||stage,maxStage:frHistoricalMaxStage,bossKills:frBossDefeatedCount,progress:frProgressPayload(),failure:frFailureSummary},'*');")
       .replace('const spd=player.speed*(currentWeapon===\'melee\'?1.1:1)*(normalFrenzyTimer>0?2:1);', "const statusMove=(window.frSlowUntil&&performance.now()<window.frSlowUntil)?FR_BALANCE.combat.slowMultiplier:1;const formMove=typeof frFormMoveMultiplier==='function'?frFormMoveMultiplier():1;const spd=player.speed*(currentWeapon==='melee'?1.1:1)*(normalFrenzyTimer>0?2:1)*statusMove*formMove;")
@@ -207,7 +207,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
  const frCreditedStages=new Set((SAVE.creditedStages||[]).map(Number).filter(Number.isFinite));
  const frUniqueBossStages=new Set((SAVE.uniqueBossStages||[]).map(Number).filter(Number.isFinite));
  const frScoreLegacyBase=Number.isFinite(Number(SAVE.scoreLegacyBase))?Number(SAVE.scoreLegacyBase):Math.max(0,Number(SAVE.runScore)||0);
- let frHistoricalMaxStage=Math.max(1,Number(SAVE.maxStage)||1),frFinalClearAwarded=!!SAVE.finalClearAwarded,frScoringMigrated=SAVE.scoreRulesVersion==='fr-stage-best-v2',frFailureSummary=null;
+ let frHistoricalMaxStage=Math.max(1,Number(SAVE.maxStage)||1),frResumeStage=Math.max(1,Math.min(22,Number(SAVE.resumeStage)||Number(SAVE.maxStage)||1)),frFinalClearAwarded=!!SAVE.finalClearAwarded,frScoringMigrated=SAVE.scoreRulesVersion==='fr-stage-best-v2',frFailureSummary=null;
  frBossDefeatedCount=frUniqueBossStages.size;
  const frBgCache=document.createElement('canvas'),frBgCtx=frBgCache.getContext('2d');
  let frBgCacheKey='';
@@ -219,8 +219,15 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
   return Math.max(8,failed-Math.max(0,Number(rule&&rule.amount)||0));
  }
  function frProgressPayload(){
-  return {score:Math.max(0,Math.round(Number(score)||0)),stageBestScores:Object.assign({},frStageBestScores),creditedStages:Array.from(frCreditedStages).sort(function(a,b){return a-b;}),uniqueBossStages:Array.from(frUniqueBossStages).sort(function(a,b){return a-b;}),maxStage:Math.max(1,Math.min(22,Math.round(frHistoricalMaxStage||1))),scoreLegacyBase:Math.max(0,Math.round(frScoreLegacyBase)),scoreRulesVersion:'fr-stage-best-v2',finalClearAwarded:!!frFinalClearAwarded};
+  return {score:Math.max(0,Math.round(Number(score)||0)),stageBestScores:Object.assign({},frStageBestScores),creditedStages:Array.from(frCreditedStages).sort(function(a,b){return a-b;}),uniqueBossStages:Array.from(frUniqueBossStages).sort(function(a,b){return a-b;}),maxStage:Math.max(1,Math.min(22,Math.round(frHistoricalMaxStage||1))),resumeStage:Math.max(1,Math.min(22,Math.round(frResumeStage||stage||1))),resumeStageUpdatedAt:Date.now(),scoreLegacyBase:Math.max(0,Math.round(frScoreLegacyBase)),scoreRulesVersion:'fr-stage-best-v2',finalClearAwarded:!!frFinalClearAwarded};
  }
+ window.frGetReturnPayload=function(){return {maxStage:frHistoricalMaxStage,bossKills:frBossDefeatedCount,durationMs:Math.max(1000,Date.now()-frRunStartedAt),runId:frRunId,completed:!!window.frRunComplete,progress:frProgressPayload(),failure:frFailureSummary};};
+ window.frFinishRevivalQuiz=function(success){
+  if(success){goBackToCamp();return;}
+  const penalty={loseRunGold:Math.max(0,Math.round(gold)),loseRunScore:Math.max(0,Math.round(score)),walletRate:.2};
+  const detail=window.frGetReturnPayload();gold=0;score=0;
+  window.parent.postMessage(Object.assign({type:'FR_PENALTY_RETURN',penalty:penalty,score:0,stage:(frFailureSummary&&frFailureSummary.rollbackStage)||stage},detail),'*');
+ };
  function frSyncStageProgress(){if(SAVE.testMode)return;window.parent.postMessage({type:'FR_STAGE_SCORE_UPDATE',progress:frProgressPayload()},'*');}
  function frInitializeScoring(startStage){
   const current=Math.max(1,Math.min(22,Math.round(Number(startStage)||1)));frHistoricalMaxStage=Math.max(frHistoricalMaxStage,current);
@@ -232,7 +239,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
  function frHandlePartyFailure(){
   const failed=Math.max(1,Math.round(Number(stage)||1)),rollback=SAVE.testMode?failed:frFailureRollbackStage(failed),stageKey=SAVE.savedStageKey||('fr_stage_'+(SAVE.playerPhone||'guest'));
   score=Math.max(0,Math.round(Number(frStageScoreAtStart)||0));
-  localStorage.setItem(stageKey,String(rollback));
+  frResumeStage=rollback;localStorage.setItem(stageKey,String(rollback));
   frFailureSummary={failedStage:failed,rollbackStage:rollback,rolledBack:rollback<failed};
   frSyncStageProgress();updateHUD();
  }
@@ -373,7 +380,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
   function finishRegular(){
    if(finished||!assetsReady||token!==frStageTransitionToken)return;finished=true;button.disabled=true;overlay.classList.add('fr-switching');
    later(360,function(){
-    stage=nextStage;localStorage.setItem(SAVE.savedStageKey||('fr_stage_'+(SAVE.playerPhone||'guest')),String(stage));buildStage(stage,true);player.invTimer=Math.max(player.invTimer||0,60);stageCleared=false;updateHUD();
+    stage=nextStage;frResumeStage=nextStage;localStorage.setItem(SAVE.savedStageKey||('fr_stage_'+(SAVE.playerPhone||'guest')),String(stage));frSyncStageProgress();buildStage(stage,true);player.invTimer=Math.max(player.invTimer||0,60);stageCleared=false;updateHUD();
     const gameCanvas=document.getElementById('gameCanvas');if(gameCanvas)gameCanvas.classList.remove('fr-stage-clear-motion');band.style.display='none';overlay.classList.remove('fr-switching','fr-phase-result');overlay.classList.add('fr-revealing');
     later(380,function(){overlay.style.display='none';overlay.className='';band.style.display='';document.documentElement.setAttribute('data-fr-stage-transition','ready');if(!window._gamePaused){gameRunning=true;last=performance.now();if(_rafId)cancelAnimationFrame(_rafId);_rafId=requestAnimationFrame(loop);}});
    });
@@ -382,7 +389,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
 
   later(2000,function(){overlay.classList.add('fr-lastwords-fade');});later(2550,showResult);
   if(finalStage){
-   window.frRunComplete=true;if(!frFinalClearAwarded){score+=FR_BALANCE.scoring.runClear;frFinalClearAwarded=true;}frHistoricalMaxStage=22;const stageKey=SAVE.savedStageKey||('fr_stage_'+(SAVE.playerPhone||'guest'));localStorage.setItem(stageKey,'1');frSyncStageProgress();updateHUD();
+   window.frRunComplete=true;if(!frFinalClearAwarded){score+=FR_BALANCE.scoring.runClear;frFinalClearAwarded=true;}frHistoricalMaxStage=22;frResumeStage=1;const stageKey=SAVE.savedStageKey||('fr_stage_'+(SAVE.playerPhone||'guest'));localStorage.setItem(stageKey,'1');frSyncStageProgress();updateHUD();
   }else{
    currentBgIdx=nextMap;preloadBgTheme(currentBgIdx,function(){assetsReady=true;if(overlay.getAttribute('data-phase')==='result'){button.textContent='下一關';button.disabled=false;}});
   }
@@ -449,7 +456,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
 
  const frBalancedBuildStage=buildStage;
  buildStage=function(s,keepPlayerPos){
-  frBalancedBuildStage(s,keepPlayerPos);frPrepareStageAssets();frStageStartedAt=performance.now();frStageHpDamage=0;frFailureSummary=null;frInitializeScoring(s);frStageScoreAtStart=Math.max(0,Number(score)||0);
+  frResumeStage=Math.max(1,Math.min(22,Math.round(Number(s)||1)));frBalancedBuildStage(s,keepPlayerPos);frPrepareStageAssets();frStageStartedAt=performance.now();frStageHpDamage=0;frFailureSummary=null;frInitializeScoring(s);frStageScoreAtStart=Math.max(0,Number(score)||0);
   window.frSlowUntil=0;window.frAttackDownUntil=0;window.frPoisonUntil=0;window.frBossStatusCooldown={};player.poisoned=false;player.poisonTick=0;player.burnTimer=0;player.frozenTimer=0;
   const c=frBalanceCurve(s);
   if(currentBgIdx===FR_BALANCE.progression.finalMap){spawnQueue=[];stageInitSpawnLen=0;bossIntroTimer=1;mapCameraTargetY=0;return;}
@@ -527,6 +534,13 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
   if(player.burnTimer>0)labels.push(['灼燒','#ef4444']);
   if(player.poisoned)labels.push(['中毒','#84cc16']);
   if(labels.length){ctx.save();ctx.textAlign='center';ctx.font='900 10px sans-serif';labels.forEach(function(item,i){ctx.fillStyle=item[1];ctx.fillText(item[0],player.x,player.y-48-i*12);});ctx.restore();}
+ };
+ const frGuardedBaseLoop=loop;
+ loop=function(ts){
+  if(Array.isArray(eBullets)){
+   for(let i=eBullets.length-1;i>=0;i--){const item=eBullets[i];if(!item||typeof item.update!=='function'||typeof item.draw!=='function'||typeof item.dead!=='function')eBullets.splice(i,1);}
+  }
+  return frGuardedBaseLoop(ts);
  };
  window.addEventListener('pagehide',function(){if(typeof frFlushQuestKills==='function')frFlushQuestKills(true);});
 })();

@@ -1128,8 +1128,8 @@
 <script src="food-research-weapons.js?v=14"></script>
 <script src="food-research-amulets.js?v=5"></script>
     <script src="food-research-bosses.js?v=24"></script>
-    <script src="food-research-ui.js?v=10"></script>
-<script src="food-research-balance.js?v=21"></script>
+    <script src="food-research-ui.js?v=11"></script>
+<script src="food-research-balance.js?v=22"></script>
       <script src="food-research-audio.js?v=4"></script>
 
     <script>
@@ -8864,6 +8864,8 @@ if (selectedActivity === 'food_research') {
   creditedStages:[],
   uniqueBossStages:[],
   maxStage:1,
+  resumeStage:1,
+  resumeStageUpdatedAt:0,
   scoreLegacyBase:0,
   scoreRulesVersion:'fr-stage-best-v2',
   finalClearAwarded:false,
@@ -8878,10 +8880,61 @@ if (selectedActivity === 'food_research') {
  const cacheFoodResearchSave = (data) => {
   try { localStorage.setItem(saveKey, JSON.stringify(data || {})); } catch {}
  };
+ const mergeFoodResearchSaves = (first, second) => {
+  const a = first && typeof first === 'object' ? first : {};
+  const b = second && typeof second === 'object' ? second : {};
+  const aReset = Math.max(0, Number(a.resetAt) || 0);
+  const bReset = Math.max(0, Number(b.resetAt) || 0);
+  if (aReset !== bReset) return aReset > bReset ? {...a} : {...b};
+  const aTime = Math.max(0, Number(a.updatedAt) || 0);
+  const bTime = Math.max(0, Number(b.updatedAt) || 0);
+  const merged = bTime >= aTime ? {...a, ...b} : {...b, ...a};
+  const mergeBestScores = (left, right) => {
+   const result = {};
+   new Set([...Object.keys(left || {}), ...Object.keys(right || {})]).forEach(key => {
+    result[key] = Math.max(0, Number(left?.[key]) || 0, Number(right?.[key]) || 0);
+   });
+   return result;
+  };
+  const mergeStageList = (left, right) => [...new Set([...(left || []), ...(right || [])]
+   .map(Number).filter(Number.isFinite))].sort((x,y)=>x-y);
+  merged.maxStage = Math.min(22, Math.max(1, Number(a.maxStage) || 1, Number(b.maxStage) || 1));
+  merged.bestScore = Math.max(0, Number(a.bestScore) || 0, Number(b.bestScore) || 0);
+  merged.stageBestScores = mergeBestScores(a.stageBestScores, b.stageBestScores);
+  merged.creditedStages = mergeStageList(a.creditedStages, b.creditedStages);
+  merged.uniqueBossStages = mergeStageList(a.uniqueBossStages, b.uniqueBossStages);
+  merged.finalClearAwarded = !!(a.finalClearAwarded || b.finalClearAwarded);
+  const aHasResume = Number.isFinite(Number(a.resumeStage)) && Number(a.resumeStage) >= 1;
+  const bHasResume = Number.isFinite(Number(b.resumeStage)) && Number(b.resumeStage) >= 1;
+  const aResumeTime = Math.max(0, Number(a.resumeStageUpdatedAt) || (aHasResume ? aTime : 0));
+  const bResumeTime = Math.max(0, Number(b.resumeStageUpdatedAt) || (bHasResume ? bTime : 0));
+  let resumeStage = merged.maxStage;
+  let resumeStageUpdatedAt = Math.max(aResumeTime, bResumeTime);
+  if (aHasResume || bHasResume) {
+   const useB = bHasResume && (!aHasResume || bResumeTime >= aResumeTime);
+   resumeStage = Number(useB ? b.resumeStage : a.resumeStage);
+   resumeStageUpdatedAt = useB ? bResumeTime : aResumeTime;
+  }
+  merged.resumeStage = Math.max(1, Math.min(22, Math.round(resumeStage || merged.maxStage || 1)));
+  merged.resumeStageUpdatedAt = resumeStageUpdatedAt;
+  return merged;
+ };
  const syncFoodResearchSave = (data) => {
-  if (!currentUser?.phone) return;
-  db.collection(getPublicPath('users')).doc(currentUser.phone)
-   .set({ gameSave: data }, { merge: true }).catch(()=>{});
+  if (!currentUser?.phone) return Promise.resolve(data);
+  const ref = db.collection(getPublicPath('users')).doc(currentUser.phone);
+  return db.runTransaction(async tx => {
+   const snap = await tx.get(ref);
+   const remote = snap.exists ? (snap.data()?.gameSave || {}) : {};
+   const merged = mergeFoodResearchSaves(remote, data);
+   tx.set(ref, { gameSave: merged }, { merge: true });
+   return merged;
+  }).then(merged => {
+   cacheFoodResearchSave(mergeFoodResearchSaves(readLocalSave(), merged));
+   return merged;
+  }).catch(error => {
+   console.error('同步食研所存檔失敗', error);
+   return data;
+  });
  };
  const loadSave = () => {
   const local = readLocalSave();
@@ -8891,6 +8944,7 @@ if (selectedActivity === 'food_research') {
   let selected = hasRemote
    ? (!hasLocal || Number(remote.updatedAt || 0) >= Number(local.updatedAt || 0) ? remote : local)
    : local;
+  selected = mergeFoodResearchSaves(local, remote);
   if (foodResearchResetAt && (selected.resetAt || 0) < foodResearchResetAt) {
    const resetSave = {...makeFreshFoodResearchSave(foodResearchResetAt), updatedAt: Date.now()};
    cacheFoodResearchSave(resetSave);
@@ -8915,7 +8969,10 @@ if (selectedActivity === 'food_research') {
  const writeSave = (data, options = {}) => {
   try {
    const baseSave = loadSave();
-   const merged = {...baseSave, ...data, resetAt: foodResearchResetAt || baseSave.resetAt || 0, updatedAt: Date.now()};
+   const now = Date.now();
+   const incoming = {...data, resetAt: foodResearchResetAt || baseSave.resetAt || 0, updatedAt: now};
+   if (Object.prototype.hasOwnProperty.call(data || {}, 'resumeStage')) incoming.resumeStageUpdatedAt = now;
+   const merged = mergeFoodResearchSaves(baseSave, incoming);
    cacheFoodResearchSave(merged);
    if (options.sync !== false) syncFoodResearchSave(merged);
   } catch {}
@@ -10761,9 +10818,11 @@ if (selectedActivity === 'food_research') {
    runScore: frTestModeRef.current ? 0 : (s2.runScore||0),
    stageBestScores: frTestModeRef.current ? {} : (s2.stageBestScores||{}),
    creditedStages: frTestModeRef.current ? [] : (s2.creditedStages||[]),
-   uniqueBossStages: frTestModeRef.current ? [] : (s2.uniqueBossStages||[]),
-   maxStage: frTestModeRef.current ? frTestStageRef.current : (s2.maxStage||1),
-   scoreLegacyBase: frTestModeRef.current ? 0 : (Number.isFinite(Number(s2.scoreLegacyBase)) ? Number(s2.scoreLegacyBase) : Number(s2.runScore||0)),
+    uniqueBossStages: frTestModeRef.current ? [] : (s2.uniqueBossStages||[]),
+    maxStage: frTestModeRef.current ? frTestStageRef.current : (s2.maxStage||1),
+    resumeStage: frTestModeRef.current ? frTestStageRef.current : (s2.resumeStage||s2.maxStage||1),
+    resumeStageUpdatedAt: frTestModeRef.current ? Date.now() : (s2.resumeStageUpdatedAt||s2.updatedAt||0),
+    scoreLegacyBase: frTestModeRef.current ? 0 : (Number.isFinite(Number(s2.scoreLegacyBase)) ? Number(s2.scoreLegacyBase) : Number(s2.runScore||0)),
    scoreRulesVersion: frTestModeRef.current ? 'fr-stage-best-v2' : (s2.scoreRulesVersion||''),
    finalClearAwarded: frTestModeRef.current ? false : !!s2.finalClearAwarded,
   quests: s2.quests||null,
@@ -10849,9 +10908,11 @@ if (selectedActivity === 'food_research') {
        runScore:Math.max(0,Math.round(Number(p.score)||0)),
        stageBestScores:p.stageBestScores && typeof p.stageBestScores === 'object' ? p.stageBestScores : {},
        creditedStages:Array.isArray(p.creditedStages) ? p.creditedStages.map(Number).filter(Number.isFinite) : [],
-       uniqueBossStages:Array.isArray(p.uniqueBossStages) ? p.uniqueBossStages.map(Number).filter(Number.isFinite) : [],
-       maxStage:Math.max(1,Math.min(22,Math.round(Number(p.maxStage)||1))),
-       scoreLegacyBase:Math.max(0,Math.round(Number(p.scoreLegacyBase)||0)),
+        uniqueBossStages:Array.isArray(p.uniqueBossStages) ? p.uniqueBossStages.map(Number).filter(Number.isFinite) : [],
+        maxStage:Math.max(1,Math.min(22,Math.round(Number(p.maxStage)||1))),
+        resumeStage:Math.max(1,Math.min(22,Math.round(Number(p.resumeStage||p.currentStage||p.stage||p.maxStage)||1))),
+        resumeStageUpdatedAt:Math.max(0,Number(p.resumeStageUpdatedAt)||Date.now()),
+        scoreLegacyBase:Math.max(0,Math.round(Number(p.scoreLegacyBase)||0)),
        scoreRulesVersion:'fr-stage-best-v2',
        finalClearAwarded:!!p.finalClearAwarded
       };

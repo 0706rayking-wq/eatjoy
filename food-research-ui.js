@@ -494,6 +494,10 @@
 
     function finishRevivalQuiz(success) {
       document.getElementById('revModal').style.display = 'none';
+      if (typeof window.frFinishRevivalQuiz === 'function') {
+        window.frFinishRevivalQuiz(success);
+        return;
+      }
       if (success) {
         goBackToCamp();
         return;
