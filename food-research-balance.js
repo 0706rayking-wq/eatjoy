@@ -221,6 +221,9 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
  const frCreditedStages=new Set((SAVE.creditedStages||[]).map(Number).filter(Number.isFinite));
  const frUniqueBossStages=new Set((SAVE.uniqueBossStages||[]).map(Number).filter(Number.isFinite));
  const frScoreLegacyBase=Number.isFinite(Number(SAVE.scoreLegacyBase))?Number(SAVE.scoreLegacyBase):Math.max(0,Number(SAVE.runScore)||0);
+ const frCatchupFloor=SAVE.testMode?0:(Number.isFinite(Number(SAVE.scoreCatchupFloor))?Math.max(0,Number(SAVE.scoreCatchupFloor)):Math.max(0,Number(SAVE.runScore)||0));
+ if(!SAVE.testMode)score=Math.max(Math.max(0,Number(score)||0),frCatchupFloor);
+ frStageScoreAtStart=Math.max(0,Number(score)||0);
  let frHistoricalMaxStage=Math.max(1,Number(SAVE.maxStage)||1),frResumeStage=Math.max(1,Math.min(22,Number(SAVE.resumeStage)||Number(SAVE.maxStage)||1)),frFinalClearAwarded=!!SAVE.finalClearAwarded,frScoringMigrated=SAVE.scoreRulesVersion==='fr-stage-best-v2',frFailureSummary=null;
  frBossDefeatedCount=frUniqueBossStages.size;
  const frBgCache=document.createElement('canvas'),frBgCtx=frBgCache.getContext('2d');
@@ -233,7 +236,10 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
   return Math.max(8,failed-Math.max(0,Number(rule&&rule.amount)||0));
  }
  function frProgressPayload(){
-  return {score:Math.max(0,Math.round(Number(score)||0)),stageBestScores:Object.assign({},frStageBestScores),creditedStages:Array.from(frCreditedStages).sort(function(a,b){return a-b;}),uniqueBossStages:Array.from(frUniqueBossStages).sort(function(a,b){return a-b;}),maxStage:Math.max(1,Math.min(22,Math.round(frHistoricalMaxStage||1))),resumeStage:Math.max(1,Math.min(22,Math.round(frResumeStage||stage||1))),resumeStageUpdatedAt:Date.now(),scoreLegacyBase:Math.max(0,Math.round(frScoreLegacyBase)),scoreRulesVersion:'fr-stage-best-v2',finalClearAwarded:!!frFinalClearAwarded};
+  return {score:Math.max(0,Math.round(Number(score)||0)),stageBestScores:Object.assign({},frStageBestScores),creditedStages:Array.from(frCreditedStages).sort(function(a,b){return a-b;}),uniqueBossStages:Array.from(frUniqueBossStages).sort(function(a,b){return a-b;}),maxStage:Math.max(1,Math.min(22,Math.round(frHistoricalMaxStage||1))),resumeStage:Math.max(1,Math.min(22,Math.round(frResumeStage||stage||1))),resumeStageUpdatedAt:Date.now(),scoreLegacyBase:Math.max(0,Math.round(frScoreLegacyBase)),scoreCatchupFloor:Math.max(0,Math.round(frCatchupFloor)),scoreRulesVersion:'fr-stage-best-v2',finalClearAwarded:!!frFinalClearAwarded};
+ }
+ function frVerifiedScoreTotal(){
+  return Math.max(0,Math.round(Object.keys(frStageBestScores).reduce(function(total,key){return total+Math.max(0,Number(frStageBestScores[key])||0);},0)));
  }
  window.frGetReturnPayload=function(){return {maxStage:frHistoricalMaxStage,bossKills:frBossDefeatedCount,durationMs:Math.max(1000,Date.now()-frRunStartedAt),runId:frRunId,completed:!!window.frRunComplete,progress:frProgressPayload(),failure:frFailureSummary};};
  window.frFinishRevivalQuiz=function(success){
@@ -385,7 +391,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
    if(token!==frStageTransitionToken)return;overlay.classList.remove('fr-phase-lastwords','fr-lastwords-fade');overlay.classList.add(finalStage?'fr-phase-final':'fr-phase-result');overlay.setAttribute('data-phase',finalStage?'final':'result');
    if(finalStage){
     rewards.style.display='none';totalRow.style.display='none';frTransitionText('.fr-st-kicker','遠征完成');frTransitionText('.fr-st-title','全 22 關制霸');frTransitionText('.fr-st-boss',(info&&info.bossName||'小雷神')+' · 三階段完全擊破');
-    frTransitionText('.fr-st-final-score',Math.round(score).toLocaleString());frTransitionText('.fr-st-final-gold',Math.round(gold).toLocaleString());frTransitionText('.fr-st-final-time',frFormatTransitionTime(Date.now()-frRunStartedAt));frTransitionText('.fr-st-note','雷霆平息，準備返回營地');button.textContent='返回營地';button.disabled=false;
+    frTransitionText('.fr-st-final-score',Math.round(score).toLocaleString());frTransitionText('.fr-st-final-gold',Math.round(gold).toLocaleString());frTransitionText('.fr-st-final-time',frFormatTransitionTime(Date.now()-frRunStartedAt));frTransitionText('.fr-st-note',frStageResultPending&&frStageResultPending.scoreNote?frStageResultPending.scoreNote:'雷霆平息，準備返回營地');button.textContent='返回營地';button.disabled=false;
    }else{
     rewards.style.display='grid';totalRow.style.display='block';frTransitionText('.fr-st-kicker',special11?'雷光退去':'BOSS 擊破');frTransitionText('.fr-st-title','第 '+clearedStage+' 關突破');frTransitionText('.fr-st-boss',frStageResultPending.bossName);frUpdateStageTransitionResult(frStageResultPending);
     const scoreNote=frStageResultPending.scoreNote?(' · '+frStageResultPending.scoreNote):'';frTransitionText('.fr-st-note','下一關：'+(nextTheme?nextTheme.name:'未知區域')+(nextTheme&&nextTheme.text?' · '+nextTheme.text:'')+scoreNote);button.textContent=assetsReady?'下一關':'地圖載入中...';button.disabled=!assetsReady;
@@ -575,12 +581,15 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
     if(!hasRecordedBest){awarded=0;scoreNote='既有通關已計分';}
     else{awarded=Math.max(0,rawStageScore-oldBest);scoreNote=awarded>0?('刷新本關最佳，只增加 '+awarded.toLocaleString()+' 分'):'未超越本關最佳，不重複計分';}
    }
-   score=frStageScoreAtStart+awarded;
    if(!hasRecordedBest||rawStageScore>oldBest)frStageBestScores[stageNum]=rawStageScore;
+   const verifiedScore=frVerifiedScoreTotal(),rankedScore=Math.max(frStageScoreAtStart,frCatchupFloor,verifiedScore),rankedAward=Math.max(0,Math.round(rankedScore-frStageScoreAtStart)),catchupRemaining=Math.max(0,Math.round(frCatchupFloor-verifiedScore));
+   score=rankedScore;
+   if(catchupRemaining>0)scoreNote='保留分數追趕中：新制 '+verifiedScore.toLocaleString()+' / '+Math.round(frCatchupFloor).toLocaleString()+'，尚差 '+catchupRemaining.toLocaleString()+' 分';
+   else if(awarded>rankedAward)scoreNote='已追上保留分數，本關排行榜增加 '+rankedAward.toLocaleString()+' 分';
    frCreditedStages.add(stageNum);frHistoricalMaxStage=Math.max(frHistoricalMaxStage,Math.min(22,stageNum+1));
    if(!frUniqueBossStages.has(stageNum)){frUniqueBossStages.add(stageNum);frBossDefeatedCount=frUniqueBossStages.size;}
-   frUpdateStageTransitionResult({stage:stageNum,bossName:this.name||'魔王',bossGold:frBossCoinReward(stageNum),bossScore:Number(this.scoreVal)||0,clearScore:clear,timeScore:time,flawlessScore:flawless,totalStageScore:awarded,rawStageScore:rawStageScore,previousBest:oldBest,scoreNote:scoreNote});
-   addText(awarded>0?('排行榜 +'+awarded):'本關已計分',CW/2,CH*.36,awarded>0?'#fde047':'#93c5fd',18,0);frSyncStageProgress();updateHUD();
+   frUpdateStageTransitionResult({stage:stageNum,bossName:this.name||'魔王',bossGold:frBossCoinReward(stageNum),bossScore:Number(this.scoreVal)||0,clearScore:clear,timeScore:time,flawlessScore:flawless,totalStageScore:rankedAward,rawStageScore:rawStageScore,previousBest:oldBest,verifiedScore:verifiedScore,catchupRemaining:catchupRemaining,scoreNote:scoreNote});
+   addText(rankedAward>0?('排行榜 +'+rankedAward):(catchupRemaining>0?'追趕保留分數':'本關已計分'),CW/2,CH*.36,rankedAward>0?'#fde047':'#93c5fd',18,0);frSyncStageProgress();updateHUD();
   }
   return result;
  };

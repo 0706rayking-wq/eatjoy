@@ -293,7 +293,7 @@
   return Math.abs(angle-(centerDeg||0))<=(arcDeg||90)/2+padding;
  }
  function frMeleePointHit(def,x,y,radius){
-  const side=x-player.x,forward=player.y-y,r=Math.max(0,radius||0),shape=def.shape||'arc',range=def.range||90;
+  const scale=meleeVisualScale(),side=x-player.x,forward=player.y-y,r=Math.max(0,radius||0),shape=def.shape||'arc',range=(def.range||90)*scale;
   if(shape==='arc')return frSectorHit(side,forward,r,range,def.arc||90,0);
   if(shape==='triple')return [-45,0,45].some(function(center){return frSectorHit(side,forward,r,range,def.arc||70,center);});
   if(shape==='ring'){
@@ -301,18 +301,18 @@
    return dist<=range+r&&dist>=Math.max(0,inner-r);
   }
   if(shape==='dual'){
-   const lane=def.lane||14,half=(def.width||24)/2+r;
+   const lane=(def.lane||14)*scale,half=(def.width||24)*scale/2+r;
    return forward>=-r&&forward<=range+r&&(Math.abs(side-lane)<=half||Math.abs(side+lane)<=half);
   }
   if(shape==='chain'){
-   const shaft=frPointSegmentDistance(side,forward,0,0,0,range)<=(def.width||18)/2+r;
-   return shaft||Math.hypot(side,forward-range)<=(def.impact||28)+r;
+   const shaft=frPointSegmentDistance(side,forward,0,0,0,range)<=(def.width||18)*scale/2+r;
+   return shaft||Math.hypot(side,forward-range)<=(def.impact||28)*scale+r;
   }
   if(shape==='slam'){
-   const shaft=frPointSegmentDistance(side,forward,0,8,0,range)<=(def.width||42)/2+r;
-   return shaft||Math.hypot(side,forward-range)<=(def.impact||36)+r;
+   const shaft=frPointSegmentDistance(side,forward,0,8,0,range)<=(def.width||42)*scale/2+r;
+   return shaft||Math.hypot(side,forward-range)<=(def.impact||36)*scale+r;
   }
-  const half=(def.width||30)/2+r;
+  const half=(def.width||30)*scale/2+r;
   return forward>=-r&&forward<=range+r&&Math.abs(side)<=half;
  }
  function meleeTargetHit(def,t,extra){
@@ -374,20 +374,20 @@
   }
   function drawMeleeSwipe(anim){
    const d=anim.weapon||defFor('melee'),p=Math.min(1,anim.progress),rank=rarityRank[d.rarity]||0;
-   const range=d.range||90,fade=Math.max(0,1-p),color=d.color||'#e2e8f0',shape=d.shape||'arc',guardActive=frMeleeGuardActive(d,anim);
+   const scale=meleeVisualScale(),range=(d.range||90)*scale,fade=Math.max(0,1-p),color=d.color||'#e2e8f0',shape=d.shape||'arc',guardActive=frMeleeGuardActive(d,anim);
    ctx.save();ctx.translate(player.x,player.y-7);ctx.globalCompositeOperation='lighter';ctx.lineCap='round';ctx.strokeStyle=color;
    ctx.shadowColor=guardActive?'#e0f2fe':color;ctx.shadowBlur=guardActive?18:5;
   if(shape==='slam'){
-   const drive=Math.sin(p*Math.PI),endY=-range*(.35+drive*.65);ctx.globalAlpha=fade*.78;ctx.lineWidth=Math.max(8,(d.width||42)*.28)+rank*2;ctx.beginPath();ctx.moveTo(0,-12);ctx.lineTo(0,endY);ctx.stroke();
-   ctx.globalAlpha=fade*.56;ctx.lineWidth=3+rank*.5;ctx.beginPath();ctx.arc(0,endY,(d.impact||36)*(.45+drive*.55),0,Math.PI*2);ctx.stroke();
+   const drive=Math.sin(p*Math.PI),endY=-range*(.35+drive*.65);ctx.globalAlpha=fade*.78;ctx.lineWidth=Math.max(8,(d.width||42)*scale*.28)+rank*2;ctx.beginPath();ctx.moveTo(0,-12);ctx.lineTo(0,endY);ctx.stroke();
+   ctx.globalAlpha=fade*.56;ctx.lineWidth=3+rank*.5;ctx.beginPath();ctx.arc(0,endY,(d.impact||36)*scale*(.45+drive*.55),0,Math.PI*2);ctx.stroke();
   }else if(shape==='thrust'||shape==='dual'){
-   const drive=Math.sin(p*Math.PI),endY=-range*(.28+drive*.72),lanes=shape==='dual'?[-(d.lane||14),d.lane||14]:[0];
-   ctx.globalAlpha=fade*.8;ctx.lineWidth=Math.max(5,(d.width||30)*.2)+rank;
+   const drive=Math.sin(p*Math.PI),endY=-range*(.28+drive*.72),lanes=shape==='dual'?[-(d.lane||14)*scale,(d.lane||14)*scale]:[0];
+   ctx.globalAlpha=fade*.8;ctx.lineWidth=Math.max(5,(d.width||30)*scale*.2)+rank;
    lanes.forEach(function(x){ctx.beginPath();ctx.moveTo(x,-10);ctx.lineTo(x,endY);ctx.stroke();});
    ctx.globalAlpha=fade*.4;ctx.lineWidth=2;lanes.forEach(function(x){ctx.beginPath();ctx.arc(x,endY,8+rank*3,0,Math.PI*2);ctx.stroke();});
   }else if(shape==='chain'){
    ctx.globalAlpha=fade*.78;ctx.lineWidth=4+rank;ctx.setLineDash([8,6]);ctx.beginPath();ctx.moveTo(0,-12);ctx.quadraticCurveTo(range*.48,-range*.6,Math.sin(p*Math.PI)*range*.28,-range);ctx.stroke();ctx.setLineDash([]);
-   ctx.globalAlpha=fade*.52;ctx.beginPath();ctx.arc(Math.sin(p*Math.PI)*range*.28,-range,d.impact||28,0,Math.PI*2);ctx.stroke();
+   ctx.globalAlpha=fade*.52;ctx.beginPath();ctx.arc(Math.sin(p*Math.PI)*range*.28,-range,(d.impact||28)*scale,0,Math.PI*2);ctx.stroke();
   }else if(shape==='ring'){
    const a=-Math.PI/2+p*Math.PI*2;ctx.globalAlpha=fade*.68;ctx.lineWidth=8+rank*2;ctx.beginPath();ctx.arc(0,0,range,a-1.15,a+.22);ctx.stroke();
    ctx.globalAlpha=fade*.38;ctx.lineWidth=3;ctx.beginPath();ctx.arc(0,0,Math.max(d.inner||0,range*.72),a-.8,a+.36);ctx.stroke();

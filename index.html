@@ -1126,11 +1126,11 @@
 <script src="food-research-question-bank-expansion.js"></script>
 <script src="food-research-forms.js?v=20"></script>
 <script src="food-research-skills-v2.js?v=6"></script>
-<script src="food-research-weapons.js?v=16"></script>
+<script src="food-research-weapons.js?v=17"></script>
 <script src="food-research-amulets.js?v=6"></script>
     <script src="food-research-bosses.js?v=26"></script>
     <script src="food-research-ui.js?v=11"></script>
-<script src="food-research-balance.js?v=23"></script>
+<script src="food-research-balance.js?v=24"></script>
       <script src="food-research-audio.js?v=4"></script>
 
     <script>
@@ -8868,6 +8868,7 @@ if (selectedActivity === 'food_research') {
   resumeStage:1,
   resumeStageUpdatedAt:0,
   scoreLegacyBase:0,
+  scoreCatchupFloor:0,
   scoreRulesVersion:'fr-stage-best-v2',
   finalClearAwarded:false,
   resetAt
@@ -8901,6 +8902,11 @@ if (selectedActivity === 'food_research') {
    .map(Number).filter(Number.isFinite))].sort((x,y)=>x-y);
   merged.maxStage = Math.min(22, Math.max(1, Number(a.maxStage) || 1, Number(b.maxStage) || 1));
   merged.bestScore = Math.max(0, Number(a.bestScore) || 0, Number(b.bestScore) || 0);
+  merged.runScore = Math.max(0, Number(a.runScore) || 0, Number(b.runScore) || 0);
+  const getScoreCatchupFloor = data => Number.isFinite(Number(data.scoreCatchupFloor))
+   ? Math.max(0, Number(data.scoreCatchupFloor))
+   : Math.max(0, Number(data.runScore) || 0, Number(data.bestScore) || 0);
+  merged.scoreCatchupFloor = Math.max(getScoreCatchupFloor(a), getScoreCatchupFloor(b));
   merged.stageBestScores = mergeBestScores(a.stageBestScores, b.stageBestScores);
   merged.creditedStages = mergeStageList(a.creditedStages, b.creditedStages);
   merged.uniqueBossStages = mergeStageList(a.uniqueBossStages, b.uniqueBossStages);
@@ -9972,7 +9978,7 @@ if (selectedActivity === 'food_research') {
       <div style={{...cardStyle, color:'#c9d1d9', fontWeight:800, fontSize:'11px', lineHeight:'1.9'}}>
        <div style={{color:'#fbbf24',fontWeight:900,fontSize:'13px',marginBottom:'5px'}}>計分規則</div>
        小兵、BOSS、入侵者與通關皆會計分；每關依完成速度加分，無傷另有獎勵，制霸第 22 關再獲一次 5,000 分。<br/>
-       每關只保存本季最佳成績；倒退重打若刷新紀錄，只增加新舊分數差額。同分時依序比較歷史最高關卡、首次擊破 BOSS 數、遠征耗時與達成時間。
+       每關只保存本季最佳成績；倒退重打若刷新紀錄，只增加新舊分數差額。既有分數不會降低，新制成績追上既有分數前暫不疊加；追上後只增加超出的分數。同分時依序比較歷史最高關卡、首次擊破 BOSS 數、遠征耗時與達成時間。
       </div>
      {renderPartnerStatusModal()}
     </div>
@@ -10824,6 +10830,7 @@ if (selectedActivity === 'food_research') {
     resumeStage: frTestModeRef.current ? frTestStageRef.current : (s2.resumeStage||s2.maxStage||1),
     resumeStageUpdatedAt: frTestModeRef.current ? Date.now() : (s2.resumeStageUpdatedAt||s2.updatedAt||0),
     scoreLegacyBase: frTestModeRef.current ? 0 : (Number.isFinite(Number(s2.scoreLegacyBase)) ? Number(s2.scoreLegacyBase) : Number(s2.runScore||0)),
+    scoreCatchupFloor: frTestModeRef.current ? 0 : (Number.isFinite(Number(s2.scoreCatchupFloor)) ? Math.max(0,Number(s2.scoreCatchupFloor)) : Math.max(0,Number(s2.runScore)||0,Number(s2.bestScore)||0)),
    scoreRulesVersion: frTestModeRef.current ? 'fr-stage-best-v2' : (s2.scoreRulesVersion||''),
    finalClearAwarded: frTestModeRef.current ? false : !!s2.finalClearAwarded,
   quests: s2.quests||null,
@@ -10915,6 +10922,7 @@ if (selectedActivity === 'food_research') {
         resumeStage:Math.max(1,Math.min(22,Math.round(Number(p.resumeStage||p.currentStage||p.stage||p.maxStage)||1))),
         resumeStageUpdatedAt:Math.max(0,Number(p.resumeStageUpdatedAt)||Date.now()),
         scoreLegacyBase:Math.max(0,Math.round(Number(p.scoreLegacyBase)||0)),
+        scoreCatchupFloor:Math.max(0,Math.round(Number(p.scoreCatchupFloor)||0)),
        scoreRulesVersion:'fr-stage-best-v2',
        finalClearAwarded:!!p.finalClearAwarded
       };
