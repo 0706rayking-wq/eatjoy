@@ -232,10 +232,19 @@
     }
 
     html.fr-ui-v2 #joystickWrap {
-      left: 12px;
-      bottom: 14px;
-      width: 106px;
-      height: 106px;
+      left: 0;
+      top: 0;
+      bottom: auto;
+      width: 112px;
+      height: 112px;
+      opacity: 0;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      transition: opacity .08s ease;
+      will-change: left, top, opacity;
+    }
+    html.fr-ui-v2 #joystickWrap.fr-floating-active {
+      opacity: .88;
     }
     html.fr-ui-v2 #joystickBase {
       background: rgba(19,23,29,.55);
@@ -562,6 +571,84 @@
         opts.appendChild(btn);
       });
     };
+  }
+
+  const floatingJoystick = document.getElementById('joystickWrap');
+  const floatingJoystickThumb = document.getElementById('joystickThumb');
+  const floatingJoystickSurface = document.getElementById('gameCanvas');
+  const floatingJoystickGame = document.getElementById('gc');
+  const floatingJoystickRadius = 50;
+  let floatingJoystickOriginX = 0;
+  let floatingJoystickOriginY = 0;
+
+  function positionFloatingJoystick(clientX, clientY) {
+    const rect = floatingJoystickGame.getBoundingClientRect();
+    floatingJoystick.style.left = (clientX - rect.left) + 'px';
+    floatingJoystick.style.top = (clientY - rect.top) + 'px';
+  }
+
+  moveJoystick = function (clientX, clientY) {
+    let dx = clientX - floatingJoystickOriginX;
+    let dy = clientY - floatingJoystickOriginY;
+    const distance = Math.hypot(dx, dy);
+    if (distance > floatingJoystickRadius) {
+      dx = dx / distance * floatingJoystickRadius;
+      dy = dy / distance * floatingJoystickRadius;
+    }
+    jDx = dx / floatingJoystickRadius;
+    jDy = dy / floatingJoystickRadius;
+    floatingJoystickThumb.style.transform = 'translate(calc(-50% + ' + dx + 'px), calc(-50% + ' + dy + 'px))';
+  };
+
+  resetJoystick = function () {
+    jActive = false;
+    jTouchId = null;
+    jDx = 0;
+    jDy = 0;
+    floatingJoystickThumb.style.transform = 'translate(-50%,-50%)';
+    floatingJoystick.classList.remove('fr-floating-active');
+  };
+
+  startJoystick = function (id, clientX, clientY) {
+    if (jActive && jTouchId !== id) return;
+    if (!jActive) {
+      floatingJoystickOriginX = clientX;
+      floatingJoystickOriginY = clientY;
+      positionFloatingJoystick(clientX, clientY);
+      floatingJoystick.classList.add('fr-floating-active');
+    }
+    jTouchId = id;
+    jActive = true;
+    last = performance.now();
+    moveJoystick(clientX, clientY);
+  };
+
+  function canStartFloatingJoystick(target, clientX) {
+    if (!floatingJoystick || !floatingJoystickSurface || !floatingJoystickGame) return false;
+    if (target !== floatingJoystickSurface || !gameRunning || window._gamePaused) return false;
+    const rect = floatingJoystickGame.getBoundingClientRect();
+    return clientX >= rect.left && clientX <= rect.left + rect.width * .5;
+  }
+
+  if (window.PointerEvent) {
+    document.addEventListener('pointerdown', function (event) {
+      if (event.pointerType && event.pointerType !== 'touch' && event.pointerType !== 'pen') return;
+      if (!canStartFloatingJoystick(event.target, event.clientX)) return;
+      event.preventDefault();
+      startJoystick(event.pointerId, event.clientX, event.clientY);
+    }, {passive:false, capture:true});
+  } else {
+    document.addEventListener('touchstart', function (event) {
+      if (jActive) return;
+      for (let i = 0; i < event.changedTouches.length; i++) {
+        const touch = event.changedTouches[i];
+        const target = document.elementFromPoint(touch.clientX, touch.clientY);
+        if (!canStartFloatingJoystick(target, touch.clientX)) continue;
+        event.preventDefault();
+        startJoystick(touch.identifier, touch.clientX, touch.clientY);
+        break;
+      }
+    }, {passive:false, capture:true});
   }
 
   const controls = {
