@@ -7,57 +7,57 @@
   };
 
   const ranged = [
-    { id:'r01', name:'食材砲', rarity:'normal', icon:0, pattern:'basic', damage:1.00, cooldown:10, size:6, color:'#f59e0b', desc:'左右砲口交替射擊，隨機發射蔬菜、菇類或肉塊食材彈。' },
-    { id:'r02', name:'調味料噴射器', rarity:'normal', icon:1, pattern:'fan', damage:.58, cooldown:12, size:5, color:'#fb7185', desc:'噴出五發鹽粒與辛香粉構成的扇形調味霧。' },
-    { id:'r03', name:'豌豆連發槍', rarity:'normal', icon:2, pattern:'rapid', damage:.72, cooldown:6, size:4, color:'#84cc16', desc:'高速發射壓縮豌豆彈，以密集節奏持續壓制。' },
-    { id:'r04', name:'筷子弩', rarity:'normal', icon:3, pattern:'pierce', damage:1.28, cooldown:14, size:5, color:'#f97316', pierce:true, desc:'射出高速長筷，貫穿敵人並留下木屑軌跡。' },
-    { id:'r05', name:'魚丸彈弓', rarity:'normal', icon:4, pattern:'heavy', damage:1.55, cooldown:18, size:9, color:'#fde68a', desc:'拋射沉重魚丸，飛行時拉伸並在命中時產生震圈。' },
-    { id:'r06', name:'茶壺水砲', rarity:'normal', icon:5, pattern:'triple', damage:.82, cooldown:11, size:6, color:'#38bdf8', desc:'同時噴出三道波浪水流，命中時濺起水花。' },
-    { id:'r07', name:'玉米爆裂砲', rarity:'normal', icon:6, pattern:'popcorn', damage:.55, cooldown:13, size:6, color:'#fde047', desc:'散射旋轉玉米粒，命中後爆成醒目的爆米花。' },
-    { id:'r08', name:'蝦殼散彈槍', rarity:'normal', icon:7, pattern:'shotgun', damage:.50, cooldown:17, size:5, color:'#fb923c', desc:'近距離噴出七枚蝦殼碎片，射程短但貼近威力高。' },
+    { id:'r01', name:'食材砲', rarity:'normal', icon:0, pattern:'basic', damage:1.00, cooldown:12, size:6, color:'#f59e0b', desc:'左右砲口交替射擊，隨機發射蔬菜、菇類或肉塊食材彈。' },
+    { id:'r02', name:'調味料噴射器', rarity:'normal', icon:1, pattern:'fan', damage:.58, cooldown:16, size:5, color:'#fb7185', desc:'噴出五發鹽粒與辛香粉構成的扇形調味霧。' },
+    { id:'r03', name:'豌豆連發槍', rarity:'normal', icon:2, pattern:'rapid', damage:.72, cooldown:8, size:4, color:'#84cc16', desc:'高速發射壓縮豌豆彈，以密集節奏持續壓制。' },
+    { id:'r04', name:'筷子弩', rarity:'normal', icon:3, pattern:'pierce', damage:1.28, cooldown:16, size:5, color:'#f97316', pierce:true, desc:'射出高速長筷，貫穿敵人並留下木屑軌跡。' },
+    { id:'r05', name:'魚丸彈弓', rarity:'normal', icon:4, pattern:'heavy', damage:1.55, cooldown:21, size:9, color:'#fde68a', desc:'拋射沉重魚丸，飛行時拉伸並在命中時產生震圈。' },
+    { id:'r06', name:'茶壺水砲', rarity:'normal', icon:5, pattern:'triple', damage:.82, cooldown:16, size:6, color:'#38bdf8', desc:'同時噴出三道波浪水流，命中時濺起水花。' },
+    { id:'r07', name:'玉米爆裂砲', rarity:'normal', icon:6, pattern:'popcorn', damage:.55, cooldown:19, size:6, color:'#fde047', desc:'散射旋轉玉米粒，命中後爆成醒目的爆米花。' },
+    { id:'r08', name:'蝦殼散彈槍', rarity:'normal', icon:7, pattern:'shotgun', damage:.50, cooldown:22, size:5, color:'#fb923c', desc:'近距離噴出七枚蝦殼碎片，射程短但貼近威力高。' },
 
-    { id:'r09', name:'冷凍光線', rarity:'rare', icon:8, pattern:'freeze', damage:1.05, cooldown:12, size:7, color:'#60a5fa', freeze:150, pierce:true, desc:'凝聚單道高能冰晶光束，貫穿並凍結沿途敵人。' },
-    { id:'r10', name:'辣油火焰砲', rarity:'rare', icon:9, pattern:'flame', damage:.78, cooldown:8, size:7, color:'#ef4444', burn:true, desc:'噴出三股不規則辣油火流，使敵人受到灼燒。' },
-    { id:'r11', name:'醬汁雷射', rarity:'rare', icon:10, pattern:'laser', damage:1.55, cooldown:16, size:6, color:'#fbbf24', pierce:true, desc:'短暫聚焦後射出高能醬汁光束，貫穿整排敵人。' },
-    { id:'r12', name:'起司黏彈槍', rarity:'rare', icon:11, pattern:'sticky', damage:1.42, cooldown:17, size:10, color:'#facc15', homing:true, desc:'大型起司彈追蹤並黏住敵人，延遲後拉絲爆開。' },
-    { id:'r13', name:'湯圓迫擊砲', rarity:'rare', icon:12, pattern:'mortar', damage:1.20, cooldown:19, size:11, color:'#e2e8f0', splash:58, desc:'以高拋軌跡射出三顆湯圓，落點產生糯米震波。' },
-    { id:'r14', name:'蜂蜜追蹤砲', rarity:'rare', icon:13, pattern:'homing', damage:1.02, cooldown:11, size:7, color:'#f59e0b', homing:true, desc:'兩發蜂蜜彈會自動修正方向追敵。' },
+    { id:'r09', name:'冷凍光線', rarity:'rare', icon:8, pattern:'freeze', damage:1.05, cooldown:15, size:7, color:'#60a5fa', freeze:150, pierce:true, desc:'凝聚單道高能冰晶光束，貫穿並凍結沿途敵人。' },
+    { id:'r10', name:'辣油火焰砲', rarity:'rare', icon:9, pattern:'flame', damage:.78, cooldown:11, size:7, color:'#ef4444', burn:true, desc:'噴出三股不規則辣油火流，使敵人受到灼燒。' },
+    { id:'r11', name:'醬汁雷射', rarity:'rare', icon:10, pattern:'laser', damage:1.55, cooldown:21, size:6, color:'#fbbf24', pierce:true, desc:'短暫聚焦後射出高能醬汁光束，貫穿整排敵人。' },
+    { id:'r12', name:'起司黏彈槍', rarity:'rare', icon:11, pattern:'sticky', damage:1.42, cooldown:22, size:10, color:'#facc15', homing:true, desc:'大型起司彈追蹤並黏住敵人，延遲後拉絲爆開。' },
+    { id:'r13', name:'湯圓迫擊砲', rarity:'rare', icon:12, pattern:'mortar', damage:1.20, cooldown:25, size:11, color:'#e2e8f0', splash:58, desc:'以高拋軌跡射出三顆湯圓，落點產生糯米震波。' },
+    { id:'r14', name:'蜂蜜追蹤砲', rarity:'rare', icon:13, pattern:'homing', damage:1.02, cooldown:15, size:7, color:'#f59e0b', homing:true, desc:'兩發蜂蜜彈會自動修正方向追敵。' },
 
-    { id:'r15', name:'黑蒜重力砲', rarity:'noble', icon:14, pattern:'gravity', damage:1.35, cooldown:20, size:13, color:'#111827', gravity:true, pierce:true, desc:'發射大型黑蒜重力核心，旋轉牽引周遭敵人並貫穿前進。' },
-    { id:'r16', name:'松露雷霆砲', rarity:'noble', icon:15, pattern:'lightning', damage:1.18, cooldown:13, size:8, color:'#fef08a', chain:true, desc:'發射高速松露雷核，命中時顯示分叉閃電並連鎖敵人。' },
-    { id:'r17', name:'龍果星隕砲', rarity:'noble', icon:16, pattern:'meteor', damage:1.25, cooldown:20, size:12, color:'#f43f5e', splash:76, burn:true, desc:'預告落點後從上方降下三顆龍果隕石，造成爆炸與灼燒。' },
-    { id:'r18', name:'龍蝦艦隊砲', rarity:'noble', icon:17, pattern:'fleet', damage:.62, cooldown:12, size:7, color:'#fb7185', homing:true, desc:'六枚龍蝦彈先列成艦隊，再依序分散追蹤敵人。' },
+    { id:'r15', name:'黑蒜重力砲', rarity:'noble', icon:14, pattern:'gravity', damage:1.35, cooldown:25, size:13, color:'#111827', gravity:true, pierce:true, desc:'發射大型黑蒜重力核心，旋轉牽引周遭敵人並貫穿前進。' },
+    { id:'r16', name:'松露雷霆砲', rarity:'noble', icon:15, pattern:'lightning', damage:1.18, cooldown:17, size:8, color:'#fef08a', chain:true, desc:'發射高速松露雷核，命中時顯示分叉閃電並連鎖敵人。' },
+    { id:'r17', name:'龍果星隕砲', rarity:'noble', icon:16, pattern:'meteor', damage:1.25, cooldown:27, size:12, color:'#f43f5e', splash:76, burn:true, desc:'預告落點後從上方降下三顆龍果隕石，造成爆炸與灼燒。' },
+    { id:'r18', name:'龍蝦艦隊砲', rarity:'noble', icon:17, pattern:'fleet', damage:.62, cooldown:22, size:7, color:'#fb7185', homing:true, desc:'六枚龍蝦彈先列成艦隊，再依序分散追蹤敵人。' },
 
-    { id:'r19', name:'可可冰棒絕對零度砲', rarity:'top', icon:18, pattern:'absolute', damage:1.85, cooldown:20, size:16, color:'#67e8f9', freeze:220, pierce:true, desc:'蓄積寒氣後發射巨大冰棒光束，留下冰痕並長時間冰封。' },
-    { id:'r20', name:'萬味自律浮游砲', rarity:'top', icon:19, pattern:'drones', damage:.85, cooldown:10, size:8, color:'#a78bfa', homing:true, pierce:true, desc:'三枚浮游砲環繞待命，再從不同角度鎖定追擊。' },
-    { id:'r21', name:'白白神廚殲星砲', rarity:'top', icon:20, pattern:'star', damage:1.25, cooldown:17, size:12, color:'#fde047', pierce:true, homing:true, desc:'鎖定後依序發射五道神廚光束，追蹤、貫穿並清掃前方。' },
+    { id:'r19', name:'可可冰棒絕對零度砲', rarity:'top', icon:18, pattern:'absolute', damage:1.85, cooldown:27, size:16, color:'#67e8f9', freeze:220, pierce:true, desc:'蓄積寒氣後發射巨大冰棒光束，留下冰痕並長時間冰封。' },
+    { id:'r20', name:'萬味自律浮游砲', rarity:'top', icon:19, pattern:'drones', damage:.85, cooldown:15, size:8, color:'#a78bfa', homing:true, pierce:true, desc:'三枚浮游砲環繞待命，再從不同角度鎖定追擊。' },
+    { id:'r21', name:'白白神廚殲星砲', rarity:'top', icon:20, pattern:'star', damage:1.25, cooldown:27, size:12, color:'#fde047', pierce:true, homing:true, desc:'鎖定後依序發射五道神廚光束，追蹤、貫穿並清掃前方。' },
   ];
 
   const melee = [
-    { id:'m01', name:'鍋鏟劍', rarity:'normal', icon:0, pattern:'basic', shape:'arc', arc:100, damage:1.00, cooldown:32, range:90, reflect:1, guardRatio:.72, color:'#cbd5e1', desc:'左右交替橫斬，第三擊改為較強的上挑鍋氣；有效軌跡可反彈普通子彈。' },
+    { id:'m01', name:'鍋鏟劍', rarity:'normal', icon:0, pattern:'basic', shape:'arc', arc:100, damage:1.00, cooldown:34, range:90, reflect:1, guardRatio:.72, color:'#cbd5e1', desc:'左右交替橫斬，第三擊改為較強的上挑鍋氣；有效軌跡可反彈普通子彈。' },
     { id:'m02', name:'擀麵棍', rarity:'normal', icon:1, pattern:'knock', shape:'slam', width:40, impact:38, damage:1.35, cooldown:54, range:90, reflect:0, knock:40, color:'#d97706', desc:'短暫舉起後向前重砸，落點產生震波並擊退敵人。' },
-    { id:'m03', name:'菜刀', rarity:'normal', icon:2, pattern:'rapid', shape:'arc', arc:60, damage:.72, cooldown:20, range:70, reflect:0, cut:1, guardRatio:.45, color:'#e2e8f0', desc:'快速發動左右二連斬，兩段有效軌跡都能斬除普通子彈。' },
-    { id:'m04', name:'炒菜鍋', rarity:'normal', icon:3, pattern:'circle', shape:'ring', inner:24, damage:.92, cooldown:50, range:105, reflect:1, guardRatio:.95, fullCircle:true, color:'#94a3b8', desc:'轉身揮出全周鍋面橫掃，擋彈時產生清楚的金屬震圈。' },
-    { id:'m05', name:'砧板護盾', rarity:'normal', icon:4, pattern:'shield', shape:'thrust', width:80, damage:.72, cooldown:54, range:70, reflect:1, cut:1, guardRatio:1, color:'#a16207', shield:4, desc:'先將砧板架在前方防守，再向前盾擊、推開敵人並處理普通子彈。' },
+    { id:'m03', name:'菜刀', rarity:'normal', icon:2, pattern:'rapid', shape:'arc', arc:60, damage:.72, cooldown:22, range:70, reflect:0, cut:1, guardRatio:.45, color:'#e2e8f0', desc:'快速發動左右二連斬，兩段有效軌跡都能斬除普通子彈。' },
+    { id:'m04', name:'炒菜鍋', rarity:'normal', icon:3, pattern:'circle', shape:'ring', inner:24, damage:.82, cooldown:68, range:92, reflect:1, guardRatio:.72, fullCircle:true, color:'#94a3b8', desc:'轉身揮出較慢的全周鍋面橫掃，擋彈時產生清楚的金屬震圈。' },
+    { id:'m05', name:'砧板護盾', rarity:'normal', icon:4, pattern:'shield', shape:'thrust', width:80, damage:.72, cooldown:58, range:70, reflect:1, cut:1, guardRatio:1, color:'#a16207', shield:4, desc:'先將砧板架在前方防守，再向前盾擊、推開敵人並處理普通子彈。' },
     { id:'m06', name:'長柄湯勺', rarity:'normal', icon:5, pattern:'long', shape:'thrust', width:26, damage:1.05, cooldown:38, range:140, reflect:0, sweetTip:true, color:'#cbd5e1', desc:'直線長突刺；以勺頭末端命中時造成 30% 額外傷害。' },
-    { id:'m07', name:'雙齒烤肉夾', rarity:'normal', icon:6, pattern:'double', shape:'dual', width:20, lane:14, damage:.64, cooldown:24, range:90, reflect:0, cut:1, guardRatio:.5, color:'#f97316', hits:2, desc:'雙軌向前刺出後向內夾擊，兩段軌跡都能斬除普通子彈。' },
-    { id:'m08', name:'打蛋器', rarity:'normal', icon:7, pattern:'whirl', shape:'ring', inner:32, damage:.60, cooldown:36, range:82, reflect:0, cut:1, guardRatio:.58, fullCircle:true, color:'#e2e8f0', desc:'短時間持續旋轉並造成四段貼身傷害，可邊移動邊攻擊與斬除普通子彈。' },
+    { id:'m07', name:'雙齒烤肉夾', rarity:'normal', icon:6, pattern:'double', shape:'dual', width:20, lane:14, damage:.58, cooldown:30, range:90, reflect:0, cut:1, guardRatio:.5, color:'#f97316', hits:2, desc:'雙軌向前刺出後向內夾擊，兩段軌跡都能斬除普通子彈。' },
+    { id:'m08', name:'打蛋器', rarity:'normal', icon:7, pattern:'whirl', shape:'ring', inner:32, damage:.60, cooldown:38, range:82, reflect:0, cut:1, guardRatio:.58, fullCircle:true, color:'#e2e8f0', desc:'短時間持續旋轉並造成四段貼身傷害，可邊移動邊攻擊與斬除普通子彈。' },
 
-    { id:'m09', name:'震肉鎚', rarity:'rare', icon:8, pattern:'stun', shape:'slam', width:46, impact:50, damage:1.62, cooldown:60, range:100, reflect:0, stun:70, color:'#94a3b8', desc:'明顯蓄力後砸裂地面，中心高傷害、外圈震波並使敵人暈眩。' },
-    { id:'m10', name:'鋸齒麵包刀', rarity:'rare', icon:9, pattern:'bleed', shape:'arc', arc:70, damage:1.12, cooldown:26, range:100, reflect:0, cut:1, guardRatio:.55, bleed:true, color:'#f59e0b', desc:'向前拉鋸三次，最後一段撕裂敵人並造成流血。' },
-    { id:'m11', name:'披薩滾刀', rarity:'rare', icon:10, pattern:'roll', shape:'thrust', width:30, damage:.82, cooldown:24, range:115, reflect:0, cut:1, guardRatio:.5, hits:2, color:'#fb923c', desc:'滾刀沿直線切出再弧線返回，形成去回兩段傷害與擋彈判定。' },
+    { id:'m09', name:'震肉鎚', rarity:'rare', icon:8, pattern:'stun', shape:'slam', width:46, impact:50, damage:1.62, cooldown:58, range:100, reflect:0, stun:70, color:'#94a3b8', desc:'明顯蓄力後砸裂地面，中心高傷害、外圈震波並使敵人暈眩。' },
+    { id:'m10', name:'鋸齒麵包刀', rarity:'rare', icon:9, pattern:'bleed', shape:'arc', arc:70, damage:1.12, cooldown:30, range:100, reflect:0, cut:1, guardRatio:.55, bleed:true, color:'#f59e0b', desc:'向前拉鋸三次，最後一段撕裂敵人並造成流血。' },
+    { id:'m11', name:'披薩滾刀', rarity:'rare', icon:10, pattern:'roll', shape:'thrust', width:30, damage:.76, cooldown:34, range:115, reflect:0, cut:1, guardRatio:.5, hits:2, color:'#fb923c', desc:'滾刀沿直線切出再弧線返回，形成去回兩段傷害與擋彈判定。' },
     { id:'m12', name:'寒霜冰雕刀', rarity:'rare', icon:11, pattern:'freeze', shape:'arc', arc:90, damage:1.18, cooldown:34, range:105, reflect:0, cut:1, guardRatio:.7, freeze:130, color:'#60a5fa', desc:'揮出帶有冰晶碎片的寬弧寒霜斬，使命中敵人結冰。' },
-    { id:'m13', name:'烈焰鍋鏟', rarity:'rare', icon:12, pattern:'burn', shape:'arc', arc:110, damage:1.22, cooldown:32, range:110, reflect:1, guardRatio:.72, burn:true, color:'#ef4444', desc:'橫掃前方並留下短暫火焰軌跡，使敵人灼燒並反彈普通子彈。' },
+    { id:'m13', name:'烈焰鍋鏟', rarity:'rare', icon:12, pattern:'burn', shape:'arc', arc:110, damage:1.22, cooldown:34, range:110, reflect:1, guardRatio:.72, burn:true, color:'#ef4444', desc:'橫掃前方並留下短暫火焰軌跡，使敵人灼燒並反彈普通子彈。' },
     { id:'m14', name:'香腸鎖鏈', rarity:'rare', icon:13, pattern:'chain', shape:'chain', width:18, impact:32, damage:1.08, cooldown:38, range:155, reflect:0, pull:true, color:'#dc2626', desc:'鎖鏈甩出與收回各造成一次傷害，回程會拉回一般敵人。' },
 
-    { id:'m15', name:'磁吸炒鍋', rarity:'noble', icon:14, pattern:'magnet', shape:'ring', inner:35, damage:1.35, cooldown:44, range:115, reflect:1, guardRatio:.95, pull:true, pullPower:1.15, fullCircle:true, color:'#38bdf8', desc:'旋轉吸近敵人與普通子彈，收招時將吸收的子彈向前釋放。' },
-    { id:'m16', name:'雷切牛排刀', rarity:'noble', icon:15, pattern:'lightning', shape:'arc', arc:75, damage:1.55, cooldown:26, range:118, reflect:1, guardRatio:.68, chain:true, chainRange:120, chainDamage:.36, color:'#fef08a', desc:'瞬步斜斬並留下雷痕，命中後向附近敵人連鎖雷擊。' },
-    { id:'m17', name:'黑蒜虛空刃', rarity:'noble', icon:16, pattern:'void', shape:'arc', arc:140, damage:1.65, cooldown:40, range:130, reflect:0, cut:1, guardRatio:.9, pull:true, pullPower:1.18, color:'#7c3aed', desc:'虛空月牙先穿過敵人，延遲後沿原軌跡裂開造成第二段傷害。' },
-    { id:'m18', name:'八腕妖刀', rarity:'noble', icon:17, pattern:'octo', shape:'triple', arc:70, damage:.72, cooldown:30, range:100, reflect:0, cut:1, guardRatio:.8, hits:3, color:'#e879f9', desc:'從四個方向連續斬擊，最後以全周收刀斬結束。' },
+    { id:'m15', name:'磁吸炒鍋', rarity:'noble', icon:14, pattern:'magnet', shape:'ring', inner:35, damage:1.35, cooldown:42, range:115, reflect:1, guardRatio:.95, pull:true, pullPower:1.15, fullCircle:true, color:'#38bdf8', desc:'旋轉吸近敵人與普通子彈，收招時將吸收的子彈向前釋放。' },
+    { id:'m16', name:'雷切牛排刀', rarity:'noble', icon:15, pattern:'lightning', shape:'arc', arc:75, damage:1.55, cooldown:30, range:118, reflect:1, guardRatio:.68, chain:true, chainRange:120, chainDamage:.36, color:'#fef08a', desc:'瞬步斜斬並留下雷痕，命中後向附近敵人連鎖雷擊。' },
+    { id:'m17', name:'黑蒜虛空刃', rarity:'noble', icon:16, pattern:'void', shape:'arc', arc:140, damage:1.65, cooldown:38, range:130, reflect:0, cut:1, guardRatio:.9, pull:true, pullPower:1.18, color:'#7c3aed', desc:'虛空月牙先穿過敵人，延遲後沿原軌跡裂開造成第二段傷害。' },
+    { id:'m18', name:'八腕妖刀', rarity:'noble', icon:17, pattern:'octo', shape:'triple', arc:70, damage:.68, cooldown:34, range:100, reflect:0, cut:1, guardRatio:.8, hits:3, color:'#e879f9', desc:'從四個方向連續斬擊，最後以全周收刀斬結束。' },
 
-    { id:'m19', name:'炎龍廚神刀', rarity:'top', icon:18, pattern:'dragon', shape:'slam', width:58, impact:32, damage:1.95, cooldown:40, range:150, reflect:1, guardRatio:.92, burn:true, burnPower:1.25, color:'#f97316', desc:'先橫斬聚火，再向前劈出龍首烈焰；兩段有效軌跡可反彈普通子彈。' },
-    { id:'m20', name:'萬象料理機械臂', rarity:'top', icon:19, pattern:'machine', shape:'dual', width:38, lane:18, damage:1.15, cooldown:30, range:120, reflect:1, cut:1, guardRatio:.82, hits:2, shield:5, supportOnGuardOnly:true, supportCooldown:7000, color:'#38bdf8', desc:'雙臂高速連打後同時重擊，逐拳處理普通子彈；成功擋彈獲得 5 護盾，冷卻 7 秒。' },
-    { id:'m21', name:'白白神廚聖鍋', rarity:'top', icon:20, pattern:'holy', shape:'ring', inner:0, damage:1.75, cooldown:45, range:125, reflect:1, cut:1, guardRatio:1, fullCircle:true, heal:3, shield:6, supportOnGuardOnly:true, supportCooldown:10000, color:'#fde68a', desc:'聖鍋旋轉後向外震出全周光環；成功擋彈恢復 3 HP 並獲得 6 護盾，冷卻 10 秒。' },
+    { id:'m19', name:'炎龍廚神刀', rarity:'top', icon:18, pattern:'dragon', shape:'slam', width:58, impact:32, damage:1.95, cooldown:38, range:150, reflect:1, guardRatio:.92, burn:true, burnPower:1.25, color:'#f97316', desc:'先橫斬聚火，再向前劈出龍首烈焰；兩段有效軌跡可反彈普通子彈。' },
+    { id:'m20', name:'萬象料理機械臂', rarity:'top', icon:19, pattern:'machine', shape:'dual', width:38, lane:18, damage:1.15, cooldown:34, range:120, reflect:1, cut:1, guardRatio:.82, hits:2, shield:5, supportOnGuardOnly:true, supportCooldown:7000, color:'#38bdf8', desc:'雙臂高速連打後同時重擊，逐拳處理普通子彈；成功擋彈獲得 5 護盾，冷卻 7 秒。' },
+    { id:'m21', name:'白白神廚聖鍋', rarity:'top', icon:20, pattern:'holy', shape:'ring', inner:0, damage:1.75, cooldown:42, range:125, reflect:1, cut:1, guardRatio:1, fullCircle:true, heal:3, shield:6, supportOnGuardOnly:true, supportCooldown:10000, color:'#fde68a', desc:'聖鍋旋轉後向外震出全周光環；成功擋彈恢復 3 HP 並獲得 6 護盾，冷卻 10 秒。' },
   ];
 
   const all = [...ranged, ...melee];
@@ -87,6 +87,7 @@
  }
  const rarityRank={normal:0,rare:1,noble:2,top:3};
  const weaponFx=[];
+ const frLowWeaponFx=!!((navigator.maxTouchPoints||0)>0||(window.matchMedia&&window.matchMedia('(pointer:coarse)').matches)||(navigator.deviceMemory&&navigator.deviceMemory<=4));
  const frWeaponImgs={melee:{},ranged:{}};
  function frWeaponImg(type,index){
   const cache=frWeaponImgs[type],key=String(index);
@@ -159,7 +160,8 @@
   ctx.restore();
  }
  function pushWeaponFx(kind,x,y,color,size,life,rarity,pattern,extra){
-  if(weaponFx.length>70)weaponFx.splice(0,weaponFx.length-70);
+  const cap=frLowWeaponFx?42:70;
+  if(weaponFx.length>=cap)weaponFx.splice(0,weaponFx.length-cap+1);
   weaponFx.push(Object.assign({kind,x,y,color,size,life,age:0,rarity:rarity||'normal',pattern:pattern||'basic',seed:Math.random()*Math.PI*2},extra||{}));
  }
  function spawnMuzzle(def){
@@ -520,8 +522,9 @@
   if(this.frVisual){
    if(!this.frTrail)this.frTrail=[];
    this.frTrail.push({x:this.x,y:this.y});
-   const specialTrail={fan:5,rapid:5,pierce:7,heavy:5,triple:7,popcorn:5,shotgun:4,freeze:8,flame:6,laser:10,sticky:8,mortar:6,homing:9,gravity:7,lightning:9,meteor:8,fleet:8,absolute:11,drones:10,star:10};
-   const trailMax=specialTrail[this.frPattern]||3+(rarityRank[this.frRarity]||0);
+   const specialTrail={fan:5,rapid:5,pierce:7,heavy:5,triple:5,popcorn:3,shotgun:4,freeze:8,flame:6,laser:10,sticky:8,mortar:6,homing:9,gravity:7,lightning:9,meteor:8,fleet:5,absolute:11,drones:10,star:6};
+   let trailMax=specialTrail[this.frPattern]||3+(rarityRank[this.frRarity]||0);
+   if(frLowWeaponFx&&/^(triple|popcorn|fleet|star)$/.test(this.frPattern))trailMax=Math.max(3,Math.ceil(trailMax*.55));
    if(this.frTrail.length>trailMax)this.frTrail.shift();
   }
   if(held)return;
@@ -580,7 +583,15 @@
   if(formId==='truffle_thunder'){b.frChain=true;b.frChainRange=135;b.frChainDamage=.36;b.frChainMax=3;}
   bullets.push(b);return b;
  }
+ function frRangedVolleyAllowed(def){
+  const cap={triple:18,popcorn:20,fleet:16,star:15}[def.pattern];
+  if(!cap)return true;
+  let active=0;
+  for(const b of bullets){if(b&&b.frPattern===def.pattern&&!b.frForceDead)active++;}
+  return active<cap;
+ }
  function shootRanged(def){
+  if(!frRangedVolleyAllowed(def))return;
   const up=-Math.PI/2;
   const kick={rapid:.55,fan:.9,heavy:1.65,shotgun:2,laser:1.5,meteor:1.45,absolute:2.2,star:1.8};
   frRangedKick=kick[def.pattern]||1;
@@ -857,7 +868,7 @@
    if(guardActive){ctx.shadowBlur=0;ctx.globalAlpha=.62;ctx.strokeStyle='#f8fafc';ctx.lineWidth=2;ctx.setLineDash([3,5]);ctx.beginPath();ctx.arc(0,0,22,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);}
    ctx.restore();
   }
-  startSwipe=function(){const d=defFor('melee');swipeAnim={active:true,progress:0,color:d.color||currentForm.bulletColor,r:d.range||128,weapon:d,supportTriggered:false,lastGuardFxAt:0};};
+ startSwipe=function(){const d=defFor('melee');swipeAnim={active:true,progress:0,color:d.color||currentForm.bulletColor,r:d.range||128,weapon:d,supportTriggered:false,lastGuardFxAt:0};};
   const oldDrawPlayer=drawPlayer;
   drawPlayer=function(){
    const activeSwipe=swipeAnim.active,storedSwipe=swipeAnim;
@@ -870,6 +881,12 @@
   if(activeSwipe){swipeAnim=storedSwipe;drawMeleeSwipe(storedSwipe);}
   drawWeaponFx();
  };
+ function frMeleeMinCooldown(def){
+  return ({machine:15,octo:14,whirl:13,holy:11,magnet:11,dragon:11,void:11,chain:10,bleed:10,stun:10,roll:10,double:10})[def.pattern]||8;
+ }
+ function frRangedMinCooldown(def){
+  return ({basic:6,fan:10,rapid:5,pierce:8,heavy:10,triple:10,popcorn:11,shotgun:12,freeze:8,flame:7,laser:11,sticky:11,mortar:12,homing:9,gravity:12,lightning:9,meteor:13,fleet:13,absolute:13,drones:10,star:14})[def.pattern]||6;
+ }
  autoFire=function(){
   if(player.weaponCd>0){player.weaponCd--;return;}
   const activeTraining=(typeof charSlots!=='undefined'&&charSlots[activeChar]&&charSlots[activeChar].training)||tr||{};
@@ -877,12 +894,12 @@
    const d=defFor('melee');
    const formHaste=typeof frFormAttackSpeedMultiplier==='function'?frFormAttackSpeedMultiplier():1;
    const trainedCooldown=Math.max(16,Math.round((d.cooldown||28)/(1+(activeTraining.meleeSpeed||0)*FR_BALANCE.training.meleeSpeedPerLevel)));
-   player.weaponCd=Math.max(1,Math.floor(trainedCooldown/((normalFrenzyTimer>0?2:1)*formHaste)));
+   player.weaponCd=Math.max(frMeleeMinCooldown(d),Math.floor(trainedCooldown/((normalFrenzyTimer>0?2:1)*formHaste)));
    frStartMeleeSequence(d);
    }else{
    const d=defFor('ranged'),formHaste=typeof frFormAttackSpeedMultiplier==='function'?frFormAttackSpeedMultiplier():1;
    const trainedCooldown=Math.max(6,Math.round((d.cooldown||10)/(1+(activeTraining.rangedSpeed||0)*FR_BALANCE.training.rangedSpeedPerLevel)));
-   player.weaponCd=Math.max(1,Math.floor(trainedCooldown/((normalFrenzyTimer>0?2:1)*formHaste)));shootRanged(d);
+   player.weaponCd=Math.max(frRangedMinCooldown(d),Math.floor(trainedCooldown/((normalFrenzyTimer>0?2:1)*formHaste)));shootRanged(d);
   }
  };
 })();
