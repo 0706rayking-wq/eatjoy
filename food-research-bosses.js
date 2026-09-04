@@ -31,7 +31,7 @@
   window.FOOD_RESEARCH_BOSS_PATCH = String.raw`
 const FR_BOSS_CATALOG = ${JSON.stringify(bossCatalog)};
 const FR_BOSS_BY_MAP = FR_BOSS_CATALOG.reduce(function(out,item){(out[item.map]||(out[item.map]=[])).push(item);return out;},{});
-const FR_STAGE11_THUNDER={hp:1.20,shield:1.15,damage:1.08,normalCd:.88,skillCd:.90,closeRadius:90,closeHold:60,closeWarn:42,closeCooldown:360};
+const FR_STAGE11_THUNDER={hp:1.28,shield:1.20,damage:1.12,normalCd:.84,skillCd:.86,closeRadius:90,closeHold:60,closeWarn:40,closeCooldown:330};
 const FR_BOSS_IMAGES = {};
 const FR_THUNDER_IMAGES={};
 const FR_THUNDER_SOURCES={
@@ -61,11 +61,49 @@ function frBossShuffle(list){
   for(let i=out.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));const t=out[i];out[i]=out[j];out[j]=t;}
   return out;
 }
+const FR_BOSS_FX_MOBILE=!!((window.matchMedia&&window.matchMedia('(pointer:coarse)').matches)||Math.min(window.innerWidth||9999,window.innerHeight||9999)<=520);
+const frBossFx=[];
+function frBossFxPush(b,kind,options){
+  if(!b)return;
+  const cap=FR_BOSS_FX_MOBILE?22:36;
+  if(frBossFx.length>=cap)frBossFx.splice(0,frBossFx.length-cap+1);
+  frBossFx.push(Object.assign({boss:b,kind:kind,start:b.timer||0,duration:45,color:b.color||'#fef08a',x:b.x,y:b.y,follow:kind!=='summon'},options||{}));
+}
+function frBossDrawFx(b){
+  for(let i=frBossFx.length-1;i>=0;i--){
+    const f=frBossFx[i];
+    if(f.boss!==b){frBossFx.splice(i,1);continue;}
+    const age=(b.timer||0)-f.start;
+    if(age<0)continue;
+    if(age>f.duration){frBossFx.splice(i,1);continue;}
+    const p=Math.max(0,Math.min(1,age/Math.max(1,f.duration))),fade=Math.sin(Math.PI*p),x=f.follow?b.x:f.x,y=f.follow?b.y:f.y,spin=(b.timer||0)*.08;
+    ctx.save();ctx.translate(x,y);ctx.globalCompositeOperation='lighter';ctx.strokeStyle=f.color;ctx.fillStyle=f.color;ctx.shadowColor=f.color;ctx.shadowBlur=FR_BOSS_FX_MOBILE?5:13;
+    if(f.kind==='entry'||f.kind==='rage'){
+      const radius=(f.kind==='entry'?42:34)+p*(f.kind==='entry'?118:92);ctx.globalAlpha=fade*.72;ctx.lineWidth=f.kind==='entry'?5:7;ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.stroke();
+      ctx.globalAlpha=fade*.38;ctx.lineWidth=2;for(let k=0;k<(FR_BOSS_FX_MOBILE?6:10);k++){const a=spin+k*Math.PI*2/(FR_BOSS_FX_MOBILE?6:10),inner=radius*.48,outer=radius*(.82+(k%2)*.18);ctx.beginPath();ctx.moveTo(Math.cos(a)*inner,Math.sin(a)*inner);ctx.lineTo(Math.cos(a)*outer,Math.sin(a)*outer);ctx.stroke();}
+    }else if(f.kind==='skill'||f.kind==='attack'){
+      const radius=(f.kind==='skill'?35:26)+p*(f.kind==='skill'?58:34);ctx.globalAlpha=fade*(f.kind==='skill'?.82:.52);ctx.lineWidth=f.kind==='skill'?5:3;ctx.beginPath();ctx.arc(0,0,radius,spin,spin+Math.PI*1.45);ctx.stroke();ctx.beginPath();ctx.arc(0,0,radius*.72,-spin,-spin+Math.PI*1.2);ctx.stroke();
+      const marks=f.kind==='skill'?(FR_BOSS_FX_MOBILE?4:6):3;ctx.lineWidth=2;for(let k=0;k<marks;k++){const a=-spin+k*Math.PI*2/marks;ctx.beginPath();ctx.moveTo(Math.cos(a)*radius*.78,Math.sin(a)*radius*.78);ctx.lineTo(Math.cos(a)*radius*1.18,Math.sin(a)*radius*1.18);ctx.stroke();}
+    }else if(f.kind==='summon'){
+      const radius=12+p*34;ctx.globalAlpha=fade*.82;ctx.lineWidth=4;ctx.beginPath();ctx.ellipse(0,0,radius,radius*.38,0,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=fade*.2;ctx.beginPath();ctx.ellipse(0,0,radius*.76,radius*.25,0,0,Math.PI*2);ctx.fill();ctx.globalAlpha=fade*.45;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-radius*.55,0);ctx.lineTo(-radius*.25,-50*(1-p));ctx.moveTo(radius*.55,0);ctx.lineTo(radius*.25,-50*(1-p));ctx.stroke();
+    }
+    ctx.restore();
+  }
+}
+function frThunderDrawPowerAura(b){
+  if(!b._frFullEncounter||Number(stage)<22||b._defeated)return;
+  const phase=b._frThunderPhase||0,colors=['#c4b5fd','#7dd3fc','#fde047'],color=colors[phase],count=FR_BOSS_FX_MOBILE?3:5,pulse=1+Math.sin(b.timer*.12)*.08;
+  ctx.save();ctx.translate(b.x,b.y);ctx.globalCompositeOperation='lighter';ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=FR_BOSS_FX_MOBILE?4:11;ctx.globalAlpha=.34+.08*phase;ctx.lineWidth=2.5;
+  ctx.beginPath();ctx.arc(0,0,(b.r+22+phase*5)*pulse,b.timer*.03,b.timer*.03+Math.PI*1.55);ctx.stroke();
+  for(let k=0;k<count;k++){const a=b.timer*.045+k*Math.PI*2/count,r=b.r+26+phase*6,x=Math.cos(a)*r,y=Math.sin(a)*r*.72;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.sin(b.timer*.2+k)*8,y-11);ctx.lineTo(x+Math.cos(b.timer*.17+k)*13,y-23);ctx.stroke();}
+  ctx.restore();
+}
 function frBossTempo(stageNum){
   const s=Number(stageNum)||1;
-  if(s>=19&&s<=21)return {normalCd:47,skillCd:72,normalBusy:42,skillBusy:63,busyRate:.86,eventScale:.52,warningMin:27,moveRetarget:48,moveRate:.032};
-  if(s>=16&&s<=18)return {normalCd:55,skillCd:86,normalBusy:48,skillBusy:75,busyRate:.76,eventScale:.64,warningMin:31,moveRetarget:60,moveRate:.029};
-  if(s>=12&&s<=15)return {normalCd:63,skillCd:102,normalBusy:58,skillBusy:87,busyRate:.62,eventScale:.78,warningMin:38,moveRetarget:72,moveRate:.026};
+  if(s>=22)return {normalCd:46,skillCd:70,normalBusy:40,skillBusy:62,busyRate:.88,eventScale:.52,warningMin:24,moveRetarget:44,moveRate:.034};
+  if(s>=19&&s<=21)return {normalCd:43,skillCd:65,normalBusy:39,skillBusy:58,busyRate:.90,eventScale:.48,warningMin:24,moveRetarget:44,moveRate:.035};
+  if(s>=16&&s<=18)return {normalCd:50,skillCd:77,normalBusy:44,skillBusy:68,busyRate:.82,eventScale:.58,warningMin:28,moveRetarget:54,moveRate:.031};
+  if(s>=12&&s<=15)return {normalCd:58,skillCd:92,normalBusy:52,skillBusy:80,busyRate:.70,eventScale:.70,warningMin:34,moveRetarget:66,moveRate:.028};
   return {normalCd:88,skillCd:165,normalBusy:76,skillBusy:118,busyRate:s>=16?.65:s>=11?.4:0,eventScale:1,warningMin:0,moveRetarget:110,moveRate:.02};
 }
 function frBossHighStageSkillPool(b){
@@ -169,13 +207,30 @@ function frBossApplyStatus(status){
   }
 }
 function frPlayerParalyzed(){return performance.now()<(window.frParalyzedUntil||0);}
+function frBossSummonHpScale(s){return s>=22?1.8:s>=16?1.65:s>=11?1.5:1.35;}
+function frBossSummonRefillDelay(s){return s>=22?165:s>=16?180:s>=11?210:240;}
 function frBossSummonMinions(b,count,type){
-  if(enemies.length>=18)return;
-  for(let i=0;i<count;i++){
-    const x=Math.max(34,Math.min(CW-34,b.x+(i-(count-1)/2)*92));
-    const e=new Enemy(x,Math.max(45,b.y+40),type||1,40,2,stage);e.y=Math.max(45,b.y+40);enemies.push(e);
+  const s=Math.max(1,Number(stage)||1),active=enemies.filter(function(e){return e&&e.hp>0&&e._frBossSummoned;}).length,maxActive=s>=16?6:4,amount=Math.max(0,Math.min(count,maxActive-active,18-enemies.length)),hpScale=frBossSummonHpScale(s);
+  if(!amount)return 0;
+  for(let i=0;i<amount;i++){
+    const enemyType=type||1+((s+i+(b._frSummonWave||0))%3),x=Math.max(34,Math.min(CW-34,b.x+(i-(amount-1)/2)*88)),y=Math.max(70,b.y+48+Math.abs(i-(amount-1)/2)*10);
+    const e=new Enemy(x,y,enemyType,40,2,stage);e.y=y;e.maxHp=Math.max(1,Math.round((Number(e.maxHp)||Number(e.hp)||40)*hpScale));e.hp=e.maxHp;e._frBossSummoned=true;e._frBossSummonOwner=b;e._frBossSummonHpScale=hpScale;enemies.push(e);
+    frBossFxPush(b,'summon',{x:x,y:y,duration:58,color:b.color,follow:false});
   }
-  addText('召喚增援',b.x,b.y-82,'#fb7185',13,-.5);
+  addText('強化增援 ×'+amount,b.x,b.y-82,'#fb7185',13,-.5);frBossFxPush(b,'skill',{duration:50,color:b.color});
+  return amount;
+}
+function frBossMaybeSummon(b){
+  if(!b._frEntered||b._frTransition||b._defeated)return;
+  const s=Math.max(1,Number(stage)||1),active=enemies.some(function(e){return e&&e.hp>0&&e._frBossSummoned;});
+  if(active){b._frSummonEmptySince=0;return;}
+  if(!b._frHasSummoned){if(b.timer<(b._frNextSummon||Infinity))return;}
+  else{
+    if(!b._frSummonEmptySince){b._frSummonEmptySince=b.timer;return;}
+    if(b.timer-b._frSummonEmptySince<frBossSummonRefillDelay(s))return;
+  }
+  const maxCount=s>=16?4:s>=11?3:2,count=2+Math.floor(Math.random()*(maxCount-1));
+  if(frBossSummonMinions(b,count)){b._frSummonWave++;b._frHasSummoned=true;b._frSummonEmptySince=0;b._frBusyUntil=Math.max(b._frBusyUntil||0,b.timer+42);}
 }
 function frBossHurtOnce(h,amount){
   if(player.invTimer<=0){hurtPlayer(amount);h.lastHit=h.age;}
@@ -245,8 +300,30 @@ class FrThunderFieldStrike extends FrBossHazard{
     ctx.restore();
   }
 }
+const FR_THUNDER_HUNT_PATHS=[
+  [0,.15,1,.72],[1,.15,0,.72],[.08,0,.68,1],[.92,0,.32,1],
+  [0,.36,1,.36],[0,.56,1,.56],[.25,0,.25,1],[.75,0,.75,1],
+  [0,.72,1,.18],[1,.72,0,.18],[0,.9,.82,0],[1,.9,.18,0]
+];
+class FrThunderHuntLine extends FrBossHazard{
+  constructor(path,damage){
+    super({kind:'line',x:path[0]*CW,y:path[1]*CH,x2:path[2]*CW,y2:path[3]*CH,w:22,color:'#facc15',damage:damage,status:{kind:'paralyze',duration:900},delay:28,minDelay:24,duration:11});
+    this._frThunderHunt=true;
+  }
+  draw(){
+    const active=this.age>this.delay,progress=Math.max(0,Math.min(1,this.age/Math.max(1,this.delay))),dx=this.x2-this.x,dy=this.y2-this.y;
+    ctx.save();ctx.globalCompositeOperation='lighter';ctx.lineCap='round';ctx.strokeStyle=active?'#fde047':'#facc15';ctx.shadowColor='#facc15';ctx.shadowBlur=active?(FR_BOSS_FX_MOBILE?7:18):5;ctx.globalAlpha=active?.78:.3+.28*progress;ctx.lineWidth=active?18:3;ctx.setLineDash(active?[]:[10,8]);ctx.beginPath();ctx.moveTo(this.x,this.y);ctx.lineTo(active?this.x2:this.x+dx*progress,active?this.y2:this.y+dy*progress);ctx.stroke();ctx.setLineDash([]);
+    if(active){ctx.globalAlpha=.96;ctx.strokeStyle='#fff7ae';ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(this.x,this.y);ctx.lineTo(this.x2,this.y2);ctx.stroke();ctx.globalAlpha=.92;ctx.strokeStyle='#ffffff';ctx.lineWidth=2.5;ctx.beginPath();ctx.moveTo(this.x,this.y);ctx.lineTo(this.x2,this.y2);ctx.stroke();const travel=((this.age-this.delay)/Math.max(1,this.duration));ctx.fillStyle='#ffffff';ctx.beginPath();ctx.arc(this.x+dx*travel,this.y+dy*travel,6,0,Math.PI*2);ctx.fill();}
+    ctx.restore();
+  }
+}
+function frThunderHuntSequence(b,damage){
+  const start=b._frHuntCursor||0;b._frHuntCursor=(start+4)%FR_THUNDER_HUNT_PATHS.length;b._frBusyUntil=Math.max(b._frBusyUntil,b.timer+150);
+  for(let q=0;q<4;q++)frBossLater(b,q*30,function(){if(b._defeated||b._frTransition)return;hazards.push(new FrThunderHuntLine(FR_THUNDER_HUNT_PATHS[(start+q)%FR_THUNDER_HUNT_PATHS.length],Math.max(8,Math.round(damage*.78))));});
+}
 function frBossHazard(options){const h=new FrBossHazard(options);hazards.push(h);return h;}
 let frThunderArenaTimer=70;
+function frThunderChaserEnabled(){const s=Number(stage);return currentBgIdx===10&&(s===11||s>=22)&&!stageCleared&&!(typeof boss!=='undefined'&&boss&&boss._frTransition);}
 class FrThunderChaserOrb{
   constructor(index){
     this._frThunderChaser=true;this.index=index||0;this.age=0;this.dead=false;this.r=23;this.hitCooldown=0;
@@ -255,13 +332,13 @@ class FrThunderChaserOrb{
   }
   update(){
     this.age++;if(this.hitCooldown>0)this.hitCooldown--;
-    if(Number(stage)!==11||currentBgIdx!==10||stageCleared){this.dead=true;return;}
+    if(!frThunderChaserEnabled()){this.dead=true;return;}
     const dx=player.x-this.x,dy=player.y-this.y,dist=Math.hypot(dx,dy)||1;
     const other=hazards.find(function(h){return h&&h!==this&&h._frThunderChaser&&!h.dead;},this);
     let ax=dx/dist*.055,ay=dy/dist*.055;
     if(other){const odx=this.x-other.x,ody=this.y-other.y,od=Math.hypot(odx,ody)||1;if(od<82){const repel=(82-od)/82*.11;ax+=odx/od*repel;ay+=ody/od*repel;}}
     this.vx+=ax;this.vy+=ay;
-    const maxSpeed=2.35,speed=Math.hypot(this.vx,this.vy)||1;
+    const maxSpeed=Number(stage)>=22?2.65:2.35,speed=Math.hypot(this.vx,this.vy)||1;
     if(speed>maxSpeed){this.vx=this.vx/speed*maxSpeed;this.vy=this.vy/speed*maxSpeed;}
     this.x+=this.vx;this.y+=this.vy;
     if(this.x<this.r){this.x=this.r;this.vx=Math.abs(this.vx)*.75;}
@@ -278,11 +355,11 @@ class FrThunderChaserOrb{
     }
   }
   draw(){
-    const pulse=.5+.5*Math.sin(this.age*.24+this.index*Math.PI),trail=Math.atan2(this.vy,this.vx);
+    const finalStage=Number(stage)>=22,pulse=.5+.5*Math.sin(this.age*.24+this.index*Math.PI),trail=Math.atan2(this.vy,this.vx),outer=finalStage?'#facc15':'#60a5fa',core=finalStage?'#ca8a04':'#1d4ed8';
     ctx.save();ctx.translate(this.x,this.y);ctx.rotate(trail);
-    const grad=ctx.createRadialGradient(0,0,3,0,0,this.r+12);grad.addColorStop(0,'rgba(255,255,255,.98)');grad.addColorStop(.24,'rgba(254,240,138,.98)');grad.addColorStop(.58,'rgba(59,130,246,.78)');grad.addColorStop(1,'rgba(30,64,175,0)');
-    ctx.globalAlpha=.28;ctx.fillStyle='#60a5fa';ctx.beginPath();ctx.ellipse(-18,0,30+pulse*8,12+pulse*3,0,0,Math.PI*2);ctx.fill();
-    ctx.globalAlpha=1;ctx.shadowBlur=18+pulse*8;ctx.shadowColor='#60a5fa';ctx.fillStyle='#1d4ed8';ctx.beginPath();ctx.arc(0,0,this.r,0,Math.PI*2);ctx.fill();
+    const grad=ctx.createRadialGradient(0,0,3,0,0,this.r+12);grad.addColorStop(0,'rgba(255,255,255,.98)');grad.addColorStop(.24,'rgba(254,240,138,.98)');grad.addColorStop(.58,finalStage?'rgba(250,204,21,.82)':'rgba(59,130,246,.78)');grad.addColorStop(1,finalStage?'rgba(161,98,7,0)':'rgba(30,64,175,0)');
+    ctx.globalAlpha=.28;ctx.fillStyle=outer;ctx.beginPath();ctx.ellipse(-18,0,30+pulse*8,12+pulse*3,0,0,Math.PI*2);ctx.fill();
+    ctx.globalAlpha=1;ctx.shadowBlur=FR_BOSS_FX_MOBILE?10:18+pulse*8;ctx.shadowColor=outer;ctx.fillStyle=core;ctx.beginPath();ctx.arc(0,0,this.r,0,Math.PI*2);ctx.fill();
     ctx.fillStyle=grad;ctx.beginPath();ctx.arc(0,0,this.r+10,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#bfdbfe';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,this.r+2+pulse*3,0,Math.PI*2);ctx.stroke();
     ctx.shadowBlur=8;ctx.strokeStyle='#ffffff';ctx.lineWidth=2.5;ctx.lineCap='round';
     for(let i=0;i<4;i++){const a=this.age*.16+i*Math.PI/2;ctx.beginPath();ctx.moveTo(Math.cos(a)*5,Math.sin(a)*5);ctx.lineTo(Math.cos(a+.32)*(this.r*.58),Math.sin(a+.32)*(this.r*.58));ctx.lineTo(Math.cos(a-.18)*(this.r+7+pulse*4),Math.sin(a-.18)*(this.r+7+pulse*4));ctx.stroke();}
@@ -291,7 +368,7 @@ class FrThunderChaserOrb{
 }
 function frThunderEnsureChaserOrbs(){
   const active=hazards.filter(function(h){return h&&h._frThunderChaser&&!h.dead;});
-  if(Number(stage)!==11||currentBgIdx!==10||stageCleared){active.forEach(function(h){h.dead=true;});return;}
+  if(!frThunderChaserEnabled()){active.forEach(function(h){h.dead=true;});return;}
   const used={};active.forEach(function(h){used[h.index]=true;});
   for(let i=0;i<2;i++)if(!used[i])hazards.push(new FrThunderChaserOrb(i));
 }
@@ -327,6 +404,7 @@ function frBossMeteor(b,count,color,damage,largeLast,status){
 function frBossCast(b,pattern,isSkill){
   const c=b.color,curve=frBalanceCurve(stage),phasePower=b._frFinal?[1,1.15,1.32][b._frThunderPhase||0]:1,stage11Power=b._frStage11Enhanced?FR_STAGE11_THUNDER.damage:1,d=Math.round((isSkill?14:9)*curve.bossDamage*frBossDamageScale(stage)*phasePower*stage11Power),w=55,tempo=frBossTempo(stage);
   b._frBusyUntil=b.timer+(isSkill?tempo.skillBusy:tempo.normalBusy);frBossAnimate(b,isSkill?105:72);
+  frBossFxPush(b,isSkill?'skill':'attack',{duration:isSkill?54:30,color:c});
   if(isSkill)frBossWarning(b,'circle',48,{r:82});
   addText(isSkill?'⚠ '+b._frSkillLabels[pattern]:b._frNormalLabel,b.x,b.y-86,c,isSkill?15:12);
   if(pattern==='cocoaFan'){frBossWarning(b,'cone',w,{angle:frBossAim(b),spread:.58});frBossLater(b,w,function(){frBossFan(b,5,4.6,d,.18,c);});}
@@ -431,7 +509,7 @@ function frBossCast(b,pattern,isSkill){
   else if(pattern==='sixWayLances'){b._frBusyUntil=Math.max(b._frBusyUntil,b.timer+205);const offset=Math.random()*Math.PI*2;for(let q=0;q<6;q++)frBossLater(b,q*30,function(){const a=offset+Math.PI*2*q/6,sx=CW/2+Math.cos(a)*Math.max(CW,CH),sy=CH/2+Math.sin(a)*Math.max(CW,CH),tx=player.x+(player.vx||0)*12,ty=player.y+(player.vy||0)*12,aim=Math.atan2(ty-sy,tx-sx),reach=Math.max(CW,CH)*1.8;frBossHazard({kind:'line',x:sx,y:sy,x2:sx+Math.cos(aim)*reach,y2:sy+Math.sin(aim)*reach,w:17,color:'#7dd3fc',damage:d,status:{kind:'paralyze',duration:1000},delay:32,minDelay:24,duration:11});});}
   else if(pattern==='orbitLances'){b._frBusyUntil=Math.max(b._frBusyUntil,b.timer+185);for(let q=0;q<6;q++)frBossLater(b,q*26,function(){const orbit=Math.PI*2*q/6+b.timer*.04,sx=b.x+Math.cos(orbit)*76,sy=b.y+Math.sin(orbit)*76,aim=Math.atan2(player.y-sy,player.x-sx),reach=Math.max(CW,CH)*1.5;frBossHazard({kind:'line',x:sx,y:sy,x2:sx+Math.cos(aim)*reach,y2:sy+Math.sin(aim)*reach,w:16,color:'#bae6fd',damage:d,status:{kind:'paralyze',duration:1000},delay:30,minDelay:24,duration:10});});}
   else if(pattern==='lanceRush'){b._frBusyUntil=Math.max(b._frBusyUntil,b.timer+285);for(let q=0;q<5;q++)frBossLater(b,q*52,function(){const a=frBossAim(b,true);frBossWarning(b,'line',28,{x:b.x,y:b.y,angle:a,color:'#7dd3fc'});frBossLater(b,28,function(){b._frDash={vx:Math.cos(a)*10,vy:Math.sin(a)*10,left:20,damage:d,status:{kind:'paralyze',duration:1000}};});});}
-  else if(pattern==='livingLightning'){const a=frBossAim(b,true);frBossWarning(b,'line',34,{angle:a,color:'#fde047'});frBossLater(b,34,function(){for(let q=-1;q<=1;q++)frBossShot(b,a+q*.12,6.2,d,'#fef08a',7,{status:q===0?{kind:'paralyze',duration:1000}:null});});}
+  else if(pattern==='livingLightning'){frThunderHuntSequence(b,d);}
   else if(pattern==='ninefoldJudgment'){for(let q=0;q<9;q++)frBossLater(b,q*15,function(){frBossHazard({kind:'circle',x:player.x+(Math.random()-.5)*120,y:player.y+(Math.random()-.5)*95,r:q===8?72:36,color:'#facc15',damage:d,status:{kind:'paralyze',duration:1000},delay:40,duration:11});});}
   else if(pattern==='thunderDomain'){frBossHazard({kind:'circle',x:CW/2,y:CH*.56,r:105,color:'#fef08a',damage:d,status:{kind:'paralyze',duration:1000},delay:55,duration:25});frBossLater(b,105,function(){frBossHazard({kind:'ring',x:CW/2,y:CH*.56,r:230,inner:108,color:'#facc15',damage:d,status:{kind:'paralyze',duration:1000},delay:48,duration:28});});frBossLater(b,180,function(){frBossRadial(b,16,4,d,c,.1);});}
   else if(pattern==='finalThunderstorm'){for(let q=0;q<10;q++)frBossLater(b,q*16,function(){frBossHazard({kind:'circle',x:30+Math.random()*(CW-60),y:125+Math.random()*(CH-185),r:q>7?64:38,color:'#facc15',damage:d,status:{kind:'paralyze',duration:1000},delay:42,duration:12});});for(let q=0;q<4;q++)frBossLater(b,45+q*40,function(){frBossRadial(b,14,3.8,d,c,q*.31);});}
@@ -464,6 +542,7 @@ function frThunderApplyPhase(b,phase,refill){
   b._frThunderPhase=phase;b._frDef=Object.assign({},root,kit);b.name='小雷神';b.color=kit.color;
   b._frSkillBag=frBossShuffle(kit.skills);b._frNormalLabel=FR_BOSS_NORMAL_LABELS[kit.normal]||'雷擊';
   b._frAttackCd=phase===0?88:phase===1?74:60;b._frAttackCount=0;b._frSkillCastCount=0;b._frBusyUntil=b.timer+45;b._frEvents=[];b._frWarnings=[];b._frDash=null;b._frTether=null;b._frArmorCounterUntil=0;
+  if(refill)frBossFxPush(b,'rage',{duration:82,color:kit.color});
   if(refill){b.hp=b.maxHp;b.shield=b.maxShield;b.shieldBroken=false;b.shieldResetTimer=10*60;updateBossHp();updateBossShield();}
   frThunderImage('phase'+(phase+1));
   if(b._frFullEncounter&&phase===0){frThunderImage('transition12');frThunderImage('phase2');}
@@ -474,7 +553,7 @@ function frThunderApplyPhase(b,phase,refill){
 }
 function frThunderStartTransition(b,nextPhase){
   b.hp=0;updateBossHp();b._frEvents=[];b._frWarnings=[];b._frDash=null;b._frTether=null;b._frBusyUntil=Infinity;
-  eBullets=[];hazards=hazards.filter(function(h){return h&&h._frThunderField;});
+  eBullets=[];hazards=[];enemies=enemies.filter(function(e){return !e||!e._frBossSummoned;});
   b._frTransition={from:b._frThunderPhase,to:nextPhase,start:b.timer,duration:150};
   const line=nextPhase===1?b._frRootDef.phase12:b._frRootDef.phase23;
   frBossSpeak(b,line,'#fde047');
@@ -559,7 +638,8 @@ function frBossInit(b){
   const pool=FR_BOSS_BY_MAP[currentBgIdx]||FR_BOSS_BY_MAP[0];
   b._frDef=pool[Math.floor(Math.random()*pool.length)];b.name=b._frDef.name;b.color=b._frDef.color;
   b.targetY=frBossSafeCenterY(b);b._frEntered=false;
-  b._frEvents=[];b._frWarnings=[];b._frBusyUntil=0;b._frAttackCd=95;b._frAttackCount=0;b._frSkillCastCount=0;b._frMasterSkillUnlocked=false;b._frSignatureReady=false;b._frSkillBag=frBossShuffle(b._frDef.skills);b._frAnimStart=0;b._frAnimUntil=0;b._frDash=null;b._frTether=null;
+  b._frEvents=[];b._frWarnings=[];b._frBusyUntil=0;b._frAttackCd=95;b._frAttackCount=0;b._frSkillCastCount=0;b._frMasterSkillUnlocked=false;b._frSignatureReady=false;b._frSkillBag=frBossShuffle(b._frDef.skills);b._frAnimStart=0;b._frAnimUntil=0;b._frDash=null;b._frTether=null;b._frSummonWave=0;b._frHasSummoned=false;b._frSummonEmptySince=0;b._frNextSummon=(b.timer||0)+(Number(stage)>=22?300:Number(stage)>=16?360:Number(stage)>=11?420:540);b._frHuntCursor=0;
+  frBossFx.length=0;
   b._frSkillLabels=FR_BOSS_SKILL_LABELS;b._frNormalLabel=FR_BOSS_NORMAL_LABELS[b._frDef.normal]||'普通攻擊';
   if(b._frFinal){
     b._frStage11Enhanced=Number(stage)===11;
@@ -585,20 +665,20 @@ function frBossInit(b){
 function frBossUpdateCustom(b){
   b.timer++;
   if(b._frFinal&&frThunderUpdateTransition(b))return;
-  if(b._frStage11Enhanced&&!b._frStage11Rage&&b.hp<=b.maxHp*.5){b._frStage11Rage=true;addText('雷幕躁動',b.x,b.y-105,'#c4b5fd',16,-.35);burst(b.x,b.y,'#a78bfa',28);}
+  if(b._frStage11Enhanced&&!b._frStage11Rage&&b.hp<=b.maxHp*.5){b._frStage11Rage=true;addText('雷幕躁動',b.x,b.y-105,'#c4b5fd',16,-.35);burst(b.x,b.y,'#a78bfa',28);frBossFxPush(b,'rage',{duration:72,color:'#a78bfa'});}
   const frFormSlow=typeof frCurrentSlowFactor==='function'?frCurrentSlowFactor(b,performance.now()):(b._frSlowUntil&&performance.now()<b._frSlowUntil?Math.max(.08,Math.min(1,b._frSlowFactor||.45)):1);
   const safeY=frBossSafeCenterY(b);b.targetY=Math.max(b.targetY,safeY);
   if(!b._frEntered){
     if(b.y<safeY){b.y=Math.min(safeY,b.y+2.5);return;}
     b._frEntered=true;
-    if(!b._frIntroSpoken&&b._frEntryLine){b._frIntroSpoken=true;frBossSpeak(b,b._frEntryLine,b.color);}
+    if(!b._frIntroSpoken&&b._frEntryLine){b._frIntroSpoken=true;frBossSpeak(b,b._frEntryLine,b.color);frBossFxPush(b,'entry',{duration:88,color:b.color});}
   }
   if(b.frozenTimer>0)b.frozenTimer--;
   if(b.shieldBroken){b.shieldResetTimer--;updateBossShield();if(b.shieldResetTimer<=0){b.shield=b.maxShield;b.shieldBroken=false;addText('🛡️護盾重置！',b.x,b.y-50,'#60a5fa');updateBossShield();}}
   const highStage=Number(stage)>=12&&Number(stage)<=21,hpRatio=b.hp/Math.max(1,b.maxHp),tempo=frBossTempo(stage),warFallen=typeof frBossFallenCount==='function'?frBossFallenCount():0;
   if(warFallen>(b._frWarSpiritShown||0)){b._frWarSpiritShown=warFallen;addText('BOSS 戰意 '+warFallen+' 層',b.x,b.y-112,'#fb7185',15,-.4);burst(b.x,b.y,'#fb7185',18);}
-  if(highStage&&b._frDef.masterSkill&&!b._frMasterSkillUnlocked&&hpRatio<=.6){b._frMasterSkillUnlocked=true;b._frSkillBag=frBossShuffle(frBossHighStageSkillPool(b));addText('專屬招式解放',b.x,b.y-104,'#fef08a',14,-.4);}
-  if(highStage&&b._frDef.masterSkill&&!b._frSignatureReady&&!b._frSignatureUsed&&hpRatio<=.3){b._frSignatureReady=true;b._frAttackCd=Math.min(b._frAttackCd,20);addText('瀕死猛攻',b.x,b.y-104,'#fb7185',15,-.4);}
+  if(highStage&&b._frDef.masterSkill&&!b._frMasterSkillUnlocked&&hpRatio<=.6){b._frMasterSkillUnlocked=true;b._frSkillBag=frBossShuffle(frBossHighStageSkillPool(b));addText('專屬招式解放',b.x,b.y-104,'#fef08a',14,-.4);frBossFxPush(b,'rage',{duration:64,color:'#fef08a'});}
+  if(highStage&&b._frDef.masterSkill&&!b._frSignatureReady&&!b._frSignatureUsed&&hpRatio<=.3){b._frSignatureReady=true;b._frAttackCd=Math.min(b._frAttackCd,20);addText('瀕死猛攻',b.x,b.y-104,'#fb7185',15,-.4);frBossFxPush(b,'rage',{duration:72,color:'#fb7185'});}
   for(let i=b._frEvents.length-1;i>=0;i--){if(b.timer>=b._frEvents[i].at){const ev=b._frEvents.splice(i,1)[0];ev.fn();}}
   b._frWarnings=b._frWarnings.filter(function(w){return b.timer<=w.end;});
   if(b._frDash){b.x+=b._frDash.vx*frFormSlow;b.y+=b._frDash.vy*frFormSlow;b._frDash.left--;if(b._frDash.trail&&b.timer%7===0)frBossHazard({kind:'circle',x:b.x,y:b.y,r:26,color:b.color,damage:Math.max(8,b._frDash.damage*.55),status:b._frDash.status||null,delay:18,duration:55});if(Math.hypot(player.x-b.x,player.y-b.y)<b.r+player.radius&&player.invTimer<=0){hurtPlayer(b._frDash.damage);if(b._frDash.status)frBossApplyStatus(b._frDash.status);}if(b._frDash.left<=0||b.x<45||b.x>CW-45||b.y<safeY||b.y>CH*.62)b._frDash=null;}
@@ -610,6 +690,7 @@ function frBossUpdateCustom(b){
   frBossEnforceTopSafeZone(b);
   if(b._frTether){const dist=Math.hypot(player.x-b.x,player.y-b.y);if(b.timer>b._frTether.until||dist>230)b._frTether=null;else if(b.timer-b._frTether.last>42){b._frTether.last=b.timer;if(player.invTimer<=0){hurtPlayer(b._frTether.damage);b.hp=Math.min(b.maxHp,b.hp+b._frTether.damage*1.5);updateBossHp();}}}
   frThunderStage11ClosePressure(b);
+  frBossMaybeSummon(b);
   const expertStage=Number(stage)>=11,masterStage=Number(stage)>=16,warSpeed=typeof frBossWarSpeedScale==='function'?frBossWarSpeedScale(stage):1;
   if(expertStage){const castRate=b.timer<b._frBusyUntil?tempo.busyRate:1;b._frAttackCd-=frFormSlow*castRate*warSpeed;}
   if(b.timer<b._frBusyUntil)return;
@@ -644,6 +725,7 @@ function frBossDrawWarning(b,w){
 function frBossDrawCustom(b){
   b._frWarnings.forEach(function(w){frBossDrawWarning(b,w);});
   if(b._frTether){ctx.save();ctx.strokeStyle='#f43f5e';ctx.lineWidth=5;ctx.setLineDash([9,5]);ctx.beginPath();ctx.moveTo(b.x,b.y);ctx.lineTo(player.x,player.y);ctx.stroke();ctx.restore();}
+  frBossDrawFx(b);frThunderDrawPowerAura(b);
   ctx.save();ctx.translate(b.x,b.y);
   if(!b.shieldBroken&&b.shield>0){const sp=b.shield/b.maxShield;ctx.globalAlpha=.12+sp*.12;ctx.strokeStyle='#93c5fd';ctx.lineWidth=4+sp*3;ctx.beginPath();ctx.arc(0,0,b.r+18+Math.sin(Date.now()*.006)*4,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;}
   let img=frBossImage(b._frDef),frame=0,sourceW=512,sourceH=768,drawX=-75,drawY=-110,drawW=150,drawH=225;
