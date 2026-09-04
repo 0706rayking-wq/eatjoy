@@ -30,7 +30,7 @@
 
     { id:'r19', name:'可可冰棒絕對零度砲', rarity:'top', icon:18, pattern:'absolute', damage:1.85, cooldown:27, size:16, color:'#67e8f9', freeze:220, pierce:true, desc:'蓄積寒氣後發射巨大冰棒光束，留下冰痕並長時間冰封。' },
     { id:'r20', name:'萬味自律浮游砲', rarity:'top', icon:19, pattern:'drones', damage:.85, cooldown:15, size:8, color:'#a78bfa', homing:true, pierce:true, desc:'三枚浮游砲環繞待命，再從不同角度鎖定追擊。' },
-    { id:'r21', name:'白白神廚殲星砲', rarity:'top', icon:20, pattern:'star', damage:1.25, cooldown:27, size:12, color:'#fde047', pierce:true, homing:true, desc:'鎖定後依序發射四道神廚光束，追蹤、貫穿並清掃前方。' },
+    { id:'r21', name:'白白神廚殲星砲', rarity:'top', icon:20, pattern:'star', damage:1.25, cooldown:27, size:12, color:'#fde047', pierce:true, homing:true, desc:'鎖定後依序發射三道神廚光束，追蹤、貫穿並清掃前方。' },
   ];
 
   const melee = [
@@ -652,9 +652,9 @@
    for(let i=0;i<3;i++){const b=makeShot(def,up,1,1,.85);b.frSlot=i;b.frHoldType='drones';b.frHoldFrames=15+i*3;b.frReleaseHoming=true;b.frReleaseSpeed=8.4;b.homing=false;b.vx=0;b.vy=0;}
   }
   else if(def.pattern==='star'){
-   for(let i=0;i<4;i++){
-    const offset=i-1.5,tx=player.x+Math.sin(offset*.32)*CW*.42;pushWeaponFx('lock',player.x,player.y-24,def.color,12,17+i,def.rarity,def.pattern,{tx:tx,ty:8});
-    setTimeout(function(){if(gameRunning)makeShot(def,up+offset*.13,1,.75,1.12);},130+i*85);
+   for(let i=-1;i<=1;i++){
+    const tx=player.x+Math.sin(i*.32)*CW*.42;pushWeaponFx('lock',player.x,player.y-24,def.color,12,15+i+2,def.rarity,def.pattern,{tx:tx,ty:8});
+    setTimeout(function(){if(gameRunning)makeShot(def,up+i*.13,1,.75,1.12);},130+(i+1)*85);
    }
   }
   else {makeShot(def,up-.045);makeShot(def,up+.045);}
