@@ -94,10 +94,10 @@ const FR_PERF={enemyBulletCap:FR_MOBILE_PERF?90:110,particleCap:FR_MOBILE_PERF?9
 const FR_POISON_DURATION_MS=FR_BALANCE.combat.poisonDurationMs;
 function frLateStageBoost(stageNum){
  const s=Math.max(1,Math.round(Number(stageNum)||1));
- if(s>=22)return {enemyHp:1,enemyDamage:1,bossHp:1.15,bossDamage:1.10,eliteChance:0,eliteCap:0};
- if(s>=19)return {enemyHp:1.16,enemyDamage:1.12,bossHp:1.30,bossDamage:1.14,eliteChance:.35,eliteCap:2};
- if(s>=16)return {enemyHp:1.12,enemyDamage:1.08,bossHp:1.22,bossDamage:1.10,eliteChance:.25,eliteCap:1};
- if(s>=12)return {enemyHp:1.08,enemyDamage:1.05,bossHp:1.15,bossDamage:1.05,eliteChance:.15,eliteCap:1};
+ if(s>=22)return {enemyHp:1,enemyDamage:1,bossHp:1.28,bossDamage:1.16,eliteChance:0,eliteCap:0};
+ if(s>=19)return {enemyHp:1.16,enemyDamage:1.12,bossHp:1.42,bossDamage:1.19,eliteChance:.35,eliteCap:2};
+ if(s>=16)return {enemyHp:1.12,enemyDamage:1.08,bossHp:1.32,bossDamage:1.15,eliteChance:.25,eliteCap:1};
+ if(s>=12)return {enemyHp:1.08,enemyDamage:1.05,bossHp:1.23,bossDamage:1.10,eliteChance:.15,eliteCap:1};
  return {enemyHp:1,enemyDamage:1,bossHp:1,bossDamage:1,eliteChance:0,eliteCap:0};
 }
 function frBossFallenCount(){
@@ -150,7 +150,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
       .replace('const STAM_REGEN=0.0005*(1+(tr.stamRegen||0)*.1);', 'const STAM_REGEN=(FR_BALANCE.stamina.regenPerSecond/1000)*(1+(tr.stamRegen||0)*FR_BALANCE.stamina.regenPerTrainingLevel);')
       .replace('const DODGE_COST=30;', 'const DODGE_COST=FR_BALANCE.stamina.dodgeCost;')
       .replace('let gold=0,score=0,stage=1,gameRunning=false,stageCleared=false;', "let gold=0,score=Number(SAVE.runScore||0),stage=1,gameRunning=false,stageCleared=false;let frBossDefeatedCount=0;const frRunStartedAt=Number(SAVE.runStartedAt||Date.now());const frRunId=String(SAVE.runId||'');")
-      .replace('const goldChance=.5;', 'const goldChance=frEnemyCoinChance(this.type);')
+      .replace('const goldChance=.5;', 'const goldChance=this._frBossSummoned?0:frEnemyCoinChance(this.type);')
       .replace('const earn=1+Math.floor(Math.random()*3);', 'const earn=frEnemyCoinAmount(this.type);')
       .replace('if(particles.length>200)particles.length=200;', 'if(particles.length>FR_PERF.particleCap)particles.splice(0,particles.length-FR_PERF.particleCap);')
       .replace('if(eBullets.length>120)eBullets.length=120;', 'if(eBullets.length>FR_PERF.enemyBulletCap)eBullets.length=FR_PERF.enemyBulletCap;')
@@ -159,7 +159,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
       .replace(/for\(let i=eBullets\.length-1;i>=0;i--\)\{const b=eBullets\[i\];b\.update\(\);/, "for(let i=eBullets.length-1;i>=0;i--){const b=eBullets[i];if(!b||typeof b.update!=='function'){eBullets.splice(i,1);continue;}b.update();")
       .replace('bullets.forEach(b=>b.draw());eBullets.forEach(b=>b.draw());', "bullets.forEach(b=>b.draw());eBullets.forEach(function(b){if(b&&typeof b.draw==='function')b.draw();});")
       .replace('if(eBullets.length>FR_PERF.enemyBulletCap)eBullets.length=FR_PERF.enemyBulletCap;', 'if(eBullets.length>FR_PERF.enemyBulletCap)eBullets.splice(0,eBullets.length-FR_PERF.enemyBulletCap);')
-      .replace("function reportKill(){window.parent.postMessage({type:'FR_QUEST_KILL'},'*');}", "let frPendingQuestKills=0,frQuestKillTimer=0;function frFlushQuestKills(sync){if(frQuestKillTimer){clearTimeout(frQuestKillTimer);frQuestKillTimer=0;}if(!frPendingQuestKills&&!sync)return;const count=frPendingQuestKills;frPendingQuestKills=0;window.parent.postMessage({type:'FR_QUEST_KILL',count:count,flush:!!sync},'*');}function reportKill(){frPendingQuestKills++;if(frPendingQuestKills>=10)frFlushQuestKills(false);else if(!frQuestKillTimer)frQuestKillTimer=setTimeout(function(){frFlushQuestKills(false);},2500);}")
+      .replace("function reportKill(){window.parent.postMessage({type:'FR_QUEST_KILL'},'*');}", "let frPendingQuestKills=0,frQuestKillTimer=0;function frFlushQuestKills(sync){if(frQuestKillTimer){clearTimeout(frQuestKillTimer);frQuestKillTimer=0;}if(!frPendingQuestKills&&!sync)return;const count=frPendingQuestKills;frPendingQuestKills=0;window.parent.postMessage({type:'FR_QUEST_KILL',count:count,flush:!!sync},'*');}function reportKill(){if(window.frSuppressSummonedKillReward)return;frPendingQuestKills++;if(frPendingQuestKills>=10)frFlushQuestKills(false);else if(!frQuestKillTimer)frQuestKillTimer=setTimeout(function(){frFlushQuestKills(false);},2500);}")
       .replace("function reportBossKill(){window.parent.postMessage({type:'FR_BOSS_KILLED',gold},'*');}", "function reportBossKill(){frFlushQuestKills(true);window.parent.postMessage({type:'FR_BOSS_KILLED',gold},'*');}")
       .replace("addText('+100💰'", "addText('+'+frBossCoinReward(stage)+'💰'")
       .replace('score+=this.scoreVal;gold+=100;updateHUD();reportBossKill();', 'score+=this.scoreVal;gold+=frBossCoinReward(stage);updateHUD();reportBossKill();')
@@ -518,9 +518,9 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
   constructor(stg){
    super(stg);
    const stageNum=Math.max(1,Math.round(Number(stg||stage)||1)),c=frBalanceCurve(stageNum),late=frLateStageBoost(stageNum);
-   const lateBossHp=stageNum>=19&&stageNum<=21?1.55:stageNum>=16&&stageNum<=18?1.40:stageNum>=12&&stageNum<=15?1.25:1;
-   this.maxHp=Math.round(1100*c.bossHp*lateBossHp*late.bossHp);this.hp=this.maxHp;
-   this.maxShield=Math.round(this.maxHp*.28);this.shield=this.maxShield;
+   const lateBossHp=stageNum>=19&&stageNum<=21?1.55:stageNum>=16&&stageNum<=18?1.40:stageNum>=12&&stageNum<=15?1.25:1,thunder11=stageNum===11&&this._frStage11Enhanced;
+   this.maxHp=Math.round(1100*c.bossHp*lateBossHp*late.bossHp*(thunder11?FR_STAGE11_THUNDER.hp:1));this.hp=this.maxHp;
+   this.maxShield=Math.round(this.maxHp*.28*(thunder11?FR_STAGE11_THUNDER.shield:1));this.shield=this.maxShield;
    this.scoreVal=frBossScore(stg||stage);updateBossHp();updateBossShield();
   }
  };
@@ -528,8 +528,9 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
  const frBalancedBuildStage=buildStage;
  buildStage=function(s,keepPlayerPos){
   frResumeStage=Math.max(1,Math.min(22,Math.round(Number(s)||1)));frBalancedBuildStage(s,keepPlayerPos);frPrepareStageAssets();frStageStartedAt=performance.now();frStageHpDamage=0;frFailureSummary=null;frInitializeScoring(s);frStageScoreAtStart=Math.max(0,Number(score)||0);
-  window.frSlowUntil=0;window.frAttackDownUntil=0;window.frPoisonUntil=0;window.frBossStatusCooldown={};player.poisoned=false;player.poisonTick=0;player.burnTimer=0;player.frozenTimer=0;
+ window.frSlowUntil=0;window.frAttackDownUntil=0;window.frPoisonUntil=0;window.frBossStatusCooldown={};player.poisoned=false;player.poisonTick=0;player.burnTimer=0;player.frozenTimer=0;
   const c=frBalanceCurve(s);
+  if(SAVE.bossDuel){spawnQueue=[];stageInitSpawnLen=0;bossIntroTimer=1;mapCameraTargetY=0;rivalTriggeredThisStage=true;rivalCleared=true;rivalFightActive=false;rivalEnemies=[];return;}
   if(currentBgIdx===FR_BALANCE.progression.finalMap){spawnQueue=[];stageInitSpawnLen=0;bossIntroTimer=1;mapCameraTargetY=0;return;}
   spawnQueue=[];spawnTimer=0;
   for(let w=0;w<c.waves;w++){
@@ -569,7 +570,17 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
  hurtPlayer=function(raw){const before=player&&player.hp||0;frBalancedHurtPlayer(raw);if(player&&player.hp<before)frStageHpDamage+=before-player.hp;};
 
  const frBalancedEnemyDamage=Enemy.prototype.takeDamage;
- Enemy.prototype.takeDamage=function(amount){const debuff=window.frAttackDownUntil&&performance.now()<window.frAttackDownUntil?FR_BALANCE.combat.attackDownMultiplier:1;return frBalancedEnemyDamage.call(this,amount*debuff);};
+ Enemy.prototype.takeDamage=function(amount){
+  const debuff=window.frAttackDownUntil&&performance.now()<window.frAttackDownUntil?FR_BALANCE.combat.attackDownMultiplier:1;
+  if(!this._frBossSummoned)return frBalancedEnemyDamage.call(this,amount*debuff);
+  const wasAlive=this.hp>0,scoreBefore=score,priorSuppress=window.frSuppressSummonedKillReward;
+  window.frSuppressSummonedKillReward=true;
+  try{
+   const result=frBalancedEnemyDamage.call(this,amount*debuff);
+   if(wasAlive&&this.hp<=0){score=scoreBefore;updateHUD();}
+   return result;
+  }finally{window.frSuppressSummonedKillReward=priorSuppress;}
+ };
  const frBalancedBossDamage=Boss.prototype.takeDamage;
  Boss.prototype.takeDamage=function(amount,isQa){
   const wasAlive=!this._defeated&&this.hp>0,debuff=window.frAttackDownUntil&&performance.now()<window.frAttackDownUntil?FR_BALANCE.combat.attackDownMultiplier:1;

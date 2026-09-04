@@ -1126,11 +1126,11 @@
 <script src="food-research-question-bank-expansion.js"></script>
 <script src="food-research-forms.js?v=20"></script>
 <script src="food-research-skills-v2.js?v=6"></script>
-<script src="food-research-weapons.js?v=25"></script>
+<script src="food-research-weapons.js?v=26"></script>
 <script src="food-research-amulets.js?v=6"></script>
-    <script src="food-research-bosses.js?v=28"></script>
+    <script src="food-research-bosses.js?v=35"></script>
     <script src="food-research-ui.js?v=12"></script>
-<script src="food-research-balance.js?v=25"></script>
+<script src="food-research-balance.js?v=28"></script>
       <script src="food-research-audio.js?v=4"></script>
 
     <script>
@@ -8185,12 +8185,16 @@ const [leftoverDishForms, setLeftoverDishForms] = useState({});
 const [chosenPartners, setChosenPartners] = useState([]);
 const [frStartMapIdx, setFrStartMapIdx] = useState('random');
 const [frSelectedTestStage, setFrSelectedTestStage] = useState(22);
+const [frBossDuelMode, setFrBossDuelMode] = useState(false);
+const [frSelectedTestBoss, setFrSelectedTestBoss] = useState('tiramisu-jazz');
 // useRef 避免背景 Firestore 讀取完成後觸發 re-render 導致 iframe 重載
 const rivalDataRef = useRef('[]');
 const chosenPartnersRef = useRef([]);
 const foodResearchHTMLRef = useRef('');
 const frTestModeRef = useRef(false);
 const frTestStageRef = useRef(22);
+const frBossDuelRef = useRef(false);
+const frTestBossIdRef = useRef('');
 const [dailyQuizAnswer, setDailyQuizAnswer] = useState(null);
 const [questRevision, setQuestRevision] = useState(0);
 const dailyQuizLockRef = useRef(false);
@@ -10637,17 +10641,20 @@ if (selectedActivity === 'food_research') {
      return [...prev, u];
     });
    };
-   const handleDeparture = async (testMode=false,testStage=22) => {
+   const handleDeparture = async (testMode=false,testStage=22,bossDuel=false,testBossId='') => {
     if (testMode && !isSuperAdmin) return;
     if (departureInProgressRef.current) return;
     departureInProgressRef.current = true;
     frTestModeRef.current = !!testMode;
     frTestStageRef.current = testMode ? Math.max(1,Math.min(22,Math.round(Number(testStage)||22))) : 22;
+    const validTestBoss = (window.FOOD_RESEARCH_BOSSES || []).find(item=>item.id===testBossId);
+    frBossDuelRef.current = !!(testMode && bossDuel && validTestBoss);
+    frTestBossIdRef.current = frBossDuelRef.current ? validTestBoss.id : '';
     expeditionRunRef.current = {
      id:`${testMode?'test_':''}${currentUser?.phone || 'guest'}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
      startedAt:Date.now()
     };
-    const selectedPartners = chosenPartners.slice(0,2);
+    const selectedPartners = frBossDuelRef.current ? [] : chosenPartners.slice(0,2);
     chosenPartnersRef.current = [];
     rivalDataRef.current = '[]';
     const enrichPartners = async () => {
@@ -10727,6 +10734,8 @@ if (selectedActivity === 'food_research') {
     setFrPhase('game');
     setTimeout(()=>{departureInProgressRef.current=false;},500);
    };
+  const frBossTestOptions = (window.FOOD_RESEARCH_BOSSES || []).filter(item=>item && item.id);
+  const frSelectedBossOption = frBossTestOptions.find(item=>item.id===frSelectedTestBoss) || frBossTestOptions[0];
   return (
    <div className="fixed inset-0 z-[10000] flex flex-col" style={campBg}>
     <NavBar title="🚪 出發！選擇夥伴" onBack={()=>setFrPhase('camp')} />
@@ -10740,12 +10749,21 @@ if (selectedActivity === 'food_research') {
        <div style={{fontSize:'11px', color:'#58a6ff', fontWeight:900, marginBottom:'7px'}}>最高權限測試工具</div>
        <div style={{padding:'10px', marginBottom:'10px', border:'1px solid #fbbf24', borderRadius:'10px', background:'rgba(251,191,36,.08)'}}>
         <div style={{color:'#fde047', fontSize:'13px', fontWeight:900}}>🧪 自選關卡演練</div>
-        <div style={{color:'#c9d1d9', fontSize:'10px', lineHeight:'1.55', marginTop:'4px'}}>可從第 1～22 關任選起點並帶著目前選擇的夥伴測試。演練不會取得獎勵，也不會改動正式進度、每日任務或排行榜。</div>
+        <div style={{color:'#c9d1d9', fontSize:'10px', lineHeight:'1.55', marginTop:'4px'}}>可任選關卡；開啟 BOSS 單挑後會略過一般波次與入侵者，直接挑戰指定 BOSS。演練不會取得獎勵，也不會改動正式進度、每日任務或排行榜。</div>
+        <label style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',marginTop:'9px',padding:'8px 9px',border:'1px solid '+(frBossDuelMode?'#ef4444':'#30363d'),borderRadius:'8px',background:frBossDuelMode?'rgba(239,68,68,.10)':'rgba(255,255,255,.025)',color:frBossDuelMode?'#fca5a5':'#c9d1d9',fontSize:'11px',fontWeight:900,cursor:'pointer'}}>
+         <span>⚔️ BOSS 單挑模式</span>
+         <input type="checkbox" checked={frBossDuelMode} onChange={event=>setFrBossDuelMode(event.target.checked)} aria-label="切換 BOSS 單挑模式" style={{width:'18px',height:'18px',accentColor:'#ef4444'}} />
+        </label>
+        {frBossDuelMode && (
+         <select value={frSelectedBossOption?.id || ''} onChange={event=>{const id=event.target.value;setFrSelectedTestBoss(id);if(id==='little-thunder-god'&&frSelectedTestStage!==11&&frSelectedTestStage!==22)setFrSelectedTestStage(22);}} aria-label="選擇單挑 BOSS" style={{width:'100%',marginTop:'7px',border:'1px solid #ef4444',borderRadius:'8px',background:'#161b22',color:'#fca5a5',fontSize:'11px',fontWeight:900,padding:'10px 8px'}}>
+          {frBossTestOptions.map(item=><option key={item.id} value={item.id}>{item.name}{item.id==='little-thunder-god'?'（第 11／22 關版本）':''}</option>)}
+         </select>
+        )}
         <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1.15fr)',gap:'7px',marginTop:'9px'}}>
          <select value={frSelectedTestStage} onChange={event=>setFrSelectedTestStage(Math.max(1,Math.min(22,Number(event.target.value)||1)))} aria-label="選擇測試關卡" style={{width:'100%',border:'1px solid #d97706',borderRadius:'8px',background:'#161b22',color:'#fde047',fontSize:'11px',fontWeight:900,padding:'10px 8px'}}>
           {Array.from({length:22},(_,index)=>index+1).map(stageNumber=><option key={stageNumber} value={stageNumber}>{stageNumber===11?'第 11 關 · 小雷神初戰':stageNumber===22?'第 22 關 · 小雷神決戰':`第 ${stageNumber} 關`}</option>)}
          </select>
-         <button onClick={() => { if(!window._gameJsReady){ triggerNotify('遊戲載入中，請稍候...','info'); return; } handleDeparture(true,frSelectedTestStage); }} style={{...btnGold,padding:'11px 8px'}}>開始測試第 {frSelectedTestStage} 關</button>
+         <button onClick={() => { if(!window._gameJsReady){ triggerNotify('遊戲載入中，請稍候...','info'); return; } handleDeparture(true,frSelectedTestStage,frBossDuelMode,frSelectedBossOption?.id || ''); }} style={{...btnGold,padding:'11px 8px'}}>{frBossDuelMode?`單挑 ${frSelectedBossOption?.name || 'BOSS'}`:`開始測試第 ${frSelectedTestStage} 關`}</button>
         </div>
        </div>
        <div style={{fontSize:'11px', color:'#58a6ff', fontWeight:900, marginBottom:'7px'}}>正式出征起始地圖</div>
@@ -10817,6 +10835,7 @@ if (selectedActivity === 'food_research') {
  })));
  // RIVALS: 已在 handleDeparture 背景計算並存入 rivalDataRef（不觸發 re-render）
   const normalizedExpeditionEquip = {...(s2.equip||{}),amulets:normalizeAmuletNames(s2.equip?.amulets).concat(['','','']).slice(0,3)};
+  const activeTestBoss = frBossDuelRef.current ? (window.FOOD_RESEARCH_BOSSES || []).find(item=>item.id===frTestBossIdRef.current) : null;
   const saveData = JSON.stringify({
   training: s2.training||{atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0},
   equip: normalizedExpeditionEquip,
@@ -10842,7 +10861,9 @@ if (selectedActivity === 'food_research') {
   isSuperAdmin: !!isSuperAdmin,
    testMode: !!frTestModeRef.current,
    testStage: frTestModeRef.current ? frTestStageRef.current : null,
-    startMapIdx: frTestModeRef.current ? null : (isSuperAdmin && frStartMapIdx !== 'random' ? Number(frStartMapIdx) : null),
+   bossDuel: !!(frTestModeRef.current && frBossDuelRef.current && activeTestBoss),
+   testBossId: activeTestBoss?.id || '',
+    startMapIdx: activeTestBoss ? Number(activeTestBoss.map) : (frTestModeRef.current ? null : (isSuperAdmin && frStartMapIdx !== 'random' ? Number(frStartMapIdx) : null)),
   });
   const configuredRevivalQuestions = foodResearchQuestionBank;
   const revivalQuestionData = JSON.stringify(configuredRevivalQuestions.map((item,index) => {
@@ -10936,6 +10957,8 @@ if (selectedActivity === 'food_research') {
      if (msg.data.type === 'FR_BACK_TO_CAMP') {
        const wasTestMode = frTestModeRef.current;
        const testedStage = frTestStageRef.current;
+       const wasBossDuel = frBossDuelRef.current;
+       const testedBossName = (window.FOOD_RESEARCH_BOSSES || []).find(item=>item.id===frTestBossIdRef.current)?.name || 'BOSS';
        if (!wasTestMode) {
         const cur = loadSave();
         const progressPatch = foodResearchProgressPatch(msg.data.progress || {score:msg.data.score,maxStage:msg.data.maxStage});
@@ -10958,12 +10981,14 @@ if (selectedActivity === 'food_research') {
          }).catch(error => console.error('同步食研所排行榜失敗', error));
         }
        } else {
-        triggerNotify('第 '+testedStage+' 關演練結束，測試結果未計入正式紀錄。','success');
+        triggerNotify(wasBossDuel?(testedBossName+'單挑演練結束，測試結果未計入正式紀錄。'):('第 '+testedStage+' 關演練結束，測試結果未計入正式紀錄。'),'success');
        }
       window.removeEventListener('message', handler);
       foodResearchHTMLRef.current='';
       frTestModeRef.current=false;
       frTestStageRef.current=22;
+      frBossDuelRef.current=false;
+      frTestBossIdRef.current='';
       setFrPhase('camp');
       return;
      }
@@ -11020,6 +11045,8 @@ if (selectedActivity === 'food_research') {
        foodResearchHTMLRef.current='';
        frTestModeRef.current=false;
        frTestStageRef.current=22;
+       frBossDuelRef.current=false;
+       frTestBossIdRef.current='';
        triggerNotify('演練已結束，裝備與正式紀錄不受影響。','info');
        setFrPhase('camp');
        return;
@@ -11036,6 +11063,8 @@ if (selectedActivity === 'food_research') {
       window.removeEventListener('message', handler);
       foodResearchHTMLRef.current='';
       frTestStageRef.current=22;
+      frBossDuelRef.current=false;
+      frTestBossIdRef.current='';
       setFrPhase('camp');
      }
      if (msg.data.type === 'FOOD_RESEARCH_BACK') {
@@ -11043,6 +11072,8 @@ if (selectedActivity === 'food_research') {
       foodResearchHTMLRef.current='';
       frTestStageRef.current=22;
       frTestModeRef.current=false;
+      frBossDuelRef.current=false;
+      frTestBossIdRef.current='';
       setSelectedActivity(null);
      }
      };
