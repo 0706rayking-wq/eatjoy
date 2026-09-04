@@ -118,14 +118,27 @@ function frBossWarning(b,kind,frames,data){
   b._frWarnings.push(w);return w;
 }
 function frBossAnimate(b,frames){b._frAnimStart=b.timer;b._frAnimUntil=b.timer+(frames||30);}
-function frBossSpeak(b,text,color){
+function frPositionCombatDialogue(box){
+  const gc=document.getElementById('gc')||document.body,hud=document.getElementById('hud'),bossHud=document.getElementById('bossHud');
+  const gcRect=gc.getBoundingClientRect();let bottom=gcRect.top+58;
+  if(hud){const r=hud.getBoundingClientRect();bottom=Math.max(bottom,r.bottom);}
+  if(bossHud&&getComputedStyle(bossHud).display!=='none'){const r=bossHud.getBoundingClientRect();bottom=Math.max(bottom,r.bottom);}
+  box.style.top=Math.round(bottom-gcRect.top+6)+'px';
+}
+function frCombatSpeakLine(text,color){
   if(!text)return;
   let box=document.getElementById('frBossDialogue');
-  if(!box){box=document.createElement('div');box.id='frBossDialogue';box.style.cssText="position:absolute;left:6%;right:6%;bottom:21%;z-index:58;padding:9px 12px;border:1px solid rgba(255,255,255,.22);border-radius:8px;background:rgba(5,10,20,.82);color:#fff;text-align:center;font-size:15px;line-height:1.45;font-weight:900;text-shadow:0 1px 3px #000;pointer-events:none;opacity:0;transform:translate3d(0,6px,0);transition:opacity .5s ease,transform .5s ease";(document.getElementById('gc')||document.body).appendChild(box);}
-  clearTimeout(box._frHoldTimer);clearTimeout(box._frFadeTimer);box.textContent=(b&&b.name?b.name:'BOSS')+'：「'+text+'」';box.style.color=color||b&&b.color||'#fff';box.style.display='block';box.style.opacity='0';box.style.transform='translate3d(0,6px,0)';
+  if(!box){box=document.createElement('div');box.id='frBossDialogue';box.style.cssText="position:absolute;left:8px;right:8px;top:72px;z-index:58;padding:8px 11px;border:1px solid rgba(255,255,255,.22);border-radius:8px;background:rgba(5,10,20,.86);color:#fff;text-align:center;font-size:14px;line-height:1.45;font-weight:900;text-shadow:0 1px 3px #000;pointer-events:none;opacity:0;transform:translate3d(0,6px,0);transition:opacity .5s ease,transform .5s ease;box-shadow:0 2px 10px rgba(0,0,0,.28)";(document.getElementById('gc')||document.body).appendChild(box);}
+  frPositionCombatDialogue(box);
+  clearTimeout(box._frHoldTimer);clearTimeout(box._frFadeTimer);box.textContent=text;box.style.color=color||'#fff';box.style.display='block';box.style.opacity='0';box.style.transform='translate3d(0,6px,0)';
   requestAnimationFrame(function(){box.style.opacity='1';box.style.transform='translate3d(0,0,0)';});
   box._frHoldTimer=setTimeout(function(){box.style.opacity='0';box.style.transform='translate3d(0,4px,0)';},2000);
   box._frFadeTimer=setTimeout(function(){box.style.display='none';},2550);
+}
+function frActorSpeak(text,color){frCombatSpeakLine(text,color);}
+function frBossSpeak(b,text,color){
+  if(!text)return;
+  frCombatSpeakLine((b&&b.name?b.name:'BOSS')+'：「'+text+'」',color||b&&b.color||'#fff');
   if(b)b._frBusyUntil=Math.max(b._frBusyUntil||0,b.timer+150);
 }
 function frBossApplyStatus(status){

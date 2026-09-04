@@ -1126,11 +1126,11 @@
 <script src="food-research-question-bank-expansion.js"></script>
 <script src="food-research-forms.js?v=20"></script>
 <script src="food-research-skills-v2.js?v=6"></script>
-<script src="food-research-weapons.js?v=17"></script>
+<script src="food-research-weapons.js?v=23"></script>
 <script src="food-research-amulets.js?v=6"></script>
-    <script src="food-research-bosses.js?v=26"></script>
+    <script src="food-research-bosses.js?v=28"></script>
     <script src="food-research-ui.js?v=12"></script>
-<script src="food-research-balance.js?v=24"></script>
+<script src="food-research-balance.js?v=25"></script>
       <script src="food-research-audio.js?v=4"></script>
 
     <script>
@@ -9646,7 +9646,7 @@ if (selectedActivity === 'food_research') {
  };
  const PARTNER_FORMS = {normal:{name:'原味型',emoji:'🍙'},...FOOD_RESEARCH_FORM_MAP};
  const PARTNER_RANGED_DESC = Object.fromEntries(RANGED_POOL.map(w=>[w.name,w.desc]));
- PARTNER_RANGED_DESC['初始食材砲']='雙發直線食材彈，射速與傷害均衡。';
+ PARTNER_RANGED_DESC['初始食材砲']='左右砲口交替射擊，隨機發射蔬菜、菇類或肉塊食材彈。';
  const PARTNER_MELEE_DESC = Object.fromEntries(MELEE_POOL.map(w=>[w.name,w.desc]));
  PARTNER_MELEE_DESC['初始鍋鏟']='基礎揮擊，攻速、範圍與反彈能力均衡。';
  const PARTNER_AMULET_DESC = AMULET_DESC_MAP;
@@ -10393,7 +10393,7 @@ if (selectedActivity === 'food_research') {
   const FOOD_FORMS_META = {normal:{name:'原味型',emoji:'🍙'},...FOOD_RESEARCH_FORM_MAP};
 
   const RANGED_DESC = Object.fromEntries(RANGED_POOL.map(w=>[w.name,w.desc]));
-  RANGED_DESC['初始食材砲']='雙發直線食材彈，射速與傷害均衡。';
+  RANGED_DESC['初始食材砲']='左右砲口交替射擊，隨機發射蔬菜、菇類或肉塊食材彈。';
   const MELEE_DESC = Object.fromEntries(MELEE_POOL.map(w=>[w.name,w.desc]));
   MELEE_DESC['初始鍋鏟']='基礎揮擊，攻速、範圍與反彈能力均衡。';
   const MELEE_DEF = Object.fromEntries(MELEE_POOL.map(w=>[w.name,w]));
@@ -10515,7 +10515,7 @@ if (selectedActivity === 'food_research') {
     {id:10,name:"雷霆之境",text:"最終BOSS地圖"},
    ];
    const PARTNER_RANGED_DESC = Object.fromEntries(RANGED_POOL.map(w=>[w.name,w.desc]));
-   PARTNER_RANGED_DESC['初始食材砲']='雙發直線食材彈，射速與傷害均衡。';
+   PARTNER_RANGED_DESC['初始食材砲']='左右砲口交替射擊，隨機發射蔬菜、菇類或肉塊食材彈。';
    const PARTNER_MELEE_DESC = Object.fromEntries(MELEE_POOL.map(w=>[w.name,w.desc]));
    PARTNER_MELEE_DESC['初始鍋鏟']='基礎揮擊，攻速、範圍與反彈能力均衡。';
    const PARTNER_AMULET_DESC = AMULET_DESC_MAP;
@@ -11060,7 +11060,7 @@ if (selectedActivity === 'food_research') {
  const campEquip = campSave.equip || {ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']};
  const campAmulets = normalizeAmuletNames(campEquip.amulets).concat(['','','']).slice(0,3);
  const CAMP_RANGED_DESC = Object.fromEntries(RANGED_POOL.map(w=>[w.name,w.desc]));
- CAMP_RANGED_DESC['初始食材砲']='雙發直線食材彈，射速與傷害均衡。';
+ CAMP_RANGED_DESC['初始食材砲']='左右砲口交替射擊，隨機發射蔬菜、菇類或肉塊食材彈。';
  const CAMP_MELEE_DESC = Object.fromEntries(MELEE_POOL.map(w=>[w.name,w.desc]));
  CAMP_MELEE_DESC['初始鍋鏟']='基礎揮擊，攻速、範圍與反彈能力均衡。';
  const CAMP_AMULET_DESC = AMULET_DESC_MAP;
