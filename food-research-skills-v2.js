@@ -35,6 +35,7 @@
  window.FOOD_RESEARCH_SKILLS_V2_ACTIVE=true;
  const FR_V2_SPEC=${JSON.stringify(specs)};
  const frV2={fields:[],summons:[],pickups:[],orbs:[],lastPassive:{},lastDamageAt:performance.now(),garlicBuffUntil:0,honeyBuffUntil:0,coffeeBuffUntil:0,normalBuffUntil:0,salmonBuffUntil:0,salmonReadyAt:0,beefGiantUntil:0,beefLeechTotal:0,beefLeechReadyAt:0,cheeseBurnUntil:0,lotusPhaseUntil:0,lobsterAbsorbUntil:0,lobsterAbsorbed:0,lobsterShieldCap:80,peachRevived:false,lastTick:0};
+ window.frV2GetMeleeVisualScale=function(){return frV2Now()<frV2.beefGiantUntil?5:1;};
 
  Object.keys(FR_V2_SPEC).forEach(function(id){
   const spec=FR_V2_SPEC[id],form=FR_FORM_MAP[id]||FOOD_FORMS[id];if(!form)return;

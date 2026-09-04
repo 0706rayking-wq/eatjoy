@@ -102,6 +102,11 @@
   ctx.drawImage(img,-size/2,-size/2+(yOffset||0),size,size);
   return true;
  }
+ function meleeVisualScale(){
+  if(typeof window.frV2GetMeleeVisualScale!=='function')return 1;
+  const scale=Number(window.frV2GetMeleeVisualScale());
+  return Number.isFinite(scale)?Math.max(1,Math.min(5,scale)):1;
+ }
  function drawRangedWeapon(def){
   if(currentWeapon!=='ranged'||!def)return;
   const rank=rarityRank[def.rarity]||0;
@@ -134,17 +139,21 @@
  }
  function drawIdleMeleeWeapon(def){
   if(currentWeapon!=='melee'||!def)return;
-  ctx.save();ctx.translate(player.x-16,player.y-2);ctx.rotate(-.55);
+  const scale=meleeVisualScale(),giant=scale>1;
+  ctx.save();ctx.translate(player.x-(giant?5:16),player.y-(giant?8:2));ctx.rotate(-.55);
   ctx.globalAlpha=(player.alpha==null?1:player.alpha)*.9;
-  drawWeaponImage(frWeaponImg('melee',def.icon),52+(rarityRank[def.rarity]||0),0);
+  if(giant){ctx.shadowColor=def.color||'#ef4444';ctx.shadowBlur=24;ctx.globalAlpha*=.96;}
+  const size=(52+(rarityRank[def.rarity]||0))*scale;
+  drawWeaponImage(frWeaponImg('melee',def.icon),size,giant?-size*.32:0);
   ctx.restore();
  }
  function drawActiveMeleeWeapon(anim){
   const def=anim.weapon||defFor('melee'),p=Math.max(0,Math.min(1,anim.progress||0));
-  const m=meleeMotion(def,p),rank=rarityRank[def.rarity]||0;
+  const m=meleeMotion(def,p),rank=rarityRank[def.rarity]||0,scale=meleeVisualScale(),giant=scale>1;
   ctx.save();ctx.translate(player.x+m.x,player.y+m.y);ctx.rotate(m.rot);
   ctx.globalAlpha=Math.max(.35,1-p*.2);ctx.imageSmoothingEnabled=true;
-  const size=m.size+rank*2;
+  if(giant){ctx.shadowColor=def.color||'#ef4444';ctx.shadowBlur=28;}
+  const size=(m.size+rank*2)*scale;
   drawWeaponImage(frWeaponImg('melee',def.icon),size,-size*.32);
   ctx.restore();
  }
