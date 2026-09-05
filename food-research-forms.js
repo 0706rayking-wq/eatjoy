@@ -27,11 +27,11 @@
   const forms = [
     { id:'onion_guard', rarity:'normal', name:'洋蔥守衛', emoji:'🧅', passive:'每 10 秒生成防護罩', skill1:'洋蔥震波', skill2:'三層堡壘', color:'#d8b4fe' },
     { id:'popcorn', rarity:'normal', name:'爆米花', emoji:'🍿', passive:'遠程子彈尺寸與命中範圍增加 55%', skill1:'爆米花散射', skill2:'玉米重砲', color:'#fde68a' },
-    { id:'healing_mushroom', rarity:'normal', name:'療癒蘑菇', emoji:'🍄', passive:'每 5 秒自動治療', skill1:'蘑菇替身', skill2:'療癒菌林', color:'#f9a8d4' },
+    { id:'healing_mushroom', rarity:'normal', name:'療癒蘑菇', emoji:'🍄', passive:'菌絲網絡內敵方普通子彈速度 -20%、傷害 -10%', skill1:'蘑菇替身', skill2:'療癒菌林', color:'#f9a8d4' },
     { id:'garlic_knight', rarity:'normal', name:'蒜頭騎士', emoji:'🧄', passive:'異常狀態時間減半', skill1:'聖蒜淨化', skill2:'無垢聖域', color:'#f5f5dc' },
-    { id:'chili_sprite', rarity:'normal', name:'辣椒精靈', emoji:'🌶️', passive:'150 範圍內每 0.75 秒造成 8 點灼燒傷害', skill1:'焚風', skill2:'烈焰油海', color:'#fb7185' },
+    { id:'chili_sprite', rarity:'normal', name:'辣椒精靈', emoji:'🌶️', passive:'全隊爆擊率 +8%', skill1:'焚風', skill2:'烈焰油海', color:'#fb7185' },
     { id:'lotus_archer', rarity:'normal', name:'蓮藕射手', emoji:'🏹', passive:'遠程攻擊額外貫穿', skill1:'連環藕矢', skill2:'九孔光陣', color:'#fda4af' },
-    { id:'potato_armor', rarity:'normal', name:'馬鈴薯裝甲', emoji:'🥔', passive:'受到的傷害降低 20%', skill1:'澱粉彈牆', skill2:'大地震盪', color:'#d6a86e' },
+    { id:'potato_armor', rarity:'normal', name:'馬鈴薯裝甲', emoji:'🥔', passive:'發芽：每累積損失 25% 最大 HP 生成生命嫩芽，拾取回復 5% 最大 HP', skill1:'澱粉彈牆', skill2:'大地震盪', color:'#d6a86e' },
     { id:'lemon_battery', rarity:'normal', name:'檸檬電池', emoji:'🍋', passive:'遠程攻擊有 28% 機率觸發連鎖電流', skill1:'彈跳電球', skill2:'超載電網', color:'#facc15' },
 
     { id:'cheese_mage', rarity:'rare', name:'起司法師', emoji:'🧀', passive:'所有敵人移動速度降低', skill1:'濃稠起司陣', skill2:'熟成結界', color:'#fbbf24' },
@@ -47,7 +47,7 @@
     { id:'truffle_thunder', rarity:'noble', name:'松露雷神', emoji:'⚡', passive:'所有遠程攻擊附帶不衰減連鎖電流', skill1:'追身雷雲', skill2:'萬雷天牢', color:'#60a5fa' },
 
     { id:'dragonfruit_emperor', rarity:'top', name:'火龍果龍皇', emoji:'🐉', passive:'185 範圍每 0.5 秒造成 14 點灼燒；擊破有 35% 機率爆破', skill1:'龍星雨', skill2:'焚界龍息', color:'#f43f5e' },
-    { id:'peach_divine', rarity:'top', name:'仙桃神使', emoji:'🍑', passive:'每場戰鬥首次死亡可復活', skill1:'仙影分身', skill2:'蟠桃回天', color:'#f9a8d4' },
+    { id:'peach_divine', rarity:'top', name:'仙桃神使', emoji:'🍑', passive:'後排每秒回復 2% 最大 HP；每場戰鬥首次死亡可復活', skill1:'仙影分身', skill2:'蟠桃回天', color:'#f9a8d4' },
     { id:'cocoa_popsicle_wargod', rarity:'top', name:'可可冰棒戰神', emoji:'🍫', passive:'每 5 秒發射 2 枚雪花片，命中敵人使其緩速', skill1:'冰棒揮擊', skill2:'尖刺冰牆', color:'#67e8f9' },
   ].map((form) => ({
     ...form,
@@ -89,7 +89,7 @@ FR_FORM_CATALOG.forEach(function(form){
     sk2Cd:form.skill2Cooldown*1000,
     bulletColor:form.color, bulletDmg:form.rarity==='top'?16.5:form.rarity==='noble'?15:form.rarity==='rare'?13.5:12,
     spreadCount:0, speedBonus:0,
-    defBonus:form.id==='potato_armor'?.20:form.id==='onion_guard'?.10:0,
+    defBonus:form.id==='onion_guard'?.10:0,
     portrait:form.portrait, battle:form.battle, passiveIcon:form.passiveIcon,
     skill1Asset:form.skill1Icon, skill2Asset:form.skill2Icon, rarity:form.rarity
   };
@@ -683,7 +683,6 @@ function frPufferPoisonWave(radius,damage){
   });
 }
 const FR_PASSIVE_AURAS={
-  chili_sprite:{radius:150,damage:8,interval:750,color:'#fb7185',fill:'rgba(251,113,133,.055)',dash:[7,7]},
   puffer_alchemist:{radius:160,baseDamage:5,stackDamage:3,interval:750,color:'#a3e635',fill:'rgba(163,230,53,.055)',dash:[3,8]},
   dragonfruit_emperor:{radius:185,damage:14,interval:500,color:'#f97316',fill:'rgba(249,115,22,.07)',dash:[12,7]}
 };
@@ -698,7 +697,6 @@ setInterval(function(){
   if(id==='healing_mushroom'&&ready(id,5000))frHeal(4);
   if(id==='honey_priest'&&ready(id,4500)){if(player.hp<player.maxHp)frHeal(5);else{player.shieldActive=true;player.shieldHp=Math.max(player.shieldHp||0,20);}}
   if(id==='lobster_general'&&ready(id,8000)){player.shieldActive=true;player.shieldHp=Math.max(player.shieldHp||0,45);}
-  if(id==='chili_sprite'&&ready(id+':aura',FR_PASSIVE_AURAS.chili_sprite.interval))frDamage(FR_PASSIVE_AURAS.chili_sprite.damage,FR_PASSIVE_AURAS.chili_sprite.radius,'#fb7185',false);
   if(id==='puffer_alchemist'&&ready(id+':aura',FR_PASSIVE_AURAS.puffer_alchemist.interval))frPufferAuraTick();
   if(id==='dragonfruit_emperor'&&ready(id+':aura',FR_PASSIVE_AURAS.dragonfruit_emperor.interval))frDamage(FR_PASSIVE_AURAS.dragonfruit_emperor.damage,FR_PASSIVE_AURAS.dragonfruit_emperor.radius,'#f43f5e',false);
   if(id==='cheese_mage'&&ready(id+':slow',600))frSlowAll(900,.72);
