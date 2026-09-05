@@ -1124,11 +1124,11 @@
     <div id="notify-root" style="position:fixed;top:80px;left:0;right:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none;padding:0 16px;isolation:isolate;"></div>
 <script src="food-research-question-bank.js?v=2"></script>
 <script src="food-research-question-bank-expansion.js"></script>
-<script src="food-research-forms.js?v=20"></script>
-<script src="food-research-skills-v2.js?v=6"></script>
+<script src="food-research-forms.js?v=27"></script>
+<script src="food-research-skills-v2.js?v=7"></script>
 <script src="food-research-weapons.js?v=26"></script>
 <script src="food-research-amulets.js?v=6"></script>
-    <script src="food-research-bosses.js?v=37"></script>
+    <script src="food-research-bosses.js?v=48"></script>
     <script src="food-research-ui.js?v=12"></script>
 <script src="food-research-balance.js?v=28"></script>
       <script src="food-research-audio.js?v=4"></script>
@@ -7826,7 +7826,7 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
      const { useState: useS, useEffect: useE } = React;
      const [warlogEntries, setWarlogEntries] = useS([]);
      const [wlLines, setWlLines] = useS(() => {
-      const s = loadSave(); return s.warlogLines || { entry:'', defeat:'', rivalEntry:'', rivalDefeat:'' };
+      const s = loadSave(); return { entry:'', defeat:'', rivalEntry:'', rivalDefeat:'', rivalVictory:'', ...(s.warlogLines||{}) };
      });
      const [todayClaimed, setTodayClaimed] = useS(0);
      const MAX_DAILY_COINS = 300;
@@ -7902,6 +7902,7 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
           {key:'defeat', label:'💀 出征戰敗台詞', ph: (currentUser?.name||'你')+'：「下次一定贏回來」'},
           {key:'rivalEntry', label:'👻 亂入出場台詞', ph: (currentUser?.name||'你')+'：「讓我來考驗你！」'},
           {key:'rivalDefeat', label:'🏳️ 亂入戰敗台詞', ph: (currentUser?.name||'你')+'：「你果然很強...」'},
+          {key:'rivalVictory', label:'🏆 亂入勝利台詞', ph: (currentUser?.name||'你')+'：「這場由我拿下！」'},
          ].map(item=>(
           <div key={item.key} style={{marginBottom:'8px'}}>
            <div style={{fontSize:'10px', color:'#8b949e', marginBottom:'4px', fontWeight:700}}>{item.label}</div>
@@ -8187,6 +8188,7 @@ const [frStartMapIdx, setFrStartMapIdx] = useState('random');
 const [frSelectedTestStage, setFrSelectedTestStage] = useState(22);
 const [frBossDuelMode, setFrBossDuelMode] = useState(false);
 const [frSelectedTestBoss, setFrSelectedTestBoss] = useState('tiramisu-jazz');
+const [frSelectedThunderPhase, setFrSelectedThunderPhase] = useState(0);
 // useRef 避免背景 Firestore 讀取完成後觸發 re-render 導致 iframe 重載
 const rivalDataRef = useRef('[]');
 const chosenPartnersRef = useRef([]);
@@ -8195,6 +8197,7 @@ const frTestModeRef = useRef(false);
 const frTestStageRef = useRef(22);
 const frBossDuelRef = useRef(false);
 const frTestBossIdRef = useRef('');
+const frTestThunderPhaseRef = useRef(0);
 const [dailyQuizAnswer, setDailyQuizAnswer] = useState(null);
 const [questRevision, setQuestRevision] = useState(0);
 const dailyQuizLockRef = useRef(false);
@@ -10641,7 +10644,7 @@ if (selectedActivity === 'food_research') {
      return [...prev, u];
     });
    };
-   const handleDeparture = async (testMode=false,testStage=22,bossDuel=false,testBossId='') => {
+   const handleDeparture = async (testMode=false,testStage=22,bossDuel=false,testBossId='',testThunderPhase=0) => {
     if (testMode && !isSuperAdmin) return;
     if (departureInProgressRef.current) return;
     departureInProgressRef.current = true;
@@ -10650,6 +10653,9 @@ if (selectedActivity === 'food_research') {
     const validTestBoss = (window.FOOD_RESEARCH_BOSSES || []).find(item=>item.id===testBossId);
     frBossDuelRef.current = !!(testMode && bossDuel && validTestBoss);
     frTestBossIdRef.current = frBossDuelRef.current ? validTestBoss.id : '';
+    frTestThunderPhaseRef.current = frBossDuelRef.current && validTestBoss.id === 'little-thunder-god'
+     ? Math.max(0,Math.min(2,Math.round(Number(testThunderPhase)||0)))
+     : 0;
     expeditionRunRef.current = {
      id:`${testMode?'test_':''}${currentUser?.phone || 'guest'}_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
      startedAt:Date.now()
@@ -10693,6 +10699,35 @@ if (selectedActivity === 'food_research') {
     // 背景：讀取rival資料（fire and forget）
     const fetchRivals = async () => {
     const TIMEOUT = 2000;
+    const fallbackRivalLines = {
+     entry: [
+      '來切磋吧，我可不會手下留情！','借過，今天這條路由我接管。','聽說你很強，我特地來驗證一下。','別緊張，我只是來搶個風頭。','香味把我引來了，順便打一場吧！',
+      '準備好了嗎？我的招式可不等人。','這次入侵，目標就是你！','遇見我算你運氣好，也可能不太好。','廚房很忙，但挑戰你更重要。','先說好，輸的人負責收拾戰場！'
+     ],
+     defeat: [
+      '好吧，這次是你比較有火候。','我輸得心服口服，下次再戰！','差一點……下次我會更強。','這場算你的，別太得意喔。','看來今天的主角是你。',
+      '我的料理翻車了……撤退！','判斷漂亮，我認輸。','原來傳聞是真的，你確實很強。','敗給你不丟臉，我記住這場了。','收工收工，再打下去要加班了。'
+     ],
+     victory: [
+      '承讓，這場由我拿下！','火候還差一點，下次再來。','入侵成功，今天運氣站在我這邊。','別灰心，我只是先贏一局。','看來這片戰場暫時歸我了。',
+      '漂亮收尾，謝謝指教！','我的招牌可不是擺著看的。','勝負已定，回去整備再戰吧。','這次我技高一籌。','打完收工，記得補充體力。'
+     ]
+    };
+    const stableRivalIndex = (r, type, length) => {
+     const seed = `${r.phone||r.name||'rival'}:${type}`;
+     let hash = 2166136261;
+     for (let i=0;i<seed.length;i++) { hash ^= seed.charCodeAt(i); hash = Math.imul(hash,16777619); }
+     return (hash>>>0)%length;
+    };
+    const fallbackRivalLine = (r, type) => {
+     const pool = fallbackRivalLines[type];
+     return `${r.name||'入侵者'}：「${pool[stableRivalIndex(r,type,pool.length)]}」`;
+    };
+    const randomRivalForms = [
+     'onion_guard','popcorn','healing_mushroom','garlic_knight','chili_sprite','lotus_archer','potato_armor','lemon_battery',
+     'cheese_mage','honey_priest','coffee_pilot','octopus_samurai','salmon_ronin','beef_berserker','puffer_alchemist','black_garlic_void',
+     'lobster_general','truffle_thunder','dragonfruit_emperor','peach_divine','cocoa_popsicle_wargod'
+    ];
     const otherUsers = allUsers.filter(u =>
      u.status==='approved' && u.phone!==currentUser?.phone &&
      !(Array.isArray(u.branch)?u.branch.includes(currentBranch):u.branch===currentBranch)
@@ -10705,13 +10740,22 @@ if (selectedActivity === 'food_research') {
       const snap = await Promise.race([snapP, new Promise(res=>setTimeout(()=>res(null),TIMEOUT))]);
       const rSave = snap&&snap.exists ? (snap.data().gameSave||{}) : {};
       const rLines = snap&&snap.exists ? (snap.data().warlogLines||{}) : {};
-      return { name:r.name, phone:r.phone, formId:rSave.equippedForm||'normal',
-       training:rSave.training||{}, equip:rSave.equip||{},
-       entryLine:rLines.rivalEntry||r.name+'：「讓我來考驗你！」',
-       rivalDefeatLine:rLines.rivalDefeat||r.name+'：「你果然很強...」' };
+      const savedForm=rSave.equippedForm||'normal';
+      const rivalForm=savedForm==='normal'?randomRivalForms[stableRivalIndex(r,'form',randomRivalForms.length)]:savedForm;
+      const rivalEquip=rSave.equip||{ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']};
+      const weaponMap=window.FOOD_RESEARCH_WEAPON_MAP||{};
+      const amuletCalc=window.FOOD_RESEARCH_CALC_AMULETS;
+      return { name:r.name, phone:r.phone, formId:rivalForm,
+       training:rSave.training||{}, equip:rivalEquip,
+       rangedWeapon:weaponMap[rivalEquip.ranged]||weaponMap['初始食材砲']||null,
+       meleeWeapon:weaponMap[rivalEquip.melee]||weaponMap['初始鍋鏟']||null,
+       amuletBonus:typeof amuletCalc==='function'?amuletCalc(rivalEquip.amulets||[]):{},
+       entryLine:rLines.rivalEntry||fallbackRivalLine(r,'entry'),
+       rivalDefeatLine:rLines.rivalDefeat||fallbackRivalLine(r,'defeat'),
+       rivalVictoryLine:rLines.rivalVictory||fallbackRivalLine(r,'victory') };
      } catch(e) {
-      return {name:r.name,phone:r.phone,formId:'normal',training:{},equip:{},
-       entryLine:r.name+'：「讓我來考驗你！」',rivalDefeatLine:r.name+'：「你果然很強...」'};
+      return {name:r.name,phone:r.phone,formId:randomRivalForms[stableRivalIndex(r,'form',randomRivalForms.length)],training:{},equip:{},rangedWeapon:null,meleeWeapon:null,amuletBonus:{},
+       entryLine:fallbackRivalLine(r,'entry'),rivalDefeatLine:fallbackRivalLine(r,'defeat'),rivalVictoryLine:fallbackRivalLine(r,'victory')};
      }
     }));
     rivalDataRef.current = JSON.stringify(rd);
@@ -10755,15 +10799,20 @@ if (selectedActivity === 'food_research') {
          <input type="checkbox" checked={frBossDuelMode} onChange={event=>setFrBossDuelMode(event.target.checked)} aria-label="切換 BOSS 單挑模式" style={{width:'18px',height:'18px',accentColor:'#ef4444'}} />
         </label>
         {frBossDuelMode && (
-         <select value={frSelectedBossOption?.id || ''} onChange={event=>{const id=event.target.value;setFrSelectedTestBoss(id);if(id==='little-thunder-god'&&frSelectedTestStage!==11&&frSelectedTestStage!==22)setFrSelectedTestStage(22);}} aria-label="選擇單挑 BOSS" style={{width:'100%',marginTop:'7px',border:'1px solid #ef4444',borderRadius:'8px',background:'#161b22',color:'#fca5a5',fontSize:'11px',fontWeight:900,padding:'10px 8px'}}>
+         <select value={frSelectedBossOption?.id || ''} onChange={event=>{const id=event.target.value;setFrSelectedTestBoss(id);if(id==='little-thunder-god'&&frSelectedTestStage!==11&&frSelectedTestStage!==22)setFrSelectedTestStage(22);if(id!=='little-thunder-god')setFrSelectedThunderPhase(0);}} aria-label="選擇單挑 BOSS" style={{width:'100%',marginTop:'7px',border:'1px solid #ef4444',borderRadius:'8px',background:'#161b22',color:'#fca5a5',fontSize:'11px',fontWeight:900,padding:'10px 8px'}}>
           {frBossTestOptions.map(item=><option key={item.id} value={item.id}>{item.name}{item.id==='little-thunder-god'?'（第 11／22 關版本）':''}</option>)}
          </select>
+        )}
+        {frBossDuelMode && frSelectedBossOption?.id==='little-thunder-god' && (
+         <div style={{display:'grid',gridTemplateColumns:'repeat(3,minmax(0,1fr))',gap:'5px',marginTop:'7px'}} aria-label="選擇小雷神型態">
+          {['第一型態','第二型態','第三型態'].map((label,phase)=><button key={label} onClick={()=>{setFrSelectedThunderPhase(phase);if(phase>0)setFrSelectedTestStage(22);}} style={{border:'1px solid '+(frSelectedThunderPhase===phase?'#fde047':'#4b5563'),background:frSelectedThunderPhase===phase?'rgba(250,204,21,.18)':'rgba(255,255,255,.025)',borderRadius:'7px',padding:'8px 3px',color:frSelectedThunderPhase===phase?'#fde047':'#c9d1d9',fontSize:'10px',fontWeight:900}}>{label}</button>)}
+         </div>
         )}
         <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) minmax(0,1.15fr)',gap:'7px',marginTop:'9px'}}>
          <select value={frSelectedTestStage} onChange={event=>setFrSelectedTestStage(Math.max(1,Math.min(22,Number(event.target.value)||1)))} aria-label="選擇測試關卡" style={{width:'100%',border:'1px solid #d97706',borderRadius:'8px',background:'#161b22',color:'#fde047',fontSize:'11px',fontWeight:900,padding:'10px 8px'}}>
           {Array.from({length:22},(_,index)=>index+1).map(stageNumber=><option key={stageNumber} value={stageNumber}>{stageNumber===11?'第 11 關 · 小雷神初戰':stageNumber===22?'第 22 關 · 小雷神決戰':`第 ${stageNumber} 關`}</option>)}
          </select>
-         <button onClick={() => { if(!window._gameJsReady){ triggerNotify('遊戲載入中，請稍候...','info'); return; } handleDeparture(true,frSelectedTestStage,frBossDuelMode,frSelectedBossOption?.id || ''); }} style={{...btnGold,padding:'11px 8px'}}>{frBossDuelMode?`單挑 ${frSelectedBossOption?.name || 'BOSS'}`:`開始測試第 ${frSelectedTestStage} 關`}</button>
+         <button onClick={() => { if(!window._gameJsReady){ triggerNotify('遊戲載入中，請稍候...','info'); return; } handleDeparture(true,frSelectedTestStage,frBossDuelMode,frSelectedBossOption?.id || '',frSelectedThunderPhase); }} style={{...btnGold,padding:'11px 8px'}}>{frBossDuelMode?`單挑 ${frSelectedBossOption?.name || 'BOSS'}${frSelectedBossOption?.id==='little-thunder-god'?`・${['第一型態','第二型態','第三型態'][frSelectedThunderPhase]}`:''}`:`開始測試第 ${frSelectedTestStage} 關`}</button>
         </div>
        </div>
        <div style={{fontSize:'11px', color:'#58a6ff', fontWeight:900, marginBottom:'7px'}}>正式出征起始地圖</div>
@@ -10863,6 +10912,7 @@ if (selectedActivity === 'food_research') {
    testStage: frTestModeRef.current ? frTestStageRef.current : null,
    bossDuel: !!(frTestModeRef.current && frBossDuelRef.current && activeTestBoss),
    testBossId: activeTestBoss?.id || '',
+   testThunderPhase: activeTestBoss?.id === 'little-thunder-god' ? frTestThunderPhaseRef.current : 0,
     startMapIdx: activeTestBoss ? Number(activeTestBoss.map) : (frTestModeRef.current ? null : (isSuperAdmin && frStartMapIdx !== 'random' ? Number(frStartMapIdx) : null)),
   });
   const configuredRevivalQuestions = foodResearchQuestionBank;
@@ -10989,6 +11039,7 @@ if (selectedActivity === 'food_research') {
       frTestStageRef.current=22;
       frBossDuelRef.current=false;
       frTestBossIdRef.current='';
+      frTestThunderPhaseRef.current=0;
       setFrPhase('camp');
       return;
      }
@@ -10998,16 +11049,7 @@ if (selectedActivity === 'food_research') {
       const rivalNames = msg.data.rivalNames || [];
       const rivalPhones = msg.data.rivalPhones || [];
       const myName = currentUser?.name || '玩家';
-      // 對每個rival寫入「被XX擊敗」紀錄（不需領取）
-      rivalPhones.forEach((rp, i) => {
-       if(!rp) return;
-       db.collection(getPublicPath(`warlog_${rp}`)).add({
-        type:'rival_lose_entry', by: myName,
-        rivalName: rivalNames[i]||'對手',
-        coins: 0, timestamp: Date.now(), date: today, claimed: true
-       }).catch(()=>{});
-      });
-      // 自己的warlog：擊敗對手，待領30金幣
+      // 單名入侵者的落敗已由 FR_RIVAL_ONE_DOWN 記錄，這裡只結算玩家獎勵。
       db.collection(getPublicPath(`warlog_${currentUser?.phone||'guest'}`)).add({
        type:'rival_win',
        target: rivalNames.join('、') || (window._lastRivalPool||[]).map(r=>r.name).join('、') || '對手',
@@ -11039,6 +11081,24 @@ if (selectedActivity === 'food_research') {
        syncFoodResearchSave(s2);
       }
      }
+     if (msg.data.type === 'FR_RIVAL_PLAYER_LOST') {
+      if (frTestModeRef.current) return;
+      const today = new Date().toDateString();
+      const rivalPhones = msg.data.rivalPhones || [];
+      const rivalNames = msg.data.rivalNames || [];
+      const myName = currentUser?.name || '玩家';
+      db.collection(getPublicPath(`warlog_${currentUser?.phone||'guest'}`)).add({
+       type:'rival_lose', target:rivalNames.join('、')||'入侵者', coins:0,
+       timestamp:Date.now(), date:today, claimed:true
+      }).catch(()=>{});
+      rivalPhones.forEach((phone,index) => {
+       if(!phone) return;
+       db.collection(getPublicPath(`warlog_${phone}`)).add({
+        type:'rival_win', target:myName, rivalName:rivalNames[index]||'入侵者', coins:15,
+        timestamp:Date.now(), date:today, claimed:false
+       }).catch(()=>{});
+      });
+     }
      if (msg.data.type === 'FR_PENALTY_RETURN') {
       if (frTestModeRef.current) {
        window.removeEventListener('message', handler);
@@ -11047,6 +11107,7 @@ if (selectedActivity === 'food_research') {
        frTestStageRef.current=22;
        frBossDuelRef.current=false;
        frTestBossIdRef.current='';
+       frTestThunderPhaseRef.current=0;
        triggerNotify('演練已結束，裝備與正式紀錄不受影響。','info');
        setFrPhase('camp');
        return;
@@ -11065,6 +11126,7 @@ if (selectedActivity === 'food_research') {
       frTestStageRef.current=22;
       frBossDuelRef.current=false;
       frTestBossIdRef.current='';
+      frTestThunderPhaseRef.current=0;
       setFrPhase('camp');
      }
      if (msg.data.type === 'FOOD_RESEARCH_BACK') {
@@ -11074,6 +11136,7 @@ if (selectedActivity === 'food_research') {
       frTestModeRef.current=false;
       frBossDuelRef.current=false;
       frTestBossIdRef.current='';
+      frTestThunderPhaseRef.current=0;
       setSelectedActivity(null);
      }
      };

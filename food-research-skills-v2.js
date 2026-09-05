@@ -20,7 +20,7 @@
     lobster_general:{passive:'龍蝦甲胄：目前角色受到傷害 -10%，近戰反彈子彈傷害 +40%，同型態不疊加',skill1:'甲殼吸收',skill1Cost:28,skill1Cooldown:9,skill1Desc:'2.5 秒內吸收最多 10 發一般子彈，每發轉化為 8 護盾，最多獲得 80 護盾。',skill2:'雙側砲台',skill2Cost:65,skill2Cooldown:22,skill2Desc:'角色左右各架設 1 座 HP 150 砲台 10 秒；每 0.65 秒發射 20 傷害的追蹤砲彈。'},
     truffle_thunder:{passive:'雷鏈麻痺：攻擊有 10% 機率連鎖，並短暫麻痺命中敵人',skill1:'雷環護身',skill1Cost:30,skill1Cooldown:13,skill1Desc:'持續 10 秒環繞半徑 100 的電流；每 0.5 秒造成 20 傷害並產生電擊效果，擊退 100，首領不擊退但減速 15%。',skill2:'雷域推進',skill2Cost:70,skill2Cooldown:23,skill2Desc:'生成直徑 360、向上推進的雷電立場 8 秒；每 0.5 秒造成 20 傷害，首領只承受 20% 傷害並減速 20%。'},
     dragonfruit_emperor:{passive:'灼燒光環：185 範圍持續灼燒，攻擊灼燒敵人 +20%',skill1:'雙翼龍焰',skill1Cost:38,skill1Cooldown:14,skill1Desc:'向角色上方來回噴射寬 70 的扇形火焰 5 秒；每 0.5 秒造成 16 傷害並附加灼燒。',skill2:'龍隕五星',skill2Cost:75,skill2Cooldown:25,skill2Desc:'每 2 秒召喚 1 顆直徑約畫面 1/3 的龍隕石，共 5 顆；預警 0.7 秒後造成中心 90、外圍 45 傷害並附加灼燒。'},
-    peach_divine:{passive:'仙桃庇佑：後排夥伴回復至半血，全隊首次死亡時以 30% HP 復活',skill1:'仙人模式',skill1Cost:45,skill1Cooldown:14,skill1Desc:'強化 6 秒，每 0.5 秒發射 1 道貫穿仙氣，共 12 道，每道 18 傷害。',skill2:'蟠桃回天',skill2Cost:100,skill2Cooldown:16,skill2Desc:'完全回復 HP、解除異常、清除一般子彈，並無敵 5 秒。'},
+    peach_divine:{passive:'仙桃庇佑：後排夥伴回復至半血，全隊首次死亡時以 30% HP 復活',skill1:'仙人模式',skill1Cost:45,skill1Cooldown:14,skill1Desc:'強化 6 秒，每 0.5 秒發射 1 道貫穿仙氣，共 12 道，每道 18 傷害。',skill2:'蟠桃回天',skill2Cost:150,skill2Cooldown:16,skill2Desc:'完全回復 HP、解除異常、清除一般子彈，並無敵 5 秒。'},
     cocoa_popsicle_wargod:{passive:'雪花鏢：每 5 秒發射 2 枚減速雪花鏢',skill1:'冰霜劍氣',skill1Cost:35,skill1Cooldown:10,skill1Desc:'間隔 1 秒揮出 2 道畫面 3/4 寬劍氣，每道 20 傷害並凍結敵人。',skill2:'冰刺牆',skill2Cost:70,skill2Cooldown:22,skill2Desc:'生成 120 HP 冰刺牆 10 秒，阻擋一般子彈並傷害接觸敵人。'}
   };
 
