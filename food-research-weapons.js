@@ -364,7 +364,7 @@
      for(let k=0;k<rays;k++){const a=f.seed+k*Math.PI*2/rays,len=f.size*(.55+ease*.75);ctx.beginPath();ctx.moveTo(Math.cos(a)*f.size*.25,Math.sin(a)*f.size*.25);ctx.lineTo(Math.cos(a)*len,Math.sin(a)*len);ctx.stroke();}
     }
    }
-   ctx.restore();f.age++;
+   ctx.restore();f.age+=window.FR_FRAME_SCALE||1;
    if(f.age>=f.life)weaponFx.splice(i,1);
   }
  }
@@ -496,7 +496,7 @@
  Bullet.prototype.update=function(){
   let held=false;
   if(this.frAttached){
-   this.age++;held=true;
+   this.age+=window.FR_FRAME_SCALE||1;held=true;
    const t=this.frAttachedTarget;
    if(t&&t.hp>0){this.x=t.x;this.y=t.y;}
    this.frStickyTimer--;
@@ -508,7 +508,7 @@
     burst(this.x,this.y,'#facc15',16);this.frAttached=false;this.frDetonated=true;this.frForceDead=true;this.x=-9999;this.y=-9999;
    }
   }else if(this.frHoldFrames&&this.age<this.frHoldFrames){
-   this.age++;held=true;
+   this.age+=window.FR_FRAME_SCALE||1;held=true;
    if(this.frHoldType==='drones'){
     const a=(this.frSlot||0)*Math.PI*2/3+this.age*.2,radius=31+Math.sin(this.age*.3+(this.frSlot||0))*3;
     this.x=player.x+Math.cos(a)*radius;this.y=player.y-12+Math.sin(a)*radius*.55;

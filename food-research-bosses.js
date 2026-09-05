@@ -394,8 +394,8 @@ class FrBossHazard{
     }
   }
   update(){
-    this.age++;
-    if(this.age>this.delay){if(this.moveX)this.x+=this.moveX;if(this.moveY)this.y+=this.moveY;}
+    const frStep=window.FR_FRAME_SCALE||1;this.age+=frStep;
+    if(this.age>this.delay){if(this.moveX)this.x+=this.moveX*frStep;if(this.moveY)this.y+=this.moveY*frStep;}
     if(this.pull&&this.age>this.delay){player.x+=(this.x-player.x)*this.pull;player.y+=(this.y-player.y)*this.pull;}
     if(this.age<=this.delay)return;
     if(this.age>this.delay+this.duration){this.dead=true;return;}
@@ -445,7 +445,7 @@ class FrBossHazard{
 }
 class FrThunderTrackingLaser{
   constructor(b,hand,damage){this.b=b;this.hand=hand;this.damage=damage;this.age=0;this.delay=60;this.duration=150;this.dead=false;this.angle=Math.atan2(player.y-hand.y,player.x-hand.x);this.lastHit=-999;}
-  update(){this.age++;if(!this.hand||this.hand.dead||this.age>this.delay+this.duration){this.dead=true;return;}const target=Math.atan2(player.y-this.hand.y,player.x-this.hand.x),delta=Math.atan2(Math.sin(target-this.angle),Math.cos(target-this.angle)),turn=this.age<=this.delay?.018:.009;this.angle+=Math.max(-turn,Math.min(turn,delta));if(this.age<=this.delay)return;const reach=Math.max(CW,CH)*1.5,dx=Math.cos(this.angle)*reach,dy=Math.sin(this.angle)*reach,len2=dx*dx+dy*dy,t=Math.max(0,Math.min(1,((player.x-this.hand.x)*dx+(player.y-this.hand.y)*dy)/len2)),px=this.hand.x+dx*t,py=this.hand.y+dy*t;if(Math.hypot(player.x-px,player.y-py)<22+player.radius&&this.age-this.lastHit>28){frBossHurtOnce(this,this.damage);frBossApplyStatus({kind:'paralyze',duration:550});}}
+  update(){const frStep=window.FR_FRAME_SCALE||1;this.age+=frStep;if(!this.hand||this.hand.dead||this.age>this.delay+this.duration){this.dead=true;return;}const target=Math.atan2(player.y-this.hand.y,player.x-this.hand.x),delta=Math.atan2(Math.sin(target-this.angle),Math.cos(target-this.angle)),turn=(this.age<=this.delay?.018:.009)*frStep;this.angle+=Math.max(-turn,Math.min(turn,delta));if(this.age<=this.delay)return;const reach=Math.max(CW,CH)*1.5,dx=Math.cos(this.angle)*reach,dy=Math.sin(this.angle)*reach,len2=dx*dx+dy*dy,t=Math.max(0,Math.min(1,((player.x-this.hand.x)*dx+(player.y-this.hand.y)*dy)/len2)),px=this.hand.x+dx*t,py=this.hand.y+dy*t;if(Math.hypot(player.x-px,player.y-py)<22+player.radius&&this.age-this.lastHit>28){frBossHurtOnce(this,this.damage);frBossApplyStatus({kind:'paralyze',duration:550});}}
   draw(){if(!this.hand||this.hand.dead)return;const reach=Math.max(CW,CH)*1.5,active=this.age>this.delay,progress=Math.min(1,this.age/this.delay),ex=this.hand.x+Math.cos(this.angle)*reach,ey=this.hand.y+Math.sin(this.angle)*reach;ctx.save();ctx.globalCompositeOperation='lighter';ctx.strokeStyle=active?'#fff7ae':'#fde047';ctx.shadowColor='#facc15';ctx.shadowBlur=active?(FR_BOSS_FX_MOBILE?8:18):6;ctx.globalAlpha=active?.9:.35+.35*progress;ctx.lineWidth=active?34:5;ctx.setLineDash(active?[]:[12,8]);ctx.beginPath();ctx.moveTo(this.hand.x,this.hand.y);ctx.lineTo(ex,ey);ctx.stroke();if(active){ctx.strokeStyle='#ffffff';ctx.lineWidth=8;ctx.beginPath();ctx.moveTo(this.hand.x,this.hand.y);ctx.lineTo(ex,ey);ctx.stroke();}ctx.restore();}
 }
 function frBossDrawRectProgress(h,progress){
@@ -500,7 +500,7 @@ class FrThunderChaserOrb{
     this.vx=this.index?-1.1:1.1;this.vy=.45;
   }
   update(){
-    this.age++;if(this.hitCooldown>0)this.hitCooldown--;
+    const frStep=window.FR_FRAME_SCALE||1;this.age+=frStep;if(this.hitCooldown>0)this.hitCooldown=Math.max(0,this.hitCooldown-frStep);
     if(!frThunderChaserEnabled()){this.dead=true;return;}
     const dx=player.x-this.x,dy=player.y-this.y,dist=Math.hypot(dx,dy)||1;
     const other=hazards.find(function(h){return h&&h!==this&&h._frThunderChaser&&!h.dead;},this);
@@ -509,7 +509,7 @@ class FrThunderChaserOrb{
     this.vx+=ax;this.vy+=ay;
     const maxSpeed=Number(stage)>=22?2.65:2.35,speed=Math.hypot(this.vx,this.vy)||1;
     if(speed>maxSpeed){this.vx=this.vx/speed*maxSpeed;this.vy=this.vy/speed*maxSpeed;}
-    this.x+=this.vx;this.y+=this.vy;
+    this.x+=this.vx*frStep;this.y+=this.vy*frStep;
     if(this.x<this.r){this.x=this.r;this.vx=Math.abs(this.vx)*.75;}
     else if(this.x>CW-this.r){this.x=CW-this.r;this.vx=-Math.abs(this.vx)*.75;}
     if(this.y<108+this.r){this.y=108+this.r;this.vy=Math.abs(this.vy)*.75;}
@@ -968,19 +968,19 @@ function frBossInit(b){
   hazards=[];eBullets=[];updateBossHp();updateBossShield();
 }
 function frBossUpdateCustom(b){
-  b.timer++;
+  const frStep=window.FR_FRAME_SCALE||1;b.timer+=frStep;
   if(b._frFinal&&frThunderUpdateFinalDeath(b))return;
   if(b._frFinal&&frThunderUpdateTransition(b))return;
   if(b._frStage11Enhanced&&!b._frStage11Rage&&b.hp<=b.maxHp*.5){b._frStage11Rage=true;addText('雷幕躁動',b.x,b.y-105,'#c4b5fd',16,-.35);burst(b.x,b.y,'#a78bfa',28);frBossFxPush(b,'rage',{duration:72,color:'#a78bfa'});}
   const frFormSlow=typeof frCurrentSlowFactor==='function'?frCurrentSlowFactor(b,performance.now()):(b._frSlowUntil&&performance.now()<b._frSlowUntil?Math.max(.08,Math.min(1,b._frSlowFactor||.45)):1);
   const safeY=frBossSafeCenterY(b);b.targetY=Math.max(b.targetY,safeY);
   if(!b._frEntered){
-    if(b.y<safeY){b.y=Math.min(safeY,b.y+2.5);return;}
+    if(b.y<safeY){b.y=Math.min(safeY,b.y+2.5*frStep);return;}
     b._frEntered=true;
     if(!b._frIntroSpoken&&b._frEntryLine){b._frIntroSpoken=true;frBossSpeak(b,b._frEntryLine,b.color);frBossFxPush(b,'entry',{duration:88,color:b.color});frBossThemeFx(b,'entry',92);}
   }
-  if(b.frozenTimer>0)b.frozenTimer--;
-  if(b.shieldBroken){b.shieldResetTimer--;updateBossShield();if(b.shieldResetTimer<=0){b.shield=b.maxShield;b.shieldBroken=false;addText('🛡️護盾重置！',b.x,b.y-50,'#60a5fa');updateBossShield();}}
+  if(b.frozenTimer>0)b.frozenTimer=Math.max(0,b.frozenTimer-frStep);
+  if(b.shieldBroken){b.shieldResetTimer-=frStep;updateBossShield();if(b.shieldResetTimer<=0){b.shield=b.maxShield;b.shieldBroken=false;addText('🛡️護盾重置！',b.x,b.y-50,'#60a5fa');updateBossShield();}}
   if(Array.isArray(b._frLanceVisuals))b._frLanceVisuals=b._frLanceVisuals.filter(function(fx){return b.timer<=fx.end;});
   frThunderUpdateRelics(b);
   frThunderUpdateHands(b);
@@ -988,11 +988,11 @@ function frBossUpdateCustom(b){
   if(warFallen>(b._frWarSpiritShown||0)){b._frWarSpiritShown=warFallen;addText('BOSS 戰意 '+warFallen+' 層',b.x,b.y-112,'#fb7185',15,-.4);burst(b.x,b.y,'#fb7185',18);}
   for(let i=b._frEvents.length-1;i>=0;i--){if(b.timer>=b._frEvents[i].at){const ev=b._frEvents.splice(i,1)[0];ev.fn();}}
   b._frWarnings=b._frWarnings.filter(function(w){return b.timer<=w.end;});
-  if(b._frDash){b.x+=b._frDash.vx*frFormSlow;b.y+=b._frDash.vy*frFormSlow;b._frDash.left--;if(b._frDash.trail&&b.timer%7===0)frBossHazard({kind:'circle',x:b.x,y:b.y,r:26,color:b.color,damage:Math.max(8,b._frDash.damage*.55),status:b._frDash.status||null,delay:18,duration:55});if(Math.hypot(player.x-b.x,player.y-b.y)<b.r+player.radius&&player.invTimer<=0){hurtPlayer(b._frDash.damage);if(b._frDash.status)frBossApplyStatus(b._frDash.status);}if(b._frDash.left<=0||b.x<45||b.x>CW-45||b.y<safeY||b.y>CH*.62)b._frDash=null;}
+  if(b._frDash){b.x+=b._frDash.vx*frFormSlow*frStep;b.y+=b._frDash.vy*frFormSlow*frStep;b._frDash.left-=frStep;if(b._frDash.trail&&Math.floor(b.timer)%7===0)frBossHazard({kind:'circle',x:b.x,y:b.y,r:26,color:b.color,damage:Math.max(8,b._frDash.damage*.55),status:b._frDash.status||null,delay:18,duration:55});if(Math.hypot(player.x-b.x,player.y-b.y)<b.r+player.radius&&player.invTimer<=0){hurtPlayer(b._frDash.damage);if(b._frDash.status)frBossApplyStatus(b._frDash.status);}if(b._frDash.left<=0||b.x<45||b.x>CW-45||b.y<safeY||b.y>CH*.62)b._frDash=null;}
   else{
     const moveRage=1;
     if(b.timer%tempo.moveRetarget===0)b.targetX=70+Math.random()*(CW-140);
-    b.x+=(b.targetX-b.x)*tempo.moveRate*moveRage*frFormSlow;b.y+=(b.targetY-b.y)*tempo.moveRate*moveRage*frFormSlow;
+    b.x+=(b.targetX-b.x)*tempo.moveRate*moveRage*frFormSlow*frStep;b.y+=(b.targetY-b.y)*tempo.moveRate*moveRage*frFormSlow*frStep;
   }
   frBossEnforceTopSafeZone(b);
   if(b._frTether){const dist=Math.hypot(player.x-b.x,player.y-b.y);if(b.timer>b._frTether.until||dist>230)b._frTether=null;else if(b.timer-b._frTether.last>42){b._frTether.last=b.timer;if(player.invTimer<=0){hurtPlayer(b._frTether.damage);b.hp=Math.min(b.maxHp,b.hp+b._frTether.damage*1.5);updateBossHp();}}}

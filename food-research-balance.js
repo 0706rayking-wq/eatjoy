@@ -482,8 +482,8 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
   update(){
    const now=performance.now(),ox=this.x,oy=this.y;
    if(this._frEliteDash){
-    this.timer++;const slow=this.frozenTimer>0?.4:1;if(this.frozenTimer>0)this.frozenTimer--;
-    this.x+=this._frEliteDash.vx*slow;this.y+=this._frEliteDash.vy*slow;this._frEliteDash.left--;
+    const frStep=window.FR_FRAME_SCALE||1;this.timer+=frStep;const slow=this.frozenTimer>0?.4:1;if(this.frozenTimer>0)this.frozenTimer=Math.max(0,this.frozenTimer-frStep);
+    this.x+=this._frEliteDash.vx*slow*frStep;this.y+=this._frEliteDash.vy*slow*frStep;this._frEliteDash.left-=frStep;
     if(this._frEliteDash.left<=0)this._frEliteDash=null;
     if(this.y>CH+60)this.hp=0;
    }else{
