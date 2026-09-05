@@ -860,7 +860,7 @@ function frThunderUpdateFinalDeath(b){
   if(age===death.beamAt){burst(b.x,b.y,'#fde047',32);burst(b.x,b.y,'#ffffff',20);if(Array.isArray(b._frHands))b._frHands.forEach(function(hand){hand.dead=true;});}
   if(age>=death.duration&&!death.completed){
     death.completed=true;b._frFinalDeath=null;b.hp=1;b.shield=0;b.shieldBroken=true;
-    frBaseBoss.prototype.takeDamage.call(b,b.maxHp*4,false);
+    b.takeDamage(b.maxHp*4,false);
   }
   return true;
 }

@@ -169,7 +169,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
       .replace("function goBackToCamp(){window.parent.postMessage({type:'FR_BACK_TO_CAMP',gold},'*');}", "function goBackToCamp(){if(typeof frFlushQuestKills==='function')frFlushQuestKills(true);const detail=typeof window.frGetReturnPayload==='function'?window.frGetReturnPayload():{};window.parent.postMessage(Object.assign({type:'FR_BACK_TO_CAMP',gold,score,stage},detail),'*');}")
       .replace('currentBgIdx=Math.floor(Math.random()*BG_THEMES.length);', 'currentBgIdx=frMapForStage(stage);')
       .replace(/currentBgIdx = pickInitialBgIdx\(\);/g, "currentBgIdx = SAVE.startMapIdx!=null ? pickInitialBgIdx() : frMapForStage(stage);")
-      .replace('stage=Math.max(1,savedS);', 'stage=SAVE.testMode?Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Number(SAVE.testStage)||FR_BALANCE.progression.maxStage)):Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Number(SAVE.resumeStage)||Number(SAVE.maxStage)||savedS||1));')
+      .replace('stage=Math.max(1,savedS);', 'stage=SAVE.testMode||SAVE.freeRoam||SAVE.finalChallenge?Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Number(SAVE.testStage)||FR_BALANCE.progression.maxStage)):Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Number(SAVE.resumeStage)||Number(SAVE.maxStage)||savedS||1));')
       .replace('stage=Math.max(1,savedStage-1)||1;score=0;', 'stage=SAVE.testMode?Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Number(SAVE.testStage)||FR_BALANCE.progression.maxStage)):(savedStage>=8?savedStage:(Math.max(1,savedStage-1)||1));score=Number(SAVE.runScore||0);')
       .replace("window.parent.postMessage({type:'FR_PENALTY_RETURN',penalty:pen},'*');", "window.parent.postMessage({type:'FR_PENALTY_RETURN',penalty:pen,score:score,stage:(frFailureSummary&&frFailureSummary.rollbackStage)||stage,maxStage:frHistoricalMaxStage,bossKills:frBossDefeatedCount,progress:frProgressPayload(),failure:frFailureSummary},'*');")
       .replace('const spd=player.speed*(currentWeapon===\'melee\'?1.1:1)*(normalFrenzyTimer>0?2:1);', "const statusMove=(window.frSlowUntil&&performance.now()<window.frSlowUntil)?FR_BALANCE.combat.slowMultiplier:1;const formMove=typeof frFormMoveMultiplier==='function'?frFormMoveMultiplier():1;const spd=player.speed*(currentWeapon==='melee'?1.1:1)*(normalFrenzyTimer>0?2:1)*statusMove*formMove;")
@@ -235,6 +235,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
 
  function frFailureRollbackStage(value){
   const failed=Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Math.round(Number(value)||1)));
+  if(SAVE.freeRoam||SAVE.finalChallenge)return failed;
   if(failed<=8)return failed;
   const rule=(FR_BALANCE.progression.rollback||[]).find(function(item){return failed>=item.min&&failed<=item.max;});
   return Math.max(8,failed-Math.max(0,Number(rule&&rule.amount)||0));
@@ -252,7 +253,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
   const detail=window.frGetReturnPayload();gold=0;score=0;
   window.parent.postMessage(Object.assign({type:'FR_PENALTY_RETURN',penalty:penalty,score:0,stage:(frFailureSummary&&frFailureSummary.rollbackStage)||stage},detail),'*');
  };
- function frSyncStageProgress(){if(SAVE.testMode)return;window.parent.postMessage({type:'FR_STAGE_SCORE_UPDATE',progress:frProgressPayload()},'*');}
+ function frSyncStageProgress(){if(SAVE.testMode||SAVE.freeRoam)return;window.parent.postMessage({type:'FR_STAGE_SCORE_UPDATE',progress:frProgressPayload()},'*');}
  function frInitializeScoring(startStage){
   const current=Math.max(1,Math.min(22,Math.round(Number(startStage)||1)));frHistoricalMaxStage=Math.max(frHistoricalMaxStage,current);
   if(frScoringMigrated)return;
@@ -263,7 +264,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
  function frHandlePartyFailure(){
   const failed=Math.max(1,Math.round(Number(stage)||1)),rollback=SAVE.testMode?failed:frFailureRollbackStage(failed),stageKey=SAVE.savedStageKey||('fr_stage_'+(SAVE.playerPhone||'guest'));
   score=Math.max(0,Math.round(Number(frStageScoreAtStart)||0));
-  frResumeStage=rollback;localStorage.setItem(stageKey,String(rollback));
+  frResumeStage=SAVE.freeRoam?Math.max(1,Number(SAVE.resumeStage)||22):rollback;if(!SAVE.freeRoam)localStorage.setItem(stageKey,String(rollback));
   frFailureSummary={failedStage:failed,rollbackStage:rollback,rolledBack:rollback<failed};
   frSyncStageProgress();updateHUD();
  }
@@ -378,15 +379,15 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
  }
 
  function frBeginStageClearTransition(info){
-  const clearedStage=Math.max(1,Number(info&&info.stage)||stage),token=++frStageTransitionToken,finalStage=clearedStage>=FR_BALANCE.progression.maxStage,special11=clearedStage===11;
+  const clearedStage=Math.max(1,Number(info&&info.stage)||stage),token=++frStageTransitionToken,patrol=!!SAVE.freeRoam,finalStage=!patrol&&clearedStage>=FR_BALANCE.progression.maxStage,special11=clearedStage===11&&!patrol;
   const overlay=frEnsureStageTransitionUI(),rewards=overlay.querySelector('.fr-st-rewards'),totalRow=overlay.querySelector('.fr-st-total'),band=overlay.querySelector('.fr-st-band'),button=overlay.querySelector('.fr-st-next-btn');
   const nextStage=clearedStage+1,nextMap=finalStage?null:frMapForStage(nextStage),nextTheme=finalStage?null:BG_THEMES[nextMap];
-  let assetsReady=finalStage,finished=false;
+  let assetsReady=finalStage||patrol,finished=false;
   const later=function(ms,fn){setTimeout(function(){if(token===frStageTransitionToken)fn();},ms);};
   frStopClearedStageThreats();frPrepareDeathFx(overlay,info,clearedStage);
   frStageResultPending={stage:clearedStage,bossName:info&&info.bossName||'魔王',bossGold:Number(info&&info.bossGold)||0,bossScore:Number(info&&info.bossScore)||0,clearScore:0,timeScore:0,flawlessScore:0,totalStageScore:Number(info&&info.bossScore)||0};
   document.documentElement.setAttribute('data-fr-stage-transition','active');
-  band.style.display='';button.disabled=true;button.textContent=finalStage?'返回營地':'地圖載入中...';
+  band.style.display='';button.disabled=true;button.textContent=finalStage||patrol?'返回營地':'地圖載入中...';
   overlay.style.display='block';overlay.className=(special11?'fr-special-11 ':'')+(finalStage?'fr-special-22 ':'');overlay.setAttribute('data-phase','lastwords');overlay.setAttribute('data-stage',String(clearedStage));
   frTransitionText('.fr-st-last-words',(info&&info.bossName||'魔王')+'：「'+(info&&info.deathLine||'這一戰……是你贏了。')+'」');
   requestAnimationFrame(function(){if(token!==frStageTransitionToken)return;overlay.classList.add('fr-visible','fr-phase-lastwords');});
@@ -398,7 +399,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
     frTransitionText('.fr-st-final-score',Math.round(score).toLocaleString());frTransitionText('.fr-st-final-gold',Math.round(gold).toLocaleString());frTransitionText('.fr-st-final-time',frFormatTransitionTime(Date.now()-frRunStartedAt));frTransitionText('.fr-st-note',frStageResultPending&&frStageResultPending.scoreNote?frStageResultPending.scoreNote:'雷霆平息，準備返回營地');button.textContent='返回營地';button.disabled=false;
    }else{
     rewards.style.display='grid';totalRow.style.display='block';frTransitionText('.fr-st-kicker',special11?'雷光退去':'BOSS 擊破');frTransitionText('.fr-st-title','第 '+clearedStage+' 關突破');frTransitionText('.fr-st-boss',frStageResultPending.bossName);frUpdateStageTransitionResult(frStageResultPending);
-    const scoreNote=frStageResultPending.scoreNote?(' · '+frStageResultPending.scoreNote):'';frTransitionText('.fr-st-note','下一關：'+(nextTheme?nextTheme.name:'未知區域')+(nextTheme&&nextTheme.text?' · '+nextTheme.text:'')+scoreNote);button.textContent=assetsReady?'下一關':'地圖載入中...';button.disabled=!assetsReady;
+    const scoreNote=frStageResultPending.scoreNote?(' · '+frStageResultPending.scoreNote):'';if(patrol){frTransitionText('.fr-st-kicker','世界巡遊完成');frTransitionText('.fr-st-title',(BG_THEMES[currentBgIdx]&&BG_THEMES[currentBgIdx].name)||'巡遊勝利');frTransitionText('.fr-st-score','+0');frTransitionText('.fr-st-note','本次只帶回金幣，不增加排行榜分數與主線進度');button.textContent='返回營地';button.disabled=false;}else{frTransitionText('.fr-st-note','下一關：'+(nextTheme?nextTheme.name:'未知區域')+(nextTheme&&nextTheme.text?' · '+nextTheme.text:'')+scoreNote);button.textContent=assetsReady?'下一關':'地圖載入中...';button.disabled=!assetsReady;}
    }
   }
   function finishRegular(){
@@ -413,11 +414,11 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
 
   later(2000,function(){overlay.classList.add('fr-lastwords-fade');});later(2550,showResult);
   if(finalStage){
-   window.frRunComplete=true;if(!frFinalClearAwarded){score+=FR_BALANCE.scoring.runClear;frFinalClearAwarded=true;}frHistoricalMaxStage=22;frResumeStage=1;const stageKey=SAVE.savedStageKey||('fr_stage_'+(SAVE.playerPhone||'guest'));localStorage.setItem(stageKey,'1');frSyncStageProgress();updateHUD();
-  }else{
+   window.frRunComplete=true;if(!frFinalClearAwarded){score+=FR_BALANCE.scoring.runClear;frFinalClearAwarded=true;}frHistoricalMaxStage=22;frResumeStage=22;const stageKey=SAVE.savedStageKey||('fr_stage_'+(SAVE.playerPhone||'guest'));localStorage.setItem(stageKey,'22');frSyncStageProgress();updateHUD();
+  }else if(!patrol){
    currentBgIdx=nextMap;preloadBgTheme(currentBgIdx,function(){assetsReady=true;if(overlay.getAttribute('data-phase')==='result'){button.textContent='下一關';button.disabled=false;}});
   }
-  button.onclick=finalStage?finishFinal:finishRegular;
+  button.onclick=finalStage||patrol?finishFinal:finishRegular;
  }
  window.frBeginStageClearTransition=frBeginStageClearTransition;
  window.frStageTransitionVersion='2026-09-01-dialogue-result-5';
@@ -586,6 +587,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
   const wasAlive=!this._defeated&&this.hp>0,debuff=window.frAttackDownUntil&&performance.now()<window.frAttackDownUntil?FR_BALANCE.combat.attackDownMultiplier:1;
   const result=frBalancedBossDamage.call(this,amount*debuff,isQa);
   if(wasAlive&&this._defeated){
+   if(SAVE.freeRoam){score=frStageScoreAtStart;frUpdateStageTransitionResult({stage:stage,bossName:this.name||'魔王',bossGold:frBossCoinReward(stage),bossScore:0,clearScore:0,timeScore:0,flawlessScore:0,totalStageScore:0,scoreNote:'世界巡遊不計排行榜分數'});updateHUD();return result;}
    const elapsed=Math.max(0,(performance.now()-frStageStartedAt)/1000),clear=frStageClearScore(stage);
    const target=48+stage*2.5,time=Math.max(0,Math.round(FR_BALANCE.scoring.timeBonusMax-Math.max(0,elapsed-target)*FR_BALANCE.scoring.timeBonusLossPerSecond));
    const flawless=frStageHpDamage<=0?FR_BALANCE.scoring.flawlessBase+stage*FR_BALANCE.scoring.flawlessPerStage:0;
