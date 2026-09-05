@@ -25,6 +25,17 @@ assert.equal(messages[0].type, 'text');
 assert.equal(messages[1].type, 'image');
 assert.equal(messages.length, 2);
 
+const messagesWithoutReviewerId = buildLineMessageObjects(
+  { headers: { host: 'example.test', 'x-forwarded-proto': 'https' } },
+  {
+    ...report,
+    negativeReviews: [{ reviewerId: '', reviewer: '陳伯鋼', stars: 3, ageLabel: '12 小時前' }]
+  },
+  null
+);
+assert.equal(messagesWithoutReviewerId.length, 2);
+assert.match(messagesWithoutReviewerId[1].originalContentUrl, /reviewKey=/);
+
 const failed = buildLineMessageObjects({}, { date: '2026-08-07' }, 'blocked');
 assert.deepEqual(failed, []);
 assert.equal(formatReportText({ date: '2026-08-07' }, 'blocked'), '');

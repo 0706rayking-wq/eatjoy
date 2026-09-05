@@ -359,12 +359,32 @@ function verifyReviewSignature(reviewerId, date, signature, secret) {
 function buildReviewImageUrl(request, review, date, secret) {
   const protocol = String(request.headers['x-forwarded-proto'] || 'https').split(',')[0].trim();
   const host = String(request.headers['x-forwarded-host'] || request.headers.host || '').split(',')[0].trim();
+  const reviewKey = review.reviewerId || Buffer.from(JSON.stringify({
+    reviewer: String(review.reviewer || '').slice(0, 100),
+    stars: Number(review.stars || 0),
+    ageLabel: String(review.ageLabel || '').slice(0, 40)
+  })).toString('base64url');
   const query = new URLSearchParams({
-    reviewerId: review.reviewerId,
+    reviewKey,
     date,
-    signature: reviewSignature(review.reviewerId, date, secret)
+    signature: reviewSignature(reviewKey, date, secret)
   });
   return `${protocol}://${host}/api/google-review-image?${query.toString()}`;
+}
+
+function parseReviewKey(value) {
+  const reviewKey = String(value || '').trim();
+  if (/^\d+$/.test(reviewKey)) return reviewKey;
+  if (!reviewKey || reviewKey.length > 1000) throw new Error('Invalid review key');
+  const target = JSON.parse(Buffer.from(reviewKey, 'base64url').toString('utf8'));
+  if (!target || typeof target.reviewer !== 'string' || !target.reviewer.trim()) {
+    throw new Error('Invalid review key');
+  }
+  return {
+    reviewer: target.reviewer.trim(),
+    stars: Number(target.stars || 0),
+    ageLabel: String(target.ageLabel || '').trim()
+  };
 }
 
 async function findReviewCard(page, target) {
@@ -455,6 +475,7 @@ module.exports = {
   extractAgeLabel,
   isReviewEntryLabel,
   isRecentAgeLabel,
+  parseReviewKey,
   resolveReviewUrl,
   reviewSignature,
   screenshotReview,

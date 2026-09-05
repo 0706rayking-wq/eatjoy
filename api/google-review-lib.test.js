@@ -3,6 +3,7 @@ const {
   extractAgeLabel,
   isReviewEntryLabel,
   isRecentAgeLabel,
+  parseReviewKey,
   resolveReviewUrl,
   reviewSignature,
   verifyReviewSignature
@@ -34,5 +35,8 @@ assert.match(resolveReviewUrl('not-a-url'), /^https:\/\/www\.google\.com\/maps/)
 const signature = reviewSignature('12345', '2026-08-07', 'secret');
 assert.equal(verifyReviewSignature('12345', '2026-08-07', signature, 'secret'), true);
 assert.equal(verifyReviewSignature('12345', '2026-08-06', signature, 'secret'), false);
+assert.equal(parseReviewKey('12345'), '12345');
+const fallbackKey = Buffer.from(JSON.stringify({ reviewer: '陳伯鋼', stars: 3, ageLabel: '12 小時前' })).toString('base64url');
+assert.deepEqual(parseReviewKey(fallbackKey), { reviewer: '陳伯鋼', stars: 3, ageLabel: '12 小時前' });
 
 console.log('google-review-lib tests passed');

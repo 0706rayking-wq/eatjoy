@@ -43,7 +43,7 @@ function buildLineMessageObjects(request, result, error) {
   if (error) return [];
   const messages = [{ type: 'text', text: formatReportText(result, null) }];
   const secret = String(process.env.HR_AUTOMATION_SECRET || process.env.N8N_RELAY_SECRET || '').trim();
-  for (const review of (result?.negativeReviews || []).filter((item) => item.reviewerId).slice(0, 4)) {
+  for (const review of (result?.negativeReviews || []).slice(0, 4)) {
     const imageUrl = buildReviewImageUrl(request, review, result.date, secret);
     messages.push({
       type: 'image',
