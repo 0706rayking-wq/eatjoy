@@ -362,7 +362,8 @@ function buildReviewImageUrl(request, review, date, secret) {
   const reviewKey = review.reviewerId || Buffer.from(JSON.stringify({
     reviewer: String(review.reviewer || '').slice(0, 100),
     stars: Number(review.stars || 0),
-    ageLabel: String(review.ageLabel || '').slice(0, 40)
+    ageLabel: String(review.ageLabel || '').slice(0, 40),
+    reviewText: String(review.reviewText || '').slice(0, 180)
   })).toString('base64url');
   const query = new URLSearchParams({
     reviewKey,
@@ -383,7 +384,8 @@ function parseReviewKey(value) {
   return {
     reviewer: target.reviewer.trim(),
     stars: Number(target.stars || 0),
-    ageLabel: String(target.ageLabel || '').trim()
+    ageLabel: String(target.ageLabel || '').trim(),
+    reviewText: String(target.reviewText || '').trim()
   };
 }
 
@@ -407,14 +409,15 @@ async function findReviewCard(page, target) {
           stars: Number(ratingAlt.match(/([1-5](?:\.0)?)/)?.[1] || 0),
           ageLabel: text.match(/(?:剛剛|\d+\s*(?:分鐘|小時|天|週|個月|年)前)/)?.[0]
             || text.match(/(?:just now|\d+\s+(?:minute|hour|day|week|month|year)s? ago)/i)?.[0]
-            || ''
+            || '',
+          reviewText: element.querySelector('.OA1nbd, .wiI7pd')?.textContent?.trim() || ''
         };
       });
       if (expected.reviewerId && actual.reviewerId === expected.reviewerId) return card;
       if (!expected.reviewerId
         && actual.reviewer === expected.reviewer
         && actual.stars === expected.stars
-        && actual.ageLabel === expected.ageLabel) return card;
+        && (!expected.reviewText || actual.reviewText.startsWith(expected.reviewText))) return card;
     }
     if (!await scrollReviewList(page)) break;
     await new Promise((resolve) => setTimeout(resolve, 450));
