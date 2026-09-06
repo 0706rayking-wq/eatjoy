@@ -24,9 +24,11 @@ assert.deepEqual(browserbaseConfig(environment), {
 });
 assert.deepEqual(buildSessionPayload(environment), {
   projectId: 'project-id',
+  proxies: true,
   browserSettings: {
     timeout: 900,
     region: 'ap-southeast-1',
+    solveCaptchas: true,
     viewport: { width: 1920, height: 1080 },
     context: { id: 'context-id', persist: true }
   },
@@ -37,9 +39,11 @@ assert.deepEqual(buildSessionPayload(environment, {
   workflow: 'google-review-patrol'
 }), {
   projectId: 'project-id',
+  proxies: true,
   browserSettings: {
     timeout: 900,
     region: 'ap-southeast-1',
+    solveCaptchas: true,
     viewport: { width: 1280, height: 1800 },
     context: { id: 'context-id', persist: true }
   },

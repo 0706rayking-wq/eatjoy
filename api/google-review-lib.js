@@ -161,7 +161,10 @@ async function openLatestReviewsAttempt(page) {
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.7' });
   await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }]);
   await page.goto(reviewUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
-  await page.waitForSelector('button, a, [role="button"]', { timeout: 30000 });
+  // Google Maps can spend 30+ seconds on its interstitial/CAPTCHA when opened
+  // from a fresh cloud session. Browserbase solves those challenges, so give
+  // the page enough time to expose its first interactive control.
+  await page.waitForSelector('button, a, [role="button"]', { timeout: 75000 });
   if (!await page.$(REVIEW_CARD_SELECTOR)) {
     await openNamedPlaceResult(page, process.env.GOOGLE_REVIEW_STORE_NAME);
   }
