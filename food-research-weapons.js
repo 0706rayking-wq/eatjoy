@@ -707,7 +707,10 @@
    if(def.chain){for(const n of enemies){if(n!==e&&n.hp>0&&Math.hypot(e.x-n.x,e.y-n.y)<(def.chainRange||90))n.takeDamage(damage*(def.chainDamage||.28));}}
   }
   function frMeleeGuardActive(def,anim){
-   return !!(anim&&anim.active&&(def.reflect||def.cut)&&anim.progress<=(def.guardRatio||.65));
+   if(!anim||!anim.active||(!def.reflect&&!def.cut))return false;
+   const windowByRarity={normal:[.30,.55],rare:[.27,.58],noble:[.24,.62],top:[.20,.65]};
+   const guardWindow=windowByRarity[def.rarity]||windowByRarity.normal;
+   return anim.progress>=guardWindow[0]&&anim.progress<=guardWindow[1];
   }
   const frMeleeSupportReadyAt={};
   function frTriggerMeleeSupport(def,anim,source){
