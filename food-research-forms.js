@@ -44,7 +44,7 @@
     { id:'puffer_alchemist', rarity:'noble', name:'河豚毒師', emoji:'🐡', passive:'160 範圍每 0.75 秒疊毒；8 點起，每層 +3，最高 5 層', skill1:'萬毒棘輪', skill2:'死海劇毒', color:'#a3e635' },
     { id:'black_garlic_void', rarity:'noble', name:'黑蒜虛空使', emoji:'⚫', passive:'造成傷害 +12%，遠程攻擊額外貫穿', skill1:'蒜核黑洞', skill2:'虛無貫星砲', color:'#818cf8' },
     { id:'lobster_general', rarity:'noble', name:'龍蝦將軍', emoji:'🦞', passive:'每 8 秒獲得護甲，護盾格擋後 4 秒內傷害 +25%', skill1:'赤甲納彈', skill2:'百砲返還', color:'#ef4444' },
-    { id:'truffle_thunder', rarity:'noble', name:'松露雷神', emoji:'⚡', passive:'所有遠程攻擊附帶不衰減連鎖電流', skill1:'追身雷雲', skill2:'萬雷天牢', color:'#60a5fa' },
+    { id:'truffle_thunder', rarity:'noble', name:'松露雷將', emoji:'⚡', passive:'所有遠程攻擊附帶不衰減連鎖電流', skill1:'追身雷雲', skill2:'萬雷天牢', color:'#60a5fa' },
 
     { id:'dragonfruit_emperor', rarity:'top', name:'火龍果龍皇', emoji:'🐉', passive:'185 範圍每 0.5 秒造成 14 點灼燒；擊破有 35% 機率爆破', skill1:'龍星雨', skill2:'焚界龍息', color:'#f43f5e' },
     { id:'peach_divine', rarity:'top', name:'仙桃神使', emoji:'🍑', passive:'後排每秒回復 2% 最大 HP；每場戰鬥首次死亡可復活', skill1:'仙影分身', skill2:'蟠桃回天', color:'#f9a8d4' },
@@ -53,7 +53,7 @@
     ...form,
     ...skillDetails[form.id],
     skill1Cost:form.rarity==='top'?26:form.rarity==='noble'?24:form.rarity==='rare'?22:20,
-    skill2Cost:form.id==='peach_divine'?150:form.rarity==='top'?60:form.rarity==='noble'?56:form.rarity==='rare'?52:48,
+    skill2Cost:form.id==='peach_divine'?100:form.rarity==='top'?60:form.rarity==='noble'?56:form.rarity==='rare'?52:48,
     skill1Cooldown:form.rarity==='top'?4:form.rarity==='noble'?4.25:form.rarity==='rare'?4.5:4.75,
     skill2Cooldown:form.id==='peach_divine'?16:form.rarity==='top'?9.5:form.rarity==='noble'?10:form.rarity==='rare'?10.5:11,
     portrait: assetBase + form.id + '-front.png' + assetVersion,
