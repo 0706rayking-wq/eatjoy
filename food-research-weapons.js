@@ -902,7 +902,9 @@
   if(currentWeapon==='melee'){
    const d=defFor('melee');
    const formHaste=typeof frFormAttackSpeedMultiplier==='function'?frFormAttackSpeedMultiplier():1;
-   const trainedCooldown=Math.max(16,Math.round((d.cooldown||28)/(1+(activeTraining.meleeSpeed||0)*FR_BALANCE.training.meleeSpeedPerLevel)));
+   const meleeTrainingLevel=Math.max(0,Math.min(10,activeTraining.meleeSpeed||0));
+   const untrainedSpeedPenalty=1/(1-.10*(1-meleeTrainingLevel/10));
+   const trainedCooldown=Math.max(16,Math.round((d.cooldown||28)*untrainedSpeedPenalty/(1+meleeTrainingLevel*FR_BALANCE.training.meleeSpeedPerLevel)));
    player.weaponCd=Math.max(frMeleeMinCooldown(d),Math.floor(trainedCooldown/((normalFrenzyTimer>0?2:1)*formHaste)));
    frStartMeleeSequence(d);
    }else{
