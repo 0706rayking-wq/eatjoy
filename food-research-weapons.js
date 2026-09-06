@@ -896,6 +896,7 @@
  function frRangedMinCooldown(def){
   return ({basic:6,fan:10,rapid:5,pierce:8,heavy:10,triple:10,popcorn:11,shotgun:12,freeze:8,flame:7,laser:11,sticky:11,mortar:12,homing:9,gravity:12,lightning:9,meteor:13,fleet:13,absolute:13,drones:10,star:14})[def.pattern]||6;
  }
+ const frMeleeInitialSpeedAdjustments={m02:.10,m04:.10,m05:.10,m09:.10,m19:-.10,m21:-.10};
  autoFire=function(){
   if(player.weaponCd>0){player.weaponCd--;return;}
   const activeTraining=(typeof charSlots!=='undefined'&&charSlots[activeChar]&&charSlots[activeChar].training)||tr||{};
@@ -903,7 +904,9 @@
    const d=defFor('melee');
    const formHaste=typeof frFormAttackSpeedMultiplier==='function'?frFormAttackSpeedMultiplier():1;
    const meleeTrainingLevel=Math.max(0,Math.min(10,activeTraining.meleeSpeed||0));
-   const untrainedSpeedPenalty=1/(1-.10*(1-meleeTrainingLevel/10));
+   const trainingGap=1-meleeTrainingLevel/10;
+   const weaponInitialAdjustment=frMeleeInitialSpeedAdjustments[d.id]||0;
+   const untrainedSpeedPenalty=1/((1-.10*trainingGap)*(1+weaponInitialAdjustment*trainingGap));
    const trainedCooldown=Math.max(16,Math.round((d.cooldown||28)*untrainedSpeedPenalty/(1+meleeTrainingLevel*FR_BALANCE.training.meleeSpeedPerLevel)));
    player.weaponCd=Math.max(frMeleeMinCooldown(d),Math.floor(trainedCooldown/((normalFrenzyTimer>0?2:1)*formHaste)));
    frStartMeleeSequence(d);
