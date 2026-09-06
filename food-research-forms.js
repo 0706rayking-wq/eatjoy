@@ -607,9 +607,11 @@ function frRivalSpeak(line,color){
   else addText(line,CW/2,CH*.4,color||'#fbbf24',18,0);
 }
 function frRivalTakeDamage(r,amount){
+  if(performance.now()<(r._frSkillGuardUntil||0))return 0;
   let damage=Math.max(1,amount*(1-(r._frDefense||0)));
+  damage=Math.min(damage,Math.max(1,r.maxHp*.18));
   if((r._frShield||0)>0){const blocked=Math.min(r._frShield,damage);r._frShield-=blocked;damage-=blocked;}
-  if(damage>0)r.hp-=damage;
+  if(damage>0){r.hp-=damage;if(r.formId==='potato_armor'){r._frSproutLoss=(r._frSproutLoss||0)+damage;const threshold=r.maxHp*.3,now=performance.now();if(r._frSproutLoss>=threshold&&now>=(r._frSproutReadyAt||0)){r._frSproutLoss-=threshold;r._frSproutReadyAt=now+10000;r.hp=Math.min(r.maxHp,r.hp+r.maxHp*.08);addText('發芽回復',r.x,r.y-46,'#a3e635',12,-.4);burst(r.x,r.y,'#a3e635',16);}}}
   return damage;
 }
 hitRival=function(bx,by,dmg,br){
@@ -619,10 +621,10 @@ hitRival=function(bx,by,dmg,br){
     if(r.defeated||r.invTimer>0)return;
     if(Math.hypot(bx-r.x,by-r.y)>=r.r+br)return;
     const wasAlive=r.hp>0;
-    frRivalTakeDamage(r,dmg);hit=true;r.invTimer=8;r._frHurtKick=7;
+    frRivalTakeDamage(r,dmg);hit=true;r.invTimer=5;r._frHurtKick=7;
     burst(r.x,r.y,'#fbbf24',8);frFormRegisterHit(r,wasAlive);
     if(r.hp<=0){
-      if(r.formId==='peach_divine'&&!r._frFormRevived){r._frFormRevived=true;r.hp=Math.max(1,r.maxHp*.3);r.invTimer=90;frRivalSpeak(r.name+'：「仙桃護我，再戰！」','#f9a8d4');burst(r.x,r.y,'#f9a8d4',24);return;}
+      if(r.formId==='peach_divine'&&!r._frFormRevived){r._frFormRevived=true;r.hp=Math.max(1,r.maxHp*.25);r.invTimer=90;frRivalSpeak(r.name+'：「仙桃護我，再戰！」','#f9a8d4');burst(r.x,r.y,'#f9a8d4',24);return;}
       if(r._frAmulets.lethalGuard&&!r._frLethalGuardUsed){r._frLethalGuardUsed=true;r.hp=1;r.invTimer=75;r._frShield=12;burst(r.x,r.y,'#e2e8f0',18);return;}
       r.defeated=true;
       frRivalSpeak(r.defeatLine,'#cbd5e1');
@@ -714,21 +716,23 @@ function frRivalWeaponAttack(r){
   const rank={normal:0,rare:1,noble:2,top:3}[w.rarity]||0;
   const lowHp=1-(r.hp/Math.max(1,r.maxHp)),lowHpBonus=1+lowHp*Math.min(.2,Number(r._frAmulets.lowHpAttack)||0);
   const crit=Math.random()<(r._frCrit||0)?1.5:1;
-  const damage=Math.max(7,r.atk*(Math.min(1.55,Number(w.damage)||1))*lowHpBonus*crit);
+  const fieldBuff=r.formId==='lemon_battery'&&performance.now()<(r._frLemonUntil||0)?1.15:1;
+  const damage=Math.max(7,r.atk*(Math.min(1.55,Number(w.damage)||1))*lowHpBonus*crit*fieldBuff);
   const speed=4.1+rank*.22,size=Math.min(11,(Number(w.size)||6)*(1+(r._frAmulets.projectileSize||0)));
   const color=w.color||(FR_FORM_MAP[r.formId]||{}).color||'#f59e0b';
   let offsets=[0];
   if(['fan','shotgun','flame'].includes(pattern))offsets=[-.28,0,.28];
   else if(['triple','popcorn','fleet','drones','star'].includes(pattern))offsets=[-.16,0,.16];
   else if(pattern==='rapid')offsets=[-.045,.045];
-  offsets.slice(0,3).forEach(function(offset){
+  if(r.formId==='popcorn'&&r._frAttackCount%4===0)offsets=[-.32,-.16,0,.16,.32];
+  offsets.slice(0,5).forEach(function(offset){
     const b=frRivalBullet(r,baseAngle+offset,speed,damage/Math.max(1,offsets.length*.72),color,size);
     if(w.pierce)b.frPiercing=true;if(w.burn)b.frBurn=true;if(w.freeze)b.frFreeze=true;
   });
   r._frWeaponFlash=12;
 }
 function frRivalTryMelee(r){
-  const w=r._frMelee||{},range=Math.min(175,(Number(w.range)||90)*(1+(r._frAmulets.meleeRange||0)));
+  const w=r._frMelee||{},giant=performance.now()<(r._frGiantUntil||0)?1.65:1,range=Math.min(240,(Number(w.range)||90)*(1+(r._frAmulets.meleeRange||0))*giant);
   const dist=Math.hypot(player.x-r.x,player.y-r.y);if(dist>range+player.radius)return false;
   const crit=Math.random()<(r._frCrit||0)?1.5:1;
   const damage=r.atk*Math.min(1.65,Number(w.damage)||1)*(1+Math.min(.18,r._frAmulets.meleeDamage||0))*crit;
@@ -743,12 +747,12 @@ const FR_RIVAL_SKILLS={
  black_garlic_void:[['蒜核黑洞','control'],['雙鬼召來','fan']],lobster_general:[['甲殼吸收','self'],['雙側砲台','fan']],truffle_thunder:[['雷環護身','circle'],['雷域推進','lane']],
  dragonfruit_emperor:[['雙翼龍焰','fan'],['龍隕石','circle']],peach_divine:[['仙人模式','fan'],['蟠桃回天','self']],cocoa_popsicle_wargod:[['冰霜劍氣','fan'],['尖刺冰牆','lane']]
 };
-let frRivalTelegraphs=[];
+let frRivalTelegraphs=[],frRivalZones=[],frRivalBigLockUntil=0;
 function frQueueRivalSkill(r,slot){
   const list=FR_RIVAL_SKILLS[r.formId]||[['型態突擊','fan'],['型態爆發','circle']],def=list[slot-1];
-  const duration=slot===2?66:50,target={x:player.x,y:player.y};
+  const duration=slot===2?72:48,target={x:player.x,y:player.y};
   frRivalTelegraphs.push({r:r,slot:slot,name:def[0],kind:def[1],timer:duration,duration:duration,x:target.x,y:target.y,color:(FR_FORM_MAP[r.formId]||{}).color||'#fbbf24'});
-  r._frCasting=true;frRivalSpeak(r.name+'・'+def[0],(FR_FORM_MAP[r.formId]||{}).color||'#fbbf24');
+  r._frCasting=true;r._frCastingSlot=slot;if(slot===2)frRivalBigLockUntil=performance.now()+1500;frRivalSpeak(r.name+'・'+def[0],(FR_FORM_MAP[r.formId]||{}).color||'#fbbf24');
 }
 function frExecuteRivalSkill(t){
   const r=t.r;if(!r||r.defeated)return;const strong=t.slot===2,damage=r.atk*(strong?1.15:.72),angle=Math.atan2(t.y-r.y,t.x-r.x);
@@ -766,22 +770,46 @@ function frExecuteRivalSkill(t){
   }else{
     const radius=strong?105:78;if(Math.hypot(player.x-t.x,player.y-t.y)<radius){hurtPlayer(damage);if(r.formId==='puffer_alchemist')player.poisoned=true;else if(r.formId==='cocoa_popsicle_wargod')player.frozenTimer=Math.max(player.frozenTimer||0,70);else if(['chili_sprite','dragonfruit_emperor'].includes(r.formId))player.burnTimer=Math.max(player.burnTimer||0,120);}
   }
-  burst(t.x,t.y,t.color,strong?24:14);r._frCasting=false;
+  if(r.formId==='chili_sprite'&&!strong){frRivalZones.push({kind:'chili',owner:r,x:t.x,y:t.y,r:70,until:performance.now()+4000,nextHit:0,color:'#fb7185'});}
+  if(r.formId==='garlic_knight'&&strong){r._frSkillGuardUntil=performance.now()+2200;r._frShield=Math.max(r._frShield||0,35);}
+  if(r.formId==='lotus_archer'){const extra=strong?4:2;for(let i=0;i<extra;i++)frRivalBullet(r,angle+(i-(extra-1)/2)*.1,5.8,damage*.42,'#fda4af',5);}
+  if(r.formId==='cheese_mage'&&!strong)frRivalZones.push({kind:'cheese',owner:r,x:t.x,y:t.y,r:82,until:performance.now()+5000,nextHit:0,color:'#fbbf24'});
+  if(r.formId==='honey_priest'){const ally=rivalEnemies.filter(function(o){return !o.defeated;}).sort(function(a,b){return a.hp/a.maxHp-b.hp/b.maxHp;})[0];if(ally){ally.hp=Math.min(ally.maxHp,ally.hp+(strong?42:20));ally._frShield=(ally._frShield||0)+(strong?28:12);burst(ally.x,ally.y,'#fbbf24',12);}}
+  if(r.formId==='coffee_pilot')r._frCoffeeUntil=performance.now()+(strong?6000:3500);
+  if(r.formId==='octopus_samurai'){let reflected=0;for(let i=bullets.length-1;i>=0;i--){const b=bullets[i];if(Math.hypot(b.x-r.x,b.y-r.y)<(strong?190:130)){bullets.splice(i,1);reflected++;const a=Math.atan2(player.y-r.y,player.x-r.x)+(Math.random()-.5)*.3;frRivalBullet(r,a,5,damage*.35,'#c084fc',6);}}if(reflected)addText('墨流反擊 '+reflected,r.x,r.y-48,'#c084fc',11,-.35);}
+  if(r.formId==='salmon_ronin'&&strong){for(let i=0;i<9;i++){const a=Math.PI*2*i/9;frRivalBullet(r,a,5.5,damage*.32,'#60a5fa',5);}}
+  if(r.formId==='beef_berserker'&&strong)r._frGiantUntil=performance.now()+6500;
+  if(r.formId==='puffer_alchemist'&&!strong)frRivalZones.push({kind:'poison',owner:r,x:t.x,y:t.y,r:92,until:performance.now()+6000,nextHit:0,color:'#a3e635'});
+  if(r.formId==='black_garlic_void'){player.x+=(r.x-player.x)*(strong?.22:.12);player.y+=(r.y-player.y)*(strong?.22:.12);}
+  if(r.formId==='lobster_general'){let absorbed=0;for(let i=bullets.length-1;i>=0&&absorbed<(strong?12:7);i--){if(Math.hypot(bullets[i].x-r.x,bullets[i].y-r.y)<180){bullets.splice(i,1);absorbed++;}}r._frShield=(r._frShield||0)+absorbed*5;if(absorbed)addText('吸收 '+absorbed,r.x,r.y-48,'#fb7185',11,-.35);}
+  if(r.formId==='truffle_thunder'){for(let i=0;i<(strong?8:4);i++)frRivalBullet(r,Math.PI*2*i/(strong?8:4),4.2,damage*.3,'#fde047',6);}
+  if(r.formId==='dragonfruit_emperor'&&strong)player.burnTimer=Math.max(player.burnTimer||0,150);
+  if(r.formId==='peach_divine'&&strong){r.hp=Math.min(r.maxHp,r.hp+r.maxHp*.22);r._frShield=(r._frShield||0)+45;}
+  if(r.formId==='cocoa_popsicle_wargod'&&strong)r._frShield=(r._frShield||0)+55;
+  burst(t.x,t.y,t.color,strong?24:14);r._frCasting=false;r._frCastingSlot=0;
 }
+function frTickRivalZones(){const now=performance.now();for(let i=frRivalZones.length-1;i>=0;i--){const z=frRivalZones[i];if(now>=z.until||!z.owner||z.owner.defeated){frRivalZones.splice(i,1);continue;}if(now<z.nextHit||Math.hypot(player.x-z.x,player.y-z.y)>=z.r+player.radius)continue;z.nextHit=now+500;if(z.kind==='chili'){hurtPlayer(z.owner.atk*.15);player.burnTimer=Math.max(player.burnTimer||0,90);}else if(z.kind==='poison'){hurtPlayer(z.owner.atk*.11);player.poisoned=true;}else if(z.kind==='cheese'){player.frozenTimer=Math.max(player.frozenTimer||0,12);}}}
 function frTickRivalSkills(){
+  frTickRivalZones();const now=performance.now();
   rivalEnemies.forEach(function(r){
     if(r.defeated||r.y<r.targetY||r._frCasting)return;
     r._frSmallClock=(r._frSmallClock||0)+1;r._frBigClock=(r._frBigClock||0)+1;
-    if(r._frBigClock>=690){r._frBigClock=0;r._frSmallClock=0;frQueueRivalSkill(r,2);}
-    else if(r._frSmallClock>=330){r._frSmallClock=0;frQueueRivalSkill(r,1);}
-    if(['healing_mushroom','honey_priest'].includes(r.formId)&&r.timer%300===0)r.hp=Math.min(r.maxHp,r.hp+8);
-    if(['onion_guard','potato_armor','lobster_general'].includes(r.formId)&&r.timer%540===0)r._frShield=Math.min(55,(r._frShield||0)+18);
+    if(r._frBigClock>=450&&now>=frRivalBigLockUntil){r._frBigClock=0;r._frSmallClock=0;frQueueRivalSkill(r,2);}
+    else if(r._frSmallClock>=228){r._frSmallClock=0;frQueueRivalSkill(r,1);}
+    if(r.formId==='healing_mushroom'&&r.timer%480===0){const ally=rivalEnemies.filter(function(other){return !other.defeated;}).sort(function(a,b){return a.hp/a.maxHp-b.hp/b.maxHp;})[0];if(ally){ally.hp=Math.min(ally.maxHp,ally.hp+25);addText('+25 HP',ally.x,ally.y-42,'#86efac',11,-.35);burst(ally.x,ally.y,'#86efac',10);}}
+    if(r.formId==='onion_guard'&&r.timer%600===0)r._frShield=Math.min(55,(r._frShield||0)+22);
+    if(['potato_armor','lobster_general'].includes(r.formId)&&r.timer%540===0)r._frShield=Math.min(55,(r._frShield||0)+18);
+    if(r.formId==='lemon_battery'&&r.timer%600===0){r._frLemonUntil=now+5000;addText('充能力場',r.x,r.y-44,'#fde047',11,-.35);}
+    if(r.formId==='honey_priest'&&r.timer%420===0){const ally=rivalEnemies.filter(function(o){return !o.defeated;}).sort(function(a,b){return a.hp/a.maxHp-b.hp/b.maxHp;})[0];if(ally){ally.hp=Math.min(ally.maxHp,ally.hp+16);addText('+16 HP',ally.x,ally.y-42,'#fbbf24',10,-.3);}}
+    if(r.formId==='lobster_general'&&r.timer%300===0){let caught=0;for(let i=bullets.length-1;i>=0&&caught<4;i--){if(Math.hypot(bullets[i].x-r.x,bullets[i].y-r.y)<95){bullets.splice(i,1);caught++;}}if(caught)r._frShield=(r._frShield||0)+caught*4;}
+    if(r.formId==='dragonfruit_emperor'&&r.timer%60===0&&Math.hypot(player.x-r.x,player.y-r.y)<145){hurtPlayer(r.atk*.1);player.burnTimer=Math.max(player.burnTimer||0,70);}
+    if(r.formId==='cocoa_popsicle_wargod'&&r.timer%120===0&&Math.hypot(player.x-r.x,player.y-r.y)<125)player.frozenTimer=Math.max(player.frozenTimer||0,18);
     if(['chili_sprite','dragonfruit_emperor','truffle_thunder'].includes(r.formId)&&r.timer%90===0&&Math.hypot(player.x-r.x,player.y-r.y)<92)hurtPlayer(r.atk*.22);
   });
   for(let i=frRivalTelegraphs.length-1;i>=0;i--){const t=frRivalTelegraphs[i];t.timer--;if(t.timer<=0){frExecuteRivalSkill(t);frRivalTelegraphs.splice(i,1);}}
 }
 startRivalFight=function(fl,fm){
-  frOriginalStartRivalFight(fl,fm);window.frRivalVictorySpoken=false;frRivalTelegraphs=[];
+  frOriginalStartRivalFight(fl,fm);window.frRivalVictorySpoken=false;frRivalTelegraphs=[];frRivalZones=[];frRivalBigLockUntil=0;
   const rivalAiByForm={
     onion_guard:'deflector',potato_armor:'deflector',lobster_general:'deflector',healing_mushroom:'deflector',honey_priest:'deflector',
     popcorn:'sniper',lotus_archer:'sniper',lemon_battery:'sniper',cocoa_popsicle_wargod:'sniper',
@@ -795,13 +823,13 @@ startRivalFight=function(fl,fm){
     enemy.aiMode=rivalAiByForm[enemy.formId]||enemy.aiMode;
     enemy.targetY=Math.min(CH*.38,160+index*58);
     enemy._frRanged=source.rangedWeapon||{};enemy._frMelee=source.meleeWeapon||{};enemy._frAmulets=amulets;
-    const stageScale=Math.min(1.4,1+Math.max(0,stage-1)*.025);
-    enemy.maxHp=Math.round((155+frClampRivalLevel(tr.hp)*12+Math.min(30,Number(amulets.maxHp)||0))*stageScale);
-    enemy.hp=enemy.maxHp;enemy.atk=(11+stage*1.05+frClampRivalLevel(tr.atk)*1.7)*(1+Math.min(.18,Number(amulets.attack)||0));
+    const stageScale=Math.min(1.4,1+Math.max(0,stage-1)*.025),tierHp=stage<=10?1.5:stage<=15?1.8:stage<=21?2.1:2.3,tierAtk=stage<=10?1.05:stage<=15?1.12:stage<=21?1.18:1.2;
+    enemy.maxHp=Math.round((155+frClampRivalLevel(tr.hp)*12+Math.min(30,Number(amulets.maxHp)||0))*stageScale*tierHp);
+    enemy.hp=enemy.maxHp;enemy.atk=(11+stage*1.05+frClampRivalLevel(tr.atk)*1.7)*(1+Math.min(.18,Number(amulets.attack)||0))*tierAtk;
     enemy._frDefense=Math.min(.28,frClampRivalLevel(tr.def)*.02+Math.min(.08,Number(amulets.defense)||0));
     enemy._frAttackHaste=Math.min(.18,frClampRivalLevel(tr.rangedSpeed)*.012+frClampRivalLevel(tr.meleeSpeed)*.008+Math.min(.08,Number(amulets.attackSpeed)||0));
     enemy._frCrit=Math.min(.14,frClampRivalLevel(tr.crit)*.008+Math.min(.06,Number(amulets.crit)||0));
-    enemy._frShield=Math.min(36,Number(amulets.autoShield)||0);enemy._frLastAttackTimer=enemy.atkTimer;enemy._frAttackCount=0;
+    enemy._frShield=Math.min(36,Number(amulets.autoShield)||0);enemy._frLastAttackTimer=enemy.atkTimer;enemy._frAttackCount=0;enemy.invTimer=60;enemy._frSmallClock=-index*45;enemy._frBigClock=-index*90;
   });
 };
 const frOriginalTickRivalFight=tickRivalFight;
@@ -812,7 +840,13 @@ tickRivalFight=function(){
   rivalEnemies.forEach(function(r){
     if(!r.defeated&&r.y>=r.targetY&&!r.announced){r.announced=true;frRivalSpeak(r.entryLine,'#fbbf24');}
     if(!r.defeated&&r.y>=r.targetY){
+      if(r.aiMode==='rusher'){r._frBeforeTickX=r.x;r._frBeforeTickY=r.y;}
       r._frHasteBudget=(r._frHasteBudget||0)+(r._frAttackHaste||0);
+      if(r.hp/r.maxHp<.4)r._frHasteBudget+=.15;
+      if(rivalEnemies.some(function(other){return other!==r&&!other.defeated&&other._frCasting;}))r._frHasteBudget+=.15;
+      if(rivalEnemies.filter(function(other){return !other.defeated;}).length===1)r._frHasteBudget+=.15;
+      if(r.formId==='lemon_battery'&&performance.now()<(r._frLemonUntil||0))r._frHasteBudget+=.15;
+      if(r.formId==='coffee_pilot'&&performance.now()<(r._frCoffeeUntil||0))r._frHasteBudget+=.35;
       if(r._frHasteBudget>=1){r.atkTimer++;r.skillTimer++;r._frHasteBudget-=1;}
       if(r._frAmulets.hpRegenPct&&r.timer%180===0)r.hp=Math.min(r.maxHp,r.hp+r.maxHp*Math.min(.01,r._frAmulets.hpRegenPct));
     }
@@ -827,6 +861,27 @@ tickRivalFight=function(){
   }
   rivalEnemies.forEach(function(r){
     if(r.defeated)return;
+    if(r.hp/r.maxHp<=.2&&!r._frLastStandShield){r._frLastStandShield=true;r._frShield=(r._frShield||0)+r.maxHp*.2;addText('背水護盾',r.x,r.y-48,'#67e8f9',12,-.4);burst(r.x,r.y,'#67e8f9',16);}
+    const incoming=bullets.filter(function(b){return b&&Math.hypot(b.x-r.x,b.y-r.y)<105;}).sort(function(a,b){return Math.hypot(a.x-r.x,a.y-r.y)-Math.hypot(b.x-r.x,b.y-r.y);})[0];
+    if(incoming&&r.aiMode==='deflector'&&performance.now()>=(r._frDeflectReadyAt||0)){
+      const dist=Math.hypot(incoming.x-r.x,incoming.y-r.y);if(dist<54){const idx=bullets.indexOf(incoming);if(idx>=0)bullets.splice(idx,1);const a=Math.atan2(player.y-r.y,player.x-r.x);frRivalBullet(r,a,5.2,Math.max(8,r.atk*.55),'#67e8f9',7);r._frDeflectReadyAt=performance.now()+700;addText('反彈',r.x,r.y-42,'#67e8f9',10,-.35);}else{const side=incoming.x<r.x?1:-1;r.x+=side*1.8;}
+    }else if(incoming&&r.aiMode==='evader'){r.x+=(incoming.x<r.x?1:-1)*1.4;}
+    if(r.aiMode==='rusher'&&r.announced){
+      if(Number.isFinite(r._frBeforeTickX)){r.x=r._frBeforeTickX;r.y=r._frBeforeTickY;}
+      if(r._frRushFrames>0){
+        r.x+=Math.cos(r._frRushAngle)*5.6;r.y+=Math.sin(r._frRushAngle)*5.6;r._frRushFrames--;
+        if(Math.hypot(player.x-r.x,player.y-r.y)<r.r+player.radius+8&&performance.now()>=(r._frRushHitAt||0)){hurtPlayer(r.atk*.72);r._frRushHitAt=performance.now()+700;}
+      }else if(r._frRushWarn>0){
+        r._frRushWarn--;if(r._frRushWarn===0){r._frRushFrames=20;r._frRushCooldown=105;burst(r.x,r.y,'#fbbf24',12);}
+      }else{
+        r._frRushCooldown=Math.max(0,(r._frRushCooldown==null?45:r._frRushCooldown)-1);
+        const dx=player.x-r.x,dy=player.y-r.y,d=Math.hypot(dx,dy)||1;
+        r.x+=dx/d*.32;r.y+=dy/d*.32;
+        if(r._frRushCooldown===0){r._frRushAngle=Math.atan2(dy,dx);r._frRushWarn=60;addText('突進預警',r.x,r.y-46,'#fbbf24',11,-.25);}
+      }
+    }else if(r.aiMode==='berserker'&&r.y<CH*.75){const dx=player.x-r.x,dy=player.y-r.y,d=Math.hypot(dx,dy)||1;r.x+=dx/d*.65;r.y+=dy/d*.65;}
+    rivalEnemies.forEach(function(other){if(other===r||other.defeated)return;const dx=r.x-other.x,dy=r.y-other.y,d=Math.hypot(dx,dy)||1;if(d<75){r.x+=dx/d*.45;r.y+=dy/d*.25;}});
+    r.x=Math.max(r.r,Math.min(CW-r.r,r.x));r.y=Math.max(r.r+58,Math.min(CH*.75,r.y));
     const fired=r.atkTimer<(r._frLastAttackTimer||0);
     if(fired){
       r._frAttackCount=(r._frAttackCount||0)+1;
@@ -979,6 +1034,10 @@ const frOriginalSetForm=setForm;
 setForm=function(fid){frOriginalSetForm(FR_FORM_MAP[fid]?fid:'normal');if(currentForm.id!=='normal')frImg(currentForm.id,'battle');frSetSkillArt();};
 
 function frDrawRivalTelegraphs(){
+ frRivalZones.forEach(function(z){const now=performance.now(),life=Math.max(0,(z.until-now)/4000),pulse=.92+.06*Math.sin(now/100);ctx.save();ctx.globalAlpha=.2+.08*life;ctx.fillStyle=z.color;ctx.beginPath();ctx.arc(z.x,z.y,z.r,0,Math.PI*2);ctx.fill();ctx.globalAlpha=.75;ctx.strokeStyle='#fda4af';ctx.lineWidth=3;ctx.setLineDash([9,7]);ctx.lineDashOffset=-now/35;ctx.beginPath();ctx.arc(z.x,z.y,z.r*pulse,0,Math.PI*2);ctx.stroke();ctx.restore();});
+ rivalEnemies.forEach(function(r){if(r.defeated||r.formId!=='lemon_battery'||performance.now()>=(r._frLemonUntil||0))return;const now=performance.now();ctx.save();ctx.globalAlpha=.18;ctx.fillStyle='#fde047';ctx.beginPath();ctx.arc(r.x,r.y,82,0,Math.PI*2);ctx.fill();ctx.globalAlpha=.8;ctx.strokeStyle='#fef08a';ctx.lineWidth=3;ctx.setLineDash([10,7]);ctx.lineDashOffset=-now/30;ctx.beginPath();ctx.arc(r.x,r.y,82,0,Math.PI*2);ctx.stroke();ctx.restore();});
+ rivalEnemies.forEach(function(r){if(r.defeated)return;const now=performance.now();let color='',radius=0;if(now<(r._frSkillGuardUntil||0)){color='#fef3c7';radius=48;}else if(now<(r._frCoffeeUntil||0)){color='#a16207';radius=42;}else if(now<(r._frGiantUntil||0)){color='#ef4444';radius=55;}if(!radius)return;ctx.save();ctx.globalAlpha=.5+.18*Math.sin(now/80);ctx.strokeStyle=color;ctx.lineWidth=4;ctx.beginPath();ctx.arc(r.x,r.y,radius,0,Math.PI*2);ctx.stroke();ctx.restore();});
+ rivalEnemies.forEach(function(r){if(r.defeated||!(r._frRushWarn>0))return;const len=Math.max(CW,CH),p=1-r._frRushWarn/60;ctx.save();ctx.globalAlpha=.28+.35*p;ctx.strokeStyle='#fbbf24';ctx.lineWidth=18;ctx.setLineDash([12,9]);ctx.lineDashOffset=-p*45;ctx.beginPath();ctx.moveTo(r.x,r.y);ctx.lineTo(r.x+Math.cos(r._frRushAngle)*len,r.y+Math.sin(r._frRushAngle)*len);ctx.stroke();ctx.globalAlpha=.95;ctx.lineWidth=2;ctx.strokeStyle='#fff7cc';ctx.setLineDash([]);ctx.stroke();ctx.restore();});
  frRivalTelegraphs.forEach(function(t){
   const r=t.r;if(!r||r.defeated)return;const p=1-t.timer/t.duration,pulse=.45+.25*Math.sin(p*28);
   ctx.save();ctx.globalAlpha=pulse;ctx.strokeStyle=t.color;ctx.fillStyle=t.color+'24';ctx.lineWidth=2.5;ctx.setLineDash([7,6]);ctx.lineDashOffset=-p*36;
@@ -1009,7 +1068,7 @@ drawRivalEnemies=function(){
     const p=1-(r._frMeleeFx.until-performance.now())/260;ctx.save();ctx.globalAlpha=Math.max(0,1-p);ctx.strokeStyle=r._frMeleeFx.color;ctx.lineWidth=7-3*p;
     ctx.beginPath();ctx.arc(0,0,r._frMeleeFx.range,-Math.PI*.92,-Math.PI*.08);ctx.stroke();ctx.restore();
   }
-  if(r.invTimer>0&&r.invTimer%6<3)ctx.globalAlpha=.42;
+  if(r.invTimer>10&&r.invTimer%6<3)ctx.globalAlpha=.42;
   if(portrait&&portrait.complete&&portrait.naturalWidth){
    ctx.imageSmoothingEnabled=false;const bob=Math.sin((r.timer||0)*.09)*2.5;
    ctx.drawImage(portrait,-39,-47+bob,78,78);

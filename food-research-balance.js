@@ -54,7 +54,7 @@
       bossBase: 65,
       bossPerStage: 7,
       rivalBase: 40,
-      rivalPerStage: 4,
+      rivalPerStage: 0,
     },
     stamina: {
       base: 100,
