@@ -152,6 +152,20 @@ async function openNamedPlaceResult(page, storeName) {
   return clicked;
 }
 
+async function clickElementByLabel(page, selector, pattern) {
+  const elements = await page.$$(selector);
+  for (const element of elements) {
+    const label = await element.evaluate((node) => `${node.textContent || ''} ${node.getAttribute('aria-label') || ''}`
+      .replace(/\s+/g, ' ')
+      .trim());
+    if (!pattern.test(label)) continue;
+    await element.evaluate((node) => node.scrollIntoView({ block: 'center', inline: 'center' }));
+    await element.click();
+    return true;
+  }
+  return false;
+}
+
 async function openLatestReviewsAttempt(page) {
   const reviewUrl = resolveReviewUrl(process.env.GOOGLE_REVIEW_URL);
   await page.setUserAgent(
@@ -177,23 +191,20 @@ async function openLatestReviewsAttempt(page) {
     return true;
   });
   if (!latestWasVisible) {
-    const openedSort = await page.evaluate(() => {
-      const sort = [...document.querySelectorAll('button, [role="button"]')]
-        .find((element) => /排序評論|sort reviews/i.test(
-          `${element.textContent || ''} ${element.getAttribute('aria-label') || ''}`
-        ));
-      if (!sort) return false;
-      sort.click();
-      return true;
-    });
+    const openedSort = await clickElementByLabel(
+      page,
+      'button, [role="button"]',
+      /排序評論|sort reviews/i
+    );
     if (!openedSort) throw new Error('Google review sort button was not found');
-    await page.waitForFunction(() => [...document.querySelectorAll('[role="radio"], [role="menuitemradio"]')]
+    await page.waitForFunction(() => [...document.querySelectorAll('[role="radio"], [role="menuitemradio"], [role="menuitem"], button, [role="button"]')]
       .some((element) => /^(最新|newest)$/i.test((element.textContent || '').trim())), { timeout: 30000 });
-    await page.evaluate(() => {
-      const latest = [...document.querySelectorAll('[role="radio"], [role="menuitemradio"]')]
-        .find((element) => /^(最新|newest)$/i.test((element.textContent || '').trim()));
-      latest.click();
-    });
+    const selectedLatest = await clickElementByLabel(
+      page,
+      '[role="radio"], [role="menuitemradio"], [role="menuitem"], button, [role="button"]',
+      /^(最新|newest)$/i
+    );
+    if (!selectedLatest) throw new Error('Google review newest sort option could not be selected');
   }
   await new Promise((resolve) => setTimeout(resolve, 900));
 }
