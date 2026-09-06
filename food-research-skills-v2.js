@@ -327,7 +327,7 @@
   else if(id==='truffle_thunder')frV2Field('truffleRing',{until:now+10000});
   else if(id==='dragonfruit_emperor')frV2Field('dragonBreath',{x:player.x,y:player.y,follow:true,activate:now+180,until:now+4500});
   else if(id==='peach_divine'){for(let i=0;i<12;i++)setTimeout(function(){if(!gameRunning)return;const b=new Bullet(player.x,player.y,0,-13,25*(window._curAtkMult||atkMult),'#f9a8d4',10,true,false,false);b.frV2Qi=true;bullets.push(b);},i*500);}
-  else if(id==='cocoa_popsicle_wargod'){[0,1000].forEach(function(d){setTimeout(function(){if(!gameRunning)return;frCocoaLaunchArc(d?1:-1);frV2Targets().forEach(function(t){if(frV2InFront(t,CH,CW*.375)){frV2SkillDamage(t,20,'skill');frV2Slow(t,frV2Boss(t)?500:2000,.05);}});},d);});}
+  else if(id==='cocoa_popsicle_wargod'){const castId=now;[0,1000].forEach(function(d){setTimeout(function(){if(!gameRunning)return;frCocoaLaunchArc(d?1:-1);frV2Targets().forEach(function(t){if(frV2InFront(t,CH,CW*.375)){frV2SkillDamage(t,20,'skill');if(t._frV2CocoaFreezeCast!==castId){t._frV2CocoaFreezeCast=castId;t._frV2ParalyzedUntil=Math.max(t._frV2ParalyzedUntil||0,frV2Now()+(frV2Boss(t)?1000:2000));}frV2Slow(t,frV2Boss(t)?1000:2000,.05);}});},d);});}
   updateHUD();
  };
 

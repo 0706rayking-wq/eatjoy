@@ -224,7 +224,7 @@ function frCocoaApplySlow(target,kind){
   if(kind==='freeze'){
     if(!isBoss)target.frozenTimer=Math.max(target.frozenTimer||0,120);
     frApplySingleSlow(target,isBoss?1000:2000,isBoss?.55:.08);
-  }else frApplySingleSlow(target,isBoss?1000:2000,isBoss?.85:.6);
+  }else frApplySingleSlow(target,isBoss?1000:2000,isBoss?.9:.75);
 }
 function frCocoaSnowflakeHit(shot,target){
   if(!frCocoaTargetAlive(target))return;
