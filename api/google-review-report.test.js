@@ -37,7 +37,9 @@ assert.equal(messagesWithoutReviewerId.length, 2);
 assert.match(messagesWithoutReviewerId[1].originalContentUrl, /reviewKey=/);
 
 const failed = buildLineMessageObjects({}, { date: '2026-08-07' }, 'blocked');
-assert.deepEqual(failed, []);
+assert.equal(failed.length, 1);
+assert.equal(failed[0].type, 'text');
+assert.match(failed[0].text, /Google評論巡檢失敗/);
 assert.equal(formatReportText({ date: '2026-08-07' }, 'blocked'), '');
 
 assert.equal(draftWebhookUrl({ GOOGLE_REVIEW_DRAFT_WEBHOOK_URL: 'https://example.test/drafts' }), 'https://example.test/drafts');

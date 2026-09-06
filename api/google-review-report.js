@@ -37,10 +37,16 @@ function formatReportText(result, error) {
 }
 
 function buildLineMessageObjects(request, result, error) {
-  // The cloud fallback cannot access the signed-in Google session used by the
-  // local screenshot patrol. Suppress its expected failure instead of sending
-  // a false alarm immediately before the local patrol succeeds.
-  if (error) return [];
+  if (error) {
+    return [{
+      type: 'text',
+      text: [
+        `【${displayDate(result?.date)} Google評論巡檢失敗】`,
+        'Browserbase 已自動重試 3 次仍無法讀取 Google 評論。',
+        `原因：${String(error).slice(0, 180)}`
+      ].join('\n')
+    }];
+  }
   const messages = [{ type: 'text', text: formatReportText(result, null) }];
   const secret = String(process.env.HR_AUTOMATION_SECRET || process.env.N8N_RELAY_SECRET || '').trim();
   for (const review of (result?.negativeReviews || []).slice(0, 4)) {

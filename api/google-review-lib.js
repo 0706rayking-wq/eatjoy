@@ -152,7 +152,7 @@ async function openNamedPlaceResult(page, storeName) {
   return clicked;
 }
 
-async function openLatestReviews(page) {
+async function openLatestReviewsAttempt(page) {
   const reviewUrl = resolveReviewUrl(process.env.GOOGLE_REVIEW_URL);
   await page.setUserAgent(
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
@@ -160,8 +160,8 @@ async function openLatestReviews(page) {
   );
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.7' });
   await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }]);
-  await page.goto(reviewUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-  await page.waitForSelector('button, a, [role="button"]', { timeout: 15000 });
+  await page.goto(reviewUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+  await page.waitForSelector('button, a, [role="button"]', { timeout: 30000 });
   if (!await page.$(REVIEW_CARD_SELECTOR)) {
     await openNamedPlaceResult(page, process.env.GOOGLE_REVIEW_STORE_NAME);
   }
@@ -185,7 +185,7 @@ async function openLatestReviews(page) {
     });
     if (!openedSort) throw new Error('Google review sort button was not found');
     await page.waitForFunction(() => [...document.querySelectorAll('[role="radio"], [role="menuitemradio"]')]
-      .some((element) => /^(最新|newest)$/i.test((element.textContent || '').trim())), { timeout: 15000 });
+      .some((element) => /^(最新|newest)$/i.test((element.textContent || '').trim())), { timeout: 30000 });
     await page.evaluate(() => {
       const latest = [...document.querySelectorAll('[role="radio"], [role="menuitemradio"]')]
         .find((element) => /^(最新|newest)$/i.test((element.textContent || '').trim()));
@@ -193,6 +193,22 @@ async function openLatestReviews(page) {
     });
   }
   await new Promise((resolve) => setTimeout(resolve, 900));
+}
+
+async function openLatestReviews(page) {
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await openLatestReviewsAttempt(page);
+      return;
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) {
+        await new Promise((resolve) => setTimeout(resolve, 1200 * attempt));
+      }
+    }
+  }
+  throw new Error(`Google review page failed after 3 attempts: ${lastError?.message || lastError}`);
 }
 
 async function readCards(page) {
