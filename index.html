@@ -8154,6 +8154,10 @@ const [frRankTab, setFrRankTab] = useState('kitchen');
 const [foodResearchRankings, setFoodResearchRankings] = useState([]);
 const [foodResearchRankLoading, setFoodResearchRankLoading] = useState(false);
 const [foodResearchRankError, setFoodResearchRankError] = useState('');
+const [foodResearchSeasonConfig, setFoodResearchSeasonConfig] = useState(null);
+const [foodResearchSeasonNow, setFoodResearchSeasonNow] = useState(Date.now());
+const [foodResearchSeasonEndDraft, setFoodResearchSeasonEndDraft] = useState('');
+const [foodResearchSeasonSaving, setFoodResearchSeasonSaving] = useState(false);
 const [frPhase, setFrPhase] = useState('camp');
 const [showCharStatus, setShowCharStatus] = useState(false);
 const [partnerStatusTarget, setPartnerStatusTarget] = useState(null);
@@ -8248,7 +8252,30 @@ const getFoodResearchSeasonId = () => {
  const month = parts.find(part => part.type === 'month')?.value || String(new Date().getMonth()+1).padStart(2,'0');
  return `${year}-${month}`;
 };
-const foodResearchSeasonId = getFoodResearchSeasonId();
+const defaultFoodResearchSeasonId = getFoodResearchSeasonId();
+const foodResearchSeasonId = String(foodResearchSeasonConfig?.seasonId || defaultFoodResearchSeasonId);
+const foodResearchSeasonEndsAt = Math.max(0, Number(foodResearchSeasonConfig?.endsAt) || 0);
+const foodResearchSeasonLocked = !!foodResearchSeasonConfig?.locked || (foodResearchSeasonEndsAt > 0 && foodResearchSeasonNow >= foodResearchSeasonEndsAt);
+
+useEffect(() => {
+ if (selectedActivity !== 'food_research') return;
+ const ref = db.collection(getPublicPath('food_research_settings')).doc('active_season');
+ const unsub = ref.onSnapshot(snap => {
+  const data = snap.exists ? snap.data() : null;
+  setFoodResearchSeasonConfig(data && data.seasonId ? data : null);
+  setFoodResearchSeasonEndDraft(data?.endsAt ? new Date(Number(data.endsAt) - new Date(Number(data.endsAt)).getTimezoneOffset()*60000).toISOString().slice(0,16) : '');
+ }, error => {
+  console.error('讀取食研所賽季設定失敗', error);
+  setFoodResearchSeasonConfig(null);
+ });
+ return () => unsub();
+}, [selectedActivity, getPublicPath]);
+
+useEffect(() => {
+ if (selectedActivity !== 'food_research') return;
+ const timer = window.setInterval(() => setFoodResearchSeasonNow(Date.now()), 15000);
+ return () => window.clearInterval(timer);
+}, [selectedActivity]);
 
 useEffect(() => {
  if (selectedActivity !== 'food_research' || frPhase !== 'camp') {
@@ -8900,6 +8927,9 @@ if (selectedActivity === 'food_research') {
   const aReset = Math.max(0, Number(a.resetAt) || 0);
   const bReset = Math.max(0, Number(b.resetAt) || 0);
   if (aReset !== bReset) return aReset > bReset ? {...a} : {...b};
+  const aSeasonReset = Math.max(0, Number(a.leaderboardResetVersion) || 0);
+  const bSeasonReset = Math.max(0, Number(b.leaderboardResetVersion) || 0);
+  if (aSeasonReset !== bSeasonReset) return aSeasonReset > bSeasonReset ? {...a} : {...b};
   const aTime = Math.max(0, Number(a.updatedAt) || 0);
   const bTime = Math.max(0, Number(b.updatedAt) || 0);
   const merged = bTime >= aTime ? {...a, ...b} : {...b, ...a};
@@ -8955,6 +8985,27 @@ if (selectedActivity === 'food_research') {
    return data;
   });
  };
+ const applyFoodResearchSeasonReset = data => {
+  const save = data && typeof data === 'object' ? data : {};
+  const resetVersion = Math.max(0, Number(foodResearchSeasonConfig?.resetVersion) || 0);
+  const savedVersion = Math.max(0, Number(save.leaderboardResetVersion) || 0);
+  if (!resetVersion || savedVersion >= resetVersion) return save;
+  return {
+   ...save,
+   leaderboardResetVersion:resetVersion,
+   leaderboardSeasonId:foodResearchSeasonId,
+   runScore:0,
+   lastScore:0,
+   stageBestScores:{},
+   creditedStages:[],
+   uniqueBossStages:[],
+   scoreLegacyBase:0,
+   scoreCatchupFloor:0,
+   scoreRulesVersion:'fr-stage-best-v2',
+   finalClearAwarded:false,
+   updatedAt:Date.now()
+  };
+ };
  const loadSave = () => {
   const local = readLocalSave();
   const remote = (liveUser && liveUser.gameSave) || (currentUser && currentUser.gameSave) || {};
@@ -8963,9 +9014,9 @@ if (selectedActivity === 'food_research') {
   let selected = hasRemote
    ? (!hasLocal || Number(remote.updatedAt || 0) >= Number(local.updatedAt || 0) ? remote : local)
    : local;
-  selected = mergeFoodResearchSaves(local, remote);
+  selected = applyFoodResearchSeasonReset(mergeFoodResearchSaves(local, remote));
   if (foodResearchResetAt && (selected.resetAt || 0) < foodResearchResetAt) {
-   const resetSave = {...makeFreshFoodResearchSave(foodResearchResetAt), updatedAt: Date.now()};
+   const resetSave = applyFoodResearchSeasonReset({...makeFreshFoodResearchSave(foodResearchResetAt), updatedAt: Date.now()});
    cacheFoodResearchSave(resetSave);
    localStorage.removeItem('fr_stage_' + (currentUser?.phone || 'guest'));
    localStorage.removeItem('fr_shop_' + (currentUser?.phone || 'guest'));
@@ -8973,17 +9024,18 @@ if (selectedActivity === 'food_research') {
    return resetSave;
   }
   if (!hasRemote && hasLocal && currentUser?.phone) {
-   const migrated = {...local, updatedAt: local.updatedAt || Date.now(), resetAt: local.resetAt || foodResearchResetAt || 0};
+   const migrated = applyFoodResearchSeasonReset({...local, updatedAt: local.updatedAt || Date.now(), resetAt: local.resetAt || foodResearchResetAt || 0});
    cacheFoodResearchSave(migrated);
    syncFoodResearchSave(migrated);
    return migrated;
   }
   if (hasRemote || hasLocal) {
-   const cached = {...selected, resetAt: selected.resetAt || foodResearchResetAt || 0};
+   const cached = applyFoodResearchSeasonReset({...selected, resetAt: selected.resetAt || foodResearchResetAt || 0});
    cacheFoodResearchSave(cached);
+   if (Number(cached.leaderboardResetVersion||0) > Math.max(Number(local.leaderboardResetVersion||0), Number(remote.leaderboardResetVersion||0))) syncFoodResearchSave(cached);
    return cached;
   }
-  return foodResearchResetAt ? {...makeFreshFoodResearchSave(foodResearchResetAt), updatedAt: Date.now()} : {};
+  return applyFoodResearchSeasonReset(foodResearchResetAt ? {...makeFreshFoodResearchSave(foodResearchResetAt), updatedAt: Date.now()} : {});
  };
  const writeSave = (data, options = {}) => {
   try {
@@ -9013,7 +9065,7 @@ if (selectedActivity === 'food_research') {
  const safeFoodResearchRankId = value => String(value || '').replace(/[\/.#$\[\]]/g, '_');
  const syncFoodResearchRanking = async summary => {
   const profile = allUsers.find(user => user.phone === currentUser?.phone) || currentUser || {};
-  if (!currentUser?.phone || isSuperAdmin || profile.status !== 'approved') return;
+  if (!currentUser?.phone || isSuperAdmin || profile.status !== 'approved' || foodResearchSeasonLocked || (foodResearchSeasonEndsAt > 0 && Date.now() >= foodResearchSeasonEndsAt)) return;
   const branches = Array.isArray(profile.branch) ? profile.branch : [profile.branch || currentBranch];
   if (!currentBranch || !branches.includes(currentBranch)) return;
   const role = normalizeRole(profile.role);
@@ -9065,6 +9117,71 @@ if (selectedActivity === 'food_research') {
   } catch (error) {
    console.error('移除食研所排行榜成績失敗', error);
    window.alert('移除失敗，請確認網路後再試。');
+  }
+ };
+ const saveFoodResearchSeasonEnd = async () => {
+  if (!isSuperAdmin || foodResearchSeasonSaving) return;
+  const endsAt = foodResearchSeasonEndDraft ? new Date(foodResearchSeasonEndDraft).getTime() : 0;
+  if (!Number.isFinite(endsAt) || endsAt <= 0) return triggerNotify('請設定有效的結算日期與時間', 'error');
+  setFoodResearchSeasonSaving(true);
+  try {
+   const now = Date.now();
+   await db.collection(getPublicPath('food_research_settings')).doc('active_season').set({
+    seasonId:foodResearchSeasonId,
+    label:foodResearchSeasonConfig?.label || `${foodResearchSeasonId} 賽季`,
+    startedAt:Number(foodResearchSeasonConfig?.startedAt)||now,
+    endsAt,
+    locked:endsAt <= now,
+    resetVersion:Math.max(0, Number(foodResearchSeasonConfig?.resetVersion)||0),
+    updatedAt:now,
+    updatedBy:currentUser?.name || '最高權限'
+   }, {merge:true});
+   triggerNotify(endsAt <= now ? '結算時間已儲存，排行榜已鎖定' : '賽季結算時間已更新', 'success');
+  } catch (error) {
+   console.error('儲存食研所賽季結算時間失敗', error);
+   triggerNotify('賽季設定儲存失敗，請確認網路後重試', 'error');
+  } finally {
+   setFoodResearchSeasonSaving(false);
+  }
+ };
+ const resetFoodResearchSeason = async () => {
+  if (!isSuperAdmin || foodResearchSeasonSaving) return;
+  if (!window.confirm('確定結算目前賽季並開始新賽季？\n\n舊排行榜會保留為歷史資料；玩家的排行榜計分會歸零，但養成、金幣與關卡進度不受影響。')) return;
+  const now = Date.now();
+  const dateKey = new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(now));
+  const nextSeasonId = `${dateKey}-${now.toString(36)}`;
+  const nextResetVersion = Math.max(0, Number(foodResearchSeasonConfig?.resetVersion)||0) + 1;
+  setFoodResearchSeasonSaving(true);
+  try {
+   const settingsRef = db.collection(getPublicPath('food_research_settings')).doc('active_season');
+   const archiveRef = db.collection(getPublicPath('food_research_seasons')).doc(safeFoodResearchRankId(foodResearchSeasonId));
+   const batch = db.batch();
+   batch.set(archiveRef, {
+    ...(foodResearchSeasonConfig || {}),
+    seasonId:foodResearchSeasonId,
+    locked:true,
+    settledAt:now,
+    archivedAt:now
+   }, {merge:true});
+   batch.set(settingsRef, {
+    seasonId:nextSeasonId,
+    label:`${dateKey} 新賽季`,
+    startedAt:now,
+    endsAt:null,
+    locked:false,
+    resetVersion:nextResetVersion,
+    previousSeasonId:foodResearchSeasonId,
+    updatedAt:now,
+    updatedBy:currentUser?.name || '最高權限'
+   });
+   await batch.commit();
+   setFoodResearchSeasonEndDraft('');
+   triggerNotify('新賽季已開始，舊榜已封存', 'success');
+  } catch (error) {
+   console.error('重置食研所賽季失敗', error);
+   triggerNotify('重置賽季失敗，請確認網路後重試', 'error');
+  } finally {
+   setFoodResearchSeasonSaving(false);
   }
  };
 
@@ -9879,7 +9996,8 @@ if (selectedActivity === 'food_research') {
    ];
    const activeRank = rankTabs.find(t => t.id === frRankTab) || rankTabs[0];
    const seasonParts = foodResearchSeasonId.split('-');
-   const seasonLabel = `${seasonParts[0]} 年 ${Number(seasonParts[1])} 月賽季`;
+   const seasonLabel = foodResearchSeasonConfig?.label || `${seasonParts[0]} 年 ${Number(seasonParts[1])} 月賽季`;
+   const seasonEndLabel = foodResearchSeasonEndsAt ? new Date(foodResearchSeasonEndsAt).toLocaleString('zh-TW', {timeZone:'Asia/Taipei',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}) : '尚未設定';
    const approvedUserMap = new Map(
     allUsers.filter(user => user.status === 'approved' && user.phone)
      .map(user => [String(user.phone), user])
@@ -9951,12 +10069,27 @@ if (selectedActivity === 'food_research') {
      <div style={{...cardStyle, textAlign:'center'}}>
       <div style={{display:'inline-flex',alignItems:'center',gap:'6px',padding:'5px 10px',borderRadius:'999px',border:'1px solid #30363d',background:'#0d1117',color:'#8b949e',fontSize:'10px',fontWeight:900}}>{seasonLabel}</div>
       <div style={{color:'#e6edf3', fontWeight:900, fontSize:'18px', marginTop:'10px'}}>{activeRank.icon} {activeRank.label}</div>
-       <div style={{color:'#8b949e',fontSize:'10px',marginTop:'4px'}}>每月自動開啟新賽季，各關採本季最佳成績計分</div>
+       <div style={{color:foodResearchSeasonLocked?'#ff7b72':'#8b949e',fontSize:'10px',marginTop:'4px',fontWeight:foodResearchSeasonLocked?900:700}}>
+        {foodResearchSeasonLocked ? `排行榜已結算並鎖定 · ${seasonEndLabel}` : `結算時間：${seasonEndLabel} · 各關採本季最佳成績計分`}
+       </div>
        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginTop:'12px'}}>
         <div style={{background:'#0d1117',border:'1px solid #30363d',borderRadius:'10px',padding:'10px'}}><div style={{fontSize:'10px',color:'#8b949e'}}>最近成績</div><div style={{fontSize:'18px',color:'#58a6ff',fontWeight:900}}>{Number(rankSave.lastScore||0).toLocaleString()}</div></div>
         <div style={{background:'#0d1117',border:'1px solid #30363d',borderRadius:'10px',padding:'10px'}}><div style={{fontSize:'10px',color:'#8b949e'}}>歷史最高</div><div style={{fontSize:'18px',color:'#fbbf24',fontWeight:900}}>{Number(rankSave.bestScore||0).toLocaleString()}</div></div>
        </div>
      </div>
+     {isSuperAdmin && (
+      <div style={{...cardStyle,borderColor:'#7c3aed',background:'rgba(76,29,149,.14)'}}>
+       <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'10px',marginBottom:'10px'}}>
+        <div><div style={{color:'#c4b5fd',fontSize:'12px',fontWeight:900}}>最高權限 · 賽季管理</div><div style={{color:'#8b949e',fontSize:'9px',marginTop:'3px'}}>到達結算時間後，榜單保留顯示但不再接受新成績。</div></div>
+        <span style={{flex:'0 0 auto',color:foodResearchSeasonLocked?'#ff7b72':'#3fb950',fontSize:'10px',fontWeight:900}}>{foodResearchSeasonLocked?'已鎖定':'進行中'}</span>
+       </div>
+       <div style={{display:'grid',gridTemplateColumns:'minmax(0,1fr) auto',gap:'8px'}}>
+        <input type="datetime-local" value={foodResearchSeasonEndDraft} onChange={event=>setFoodResearchSeasonEndDraft(event.target.value)} disabled={foodResearchSeasonSaving} aria-label="賽季結算日期與時間" style={{minWidth:0,border:'1px solid #30363d',borderRadius:'8px',background:'#0d1117',color:'#e6edf3',padding:'9px',fontSize:'11px',fontWeight:800,colorScheme:'dark'}} />
+        <button onClick={saveFoodResearchSeasonEnd} disabled={foodResearchSeasonSaving} style={{border:'1px solid #7c3aed',borderRadius:'8px',background:'#4c1d95',color:'#ede9fe',padding:'9px 12px',fontSize:'10px',fontWeight:900,cursor:'pointer',opacity:foodResearchSeasonSaving?.55:1}}>儲存結算時間</button>
+       </div>
+       <button onClick={resetFoodResearchSeason} disabled={foodResearchSeasonSaving} style={{width:'100%',marginTop:'9px',border:'1px solid #7f1d1d',borderRadius:'8px',background:'#2d151b',color:'#fca5a5',padding:'10px 12px',fontSize:'10px',fontWeight:900,cursor:'pointer',opacity:foodResearchSeasonSaving?.55:1}}>結算目前榜單並開始新賽季</button>
+      </div>
+     )}
      <div style={{display:'grid', gridTemplateColumns:'repeat(3,minmax(0,1fr))', gap:'6px'}}>
       {rankTabs.map(tab => (
        <button key={tab.id} onClick={()=>setFrRankTab(tab.id)} style={{minHeight:'54px', padding:'8px 5px', borderRadius:'10px', border:'1px solid '+(frRankTab===tab.id?'#fbbf24':'#30363d'), background:frRankTab===tab.id?'rgba(251,191,36,.16)':'#161b22', color:frRankTab===tab.id?'#fbbf24':'#c9d1d9', fontWeight:900, fontSize:'10px'}}>
