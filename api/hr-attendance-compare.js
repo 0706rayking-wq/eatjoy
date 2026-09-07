@@ -334,7 +334,14 @@ async function loadNueipAttendanceBrowser(date, requestedDepartments = [], sched
   let departmentValues = requestedDepartments.length > 0
     ? [...new Set(requestedDepartments)]
     : (['外場／洗滌', '行政／洗滌'].includes(schedule?.sheet_type) ? [] : [departmentValue]);
-  const browser = await launchBrowser();
+  // LINE can deliver multiple attendance sheets at the same instant. Reusing
+  // one persistent Browserbase context lets concurrent NUEIP navigations log
+  // each other out or replace the login page. Credentials are supplied for
+  // every run, so isolate each comparison in its own browser session.
+  const browser = await launchBrowser(process.env, globalThis.fetch, {
+    workflow: 'nueip-attendance-compare',
+    useContext: false
+  });
 
   let stage = '開啟登入頁';
   let lastUrl = '';
