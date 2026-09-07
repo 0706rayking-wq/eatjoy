@@ -550,8 +550,13 @@ function frBossHazard(options){const h=new FrBossHazard(options);hazards.push(h)
 let frThunderArenaTimer=70;
 function frThunderChaserEnabled(){
   const s=Number(stage),activeBoss=typeof boss!=='undefined'?boss:null;
-  const laterThunderPhase=!!(activeBoss&&activeBoss._frFinal&&(activeBoss._frThunderPhase||0)>=1);
+  const isThunderBoss=!!(activeBoss&&((activeBoss._frRootDef&&activeBoss._frRootDef.id==='little-thunder-god')||(activeBoss._frDef&&activeBoss._frDef.id==='little-thunder-god')));
+  const laterThunderPhase=!!(isThunderBoss&&(activeBoss._frThunderPhase||0)>=1);
   return currentBgIdx===10&&(s===11||s>=22)&&!stageCleared&&!laterThunderPhase&&!(activeBoss&&activeBoss._frTransition);
+}
+function frThunderRemoveChaserOrbs(){
+  if(typeof hazards==='undefined'||!Array.isArray(hazards))return;
+  hazards=hazards.filter(function(h){if(h&&h._frThunderChaser){h.dead=true;return false;}return true;});
 }
 class FrThunderChaserOrb{
   constructor(index){
@@ -874,6 +879,7 @@ const FR_BOSS_NORMAL_LABELS={
 function frThunderApplyPhase(b,phase,refill){
   const root=b._frRootDef||b._frDef,kits=root.phaseKits||[],kit=kits[phase]||kits[0];
   b._frThunderPhase=phase;b._frDef=Object.assign({},root,kit);b.name='小雷神';b.color=kit.color;
+  if(phase>=1)frThunderRemoveChaserOrbs();
   b._frSkillBag=frBossShuffle(kit.skills);b._frNormalLabel=FR_BOSS_NORMAL_LABELS[kit.normal]||'雷擊';
   b._frAttackCd=frBossTempo(stage).normalCd;b._frAttackCount=0;b._frSkillCastCount=0;b._frBusyUntil=b.timer+45;b._frEvents=[];b._frWarnings=[];b._frDash=null;b._frTether=null;b._frArmorCounterUntil=0;
   if(refill)frBossFxPush(b,'rage',{duration:82,color:kit.color});
@@ -1030,6 +1036,7 @@ function frBossInit(b){
 }
 function frBossUpdateCustom(b){
   const frStep=window.FR_FRAME_SCALE||1;b.timer+=frStep;
+  if(b._frFinal&&(b._frThunderPhase||0)>=1)frThunderRemoveChaserOrbs();
   if(b._frFinal&&frThunderUpdateFinalDeath(b))return;
   if(b._frFinal&&frThunderUpdateTransition(b))return;
   if(b._frStage11Enhanced&&!b._frStage11Rage&&b.hp<=b.maxHp*.5){b._frStage11Rage=true;addText('雷幕躁動',b.x,b.y-105,'#c4b5fd',16,-.35);burst(b.x,b.y,'#a78bfa',28);frBossFxPush(b,'rage',{duration:72,color:'#a78bfa'});}
