@@ -469,7 +469,14 @@ async function screenshotReview(target) {
     const page = await browser.newPage();
     await openLatestReviews(page);
     const card = await findReviewCard(page, target);
-    if (!card) throw new Error('Review is no longer available');
+    if (!card) {
+      const candidates = (await readCards(page)).slice(0, 8).map((review) => ({
+        reviewer: review.reviewer,
+        stars: review.stars,
+        text: String(review.reviewText || '').slice(0, 40)
+      }));
+      throw new Error(`Review is no longer available; target=${JSON.stringify(target)} candidates=${JSON.stringify(candidates)}`);
+    }
 
     return screenshotCard(card);
   } finally {
