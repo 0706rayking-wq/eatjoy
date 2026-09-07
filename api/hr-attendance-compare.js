@@ -537,15 +537,15 @@ async function loadNueipAttendanceBrowser(date, requestedDepartments = [], sched
 
 async function loadNueipAttendanceBrowserWithRetry(date, requestedDepartments = [], schedule = {}) {
   let lastError;
-  // Two bounded retries leave enough headroom below Vercel's 300-second limit.
-  // The former three full browser attempts could convert a recoverable NUEIP
-  // page problem into an opaque connection-aborted error at exactly 5 minutes.
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  // Keep the browser attempt inside Vercel's 300-second request limit. Retries
+  // are handled by n8n after this endpoint returns the precise failed stage;
+  // repeating the whole browser run here used to hide the real error behind a
+  // generic connection-aborted response.
+  for (let attempt = 0; attempt < 1; attempt += 1) {
     try {
       return await loadNueipAttendanceBrowser(date, requestedDepartments, schedule);
     } catch (error) {
       lastError = error;
-      if (attempt < 1) await new Promise((resolve) => setTimeout(resolve, 2500));
     }
   }
   throw lastError;
