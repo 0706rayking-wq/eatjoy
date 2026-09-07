@@ -468,9 +468,10 @@ async function screenshotReview(target) {
   try {
     const page = await browser.newPage();
     await openLatestReviews(page);
+    const initialCandidates = await readCards(page);
     const card = await findReviewCard(page, target);
     if (!card) {
-      const candidates = (await readCards(page)).slice(0, 8).map((review) => ({
+      const candidates = initialCandidates.slice(0, 8).map((review) => ({
         reviewer: review.reviewer,
         stars: review.stars,
         text: String(review.reviewText || '').slice(0, 40)
