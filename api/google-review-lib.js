@@ -31,7 +31,10 @@ async function launchBrowser(viewport = { width: 1280, height: 1600 }) {
   }
   return launchAutomationBrowser(process.env, globalThis.fetch, {
     viewport,
-    workflow: 'google-review-patrol'
+    workflow: 'google-review-patrol',
+    // Review pages are public. A shared persistent context causes concurrent
+    // LINE image fetches to close each other's Browserbase targets.
+    useContext: false
   });
 }
 

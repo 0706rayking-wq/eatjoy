@@ -49,5 +49,7 @@ assert.deepEqual(buildSessionPayload(environment, {
   },
   userMetadata: { workflow: 'google-review-patrol' }
 });
+const statelessPayload = buildSessionPayload(environment, { useContext: false });
+assert.equal('context' in statelessPayload.browserSettings, false);
 
 console.log('browserbase browser tests passed');
