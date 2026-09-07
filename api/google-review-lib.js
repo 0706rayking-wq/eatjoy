@@ -43,11 +43,6 @@ function isRecentAgeLabel(value, ageDays = 0) {
   if (!label) return false;
   if (ageDays === 0 && /剛剛|分鐘前|小時前/.test(label)) return true;
   if (ageDays === 0 && /just now|minute[s]? ago|hour[s]? ago/.test(label)) return true;
-  // Google switches reviews from "hours ago" to "1 day ago" around the
-  // 24-hour boundary. The nightly report runs close to that boundary, so
-  // excluding this label can silently drop a review made during the intended
-  // reporting window.
-  if (ageDays === 0 && /^(?:1\s*天前|1\s*day ago)$/.test(label)) return true;
   if (ageDays > 0) {
     const zhDays = Number(label.match(/^(\d+)\s*天前$/)?.[1]);
     const enDays = Number(label.match(/^(\d+)\s*days? ago$/)?.[1]);

@@ -13,8 +13,7 @@ const {
 assert.equal(isRecentAgeLabel('剛剛'), true);
 assert.equal(isRecentAgeLabel('18 分鐘前'), true);
 assert.equal(isRecentAgeLabel('23 小時前'), true);
-assert.equal(isRecentAgeLabel('1 天前'), true);
-assert.equal(isRecentAgeLabel('1 day ago'), true);
+assert.equal(isRecentAgeLabel('1 天前'), false);
 assert.equal(isRecentAgeLabel('2 days ago'), false);
 assert.equal(isRecentAgeLabel('1 天前', 1), true);
 assert.equal(isRecentAgeLabel('1 day ago', 1), true);
