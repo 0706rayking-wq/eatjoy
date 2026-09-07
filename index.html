@@ -1128,7 +1128,7 @@
 <script src="food-research-skills-v2.js?v=31"></script>
 <script src="food-research-weapons.js?v=30"></script>
 <script src="food-research-amulets.js?v=6"></script>
-    <script src="food-research-bosses.js?v=57"></script>
+    <script src="food-research-bosses.js?v=58"></script>
     <script src="food-research-ui.js?v=12"></script>
 <script src="food-research-balance.js?v=32"></script>
 <script src="food-research-timing.js?v=1"></script>
@@ -8196,6 +8196,7 @@ const [frSelectedTestBoss, setFrSelectedTestBoss] = useState('tiramisu-jazz');
 const [frSelectedThunderPhase, setFrSelectedThunderPhase] = useState(0);
 // useRef 避免背景 Firestore 讀取完成後觸發 re-render 導致 iframe 重載
 const rivalDataRef = useRef('[]');
+const thunderSupportDataRef = useRef('[]');
 const chosenPartnersRef = useRef([]);
 const foodResearchHTMLRef = useRef('');
 const frTestModeRef = useRef(false);
@@ -10823,6 +10824,7 @@ if (selectedActivity === 'food_research') {
     const selectedPartners = frBossDuelRef.current ? [] : chosenPartners.slice(0,2);
     chosenPartnersRef.current = [];
     rivalDataRef.current = '[]';
+    thunderSupportDataRef.current = '[]';
     const enrichPartners = async () => {
      const TIMEOUT = 2000;
      const enriched = await Promise.all(selectedPartners.map(async (partner) => {
@@ -10892,7 +10894,7 @@ if (selectedActivity === 'food_research') {
      u.status==='approved' && u.phone!==currentUser?.phone &&
      !(Array.isArray(u.branch)?u.branch.includes(currentBranch):u.branch===currentBranch)
     );
-    const pool = [...otherUsers].sort(()=>Math.random()-0.5).slice(0,3);
+    const pool = [...otherUsers].sort(()=>Math.random()-0.5).slice(0,8);
     window._lastRivalPool = pool;
     const rd = await Promise.all(pool.map(async r => {
      try {
@@ -10905,7 +10907,7 @@ if (selectedActivity === 'food_research') {
       const rivalEquip=rSave.equip||{ranged:'初始食材砲',melee:'初始鍋鏟',amulets:['','','']};
       const weaponMap=window.FOOD_RESEARCH_WEAPON_MAP||{};
       const amuletCalc=window.FOOD_RESEARCH_CALC_AMULETS;
-      return { name:r.name, phone:r.phone, formId:rivalForm,
+      return { name:r.name, phone:r.phone, branch:r.branch, formId:rivalForm,
        training:rSave.training||{}, equip:rivalEquip,
        rangedWeapon:weaponMap[rivalEquip.ranged]||weaponMap['初始食材砲']||null,
        meleeWeapon:weaponMap[rivalEquip.melee]||weaponMap['初始鍋鏟']||null,
@@ -10914,13 +10916,14 @@ if (selectedActivity === 'food_research') {
        rivalDefeatLine:rLines.rivalDefeat||fallbackRivalLine(r,'defeat'),
        rivalVictoryLine:rLines.rivalVictory||fallbackRivalLine(r,'victory') };
      } catch(e) {
-      return {name:r.name,phone:r.phone,formId:randomRivalForms[stableRivalIndex(r,'form',randomRivalForms.length)],training:{},equip:{},rangedWeapon:null,meleeWeapon:null,amuletBonus:{},
+      return {name:r.name,phone:r.phone,branch:r.branch,formId:randomRivalForms[stableRivalIndex(r,'form',randomRivalForms.length)],training:{},equip:{},rangedWeapon:null,meleeWeapon:null,amuletBonus:{},
        entryLine:fallbackRivalLine(r,'entry'),rivalDefeatLine:fallbackRivalLine(r,'defeat'),rivalVictoryLine:fallbackRivalLine(r,'victory')};
      }
     }));
-    rivalDataRef.current = JSON.stringify(rd);
+    thunderSupportDataRef.current = JSON.stringify(rd);
+    if(frRunModeRef.current==='main')rivalDataRef.current = JSON.stringify(rd.slice(0,3));
     };
-    if (testMode || frRunModeRef.current!=='main') rivalDataRef.current = '[]';
+    if (testMode || (frRunModeRef.current!=='main'&&frRunModeRef.current!=='final')) rivalDataRef.current = '[]';
     else await fetchRivals();
     if (!testMode && frRunModeRef.current==='main') {
      const latestSave = loadSave();
@@ -11101,7 +11104,7 @@ if (selectedActivity === 'food_research') {
     .replace('魔王掉100金幣', '魔王獎勵隨關卡提升')
     .replace('<br><b style="color:#92400e">魔王大絕→移到正確答案區！</b>', '');
   foodResearchHTML = balancedGameHtml +
-   "<scr" + "ipt>\nconst PARTNERS=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(partnerData))) + "'))));\nconst SAVE=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(saveData))) + "'))));\nconst RIVALS=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(rivalDataRef.current))) + "'))));\nconst REVIVAL_QUESTION_BANK=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(revivalQuestionData))) + "'))));\n" +
+   "<scr" + "ipt>\nconst PARTNERS=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(partnerData))) + "'))));\nconst SAVE=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(saveData))) + "'))));\nconst RIVALS=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(rivalDataRef.current))) + "'))));\nconst THUNDER_SUPPORTERS=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(thunderSupportDataRef.current))) + "'))));\nconst REVIVAL_QUESTION_BANK=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(revivalQuestionData))) + "'))));\n" +
     gameBodyWithImportedRevivalQuestions +
      (window.FOOD_RESEARCH_GAME_PATCH || '') +
      (window.FOOD_RESEARCH_WEAPON_PATCH || '') +
