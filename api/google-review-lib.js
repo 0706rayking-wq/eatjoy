@@ -209,7 +209,10 @@ async function openLatestReviewsAttempt(page) {
     );
     if (!selectedLatest) throw new Error('Google review newest sort option could not be selected');
   }
-  await new Promise((resolve) => setTimeout(resolve, 900));
+  // Sorting briefly unmounts the virtualized review list. Wait for the new
+  // list before callers attempt to read or screenshot its first card.
+  await new Promise((resolve) => setTimeout(resolve, 1500));
+  await page.waitForSelector(REVIEW_CARD_SELECTOR, { timeout: 20000 });
 }
 
 async function openLatestReviews(page) {
