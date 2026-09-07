@@ -160,16 +160,19 @@ module.exports = async function handler(request, response) {
         error: String(screenshotError.message || screenshotError).slice(0, 300)
       };
     }
-    let draftDelivery;
-    try {
-      draftDelivery = await deliverReviewDrafts(result);
-    } catch (draftError) {
-      console.error('Google review draft delivery failed', draftError);
-      draftDelivery = {
-        status: 'failed',
-        count: 0,
-        error: String(draftError.message || draftError).slice(0, 300)
-      };
+    const previewOnly = request.query?.preview === '1' || request.body?.preview === true;
+    let draftDelivery = { status: 'skipped-preview', count: 0 };
+    if (!previewOnly) {
+      try {
+        draftDelivery = await deliverReviewDrafts(result);
+      } catch (draftError) {
+        console.error('Google review draft delivery failed', draftError);
+        draftDelivery = {
+          status: 'failed',
+          count: 0,
+          error: String(draftError.message || draftError).slice(0, 300)
+        };
+      }
     }
     return response.status(200).json({
       status: 'ok',

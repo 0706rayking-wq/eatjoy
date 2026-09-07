@@ -43,6 +43,11 @@ function isRecentAgeLabel(value, ageDays = 0) {
   if (!label) return false;
   if (ageDays === 0 && /剛剛|分鐘前|小時前/.test(label)) return true;
   if (ageDays === 0 && /just now|minute[s]? ago|hour[s]? ago/.test(label)) return true;
+  // Google switches reviews from "hours ago" to "1 day ago" around the
+  // 24-hour boundary. The nightly report runs close to that boundary, so
+  // excluding this label can silently drop a review made during the intended
+  // reporting window.
+  if (ageDays === 0 && /^(?:1\s*天前|1\s*day ago)$/.test(label)) return true;
   if (ageDays > 0) {
     const zhDays = Number(label.match(/^(\d+)\s*天前$/)?.[1]);
     const enDays = Number(label.match(/^(\d+)\s*days? ago$/)?.[1]);
@@ -153,6 +158,12 @@ async function openNamedPlaceResult(page, storeName) {
   }, target);
   if (clicked) await new Promise((resolve) => setTimeout(resolve, 6000));
   return clicked;
+}
+
+async function reviewCardHandles(page) {
+  const preciseCards = await page.$$('.jftiEf');
+  if (preciseCards.length) return preciseCards;
+  return page.$$('.bwb7ce');
 }
 
 async function clickElementByLabel(page, selector, pattern) {
@@ -443,7 +454,7 @@ function reviewTextMatches(expectedValue, actualValue) {
 async function findReviewCard(page, target) {
   const expected = typeof target === 'string' ? { reviewerId: target } : (target || {});
   for (let round = 0; round < 18; round += 1) {
-    const cards = await page.$$(REVIEW_CARD_SELECTOR);
+    const cards = await reviewCardHandles(page);
     for (const card of cards) {
       const actual = await card.evaluate((element) => {
         const link = [...element.querySelectorAll('a')]
@@ -494,8 +505,10 @@ async function screenshotCard(card) {
   await card.evaluate((element) => {
     element.scrollIntoView({ block: 'center', inline: 'nearest' });
     const more = [...element.querySelectorAll('[role="button"], button')]
-      .find((button) => /更多|閱讀.*其他評論|more/i.test(
+      .find((button) => /^(?:全文|更多|more|see more|顯示完整評論|show full review)$/i.test(
         `${button.textContent || ''} ${button.getAttribute('aria-label') || ''}`
+          .replace(/\s+/g, ' ')
+          .trim()
       ));
     if (more) more.click();
   });
