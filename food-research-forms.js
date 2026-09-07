@@ -75,6 +75,7 @@
   window.FOOD_RESEARCH_GAME_PATCH = String.raw`
 const FR_FORM_CATALOG = ${JSON.stringify(forms)};
 const FR_FORM_MAP = Object.fromEntries(FR_FORM_CATALOG.map(function(form){return [form.id, form];}));
+const FR_FORM_BASE_ATTACK={onion_guard:10.5,potato_armor:10.5,lobster_general:13,healing_mushroom:10,honey_priest:11.5,peach_divine:13.5};
 Object.keys(FOOD_FORMS).forEach(function(key){if(key!=='normal')delete FOOD_FORMS[key];});
 FOOD_FORMS.normal.id='normal';
 FOOD_FORMS.normal.rarity='normal';
@@ -87,7 +88,7 @@ FR_FORM_CATALOG.forEach(function(form){
     pIcon:form.emoji, sk1Icon:'1', sk2Icon:'2', sk1Name:form.skill1, sk2Name:form.skill2,
     sk1Cd:form.skill1Cooldown*1000,
     sk2Cd:form.skill2Cooldown*1000,
-    bulletColor:form.color, bulletDmg:form.rarity==='top'?16.5:form.rarity==='noble'?15:form.rarity==='rare'?13.5:12,
+    bulletColor:form.color, bulletDmg:FR_FORM_BASE_ATTACK[form.id]??(form.rarity==='top'?16.5:form.rarity==='noble'?15:form.rarity==='rare'?13.5:12),
     spreadCount:0, speedBonus:0,
     defBonus:form.id==='onion_guard'?.10:0,
     portrait:form.portrait, battle:form.battle, passiveIcon:form.passiveIcon,
