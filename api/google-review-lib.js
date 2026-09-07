@@ -199,15 +199,22 @@ async function openLatestReviewsAttempt(page) {
       'button, [role="button"]',
       /排序評論|sort reviews/i
     );
-    if (!openedSort) throw new Error('Google review sort button was not found');
-    await page.waitForFunction(() => [...document.querySelectorAll('[role="radio"], [role="menuitemradio"], [role="menuitem"], button, [role="button"]')]
-      .some((element) => /^(最新|newest)$/i.test((element.textContent || '').trim())), { timeout: 30000 });
-    const selectedLatest = await clickElementByLabel(
-      page,
-      '[role="radio"], [role="menuitemradio"], [role="menuitem"], button, [role="button"]',
-      /^(最新|newest)$/i
-    );
-    if (!selectedLatest) throw new Error('Google review newest sort option could not be selected');
+    if (openedSort) {
+      try {
+        await page.waitForFunction(() => [...document.querySelectorAll('[role="radio"], [role="menuitemradio"], [role="menuitem"], button, [role="button"]')]
+          .some((element) => /^(?:最新(?:評論)?|newest)$/i.test((element.textContent || '').trim())), { timeout: 10000 });
+        await clickElementByLabel(
+          page,
+          '[role="radio"], [role="menuitemradio"], [role="menuitem"], button, [role="button"]',
+          /^(?:最新(?:評論)?|newest)$/i
+        );
+      } catch (error) {
+        // The configured Maps URL already carries the newest-review flag
+        // (!9m1!1b1). Google occasionally suppresses the sort popover in
+        // cloud sessions, so keep the URL ordering instead of failing the run.
+        await page.keyboard.press('Escape').catch(() => {});
+      }
+    }
   }
   // Sorting briefly unmounts the virtualized review list. Wait for the new
   // list before callers attempt to read or screenshot its first card.
