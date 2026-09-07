@@ -9,9 +9,9 @@
  function cue(name,x,y,color){if(typeof addText==='function')addText(name,x,y-28,color||'#fde68a',12,-.38);}
  function targets(){const list=(typeof enemies!=='undefined'?enemies.filter(e=>e&&e.hp>0):[]);if(typeof boss!=='undefined'&&boss&&!boss._defeated&&boss.hp>0)list.push(boss);return list;}
  function nearest(x,y){return targets().sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y))[0];}
- function drop(kind,x,y){aw.drops.push({kind,x:Math.max(24,Math.min(CW-24,x)),y:-20,targetY:Math.max(90,Math.min(CH-70,y)),until:performance.now()+12000,born:performance.now()});}
+ function drop(kind,x,y){aw.drops.push({kind,x:Math.max(24,Math.min(CW-24,x)),y:Math.max(45,y),vy:1.7,until:performance.now()+14000,born:performance.now()});}
  function onKill(e){if(e._frAwRewarded)return;e._frAwRewarded=true;const x=e.x||CW/2,y=e.y||CH*.35;
-  if(awake('atk')&&Math.random()<.01){aw.birds.push({x,y,hp:100,maxHp:100,next:0,frameSeed:Math.random()*4});cue(AW_NAMES.atk,x,y,'#fb923c');}
+  if(awake('atk')&&Math.random()<.01){aw.birds.push({x,y,hp:150,maxHp:150,next:0,frameSeed:Math.random()*4});cue(AW_NAMES.atk,x,y,'#fb923c');}
   if(awake('def')&&Math.random()<.01)drop('shield',x,y);
   if(awake('hp')&&Math.random()<.01)drop('mushroom',x,y);
   if(awake('stam')&&Math.random()<.01)drop('pill',x,y);
@@ -30,8 +30,8 @@
  function wrapSkill(level,name){const base=window[name];window[name]=function(){const before=level===1?sk1Cd:sk2Cd,isRepeat=aw.repeat,r=base.apply(this,arguments),after=level===1?sk1Cd:sk2Cd;if(!isRepeat&&after>before&&awake('skillPower')&&Math.random()<.01){aw.repeat=true;setTimeout(()=>{if(gameRunning){window.frAwakeningRepeatCast=level;window[name]();}aw.repeat=false;},160);}return r;};}
  wrapSkill(1,'useSkill1');wrapSkill(2,'useSkill2');
  function updateAw(now){
-  for(let i=aw.drops.length-1;i>=0;i--){const p=aw.drops[i];p.y+=(p.targetY-p.y)*.055;if(now>p.until){aw.drops.splice(i,1);continue;}if(Math.hypot(p.x-player.x,p.y-player.y)<34){if(p.kind==='shield')aw.shieldCharges=1;else if(p.kind==='mushroom'){player.hp=Math.min(player.maxHp,player.hp+30);if(charSlots[activeChar])charSlots[activeChar].hp=player.hp;}else if(p.kind==='pill')aw.moveUntil=now+10000;else if(p.kind==='gold')gold+=10;cue({shield:AW_NAMES.def,mushroom:AW_NAMES.hp,pill:AW_NAMES.stam,gold:AW_NAMES.rangedSpeed}[p.kind],player.x,player.y,'#fde68a');aw.drops.splice(i,1);updateHUD();}}
-  for(let i=aw.birds.length-1;i>=0;i--){const s=aw.birds[i];for(let j=eBullets.length-1;j>=0;j--){const b=eBullets[j];if(Math.hypot(b.x-s.x,b.y-s.y)<28+(b.r||5)){s.hp-=Math.max(1,b.dmg||10);eBullets.splice(j,1);break;}}if(s.hp<=0){aw.birds.splice(i,1);continue;}const tx=player.x+70,ty=player.y-45;s.x+=(tx-s.x)*.06;s.y+=(ty-s.y)*.06;const t=nearest(s.x,s.y);if(t&&now>=s.next){s.next=now+700;const a=Math.atan2(t.y-s.y,t.x-s.x),b=new Bullet(s.x,s.y,Math.cos(a)*8,Math.sin(a)*8,12*(window._curAtkMult||atkMult),'#fb923c',6,true,false,true);b.burn=true;bullets.push(b);}}
+  for(let i=aw.drops.length-1;i>=0;i--){const p=aw.drops[i];p.y=Math.min(CH-28,p.y+p.vy);p.x+=Math.max(-.65,Math.min(.65,(player.x-p.x)*.008));if(now>p.until){aw.drops.splice(i,1);continue;}if(Math.hypot(p.x-player.x,p.y-player.y)<34){if(p.kind==='shield')aw.shieldCharges=1;else if(p.kind==='mushroom'){player.hp=Math.min(player.maxHp,player.hp+30);if(charSlots[activeChar])charSlots[activeChar].hp=player.hp;}else if(p.kind==='pill')aw.moveUntil=now+10000;else if(p.kind==='gold')gold+=10;cue({shield:AW_NAMES.def,mushroom:AW_NAMES.hp,pill:AW_NAMES.stam,gold:AW_NAMES.rangedSpeed}[p.kind],player.x,player.y,'#fde68a');aw.drops.splice(i,1);updateHUD();}}
+  for(let i=aw.birds.length-1;i>=0;i--){const s=aw.birds[i];for(let j=eBullets.length-1;j>=0;j--){const b=eBullets[j];if(Math.hypot(b.x-s.x,b.y-s.y)<28+(b.r||5)){s.hp-=Math.max(1,b.dmg||10);eBullets.splice(j,1);break;}}if(s.hp<=0){aw.birds.splice(i,1);continue;}const t=nearest(s.x,s.y);if(t){const d=Math.hypot(t.x-s.x,t.y-s.y)||1,keep=72;if(d>keep){s.x+=(t.x-s.x)/d*Math.min(3.2,(d-keep)*.08);s.y+=(t.y-s.y)/d*Math.min(3.2,(d-keep)*.08);}if(now>=s.next){s.next=now+700;const a=Math.atan2(t.y-s.y,t.x-s.x),b=new Bullet(s.x,s.y,Math.cos(a)*8,Math.sin(a)*8,12*(window._curAtkMult||atkMult),'#fb923c',6,true,false,true);b.burn=true;bullets.push(b);}}else{s.x+=(player.x+60-s.x)*.04;s.y+=(player.y-45-s.y)*.04;}}
   aw.blasts=aw.blasts.filter(f=>now<f.until);
  }
  function drawAw(now){ctx.save();
