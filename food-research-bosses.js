@@ -109,15 +109,17 @@ const FR_THUNDER_SUPPORT_FALLBACK=[
   {name:'海線的夥伴',branch:'海線',formId:'black_garlic_void'},{name:'山城的夥伴',branch:'山城',formId:'potato_armor'},
   {name:'港區的夥伴',branch:'港區',formId:'peach_divine'},{name:'城中的夥伴',branch:'城中',formId:'salmon_ronin'}
 ];
+const FR_THUNDER_SUPPORT_FORMS=['onion_guard','popcorn','healing_mushroom','garlic_knight','chili_sprite','lotus_archer','potato_armor','lemon_battery','cheese_mage','honey_priest','coffee_pilot','octopus_samurai','salmon_ronin','puffer_alchemist','black_garlic_void','lobster_general','truffle_thunder','dragonfruit_emperor','peach_divine','cocoa_popsicle_wargod'];
+const FR_THUNDER_SUPPORT_ULTIMATES={onion_guard:'三層洋蔥盾',popcorn:'連發爆米砲',healing_mushroom:'療癒菌林',garlic_knight:'濃郁蒜味',chili_sprite:'麻辣風暴',lotus_archer:'二十發貫穿箭',potato_armor:'澱粉分裂',lemon_battery:'電磁巨砲',cheese_mage:'起司誘餌',honey_priest:'蜜語結界',coffee_pilot:'子彈時間',octopus_samurai:'八爪章魚',salmon_ronin:'逆流多重閃',puffer_alchemist:'荊棘路',black_garlic_void:'雙鬼召來',lobster_general:'雙側砲台',truffle_thunder:'雷域推進',dragonfruit_emperor:'龍隕五星',peach_divine:'蟠桃回天',cocoa_popsicle_wargod:'冰霜劍氣'};
 function frThunderSupportLine(pool,index){return pool[Math.abs(index)%pool.length];}
 function frThunderSupportPool(){const source=typeof THUNDER_SUPPORTERS!=='undefined'&&Array.isArray(THUNDER_SUPPORTERS)?THUNDER_SUPPORTERS:[];return (source.length?source:FR_THUNDER_SUPPORT_FALLBACK).slice(0,8);}
 function frThunderSupportSpeak(s,line,color){if(typeof frActorSpeak==='function')frActorSpeak((s&&s.name?s.name:'援軍')+'：「'+line+'」',color||'#fef08a');else addText(line,CW/2,115,color||'#fef08a',15,-.3);}
 function frThunderSupportInit(b){
-  if(b._frSupportReady)return;b._frSupportReady=true;b._frSupportNext=0;b._frSupportQueue=[];b._frSupporters=[];b._frSupportShots=[];b._frSupportPool=frThunderSupportPool();b._frSupportSerial=0;
+  if(b._frSupportReady)return;b._frSupportReady=true;b._frSupportNext=0;b._frSupportQueue=[];b._frSupporters=[];b._frSupportShots=[];b._frSupportPool=frThunderSupportPool();b._frSupportFormDeck=frBossShuffle(FR_THUNDER_SUPPORT_FORMS);b._frSupportSerial=0;
 }
 function frThunderSupportSpawnWave(b,mark){
   const pool=b._frSupportPool||FR_THUNDER_SUPPORT_FALLBACK,wave=[];
-  for(let i=0;i<2;i++){const raw=pool[(b._frSupportSerial++)%pool.length]||FR_THUNDER_SUPPORT_FALLBACK[i],side=i?1:-1,maxHp=100;wave.push({name:raw.name||'援軍',branch:Array.isArray(raw.branch)?raw.branch.join('、'):(raw.branch||'其他分店'),formId:raw.formId||'normal',x:side<0?-55:CW+55,y:Math.min(CH-115,player.y+55),tx:CW/2+side*68,ty:Math.min(CH-120,player.y+45),side:side,hp:maxHp,maxHp:maxHp,attackAt:b.timer+55+i*12,guardAt:b.timer+25,spawnAt:b.timer,departing:false,dead:false});}
+  for(let i=0;i<2;i++){const supportIndex=b._frSupportSerial++,raw=pool[supportIndex%pool.length]||FR_THUNDER_SUPPORT_FALLBACK[i],side=i?1:-1,maxHp=100,formId=b._frSupportFormDeck[supportIndex%b._frSupportFormDeck.length];wave.push({name:raw.name||'援軍',branch:Array.isArray(raw.branch)?raw.branch.join('、'):(raw.branch||'其他分店'),formId:formId,x:side<0?-55:CW+55,y:Math.min(CH-115,player.y+55),tx:CW/2+side*68,ty:Math.min(CH-120,player.y+45),side:side,hp:maxHp,maxHp:maxHp,attackAt:b.timer+55+i*12,guardAt:b.timer+25,spawnAt:b.timer,departing:false,dead:false});}
   b._frSupporters=wave;burst(CW/2,Math.min(CH-120,player.y+45),'#fef08a',26);frThunderSupportSpeak(wave[0],frThunderSupportLine(FR_THUNDER_SUPPORT_ENTRY_LINES,Math.round(mark*100)+b._frSupportSerial),'#fef08a');
   frBossLater(b,42,function(){if(wave[1]&&!wave[1].dead)frThunderSupportSpeak(wave[1],frThunderSupportLine(FR_THUNDER_SUPPORT_ENTRY_LINES,Math.round(mark*137)+b._frSupportSerial+7),'#bae6fd');});
 }
@@ -127,12 +129,16 @@ function frThunderSupportDamageTarget(b,target,damage){
   target.hp=Math.max(0,target.hp-damage);addText('-'+damage,target.x,target.y-45,'#bae6fd',11,-.35);burst(target.x,target.y,'#7dd3fc',8);if(target.hp<=0){target.dead=true;target.mode='idle';addText(target.kind==='leftHand'?'雷爪擊破':'雷掌擊破',target.x,target.y-62,'#fef08a',14,-.35);burst(target.x,target.y,'#ffffff',22);}
 }
 function frThunderSupportLegacy(b,s){
-  const healing=['honey_priest','healing_mushroom','peach_divine'].indexOf(s.formId)>=0,guard=['onion_guard','garlic_knight','potato_armor','lobster_general'].indexOf(s.formId)>=0;
-  if(healing){const heal=Math.max(30,Math.round(player.maxHp*.25));player.hp=Math.min(player.maxHp,player.hp+heal);if(charSlots[activeChar])charSlots[activeChar].hp=player.hp;updateHUD();addText('援軍治癒 +'+heal,player.x,player.y-45,'#86efac',15,-.5);burst(player.x,player.y,'#86efac',24);}
-  else if(guard){player.shieldActive=true;player.shieldHits=Math.max(player.shieldHits||0,3);player.shieldTimer=Math.max(player.shieldTimer||0,360);eBullets=[];addText('守護力場',player.x,player.y-45,'#7dd3fc',15,-.5);burst(player.x,player.y,'#7dd3fc',24);}
-  else{const target=frThunderSupportTarget(b,s),damage=220;frThunderSupportDamageTarget(b,target,damage);addText(s.formId==='cocoa_popsicle_wargod'?'冰霜劍氣':s.formId==='dragonfruit_emperor'?'龍焰送行':s.formId==='black_garlic_void'?'虛空殘響':'最後一擊',s.x,s.y-48,'#fef08a',15,-.45);burst(s.x,s.y,(FR_FORM_MAP[s.formId]||{}).color||'#fef08a',28);}
+  const id=s.formId,color=(FR_FORM_MAP[id]||{}).color||'#fef08a',name=FR_THUNDER_SUPPORT_ULTIMATES[id]||'最後一擊',healing=['healing_mushroom','honey_priest','peach_divine'].indexOf(id)>=0,guard=['onion_guard','garlic_knight'].indexOf(id)>=0,control=['coffee_pilot','cheese_mage'].indexOf(id)>=0;
+  if(typeof useSkill1==='function'&&typeof useSkill2==='function'&&typeof FOOD_FORMS!=='undefined'&&FOOD_FORMS[id]){const priorForm=currentForm,priorStamina=stamina,priorSk1=sk1Cd,priorSk2=sk2Cd,level=id==='cocoa_popsicle_wargod'?1:2;currentForm=Object.assign({},FOOD_FORMS[id],{id:id});stamina=Math.max(stamina,200);if(level===1)sk1Cd=0;else sk2Cd=0;try{if(level===1)useSkill1();else useSkill2();}finally{const casted=level===1?sk1Cd>0:sk2Cd>0;currentForm=priorForm;stamina=priorStamina;sk1Cd=priorSk1;sk2Cd=priorSk2;if(typeof updateSkillUI==='function')updateSkillUI();updateHUD();if(casted)return;}}
+  addText(name,s.x,s.y-48,color,16,-.45);burst(s.x,s.y,color,30);
+  if(healing){const rate=id==='peach_divine'?.6:.3,heal=Math.max(35,Math.round(player.maxHp*rate));player.hp=Math.min(player.maxHp,player.hp+heal);if(charSlots[activeChar])charSlots[activeChar].hp=player.hp;updateHUD();addText('+'+heal,player.x,player.y-45,'#86efac',16,-.5);burst(player.x,player.y,'#86efac',28);return;}
+  if(guard){player.shieldActive=true;player.shieldHits=Math.max(player.shieldHits||0,id==='onion_guard'?3:4);player.shieldTimer=Math.max(player.shieldTimer||0,300);eBullets=[];burst(player.x,player.y,'#7dd3fc',28);return;}
+  if(control){eBullets=[];frV2Targets().forEach(function(t){t.frozenTimer=Math.max(t.frozenTimer||0,id==='coffee_pilot'?180:90);});burst(CW/2,CH*.45,color,34);return;}
+  const target=frThunderSupportTarget(b,s),damage=id==='dragonfruit_emperor'?420:id==='lemon_battery'||id==='salmon_ronin'?330:id==='cocoa_popsicle_wargod'?180:260;frThunderSupportDamageTarget(b,target,damage);
+  if(['popcorn','lotus_archer','lobster_general','truffle_thunder','dragonfruit_emperor','salmon_ronin'].indexOf(id)>=0){for(let i=0;i<6;i++){const a=-Math.PI*.8+i*Math.PI*.12;ctx.save();ctx.strokeStyle=color;ctx.lineWidth=4;ctx.globalAlpha=.75;ctx.beginPath();ctx.moveTo(s.x,s.y);ctx.lineTo(s.x+Math.cos(a)*220,s.y+Math.sin(a)*220);ctx.stroke();ctx.restore();}}
 }
-function frThunderSupportDepart(b,s){if(!s||s.departing)return;s.departing=true;s.dead=true;frThunderSupportSpeak(s,frThunderSupportLine(FR_THUNDER_SUPPORT_LAST_LINES,b._frSupportSerial*5+Math.round(s.spawnAt)),'#fef08a');frThunderSupportLegacy(b,s);s.fadeUntil=b.timer+75;}
+function frThunderSupportDepart(b,s){if(!s||s.departing)return;s.departing=true;s.dead=true;frThunderSupportLegacy(b,s);frThunderSupportSpeak(s,frThunderSupportLine(FR_THUNDER_SUPPORT_LAST_LINES,b._frSupportSerial*5+Math.round(s.spawnAt)),'#fef08a');s.fadeUntil=b.timer+75;}
 function frThunderUpdateSupport(b){
   if(!b||!b._frFinal||b._frThunderPhase!==2||b._frTransition||b._frFinalDeath)return;frThunderSupportInit(b);
   const ratio=b.hp/Math.max(1,b.maxHp);while(b._frSupportNext<FR_THUNDER_SUPPORT_THRESHOLDS.length&&ratio<=FR_THUNDER_SUPPORT_THRESHOLDS[b._frSupportNext])b._frSupportQueue.push(FR_THUNDER_SUPPORT_THRESHOLDS[b._frSupportNext++]);
@@ -1179,7 +1185,7 @@ const frThunderSupportBaseHurt=hurtPlayer;
 hurtPlayer=function(raw){
   if(boss&&boss._frFinal&&boss._frThunderPhase===2&&!boss._frTransition&&!boss._frFinalDeath&&Array.isArray(boss._frSupporters)){
     const ready=boss._frSupporters.find(function(s){return !s.dead&&boss.timer>=(s.guardAt||0);});
-    if(ready){const damage=Math.max(1,Number(raw)||1);ready.guardAt=boss.timer+18;ready.hp-=damage;player.invTimer=Math.max(player.invTimer||0,8);burst(player.x,player.y,'#fef08a',10);if(!ready.lastGuardLine||boss.timer-ready.lastGuardLine>210){ready.lastGuardLine=boss.timer;frThunderSupportSpeak(ready,frThunderSupportLine(FR_THUNDER_SUPPORT_GUARD_LINES,Math.round(boss.timer)+boss._frSupportSerial),'#fef08a');}if(ready.hp<=0)frThunderSupportDepart(boss,ready);return;}
+    if(ready){ready.guardAt=Infinity;ready.hp=0;player.invTimer=Math.max(player.invTimer||0,8);burst(player.x,player.y,'#fef08a',10);frThunderSupportSpeak(ready,frThunderSupportLine(FR_THUNDER_SUPPORT_GUARD_LINES,Math.round(boss.timer)+boss._frSupportSerial),'#fef08a');frThunderSupportDepart(boss,ready);return;}
   }
   return frThunderSupportBaseHurt.apply(this,arguments);
 };
