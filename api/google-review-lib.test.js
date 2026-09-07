@@ -4,6 +4,7 @@ const {
   isReviewEntryLabel,
   isRecentAgeLabel,
   parseReviewKey,
+  reviewTextMatches,
   resolveReviewUrl,
   reviewSignature,
   verifyReviewSignature
@@ -38,5 +39,8 @@ assert.equal(verifyReviewSignature('12345', '2026-08-06', signature, 'secret'), 
 assert.equal(parseReviewKey('12345'), '12345');
 const fallbackKey = Buffer.from(JSON.stringify({ reviewer: '陳伯鋼', stars: 3, ageLabel: '12 小時前', reviewText: '服務很好' })).toString('base64url');
 assert.deepEqual(parseReviewKey(fallbackKey), { reviewer: '陳伯鋼', stars: 3, ageLabel: '12 小時前', reviewText: '服務很好' });
+assert.equal(reviewTextMatches('完整評論內容與後續文字', '完整評論內容'), true);
+assert.equal(reviewTextMatches('完整評論內容', '完整評論內容與後續文字'), true);
+assert.equal(reviewTextMatches('第一則評論', '不同內容'), false);
 
 console.log('google-review-lib tests passed');

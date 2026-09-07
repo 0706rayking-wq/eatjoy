@@ -419,6 +419,14 @@ function parseReviewKey(value) {
   };
 }
 
+function reviewTextMatches(expectedValue, actualValue) {
+  const normalize = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+  const expected = normalize(expectedValue);
+  const actual = normalize(actualValue);
+  if (!expected || !actual) return true;
+  return actual.startsWith(expected) || expected.startsWith(actual);
+}
+
 async function findReviewCard(page, target) {
   const expected = typeof target === 'string' ? { reviewerId: target } : (target || {});
   for (let round = 0; round < 18; round += 1) {
@@ -447,7 +455,7 @@ async function findReviewCard(page, target) {
       if (!expected.reviewerId
         && actual.reviewer === expected.reviewer
         && actual.stars === expected.stars
-        && (!expected.reviewText || actual.reviewText.startsWith(expected.reviewText))) return card;
+        && reviewTextMatches(expected.reviewText, actual.reviewText)) return card;
     }
     if (!await scrollReviewList(page)) break;
     await new Promise((resolve) => setTimeout(resolve, 450));
@@ -509,6 +517,7 @@ module.exports = {
   isReviewEntryLabel,
   isRecentAgeLabel,
   parseReviewKey,
+  reviewTextMatches,
   resolveReviewUrl,
   reviewSignature,
   screenshotReview,
