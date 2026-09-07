@@ -227,7 +227,9 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
  const frCreditedStages=new Set((SAVE.creditedStages||[]).map(Number).filter(Number.isFinite));
  const frUniqueBossStages=new Set((SAVE.uniqueBossStages||[]).map(Number).filter(Number.isFinite));
  const frScoreLegacyBase=Number.isFinite(Number(SAVE.scoreLegacyBase))?Number(SAVE.scoreLegacyBase):Math.max(0,Number(SAVE.runScore)||0);
- const frCatchupFloor=SAVE.testMode?0:(Number.isFinite(Number(SAVE.scoreCatchupFloor))?Math.max(0,Number(SAVE.scoreCatchupFloor)):Math.max(0,Number(SAVE.runScore)||0));
+ const frCompletedStageCount=Math.max(0,Math.min(22,(Math.max(1,Math.min(22,Math.round(Number(SAVE.maxStage)||1)))-1)+((SAVE.finalClearAwarded&&Number(SAVE.maxStage)>=22)?1:0)));
+ const frProgressScoreFloor=frCompletedStageCount*21000;
+ let frCatchupFloor=SAVE.testMode?0:Math.max(frProgressScoreFloor,Number.isFinite(Number(SAVE.scoreCatchupFloor))?Math.max(0,Number(SAVE.scoreCatchupFloor)):Math.max(0,Number(SAVE.runScore)||0));
  if(!SAVE.testMode)score=Math.max(Math.max(0,Number(score)||0),frCatchupFloor);
  frStageScoreAtStart=Math.max(0,Number(score)||0);
  let frHistoricalMaxStage=Math.max(1,Number(SAVE.maxStage)||1),frResumeStage=Math.max(1,Math.min(22,Number(SAVE.resumeStage)||Number(SAVE.maxStage)||1)),frFinalClearAwarded=!!SAVE.finalClearAwarded,frScoringMigrated=SAVE.scoreRulesVersion==='fr-stage-best-v2',frFailureSummary=null;
@@ -601,7 +603,8 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
     else{awarded=Math.max(0,rawStageScore-oldBest);scoreNote=awarded>0?('刷新本關最佳，只增加 '+awarded.toLocaleString()+' 分'):'未超越本關最佳，不重複計分';}
    }
    if(!hasRecordedBest||rawStageScore>oldBest)frStageBestScores[stageNum]=rawStageScore;
-   const verifiedScore=frVerifiedScoreTotal(),rankedScore=Math.max(frStageScoreAtStart,frCatchupFloor,verifiedScore),rankedAward=Math.max(0,Math.round(rankedScore-frStageScoreAtStart)),catchupRemaining=Math.max(0,Math.round(frCatchupFloor-verifiedScore));
+   const verifiedScore=frVerifiedScoreTotal(),stageProgressFloor=Math.min(22,stageNum)*21000;frCatchupFloor=Math.max(frCatchupFloor,stageProgressFloor);
+   const rankedScore=Math.max(frStageScoreAtStart,frCatchupFloor,verifiedScore),rankedAward=Math.max(0,Math.round(rankedScore-frStageScoreAtStart)),catchupRemaining=Math.max(0,Math.round(frCatchupFloor-verifiedScore));
    score=rankedScore;
    if(catchupRemaining>0)scoreNote='保留分數追趕中：新制 '+verifiedScore.toLocaleString()+' / '+Math.round(frCatchupFloor).toLocaleString()+'，尚差 '+catchupRemaining.toLocaleString()+' 分';
    else if(awarded>rankedAward)scoreNote='已追上保留分數，本關排行榜增加 '+rankedAward.toLocaleString()+' 分';

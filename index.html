@@ -8913,6 +8913,12 @@ if (selectedActivity === 'food_research') {
   finalClearAwarded:false,
   resetAt
  });
+ const FOOD_RESEARCH_STAGE_PROGRESS_SCORE = 21000;
+ const getFoodResearchCompletedStages = data => {
+  const maxStage = Math.max(1, Math.min(22, Math.round(Number(data?.maxStage) || 1)));
+  return Math.max(0, maxStage - 1 + ((data?.completed || data?.finalClearAwarded) && maxStage >= 22 ? 1 : 0));
+ };
+ const getFoodResearchProgressScoreFloor = data => getFoodResearchCompletedStages(data) * FOOD_RESEARCH_STAGE_PROGRESS_SCORE;
  const saveKey = 'fr_save_' + (currentUser?.phone || 'guest');
  const readLocalSave = () => {
   try { return JSON.parse(localStorage.getItem(saveKey)) || {}; }
@@ -8967,6 +8973,10 @@ if (selectedActivity === 'food_research') {
   }
   merged.resumeStage = Math.max(1, Math.min(22, Math.round(resumeStage || merged.maxStage || 1)));
   merged.resumeStageUpdatedAt = resumeStageUpdatedAt;
+  const progressScoreFloor = getFoodResearchProgressScoreFloor(merged);
+  merged.runScore = Math.max(merged.runScore, progressScoreFloor);
+  merged.bestScore = Math.max(merged.bestScore, progressScoreFloor);
+  merged.scoreCatchupFloor = Math.max(merged.scoreCatchupFloor, progressScoreFloor);
   return merged;
  };
  const syncFoodResearchSave = (data) => {
@@ -9078,6 +9088,7 @@ if (selectedActivity === 'food_research') {
   const durationMs = Math.max(1000, Math.min(24*60*60*1000, Math.round(Number(summary?.durationMs) || 0)));
   if (score <= 0 || score > 10000000) return;
   const now = Date.now();
+  const rankedScore = Math.max(score, getFoodResearchProgressScoreFloor({maxStage, completed:!!summary?.completed}));
   const candidate = {
    seasonId:foodResearchSeasonId,
    phone:currentUser.phone,
@@ -9085,7 +9096,7 @@ if (selectedActivity === 'food_research') {
    branch:currentBranch,
    role,
    department,
-   score,
+   score:rankedScore,
    maxStage,
    bossKills,
    durationMs,
@@ -10011,7 +10022,12 @@ if (selectedActivity === 'food_research') {
     const role = normalizeRole(profile.role);
     const department = role.includes('外場') ? 'service' : role.includes('內場') ? 'kitchen' : '';
     if (!department) return null;
-    return {...record, user:profile, gameSave:profile.gameSave || {}, name:profile.name || record.name || '未命名員工', role, department};
+    const gameSave = profile.gameSave || {};
+    const normalizedScore = Math.max(Number(record.score)||0, getFoodResearchProgressScoreFloor({
+     maxStage:Number(record.maxStage)||Number(gameSave.maxStage)||1,
+     completed:!!(record.completed || gameSave.finalClearAwarded)
+    }));
+    return {...record, score:normalizedScore, user:profile, gameSave, name:profile.name || record.name || '未命名員工', role, department};
    }).filter(Boolean);
    let visibleRankings;
    if (frRankTab === 'all') {
@@ -10071,12 +10087,12 @@ if (selectedActivity === 'food_research') {
       <div style={{display:'inline-flex',alignItems:'center',gap:'6px',padding:'5px 10px',borderRadius:'999px',border:'1px solid #30363d',background:'#0d1117',color:'#8b949e',fontSize:'10px',fontWeight:900}}>{seasonLabel}</div>
       <div style={{color:'#e6edf3', fontWeight:900, fontSize:'18px', marginTop:'10px'}}>{activeRank.icon} {activeRank.label}</div>
        <div style={{color:foodResearchSeasonLocked?'#ff7b72':'#8b949e',fontSize:'10px',marginTop:'4px',fontWeight:foodResearchSeasonLocked?900:700}}>
-        {foodResearchSeasonLocked ? `排行榜已結算並鎖定 · ${seasonEndLabel}` : `結算時間：${seasonEndLabel} · 各關採本季最佳成績計分`}
+        {foodResearchSeasonLocked ? `排行榜已結算並鎖定 · ${seasonEndLabel}` : `結算時間：${seasonEndLabel} · 每完成一關至少累積 21,000 分`}
        </div>
        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginTop:'12px'}}>
         <div style={{background:'#0d1117',border:'1px solid #30363d',borderRadius:'10px',padding:'10px'}}><div style={{fontSize:'10px',color:'#8b949e'}}>最近成績</div><div style={{fontSize:'18px',color:'#58a6ff',fontWeight:900}}>{Number(rankSave.lastScore||0).toLocaleString()}</div></div>
-        <div style={{background:'#0d1117',border:'1px solid #30363d',borderRadius:'10px',padding:'10px'}}><div style={{fontSize:'10px',color:'#8b949e'}}>歷史最高</div><div style={{fontSize:'18px',color:'#fbbf24',fontWeight:900}}>{Number(rankSave.bestScore||0).toLocaleString()}</div></div>
-       </div>
+       <div style={{background:'#0d1117',border:'1px solid #30363d',borderRadius:'10px',padding:'10px'}}><div style={{fontSize:'10px',color:'#8b949e'}}>歷史最高</div><div style={{fontSize:'18px',color:'#fbbf24',fontWeight:900}}>{Number(rankSave.bestScore||0).toLocaleString()}</div></div>
+      </div>
      </div>
      {isSuperAdmin && (
       <div style={{...cardStyle,borderColor:'#7c3aed',background:'rgba(76,29,149,.14)'}}>
