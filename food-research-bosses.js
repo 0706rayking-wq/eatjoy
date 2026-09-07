@@ -311,8 +311,8 @@ function frThunderDrawPowerAura(b){
 }
 function frBossTempo(stageNum){
   const s=Number(stageNum)||1;
-  const late=s>=12&&s<=22,stage11=s===11;
-  return {normalCd:late?84:stage11?60:90,skillCd:late?144:stage11?120:150,normalBusy:66,skillBusy:108,busyRate:1,eventScale:1,warningMin:late?84:stage11?60:90,warningMax:late?84:stage11?60:90,moveRetarget:s>=12?46:64,moveRate:s>=12?.033:.027};
+  const stage22=s===22,late=s>=16&&s<=21,mid=s>=12&&s<=15,stage11=s===11;
+  return {normalCd:stage22?72:late?78:mid?84:stage11?60:90,skillCd:stage22?126:late?138:mid?144:stage11?120:150,normalBusy:66,skillBusy:108,busyRate:1,eventScale:1,warningMin:stage22?72:late?78:mid?84:stage11?60:90,warningMax:stage22?72:late?78:mid?84:stage11?60:90,moveRetarget:s>=12?46:64,moveRate:s>=12?.033:.027};
 }
 function frBossHighStageSkillPool(b){
   const pool=(b&&b._frDef&&b._frDef.skills||[]).slice();
@@ -654,7 +654,7 @@ function frBossMeteor(b,count,color,damage,largeLast,status){
   });
 }
 function frBossCast(b,pattern,isSkill){
-  const c=b._frFinal&&(b._frThunderPhase||0)===0?'#fde047':b.color,curve=frBalanceCurve(stage),phasePower=b._frFinal?[1,1.15,1.32][b._frThunderPhase||0]:1,stage11Power=b._frStage11Enhanced?FR_STAGE11_THUNDER.damage:1,d=Math.round((isSkill?14:9)*curve.bossDamage*frBossDamageScale(stage)*phasePower*stage11Power),tempo=frBossTempo(stage),w=tempo.warningMin||55;
+  const c=b._frFinal&&(b._frThunderPhase||0)===0?'#fde047':b.color,curve=frBalanceCurve(stage),phasePower=b._frFinal?[1,1.3,1.6][b._frThunderPhase||0]:1,stage11Power=b._frStage11Enhanced?FR_STAGE11_THUNDER.damage:1,d=Math.round((isSkill?14:9)*curve.bossDamage*frBossDamageScale(stage)*phasePower*stage11Power),tempo=frBossTempo(stage),w=tempo.warningMin||55;
   const controlPatterns=['creamWalls','cleaverLanes','conveyor','sideAvalanche','closingWalls','waterWalls','jazzSyncopation','thousandFries','noodleGrid','tomatoCoffin','creamSweep','creamBaptism','railClamp','woolPrison'],locksControl=controlPatterns.indexOf(pattern)>=0;
   if(locksControl)b._frControlLockUntil=Math.max(b._frControlLockUntil||0,b.timer+180);
   b._frBusyUntil=b.timer+(isSkill?tempo.skillBusy:tempo.normalBusy);frBossAnimate(b,isSkill?105:72);
@@ -900,6 +900,14 @@ function frThunderApplyPhase(b,phase,refill){
   if(fill)fill.style.background=phase===0?'linear-gradient(90deg,#8b5cf6,#c4b5fd)':phase===1?'linear-gradient(90deg,#0284c7,#7dd3fc)':'linear-gradient(90deg,#eab308,#fef08a)';
   if(shieldBar)shieldBar.style.background=phase===0?'linear-gradient(90deg,#c4b5fd,#8b5cf6)':phase===1?'linear-gradient(90deg,#7dd3fc,#0284c7)':'linear-gradient(90deg,#fef08a,#eab308)';
 }
+function frThunderApplyPhaseStats(b){
+  if(!b||!b._frFinal||Number(stage)!==22)return;
+  const phase=Math.max(0,Math.min(2,Number(b._frThunderPhase)||0)),multipliers=[1,1.3,1.6];
+  if(!b._frThunderBaseMaxHp)b._frThunderBaseMaxHp=Math.max(1,Math.round(b.maxHp));
+  if(b._frThunderStatsPhase===phase)return;
+  const target=Math.round(b._frThunderBaseMaxHp*multipliers[phase]);
+  b.maxHp=target;b.hp=target;b._frThunderStatsPhase=phase;updateBossHp();
+}
 function frThunderStartTransition(b,nextPhase){
   b.hp=0;updateBossHp();b._frEvents=[];b._frWarnings=[];b._frDash=null;b._frTether=null;b._frBusyUntil=Infinity;
   const discardedRelics=nextPhase===2&&Array.isArray(b._frRelics)?b._frRelics.filter(function(r){return r&&!r.dead;}).map(function(r){return{kind:r.kind,x:r.x,y:r.y};}):[];
@@ -1042,6 +1050,7 @@ function frBossInit(b){
 }
 function frBossUpdateCustom(b){
   const frStep=window.FR_FRAME_SCALE||1;b.timer+=frStep;
+  frThunderApplyPhaseStats(b);
   if(b._frFinal&&(b._frThunderPhase||0)>=1)frThunderRemoveChaserOrbs();
   if(b._frFinal&&frThunderUpdateFinalDeath(b))return;
   if(b._frFinal&&frThunderUpdateTransition(b))return;
