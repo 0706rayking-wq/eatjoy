@@ -202,11 +202,11 @@ async function openLatestReviewsAttempt(page) {
     if (openedSort) {
       try {
         await page.waitForFunction(() => [...document.querySelectorAll('[role="radio"], [role="menuitemradio"], [role="menuitem"], button, [role="button"]')]
-          .some((element) => /^(?:最新(?:評論)?|newest)$/i.test((element.textContent || '').trim())), { timeout: 10000 });
+          .some((element) => /(?:最新|newest)/i.test(`${element.textContent || ''} ${element.getAttribute('aria-label') || ''}`)), { timeout: 10000 });
         await clickElementByLabel(
           page,
           '[role="radio"], [role="menuitemradio"], [role="menuitem"], button, [role="button"]',
-          /^(?:最新(?:評論)?|newest)$/i
+          /(?:最新|newest)/i
         );
       } catch (error) {
         // The configured Maps URL already carries the newest-review flag
