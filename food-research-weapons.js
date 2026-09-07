@@ -736,7 +736,7 @@
     if(!shouldCut&&def.reflect){
      const lobsterBonus=typeof charSlots!=='undefined'&&charSlots.some(function(ch){return ch&&ch.formId==='lobster_general';})?1.4:1;
      const rb=new Bullet(b.x,b.y,-b.vx*1.25,-Math.abs(b.vy)*1.25,base*returnScale*lobsterBonus,def.color,Math.min(9,(b.r||5)+1),false,false,!!def.burn);
-     rb.frVisual=true;rb.frRarity=def.rarity||'normal';rb.frPattern='reflect';bullets.push(rb);reflected++;
+     rb.frVisual=true;rb.frRarity=def.rarity||'normal';rb.frPattern='reflect';if(window.frAwakenReflectedBullet)window.frAwakenReflectedBullet(rb);bullets.push(rb);reflected++;
     }else{
      cut++;
     }
@@ -824,19 +824,20 @@
    startSwipe();const anim=swipeAnim;anim.weapon=hitDef;anim.frSide=step.side||1;anim.frPhase=step.phase||'';
    if(def.pattern==='magnet'&&step.phase==='gather')frMeleeAbsorbProjectiles(def,state);
    const am=(window._curAtkMult||atkMult)*(typeof frFormDamageMultiplier==='function'?frFormDamageMultiplier():1),base=currentForm.bulletDmg*def.damage*2.2*am;
+   if(window.frAwakenMeleeWave)window.frAwakenMeleeWave(hitDef);
    let didHit=false;
    enemies.slice().forEach(function(e){
     if(!e||e.hp<=0||!meleeTargetHit(hitDef,e,8))return;
     didHit=true;let mult=step.scale;
     if(def.sweetTip&&Math.hypot(e.x-player.x,e.y-player.y)>=(def.range||90)*meleeVisualScale()*.68)mult*=1.3;
-    const priorContext=window.frV2DamageContext;window.frV2DamageContext='melee';e.takeDamage(base*mult);window.frV2DamageContext=priorContext;
+    const priorContext=window.frV2DamageContext;window.frV2DamageContext='melee';if(!window.frAwakenMeleeTrueStrike||!window.frAwakenMeleeTrueStrike(e,base*mult))e.takeDamage(base*mult);window.frV2DamageContext=priorContext;
     if(step.effect!==false)applyMeleeEffect(hitDef,e,base*mult);else spawnImpact(hitDef,e.x,e.y,'melee');
     burst(e.x,e.y,def.color,Math.min(7,3+Math.round(mult*2)));
    });
    if(boss&&!boss._defeated&&meleeTargetHit(hitDef,boss,22)){
     didHit=true;let mult=step.bossScale;
     if(def.sweetTip&&Math.hypot(boss.x-player.x,boss.y-player.y)>=(def.range||90)*meleeVisualScale()*.68)mult*=1.3;
-    const priorContext=window.frV2DamageContext;window.frV2DamageContext='melee';boss.takeDamage(base*mult);window.frV2DamageContext=priorContext;spawnImpact(hitDef,boss.x,boss.y,'melee');
+    const priorContext=window.frV2DamageContext;window.frV2DamageContext='melee';if(!window.frAwakenMeleeTrueStrike||!window.frAwakenMeleeTrueStrike(boss,base*mult))boss.takeDamage(base*mult);window.frV2DamageContext=priorContext;spawnImpact(hitDef,boss.x,boss.y,'melee');
    }
    if(def.pattern==='magnet'&&step.phase==='release')frMeleeReleaseProjectiles(def,state,base);
    frMeleeSignature(hitDef,step);

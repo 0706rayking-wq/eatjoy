@@ -1126,6 +1126,7 @@
 <script src="food-research-question-bank-expansion.js"></script>
 <script src="food-research-forms.js?v=35"></script>
 <script src="food-research-skills-v2.js?v=35"></script>
+<script src="food-research-awakenings.js?v=1"></script>
 <script src="food-research-weapons.js?v=33"></script>
 <script src="food-research-amulets.js?v=6"></script>
     <script src="food-research-bosses.js?v=67"></script>
@@ -9246,16 +9247,16 @@ if (selectedActivity === 'food_research') {
  };
 
  const TRAIN_STATS = [
-  {key:'atk',   label:'⚔️ 攻擊力', costBase:80, max:10, effect:'+5% / Lv'},
-  {key:'def',   label:'🛡️ 防禦力', costBase:80, max:10, effect:'-4% 傷害 / Lv'},
-  {key:'hp',    label:'❤️ 最大血量', costBase:70, max:10, effect:'+12 HP / Lv'},
-  {key:'stam',  label:'💨 最大氣力', costBase:60, max:10, effect:'+6 / Lv'},
-  {key:'stamRegen', label:'⚡ 氣力回復', costBase:60, max:10, effect:'+10% / Lv'},
-  {key:'crit',  label:'🎯 爆擊率', costBase:100, max:10, effect:'+3% / Lv'},
-  {key:'rangedSpeed', label:'🏹 遠程熟練', costBase:100, max:10, effect:'遠程攻速 +1.5% / Lv'},
-  {key:'meleeSpeed', label:'⚔️ 近戰熟練', costBase:100, max:10, effect:'近戰攻速 +2% / Lv'},
-  {key:'critDamage', label:'✨ 暴擊鍛鍊', costBase:110, max:10, effect:'暴擊傷害 +3% / Lv'},
-  {key:'skillPower', label:'🔮 技能修行', costBase:110, max:10, effect:'小招與大招傷害 +5% / Lv（滿級 +50%）'},
+  {key:'atk',   label:'⚔️ 攻擊力', costBase:80, max:10, effect:'+5% / Lv｜滿級覺醒：烈羽召來'},
+  {key:'def',   label:'🛡️ 防禦力', costBase:80, max:10, effect:'-4% 傷害 / Lv｜滿級覺醒：金剛護符'},
+  {key:'hp',    label:'❤️ 最大血量', costBase:70, max:10, effect:'+12 HP / Lv｜滿級覺醒：菌癒恩賜'},
+  {key:'stam',  label:'💨 最大氣力', costBase:60, max:10, effect:'+6 / Lv｜滿級覺醒：元氣疾行'},
+  {key:'stamRegen', label:'⚡ 氣力回復', costBase:60, max:10, effect:'+10% / Lv｜滿級覺醒：迴氣返流'},
+  {key:'crit',  label:'🎯 爆擊率', costBase:100, max:10, effect:'+3% / Lv｜滿級覺醒：彈反極意'},
+  {key:'rangedSpeed', label:'🏹 遠程熟練', costBase:100, max:10, effect:'遠程攻速 +1.5% / Lv｜滿級覺醒：遠獵財運'},
+  {key:'meleeSpeed', label:'⚔️ 近戰熟練', costBase:100, max:10, effect:'近戰攻速 +2% / Lv｜滿級覺醒：破甲真意'},
+  {key:'critDamage', label:'✨ 暴擊鍛鍊', costBase:110, max:10, effect:'暴擊傷害 +3% / Lv｜滿級覺醒：雙極會心'},
+  {key:'skillPower', label:'🔮 技能修行', costBase:110, max:10, effect:'小招與大招傷害 +5% / Lv（滿級 +50%）｜滿級覺醒：奧義殘響'},
  ];
  const getTrainingCost = (stat, lv) => Math.round(stat.costBase * (1 + lv * .55));
   const refreshTrainingPhase = () => {
@@ -11129,6 +11130,7 @@ if (selectedActivity === 'food_research') {
       (window.FOOD_RESEARCH_UI_PATCH || '') +
       (window.FOOD_RESEARCH_BALANCE_PATCH || '') +
       (window.FOOD_RESEARCH_SKILLS_V2_PATCH || '') +
+      (window.FOOD_RESEARCH_AWAKENING_PATCH || '') +
       (window.FOOD_RESEARCH_TIMING_PATCH || '') +
       (window.FOOD_RESEARCH_AUDIO_PATCH || '') +
   "</scr" + "ipt>\n</body>\n</html>";
