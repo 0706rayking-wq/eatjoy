@@ -13,7 +13,7 @@
     cheese_mage:{skill1Desc:'對 160 範圍造成 18 傷害，並使所有敵人降至 30% 移速，持續 5 秒。',skill2Desc:'使所有敵人降至 15% 移速 9 秒，期間造成 6 次全場傷害，每次 14。'},
     honey_priest:{skill1Desc:'回復 22 HP，並提升攻擊速度與移動速度 5 秒。',skill2Desc:'回復 70 HP、獲得 120 點護盾，並使所有敵人減速 6 秒。'},
     coffee_pilot:{skill1Desc:'進入超頻 6.5 秒，大幅提升攻擊速度並額外提高移動速度。',skill2Desc:'清除全場普通子彈，使敵人近乎停止 8 秒，自身同時進入 8 秒超頻。'},
-    octopus_samurai:{skill1Desc:'在上半場投下 2 灘墨汁 5 秒，使接觸敵人短暫停止攻擊。',skill2Desc:'召喚 8 支持刀觸手順時針環繞 10 秒，斬彈並傷害、擊退敵人；每次傷敵消耗 1 支。'},
+    octopus_samurai:{skill1Desc:'在上半場投下 2 灘墨汁 5 秒，使接觸敵人短暫停止攻擊。',skill2Desc:'召喚 8 支各有 50 HP 的持刀觸手順時針環繞，最久維持 10 秒；斬彈並傷害、擊退敵人。'},
     salmon_ronin:{skill1Desc:'短暫無敵並向前突進，接著射出 5 道可貫穿斬擊，每道造成 28 傷害。',skill2Desc:'清除全場普通子彈，對所有敵人造成 60 傷害並將其推回上方。'},
     beef_berserker:{skill1Desc:'獲得 70 點護盾，並對 120 範圍敵人造成 30 傷害。',skill2Desc:'8 秒內不會死亡並進入狂暴狀態，同時對 160 範圍造成 42 傷害。'},
     puffer_alchemist:{skill1Desc:'朝上方廣角發射 18 枚可貫穿毒針，每枚造成 19 傷害。',skill2Desc:'連續釋放 10 次全場劇毒脈衝，每次造成 18 傷害並疊加 1 層中毒。'},
@@ -28,7 +28,7 @@
     { id:'onion_guard', rarity:'normal', name:'洋蔥守衛', emoji:'🧅', passive:'每 10 秒生成防護罩', skill1:'洋蔥震波', skill2:'三層堡壘', color:'#d8b4fe' },
     { id:'popcorn', rarity:'normal', name:'爆米花', emoji:'🍿', passive:'遠程子彈尺寸與命中範圍增加 55%', skill1:'爆米花散射', skill2:'玉米重砲', color:'#fde68a' },
     { id:'healing_mushroom', rarity:'normal', name:'療癒蘑菇', emoji:'🍄', passive:'菌絲網絡內敵方普通子彈速度 -20%、傷害 -10%', skill1:'蘑菇替身', skill2:'療癒菌林', color:'#f9a8d4' },
-    { id:'garlic_knight', rarity:'normal', name:'蒜頭騎士', emoji:'🧄', passive:'切換角色時留下自動攻擊並衝刺爆炸的分身', skill1:'聖蒜淨化', skill2:'濃郁蒜味', color:'#f5f5dc' },
+    { id:'garlic_knight', rarity:'normal', name:'蒜頭騎士', emoji:'🧄', passive:'共享：切換角色時留下自動攻擊並衝向敵人爆炸的分身', skill1:'聖蒜淨化', skill2:'濃郁蒜味', color:'#f5f5dc' },
     { id:'chili_sprite', rarity:'normal', name:'辣椒精靈', emoji:'🌶️', passive:'全隊爆擊率 +8%', skill1:'焚風', skill2:'烈焰油海', color:'#fb7185' },
     { id:'lotus_archer', rarity:'normal', name:'蓮藕射手', emoji:'🏹', passive:'遠程攻擊額外貫穿', skill1:'連環藕矢', skill2:'九孔光陣', color:'#fda4af' },
     { id:'potato_armor', rarity:'normal', name:'馬鈴薯裝甲', emoji:'🥔', passive:'發芽：每累積損失 25% 最大 HP 生成生命嫩芽，拾取回復 5% 最大 HP', skill1:'澱粉彈牆', skill2:'大地震盪', color:'#d6a86e' },
@@ -42,7 +42,7 @@
     { id:'beef_berserker', rarity:'rare', name:'牛排狂戰士', emoji:'🥩', passive:'血量越低，攻擊最高 +45%、攻速最高 +55%', skill1:'猛牛挑釁', skill2:'血宴不倒', color:'#dc2626' },
 
     { id:'puffer_alchemist', rarity:'noble', name:'河豚毒師', emoji:'🐡', passive:'160 範圍每 0.75 秒疊毒；8 點起，每層 +3，最高 5 層', skill1:'萬毒棘輪', skill2:'死海劇毒', color:'#a3e635' },
-    { id:'black_garlic_void', rarity:'noble', name:'黑蒜虛空使', emoji:'⚫', passive:'閃避留下黑洞標記，再次閃避可返回上一標記', skill1:'虛空黑洞', skill2:'雙鬼召來', color:'#818cf8' },
+    { id:'black_garlic_void', rarity:'noble', name:'黑蒜虛空使', emoji:'⚫', passive:'共享：閃避留下 10 秒黑洞標記，再次閃避可返回上一標記', skill1:'虛空黑洞', skill2:'雙鬼召來', color:'#818cf8' },
     { id:'lobster_general', rarity:'noble', name:'龍蝦將軍', emoji:'🦞', passive:'每 8 秒獲得護甲，護盾格擋後 4 秒內傷害 +25%', skill1:'赤甲納彈', skill2:'百砲返還', color:'#ef4444' },
     { id:'truffle_thunder', rarity:'noble', name:'松露雷將', emoji:'⚡', passive:'所有遠程攻擊附帶不衰減連鎖電流', skill1:'追身雷雲', skill2:'萬雷天牢', color:'#60a5fa' },
 
