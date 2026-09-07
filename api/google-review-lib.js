@@ -300,7 +300,7 @@ async function scrollReviewList(page) {
   });
 }
 
-async function loadRecentReviews(page) {
+async function loadRecentReviews(page, options = {}) {
   const reviews = new Map();
   const ageDays = configuredReviewAgeDays();
   let stableRounds = 0;
@@ -310,7 +310,8 @@ async function loadRecentReviews(page) {
     await expandReviewTexts(page);
     const cards = await readCards(page);
     for (const card of cards) {
-      if (!isRecentAgeLabel(card.ageLabel, ageDays)) continue;
+      const isOneDay = /^(?:1\s*天前|1\s*day ago)$/i.test(String(card.ageLabel || '').trim());
+      if (!isRecentAgeLabel(card.ageLabel, ageDays) && !(options.includeOneDay && isOneDay)) continue;
       const key = card.reviewerId || `${card.reviewer}|${card.stars}|${card.ageLabel}`;
       reviews.set(key, card);
     }
@@ -355,7 +356,7 @@ async function checkGoogleReviews() {
   }
 }
 
-async function checkGoogleReviewsWithScreenshots() {
+async function checkGoogleReviewsWithScreenshots(options = {}) {
   const browser = await launchBrowser({ width: 1280, height: 1800 });
   try {
     const page = await browser.newPage();
@@ -364,7 +365,7 @@ async function checkGoogleReviewsWithScreenshots() {
     const debugCards = String(process.env.GOOGLE_REVIEW_DEBUG || '') === '1'
       ? await readCards(page)
       : undefined;
-    const reviews = await loadRecentReviews(page);
+    const reviews = await loadRecentReviews(page, options);
     const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
     for (const review of reviews) {
       if (counts[review.stars] !== undefined) counts[review.stars] += 1;

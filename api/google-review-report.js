@@ -140,7 +140,8 @@ module.exports = async function handler(request, response) {
   }
 
   try {
-    const result = await checkGoogleReviewsWithScreenshots();
+    const previewOnly = request.query?.preview === '1' || request.body?.preview === true;
+    const result = await checkGoogleReviewsWithScreenshots({ includeOneDay: previewOnly });
     let screenshotDelivery;
     try {
       const uploaded = await uploadReviewScreenshots(result);
@@ -160,7 +161,6 @@ module.exports = async function handler(request, response) {
         error: String(screenshotError.message || screenshotError).slice(0, 300)
       };
     }
-    const previewOnly = request.query?.preview === '1' || request.body?.preview === true;
     let draftDelivery = { status: 'skipped-preview', count: 0 };
     if (!previewOnly) {
       try {
