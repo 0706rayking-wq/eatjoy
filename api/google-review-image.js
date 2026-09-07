@@ -28,7 +28,6 @@ module.exports = async function handler(request, response) {
     return response.status(200).send(image);
   } catch (error) {
     console.error('Google review screenshot failed', error);
-    const detail = String(error?.message || error || 'Unknown error').slice(0, 240);
-    return response.status(500).send(`Screenshot failed: ${detail}`);
+    return response.status(500).send('Screenshot failed');
   }
 };
