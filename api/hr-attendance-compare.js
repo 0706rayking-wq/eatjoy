@@ -334,12 +334,12 @@ async function loadNueipAttendanceBrowser(date, requestedDepartments = [], sched
   let departmentValues = requestedDepartments.length > 0
     ? [...new Set(requestedDepartments)]
     : (['外場／洗滌', '行政／洗滌'].includes(schedule?.sheet_type) ? [] : [departmentValue]);
-  // Keep the persisted NUEIP login state. A completely fresh Browserbase
-  // session can be held at NUEIP's blank shell/login challenge long enough to
-  // hit Vercel's five-minute function limit.
+  // LINE may deliver two sheet images at the same instant. Keep each NUEIP run
+  // in its own Browserbase session so department navigation cannot be replaced
+  // by another execution sharing the persisted context.
   const browser = await launchBrowser(process.env, globalThis.fetch, {
     workflow: 'nueip-attendance-compare',
-    useContext: true
+    useContext: false
   });
 
   let stage = '開啟登入頁';
@@ -348,7 +348,10 @@ async function loadNueipAttendanceBrowser(date, requestedDepartments = [], sched
     const page = await browser.newPage();
     await page.setUserAgent(NUEIP_USER_AGENT);
     await page.setExtraHTTPHeaders({ 'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.8' });
-    await page.goto('https://portal.nueip.com/login', { waitUntil: 'domcontentloaded', timeout: 25000 });
+    // The cloud login endpoint renders the actual credential form reliably in
+    // a clean Browserbase session; the portal endpoint can return an empty
+    // NUEIP application shell instead.
+    await page.goto('https://cloud.nueip.com/login', { waitUntil: 'domcontentloaded', timeout: 25000 });
     lastUrl = page.url();
     stage = '填寫登入資料';
     let hasLoginForm = true;
@@ -1135,13 +1138,24 @@ function formatLineMessages(date, comparison, schedule = {}, silentNames = []) {
 
 function normalizeDate(value, now = new Date()) {
   const raw = String(value || '').trim();
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const parsed = new Date(`${raw}T00:00:00+08:00`);
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (parsed > today) return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    return raw;
+  }
   const match = raw.match(/^(\d{1,2})[\/-](\d{1,2})$/);
   if (!match) throw new Error('Invalid attendance date');
   const year = now.getFullYear();
   const month = String(Number(match[1])).padStart(2, '0');
   const day = String(Number(match[2])).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const normalized = `${year}-${month}-${day}`;
+  const parsed = new Date(`${normalized}T00:00:00+08:00`);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (parsed > today) {
+    return `${year}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }
+  return normalized;
 }
 
 function includeExplanationSyncFailures(comparison, explanationSync) {
