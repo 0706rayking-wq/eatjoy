@@ -13,7 +13,7 @@
     cheese_mage:{skill1Desc:'對 160 範圍造成 18 傷害，並使所有敵人降至 30% 移速，持續 5 秒。',skill2Desc:'使所有敵人降至 15% 移速 9 秒，期間造成 6 次全場傷害，每次 14。'},
     honey_priest:{skill1Desc:'回復 22 HP，並提升攻擊速度與移動速度 5 秒。',skill2Desc:'回復 70 HP、獲得 120 點護盾，並使所有敵人減速 6 秒。'},
     coffee_pilot:{skill1Desc:'進入超頻 6.5 秒，大幅提升攻擊速度並額外提高移動速度。',skill2Desc:'清除全場普通子彈，使敵人近乎停止 8 秒，自身同時進入 8 秒超頻。'},
-    octopus_samurai:{skill1Desc:'在上半場投下 2 灘墨汁 5 秒，使接觸敵人短暫停止攻擊。',skill2Desc:'召喚 8 支各有 50 HP 的持刀觸手順時針環繞，最久維持 10 秒；斬彈並傷害、擊退敵人。'},
+    octopus_samurai:{skill1Desc:'在上半場投下 2 灘半徑 79 的墨汁 5 秒，使接觸敵人短暫停止攻擊。',skill2Desc:'召喚 8 支各有 50 HP 的持刀觸手順時針環繞，最久維持 10 秒；斬彈並傷害、擊退敵人。'},
     salmon_ronin:{skill1Desc:'短暫無敵並向前突進，接著射出 5 道可貫穿斬擊，每道造成 28 傷害。',skill2Desc:'清除全場普通子彈，對所有敵人造成 60 傷害並將其推回上方。'},
     beef_berserker:{skill1Desc:'獲得 70 點護盾，並對 120 範圍敵人造成 30 傷害。',skill2Desc:'8 秒內不會死亡並進入狂暴狀態，同時對 160 範圍造成 42 傷害。'},
     puffer_alchemist:{skill1Desc:'朝上方廣角發射 18 枚可貫穿毒針，每枚造成 19 傷害。',skill2Desc:'連續釋放 10 次全場劇毒脈衝，每次造成 18 傷害並疊加 1 層中毒。'},
@@ -37,7 +37,7 @@
     { id:'cheese_mage', rarity:'rare', name:'起司法師', emoji:'🧀', passive:'所有敵人移動速度降低', skill1:'濃稠起司陣', skill2:'熟成結界', color:'#fbbf24' },
     { id:'honey_priest', rarity:'rare', name:'蜂蜜祭司', emoji:'🍯', passive:'自動治療，溢補轉為護盾', skill1:'甜蜜祝福', skill2:'琥珀封印', color:'#f59e0b' },
     { id:'coffee_pilot', rarity:'rare', name:'咖啡飛行員', emoji:'☕', passive:'持續移動 4 秒可逐步獲得最高 28% 移速', skill1:'濃縮超頻', skill2:'子彈時間', color:'#a16207' },
-    { id:'octopus_samurai', rarity:'rare', name:'章魚武士', emoji:'🐙', passive:'3 秒未受傷後，每秒回復 2 HP', skill1:'噴灑墨汁', skill2:'八刀流', color:'#c084fc' },
+    { id:'octopus_samurai', rarity:'rare', name:'章魚武士', emoji:'🐙', passive:'武士精神：全隊近戰與八刀流命中可疊加破防', skill1:'噴灑墨汁', skill2:'八刀流', color:'#c084fc' },
     { id:'salmon_ronin', rarity:'rare', name:'鮭魚浪客', emoji:'🍣', passive:'閃避後 3 秒內攻擊、攻速與移速提升 25%', skill1:'逆流一閃', skill2:'鮭潮斷浪', color:'#fb7185' },
     { id:'beef_berserker', rarity:'rare', name:'牛排狂戰士', emoji:'🥩', passive:'血量越低，攻擊最高 +45%、攻速最高 +55%', skill1:'猛牛挑釁', skill2:'血宴不倒', color:'#dc2626' },
 
