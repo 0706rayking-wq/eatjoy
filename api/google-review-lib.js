@@ -497,6 +497,11 @@ async function screenshotReview(target) {
 }
 
 async function screenshotCard(card) {
+  const originalStyle = await card.evaluate((element) => ({
+    height: element.style.height,
+    overflow: element.style.overflow,
+    boxSizing: element.style.boxSizing
+  }));
   await card.evaluate((element) => {
     element.scrollIntoView({ block: 'center', inline: 'nearest' });
     const more = [...element.querySelectorAll('[role="button"], button')]
@@ -525,7 +530,15 @@ async function screenshotCard(card) {
     element.style.overflow = 'hidden';
     element.style.boxSizing = 'border-box';
   });
-  return card.screenshot({ type: 'png' });
+  try {
+    return await card.screenshot({ type: 'png' });
+  } finally {
+    await card.evaluate((element, style) => {
+      element.style.height = style.height;
+      element.style.overflow = style.overflow;
+      element.style.boxSizing = style.boxSizing;
+    }, originalStyle);
+  }
 }
 
 module.exports = {
