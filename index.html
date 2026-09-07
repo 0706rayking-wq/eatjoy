@@ -1126,7 +1126,7 @@
 <script src="food-research-question-bank-expansion.js"></script>
 <script src="food-research-forms.js?v=35"></script>
 <script src="food-research-skills-v2.js?v=35"></script>
-<script src="food-research-awakenings.js?v=2"></script>
+<script src="food-research-awakenings.js?v=3"></script>
 <script src="food-research-weapons.js?v=33"></script>
 <script src="food-research-amulets.js?v=6"></script>
     <script src="food-research-bosses.js?v=67"></script>
@@ -7979,12 +7979,48 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
     // ══ CampChat 聊天室組件 ══════════════════════════════════════════════
     const CampChat = ({ currentUser, currentBranch, getPublicPath, db, allUsers, isSuperAdmin = false }) => {
      const { useState: uS, useEffect: uE, useRef: uR } = React;
-     const [channel, setChannel] = uS('branch'); // 'branch' | 'all'
+     const [channel, setChannel] = uS('all'); // 'branch' | 'all'
      const [messages, setMessages] = uS([]);
+     const [branchUnread, setBranchUnread] = uS(false);
+     const branchLatestTs = uR(0);
      const [input, setInput] = uS('');
      const [sending, setSending] = uS(false);
      const [clearing, setClearing] = uS(false);
      const bottomRef = uR(null);
+
+     uE(() => {
+      if (!currentUser?.phone || !currentBranch) return;
+      const seenKey = `camp_chat_branch_seen_${currentUser.phone}_${currentBranch}`;
+      let initialized = false;
+      return db.collection(getPublicPath(`chat_${currentBranch}`))
+       .orderBy('ts', 'desc').limit(1)
+       .onSnapshot(snap => {
+        const latest = snap.empty ? null : snap.docs[0].data();
+        const latestTs = Number(latest?.ts || 0);
+        branchLatestTs.current = latestTs;
+        const seenTs = Number(localStorage.getItem(seenKey) || 0);
+        if (!initialized && !seenTs) {
+         localStorage.setItem(seenKey, String(latestTs));
+         initialized = true;
+         return;
+        }
+        initialized = true;
+        if (channel === 'branch') {
+         localStorage.setItem(seenKey, String(latestTs));
+         setBranchUnread(false);
+        } else {
+         setBranchUnread(latestTs > seenTs && latest?.phone !== currentUser.phone);
+        }
+       }, err => console.warn('branch unread error', err));
+     }, [currentUser?.phone, currentBranch, channel]);
+
+     const selectChannel = ch => {
+      setChannel(ch);
+      if (ch === 'branch' && currentUser?.phone && currentBranch) {
+       localStorage.setItem(`camp_chat_branch_seen_${currentUser.phone}_${currentBranch}`, String(branchLatestTs.current || Date.now()));
+       setBranchUnread(false);
+      }
+     };
 
      uE(() => {
       if (!currentUser?.phone) return;
@@ -8064,15 +8100,17 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
         borderBottom:'1px solid #21262d', flexShrink:0}}>
         <span style={{fontSize:'12px', fontWeight:900, color:'#8b949e'}}>聊天室</span>
         <div style={{display:'flex', gap:'6px', marginLeft:'4px'}}>
-         {['branch','all'].map(ch => (
-          <button key={ch} onClick={()=>setChannel(ch)}
+         {['all','branch'].map(ch => (
+          <button key={ch} onClick={()=>selectChannel(ch)}
            style={{
+            position:'relative',
             padding:'3px 10px', borderRadius:'20px', border:'none', cursor:'pointer',
             fontSize:'11px', fontWeight:900,
             background: channel===ch ? '#1f6feb' : '#21262d',
             color: channel===ch ? '#fff' : '#8b949e',
            }}>
            {chLabel[ch]}
+           {ch==='branch' && branchUnread && <span aria-label="本店有新訊息" style={{position:'absolute',right:'-2px',top:'-3px',width:'8px',height:'8px',borderRadius:'50%',background:'#ef4444',border:'2px solid #0d1117'}} />}
           </button>
          ))}
         </div>
@@ -9247,18 +9285,18 @@ if (selectedActivity === 'food_research') {
  };
 
  const TRAIN_STATS = [
-  {key:'atk', label:'⚔️ 攻擊力', costBase:80, max:10, effect:'+5% / Lv', awakening:'烈羽召來', awakeningDesc:'擊敗敵人時有機率召喚 HP 150、會自行追敵並附加灼燒的小火鳥。'},
-  {key:'def', label:'🛡️ 防禦力', costBase:80, max:10, effect:'-4% 傷害 / Lv', awakening:'金剛護符', awakeningDesc:'擊敗敵人時有機率掉落盾牌，拾取後使下一次受到的傷害降低 90%。'},
-  {key:'hp', label:'❤️ 最大血量', costBase:70, max:10, effect:'+12 HP / Lv', awakening:'菌癒恩賜', awakeningDesc:'擊敗敵人時有機率掉落補血蘑菇，拾取後回復 30 HP。'},
-  {key:'stam', label:'💨 最大氣力', costBase:60, max:10, effect:'+6 / Lv', awakening:'元氣疾行', awakeningDesc:'擊敗敵人時有機率掉落元氣藥丸，拾取後移動速度提高 25%，持續 10 秒。'},
-  {key:'stamRegen', label:'⚡ 氣力回復', costBase:60, max:10, effect:'+10% / Lv', awakening:'迴氣返流', awakeningDesc:'發動迴避時有機率立即回復 30 氣力。'},
-  {key:'crit', label:'🎯 爆擊率', costBase:100, max:10, effect:'+3% / Lv', awakening:'彈反極意', awakeningDesc:'近戰反彈子彈時有機率使該子彈造成雙倍傷害。'},
-  {key:'rangedSpeed', label:'🏹 遠程熟練', costBase:100, max:10, effect:'遠程攻速 +1.5% / Lv', awakening:'遠獵財運', awakeningDesc:'擊敗敵人時有機率掉落 10 金幣。'},
-  {key:'meleeSpeed', label:'⚔️ 近戰熟練', costBase:100, max:10, effect:'近戰攻速 +2% / Lv', awakening:'破甲真意', awakeningDesc:'近戰命中時有機率無視敵方防禦與護盾。'},
-  {key:'critDamage', label:'✨ 暴擊鍛鍊', costBase:110, max:10, effect:'暴擊傷害 +3% / Lv', awakening:'雙極會心', awakeningDesc:'近戰有機率揮出清彈劍氣；遠程有機率造成直徑 100、額外 50 傷害的爆破。'},
-  {key:'skillPower', label:'🔮 技能修行', costBase:110, max:10, effect:'小招與大招傷害 +5% / Lv（滿級 +50%）', awakening:'奧義殘響', awakeningDesc:'施放技能後有機率免費再次發動，不額外消耗氣力或重設冷卻。'},
+  {key:'atk', label:'攻擊力', costBase:80, max:10, effect:'+5% / Lv', awakening:'烈羽召來', awakeningDesc:'擊敗敵人時有機率召喚 HP 150、會自行追敵並附加灼燒的小火鳥。'},
+  {key:'def', label:'防禦力', costBase:80, max:10, effect:'-4% 傷害 / Lv', awakening:'金剛護符', awakeningDesc:'擊敗敵人時有機率掉落盾牌，拾取後使下一次受到的傷害降低 90%。'},
+  {key:'hp', label:'最大血量', costBase:70, max:10, effect:'+12 HP / Lv', awakening:'菌癒恩賜', awakeningDesc:'擊敗敵人時有機率掉落補血蘑菇，拾取後回復 30 HP。'},
+  {key:'stam', label:'最大氣力', costBase:60, max:10, effect:'+6 / Lv', awakening:'元氣疾行', awakeningDesc:'擊敗敵人時有機率掉落元氣藥丸，拾取後移動速度提高 25%，持續 10 秒。'},
+  {key:'stamRegen', label:'氣力回復', costBase:60, max:10, effect:'+10% / Lv', awakening:'迴氣返流', awakeningDesc:'發動迴避時有機率立即回復 30 氣力。'},
+  {key:'crit', label:'爆擊率', costBase:100, max:10, effect:'+3% / Lv', awakening:'彈反極意', awakeningDesc:'近戰反彈子彈時有機率使該子彈造成雙倍傷害。'},
+  {key:'rangedSpeed', label:'遠程熟練', costBase:100, max:10, effect:'遠程攻速 +1.5% / Lv', awakening:'遠獵財運', awakeningDesc:'擊敗敵人時有機率掉落 15 金幣。'},
+  {key:'meleeSpeed', label:'近戰熟練', costBase:100, max:10, effect:'近戰攻速 +2% / Lv', awakening:'破甲真意', awakeningDesc:'近戰命中時有機率無視敵方防禦與護盾。'},
+  {key:'critDamage', label:'暴擊鍛鍊', costBase:110, max:10, effect:'暴擊傷害 +3% / Lv', awakening:'雙極會心', awakeningDesc:'近戰有機率揮出清彈劍氣；遠程有機率造成直徑 100、額外 50 傷害的爆破。'},
+  {key:'skillPower', label:'技能修行', costBase:110, max:10, effect:'小招與大招傷害 +5% / Lv（滿級 +50%）', awakening:'奧義殘響', awakeningDesc:'施放技能後有機率免費再次發動，不額外消耗氣力或重設冷卻。'},
  ];
- const trainingStatTitle = (stat, lv) => lv >= stat.max ? `${stat.label} ${stat.awakening}` : stat.label;
+ const trainingStatTitle = (stat, lv) => lv >= stat.max ? stat.awakening : stat.label;
  const getTrainingCost = (stat, lv) => Math.round(stat.costBase * (1 + lv * .55));
   const refreshTrainingPhase = () => {
    setFrTrainingRev(rev => rev + 1);
