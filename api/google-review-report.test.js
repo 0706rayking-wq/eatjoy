@@ -3,7 +3,8 @@ const {
   buildLineMessageObjects,
   deliverReviewDrafts,
   draftWebhookUrl,
-  formatReportText
+  formatReportText,
+  safePathSegment
 } = require('./google-review-report')._test;
 
 const report = {
@@ -24,6 +25,15 @@ const messages = buildLineMessageObjects(
 assert.equal(messages[0].type, 'text');
 assert.equal(messages[1].type, 'image');
 assert.equal(messages.length, 2);
+
+const blobMessages = buildLineMessageObjects(
+  { headers: { host: 'example.test', 'x-forwarded-proto': 'https' } },
+  { ...report, negativeReviews: [{ ...report.negativeReviews[0], imageUrl: 'https://blob.example/review.png' }] },
+  null
+);
+assert.equal(blobMessages[1].originalContentUrl, 'https://blob.example/review.png');
+assert.equal(blobMessages[1].previewImageUrl, 'https://blob.example/review.png');
+assert.equal(safePathSegment('王小明/../123'), '_______123');
 
 const messagesWithoutReviewerId = buildLineMessageObjects(
   { headers: { host: 'example.test', 'x-forwarded-proto': 'https' } },

@@ -1,9 +1,35 @@
 const crypto = require('node:crypto');
 const {
   buildReviewImageUrl,
-  checkGoogleReviews,
+  checkGoogleReviewsWithScreenshots,
   taipeiDate
 } = require('./google-review-lib');
+
+function safePathSegment(value) {
+  return String(value || 'review').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 100);
+}
+
+async function uploadReviewScreenshots(result) {
+  const token = String(process.env.BLOB_READ_WRITE_TOKEN || '').trim();
+  if (!token) throw new Error('BLOB_READ_WRITE_TOKEN is not configured');
+  const { put } = await import('@vercel/blob');
+  const screenshots = result?.negativeScreenshots || [];
+  const uploaded = [];
+  for (let index = 0; index < screenshots.length; index += 1) {
+    const { review, image } = screenshots[index];
+    const key = safePathSegment(review.reviewerId || review.reviewer || index + 1);
+    const blob = await put(`google-reviews/${result.date}/${index + 1}-${key}.png`, image, {
+      access: 'public',
+      addRandomSuffix: false,
+      allowOverwrite: true,
+      contentType: 'image/png',
+      cacheControlMaxAge: 86400,
+      token
+    });
+    uploaded.push({ review, imageUrl: blob.url });
+  }
+  return uploaded;
+}
 
 function safeEqual(left, right) {
   const leftBuffer = Buffer.from(String(left || ''));
@@ -50,7 +76,7 @@ function buildLineMessageObjects(request, result, error) {
   const messages = [{ type: 'text', text: formatReportText(result, null) }];
   const secret = String(process.env.HR_AUTOMATION_SECRET || process.env.N8N_RELAY_SECRET || '').trim();
   for (const review of (result?.negativeReviews || []).slice(0, 4)) {
-    const imageUrl = buildReviewImageUrl(request, review, result.date, secret);
+    const imageUrl = review.imageUrl || buildReviewImageUrl(request, review, result.date, secret);
     messages.push({
       type: 'image',
       originalContentUrl: imageUrl,
@@ -114,7 +140,26 @@ module.exports = async function handler(request, response) {
   }
 
   try {
-    const result = await checkGoogleReviews();
+    const result = await checkGoogleReviewsWithScreenshots();
+    let screenshotDelivery;
+    try {
+      const uploaded = await uploadReviewScreenshots(result);
+      const urlsByReviewer = new Map(uploaded.map(({ review, imageUrl }) => [
+        String(review.reviewerId || review.reviewer), imageUrl
+      ]));
+      result.negativeReviews = result.negativeReviews.map((review) => ({
+        ...review,
+        imageUrl: urlsByReviewer.get(String(review.reviewerId || review.reviewer)) || ''
+      }));
+      screenshotDelivery = { status: 'uploaded', count: uploaded.length };
+    } catch (screenshotError) {
+      console.error('Google review screenshot upload failed', screenshotError);
+      screenshotDelivery = {
+        status: 'fallback',
+        count: 0,
+        error: String(screenshotError.message || screenshotError).slice(0, 300)
+      };
+    }
     let draftDelivery;
     try {
       draftDelivery = await deliverReviewDrafts(result);
@@ -129,6 +174,8 @@ module.exports = async function handler(request, response) {
     return response.status(200).json({
       status: 'ok',
       ...result,
+      negativeScreenshots: undefined,
+      screenshotDelivery,
       draftDelivery,
       lineMessageObjects: buildLineMessageObjects(request, result, null)
     });
@@ -148,5 +195,7 @@ module.exports._test = {
   buildLineMessageObjects,
   deliverReviewDrafts,
   draftWebhookUrl,
-  formatReportText
+  formatReportText,
+  safePathSegment,
+  uploadReviewScreenshots
 };
