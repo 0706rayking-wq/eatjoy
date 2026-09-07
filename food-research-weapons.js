@@ -30,14 +30,14 @@
 
     { id:'r19', name:'可可冰棒絕對零度砲', rarity:'top', icon:18, pattern:'absolute', damage:1.85, cooldown:31, size:16, color:'#67e8f9', freeze:220, pierce:true, desc:'蓄積寒氣後發射巨大冰棒光束，留下冰痕並長時間冰封。' },
     { id:'r20', name:'萬味自律浮游砲', rarity:'top', icon:19, pattern:'drones', damage:.85, cooldown:17, size:8, color:'#a78bfa', homing:true, pierce:true, desc:'三枚浮游砲環繞待命，再從不同角度鎖定追擊。' },
-    { id:'r21', name:'白白神廚殲星砲', rarity:'top', icon:20, pattern:'star', damage:1.50, cooldown:34, size:12, color:'#fde047', pierce:true, homing:true, desc:'較長蓄力後依序發射四道高威力神廚光束，追蹤、貫穿並清掃前方。' },
+    { id:'r21', name:'白白神廚殲星砲', rarity:'top', icon:20, pattern:'star', damage:1.25, cooldown:34, size:12, color:'#fde047', pierce:true, homing:true, desc:'較長蓄力後依序發射四道神廚光束，追蹤、貫穿並清掃前方。' },
   ];
 
   const melee = [
     { id:'m01', name:'鍋鏟劍', rarity:'normal', icon:0, pattern:'basic', shape:'arc', arc:100, damage:1.00, cooldown:41, range:90, reflect:1, guardRatio:.72, color:'#cbd5e1', desc:'左右交替橫斬，第三擊改為較強的上挑鍋氣；有效軌跡可反彈普通子彈。' },
     { id:'m02', name:'擀麵棍', rarity:'normal', icon:1, pattern:'knock', shape:'slam', width:40, impact:38, damage:1.35, cooldown:65, range:90, reflect:0, knock:40, color:'#d97706', desc:'短暫舉起後向前重砸，落點產生震波並擊退敵人。' },
     { id:'m03', name:'菜刀', rarity:'normal', icon:2, pattern:'rapid', shape:'arc', arc:60, damage:.72, cooldown:26, range:70, reflect:0, cut:1, guardRatio:.45, color:'#e2e8f0', desc:'快速發動左右二連斬，兩段有效軌跡都能斬除普通子彈。' },
-    { id:'m04', name:'炒菜鍋', rarity:'normal', icon:3, pattern:'circle', shape:'ring', inner:24, damage:.82, cooldown:70, range:92, reflect:1, guardRatio:.72, fullCircle:true, color:'#94a3b8', desc:'轉身揮出全周鍋面橫掃，擋彈時產生清楚的金屬震圈。' },
+    { id:'m04', name:'炒菜鍋', rarity:'normal', icon:3, pattern:'circle', shape:'ring', inner:24, damage:.82, cooldown:82, range:92, reflect:1, guardRatio:.72, fullCircle:true, color:'#94a3b8', desc:'轉身揮出較慢的全周鍋面橫掃，擋彈時產生清楚的金屬震圈。' },
     { id:'m05', name:'砧板護盾', rarity:'normal', icon:4, pattern:'shield', shape:'thrust', width:80, damage:.82, cooldown:70, range:70, reflect:1, cut:1, guardRatio:1, color:'#a16207', shield:4, desc:'先將砧板架在前方防守，再向前盾擊、推開敵人並處理普通子彈。' },
     { id:'m06', name:'長柄湯勺', rarity:'normal', icon:5, pattern:'long', shape:'thrust', width:26, damage:1.05, cooldown:46, range:140, reflect:0, sweetTip:true, color:'#cbd5e1', desc:'直線長突刺；以勺頭末端命中時造成 30% 額外傷害。' },
     { id:'m07', name:'雙齒烤肉夾', rarity:'normal', icon:6, pattern:'double', shape:'dual', width:20, lane:14, damage:.58, cooldown:36, range:90, reflect:0, cut:1, guardRatio:.5, color:'#f97316', hits:2, desc:'雙軌向前刺出後向內夾擊，兩段軌跡都能斬除普通子彈。' },
