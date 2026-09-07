@@ -20,8 +20,7 @@ async function uploadReviewScreenshots(result) {
     const key = safePathSegment(review.reviewerId || review.reviewer || index + 1);
     const blob = await put(`google-reviews/${result.date}/${index + 1}-${key}.png`, image, {
       access: 'public',
-      addRandomSuffix: false,
-      allowOverwrite: true,
+      addRandomSuffix: true,
       contentType: 'image/png',
       cacheControlMaxAge: 86400,
       token
