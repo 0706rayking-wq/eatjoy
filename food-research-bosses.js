@@ -311,8 +311,8 @@ function frThunderDrawPowerAura(b){
 }
 function frBossTempo(stageNum){
   const s=Number(stageNum)||1;
-  const enhanced=s>=11&&s<=22;
-  return {normalCd:enhanced?60:90,skillCd:enhanced?120:150,normalBusy:66,skillBusy:108,busyRate:1,eventScale:1,warningMin:enhanced?60:90,warningMax:enhanced?60:90,moveRetarget:s>=12?46:64,moveRate:s>=12?.033:.027};
+  const late=s>=12&&s<=22,stage11=s===11;
+  return {normalCd:late?84:stage11?60:90,skillCd:late?144:stage11?120:150,normalBusy:66,skillBusy:108,busyRate:1,eventScale:1,warningMin:late?84:stage11?60:90,warningMax:late?84:stage11?60:90,moveRetarget:s>=12?46:64,moveRate:s>=12?.033:.027};
 }
 function frBossHighStageSkillPool(b){
   const pool=(b&&b._frDef&&b._frDef.skills||[]).slice();
