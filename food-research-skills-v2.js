@@ -16,7 +16,7 @@
     salmon_ronin:{passive:'浪人步：閃避後攻擊與移速 +15%，持續 5 秒，每 8 秒最多觸發一次',skill1:'斷浪',skill1Cost:32,skill1Cooldown:9,skill1Desc:'向上揮出距離加倍的圓弧斬，清除軌跡子彈並造成 28 傷害；一般敵人推至畫面上方，首領向上擊退 140。',skill2:'逆流多重閃',skill2Cost:65,skill2Cooldown:21,skill2Desc:'從四面八方依序放出 12 道藍色直線光束，每 0.5 秒 1 道，每擊 38 傷害。'},
     beef_berserker:{passive:'背水狂戰：血量越低，攻擊與攻速越高',skill1:'怒吼',skill1Cost:28,skill1Cooldown:10,skill1Desc:'使前方大扇形敵人防禦降低 25% 持續 6 秒；首領降低 12%。',skill2:'巨兵斬',skill2Cost:60,skill2Cooldown:20,skill2Desc:'使用近戰武器時，武器視覺提升至 5 倍、實際攻擊範圍提升至 3.5 倍；命中每秒回復 5 HP、最多回復 50 HP，持續 10 秒。'},
     puffer_alchemist:{passive:'劇毒調和：遠程 4%、近戰 8% 機率使敵人中毒 5 秒；一般敵人攻擊降低 15%，首領降低 7%',skill1:'毒沼',skill1Cost:30,skill1Cooldown:11,skill1Desc:'在角色上方生成螢幕寬度的毒沼 7 秒，每秒造成 10 傷害並施加劇毒。',skill2:'荊棘路',skill2Cost:70,skill2Cooldown:24,skill2Desc:'向畫面頂端生成荊棘路；一般敵人困住 3 秒，首領移速降低 20%，並附加每秒 6 傷害、持續 10 秒的劇毒。'},
-    black_garlic_void:{passive:'虛空穿刺：全隊忽略 20% 防禦並額外貫穿',skill1:'虛空黑洞',skill1Cost:50,skill1Cooldown:14,skill1Desc:'在畫面中心生成黑洞 3 秒，持續吸聚敵人與子彈，結束後造成 25 傷害。',skill2:'雙鬼召來',skill2Cost:70,skill2Cooldown:22,skill2Desc:'召喚 2 隻 HP 70 的幽體鬼影 10 秒；登場 1 秒無敵，之後一般投射物傷害減半，穿過敵人時每 0.7 秒造成 30 傷害。'},
+    black_garlic_void:{passive:'虛空殘響：主動技能命中時留下持續 2 秒的小型虛空裂隙，每秒造成 8 傷害，場上最多 2 個',skill1:'虛空黑洞',skill1Cost:50,skill1Cooldown:14,skill1Desc:'在畫面中心生成黑洞 3 秒，持續吸聚敵人與子彈，結束後造成 25 傷害。',skill2:'雙鬼召來',skill2Cost:70,skill2Cooldown:22,skill2Desc:'召喚 2 隻 HP 70 的幽體鬼影 10 秒；登場 1 秒無敵，之後一般投射物傷害減半，穿過敵人時每 0.7 秒造成 30 傷害。'},
     lobster_general:{passive:'龍蝦甲胄：目前角色受到傷害 -10%，近戰反彈子彈傷害 +40%，同型態不疊加',skill1:'甲殼吸收',skill1Cost:28,skill1Cooldown:9,skill1Desc:'2.5 秒內吸收最多 10 發一般子彈，每發轉化為 8 護盾，最多獲得 80 護盾。',skill2:'雙側砲台',skill2Cost:65,skill2Cooldown:22,skill2Desc:'角色左右各架設 1 座 HP 150 砲台 10 秒；每 0.65 秒發射 20 傷害的追蹤砲彈。'},
     truffle_thunder:{name:'松露雷將',passive:'雷鏈麻痺：攻擊有 10% 機率連鎖，並短暫麻痺命中敵人',skill1:'磁雷牽引',skill1Cost:30,skill1Cooldown:13,skill1Desc:'在角色前方左右放置 2 顆磁極雷球，形成持續 8 秒的電流通道；通道每 0.5 秒造成 14 傷害，一般敵人減速 25%，首領減速 10%。',skill2:'雷域推進',skill2Cost:70,skill2Cooldown:23,skill2Desc:'生成直徑 360、向上緩慢推進的雷電立場 6 秒；每 0.5 秒造成 20 傷害。'},
     dragonfruit_emperor:{passive:'灼燒光環：185 範圍持續灼燒，攻擊灼燒敵人 +20%',skill1:'雙翼龍焰',skill1Cost:38,skill1Cooldown:14,skill1Desc:'向角色上方來回噴射寬 70 火焰 4.5 秒；每 0.5 秒造成 30 傷害並附加灼燒，同一目標每 0.5 秒最多受傷一次。',skill2:'龍隕五星',skill2Cost:75,skill2Cooldown:25,skill2Desc:'每隔 2 秒砸下 1 顆直徑約畫面 1/3 的龍隕石，共 5 顆；預警 0.7 秒，中心造成 100、外圍造成 75 傷害並灼燒；一般敵人暈眩 1.5 秒，首領暈眩 1 秒且每 3 秒最多觸發一次。'},
@@ -56,7 +56,7 @@
  function frV2Nearest(x,y){let best=null,dist=Infinity;frV2Targets().forEach(function(t){const d=Math.hypot(t.x-x,t.y-y);if(d<dist){dist=d;best=t;}});return best;}
  function frV2Ready(key,ms,now){now=now||frV2Now();if(!frV2.lastPassive[key]||now-frV2.lastPassive[key]>=ms){frV2.lastPassive[key]=now;return true;}return false;}
  function frV2SkillDamage(target,amount,context,skillMult){if(!frV2Alive(target))return;const prior=window.frV2DamageContext;window.frV2DamageContext=context||'skill';frApplyDamage(target,amount*(window._curAtkMult||atkMult)*frFormDamageMultiplier()*(skillMult==null?frSkillPowerMultiplier():skillMult));window.frV2DamageContext=prior;}
- function frV2Area(x,y,r,amount,context,after){frV2Targets().forEach(function(t){if(Math.hypot(t.x-x,t.y-y)<=r+(t.r||18)){frV2SkillDamage(t,amount,context);if(after)after(t);}});}
+ function frV2Area(x,y,r,amount,context,after,skillMult){frV2Targets().forEach(function(t){if(Math.hypot(t.x-x,t.y-y)<=r+(t.r||18)){frV2SkillDamage(t,amount,context,skillMult);if(after)after(t);}});}
  function frV2Heal(amount){return frHeal(amount);}
  function frV2Shield(amount,cap){player.shieldActive=true;player.shieldHp=Math.min(cap||999,Math.max(0,player.shieldHp||0)+amount);updateHUD();}
  function frV2Push(target,x,y,amount){if(frV2Boss(target))amount*=.25;const dx=target.x-x,dy=target.y-y,d=Math.hypot(dx,dy)||1;target.x+=dx/d*amount;target.y+=dy/d*amount;}
@@ -110,7 +110,6 @@
  function frV2InsideField(kind){const f=frV2.fields.find(function(item){return item.kind===kind&&frV2Now()<item.until;});return !!(f&&frV2Distance(f,player)<=f.r);}
  frFormDamageMultiplier=function(){
   let m=1,now=frV2Now();
-  if(frV2Has('black_garlic_void'))m*=1.2;
   if(now<frV2.garlicBuffUntil)m*=1.25;
   if(now<frV2.salmonBuffUntil)m*=1.15;
   if(frV2InsideField('lemonCharge'))m*=1.2;
@@ -142,7 +141,6 @@
   if(!b)return b;
   if(frV2Has('popcorn'))b.r*=1.25;
   if(frV2Has('lotus_archer')){b.pierce=true;b.frV2LotusPierce=true;}
-  if(frV2Has('black_garlic_void')){b.pierce=true;b.frV2VoidPierce=true;}
   return b;
  }
  fire=function(){const before=bullets.length,r=frV2BaseFire.apply(this,arguments);for(let i=before;i<bullets.length;i++)frV2MarkSharedProjectile(bullets[i]);return r;};
@@ -167,6 +165,7 @@
  function frV2AfterHit(target,amount){
   const now=frV2Now(),ctxType=window.frV2DamageContext;
   if(now<frV2.beefGiantUntil&&currentWeapon==='melee'&&(!ctxType||ctxType==='melee')&&now>=frV2.beefLeechReadyAt&&frV2.beefLeechTotal<50){const healed=frV2Heal(Math.min(5,50-frV2.beefLeechTotal));frV2.beefLeechTotal+=healed;frV2.beefLeechReadyAt=now+1000;if(healed>0){addText('吸血 +'+healed,player.x,player.y-32,'#fb7185',12,-.4);frMoteFx(player.x,player.y,8,'#fb7185','heal',36,2,580);}}
+  if(ctxType==='skill'&&frV2Has('black_garlic_void')&&frV2.fields.filter(function(f){return f.kind==='voidEcho'&&now<f.until;}).length<2){frV2Field('voidEcho',{x:target.x,y:target.y,r:44,until:now+2000,nextTick:now,skillMult:frSkillPowerMultiplier()});frRingFx(target.x,target.y,'#a78bfa',44,420,4);}
   if(ctxType==='dot'||!frV2Alive(target))return;
   if(frV2.cheeseBurnUntil>frV2Now())frV2Burn(target,2000,5);
   const pop=bullets.find(function(b){return b.frV2Pop&&!b.frV2Popped&&frV2Distance(b,target)<(b.r||8)+(target.r||18)+6;});
@@ -211,6 +210,7 @@
    else if(f.kind==='poison'&&now>=f.nextTick){f.nextTick=now+1000;frV2Targets().forEach(function(t){if(Math.abs(t.x-f.x)<f.w/2+(t.r||18)&&Math.abs(t.y-f.y)<f.h/2+(t.r||18)){frV2SkillDamage(t,10,'dot');frV2Poison(t,5000,4);}});}
    else if(f.kind==='thorn'&&now>=f.nextTick){f.nextTick=now+1000;frV2Targets().forEach(function(t){if(Math.abs(t.x-f.x)<f.w/2+(t.r||18)&&t.y<f.bottom){frV2Poison(t,10000,6);frV2Slow(t,frV2Boss(t)?1200:3000,frV2Boss(t)?.60:.05);}});}
    else if(f.kind==='blackhole'){frV2Targets().forEach(function(t){t.x+=(f.x-t.x)*.055;t.y+=(f.y-t.y)*.055;});eBullets.forEach(function(b){b.x+=(f.x-b.x)*.08;b.y+=(f.y-b.y)*.08;});}
+   else if(f.kind==='voidEcho'&&now>=f.nextTick){f.nextTick=now+1000;frV2Area(f.x,f.y,f.r,8,'dot',null,f.skillMult);frV2Burst(f.x,f.y,'#8b5cf6',5);}
    else if(f.kind==='magneticLane'&&now>=f.nextTick){f.nextTick=now+500;frV2Targets().forEach(function(t){if(frV2DistanceToSegment(t,f.x1,f.y1,f.x2,f.y2)<=24+(t.r||18)){frV2SkillDamage(t,14,'skill');frV2Slow(t,650,frV2Boss(t)?.9:.75);frV2Burst(t.x,t.y,'#fde047',6);}});}
    else if(f.kind==='truffleDomain'){f.y-=.85;if(now>=f.nextTick){f.nextTick=now+500;frV2Targets().forEach(function(t){if(frV2Distance(t,f)<=180+(t.r||18))frV2SkillDamage(t,20,'skill');});}}
    else if(f.kind==='dragonBreath'&&now>=f.activate&&now>=f.nextTick){f.nextTick=now+500;const angle=-Math.PI/2+Math.sin((now-f.start)/520)*.52,x2=player.x+Math.cos(angle)*CH,y2=player.y+Math.sin(angle)*CH;frV2Targets().forEach(function(t){if(frV2DistanceToSegment(t,player.x,player.y,x2,y2)<=35+(t.r||18)){frV2SkillDamage(t,30,'skill');frV2Burn(t,2500,16);}});}
@@ -284,6 +284,7 @@
    else if(f.kind==='thorn'){const img=frV2EffectImage('thornRoad','puffer-thorn-road.png'),height=Math.max(1,f.bottom),pulse=.9+.06*Math.sin(now/110);ctx.save();ctx.globalAlpha=.55;ctx.shadowColor='#84cc16';ctx.shadowBlur=10;if(img.complete&&img.naturalWidth){const cropX=img.naturalWidth*.319,cropW=img.naturalWidth*.363;ctx.drawImage(img,cropX,0,cropW,img.naturalHeight,f.x-f.w/2,0,f.w,height);}ctx.globalAlpha=.34+.12*pulse;ctx.strokeStyle='#d9f99d';ctx.lineWidth=3;ctx.setLineDash([10,8]);ctx.lineDashOffset=-now/35;ctx.strokeRect(f.x-f.w/2,0,f.w,height);ctx.setLineDash([]);ctx.restore();}
    else if(f.kind==='peachRevive'){const t=Math.max(0,Math.min(1,(now-f.start)/(f.until-f.start))),fade=Math.sin(Math.PI*t),beamW=22+44*Math.sin(Math.PI*Math.min(1,t*1.7));ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=.22*fade;ctx.fillStyle='#fdf2f8';ctx.fillRect(f.x-beamW/2,0,beamW,f.y+42);ctx.globalAlpha=.9*fade;ctx.strokeStyle='#f9a8d4';ctx.shadowColor='#fbcfe8';ctx.shadowBlur=18;ctx.lineWidth=5;for(let ring=0;ring<3;ring++){const r=28+ring*20+t*45;ctx.beginPath();ctx.ellipse(f.x,f.y+20,r,r*.34,0,0,Math.PI*2);ctx.stroke();}ctx.fillStyle='#fce7f3';for(let k=0;k<14;k++){const a=k*2.399+now/900,rr=24+(k%5)*11,y=f.y+24-(t*115+(k*19)%120);ctx.save();ctx.translate(f.x+Math.cos(a)*rr,y);ctx.rotate(a);ctx.beginPath();ctx.ellipse(0,0,4,9,0,0,Math.PI*2);ctx.fill();ctx.restore();}ctx.restore();}
    else if(f.kind==='blackhole'){const pulse=1+.08*Math.sin(now/70);ctx.globalAlpha=.28;ctx.fillStyle='#7c3aed';ctx.beginPath();ctx.arc(f.x,f.y,70*pulse,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;ctx.fillStyle='#030712';ctx.shadowColor='#a855f7';ctx.shadowBlur=20;ctx.beginPath();ctx.arc(f.x,f.y,45*pulse,0,Math.PI*2);ctx.fill();for(let k=0;k<4;k++){ctx.strokeStyle=k%2?'#a78bfa':'#4c1d95';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(f.x,f.y,52+k*10,18+k*5,now/500+k*.6,0,Math.PI*2);ctx.stroke();}}
+   else if(f.kind==='voidEcho'){const life=Math.max(0,Math.min(1,(f.until-now)/2000)),pulse=.9+.1*Math.sin(now/75);ctx.save();ctx.translate(f.x,f.y);ctx.globalAlpha=.16+.18*life;ctx.fillStyle='#4c1d95';ctx.shadowColor='#a855f7';ctx.shadowBlur=12;ctx.beginPath();ctx.ellipse(0,0,f.r*pulse,f.r*.42*pulse,now/650,0,Math.PI*2);ctx.fill();ctx.globalAlpha=.75*life;ctx.strokeStyle='#c4b5fd';ctx.lineWidth=3;for(let k=0;k<3;k++){const a=now/330+k*Math.PI*2/3;ctx.beginPath();ctx.ellipse(0,0,f.r*(.45+k*.2),f.r*(.12+k*.07),a,0,Math.PI*2);ctx.stroke();}ctx.restore();}
    else if(f.kind==='truffleDomain'){ctx.globalAlpha=.24;ctx.fillStyle='#fde047';ctx.shadowColor='#facc15';ctx.shadowBlur=16;ctx.beginPath();ctx.arc(f.x,f.y,180,0,Math.PI*2);ctx.fill();ctx.globalAlpha=.9;ctx.strokeStyle='#ffffff';ctx.lineWidth=4;ctx.setLineDash([14,9]);ctx.lineDashOffset=-now/28;ctx.stroke();ctx.setLineDash([]);for(let k=0;k<10;k++){const a=now/190+k*Math.PI/5,x=f.x+Math.cos(a)*125,y=f.y+Math.sin(a)*125;ctx.beginPath();ctx.moveTo(f.x,f.y);ctx.lineTo(x-6,y-8);ctx.lineTo(x+5,y);ctx.lineTo(x-5,y+8);ctx.stroke();}}
    else if(f.kind==='popcornBlast'){const t=Math.max(0,Math.min(1,(now-f.start)/(f.until-f.start))),r=f.r*(1-Math.pow(1-t,3));ctx.globalAlpha=1-t;ctx.fillStyle='rgba(253,230,138,.22)';ctx.strokeStyle='#fde68a';ctx.lineWidth=8-4*t;ctx.beginPath();ctx.arc(f.x,f.y,r,0,Math.PI*2);ctx.fill();ctx.stroke();}
    else if(f.kind==='popcornDrop'){const t=Math.max(0,Math.min(1,(now-f.launch)/(f.activate-f.launch))),cy=f.fromY+(f.y-f.fromY)*t*t;ctx.globalAlpha=f.exploded?Math.max(0,(f.until-now)/280):1;ctx.fillStyle='#fff7d6';ctx.strokeStyle='#f59e0b';ctx.lineWidth=3;ctx.shadowColor='#fbbf24';ctx.shadowBlur=12;ctx.beginPath();for(let k=0;k<10;k++){const a=k*Math.PI/5,rr=12+(k%2)*7;const px=f.x+Math.cos(a)*rr,py=cy+Math.sin(a)*rr;if(k===0)ctx.moveTo(px,py);else ctx.lineTo(px,py);}ctx.closePath();ctx.fill();ctx.stroke();if(!f.exploded){ctx.globalAlpha=.2+.18*Math.sin(now/70);ctx.fillStyle='#fde68a';ctx.beginPath();ctx.ellipse(f.x,f.y,f.r,f.r*.38,0,0,Math.PI*2);ctx.fill();}}
