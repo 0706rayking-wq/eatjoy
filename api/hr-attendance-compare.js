@@ -334,13 +334,12 @@ async function loadNueipAttendanceBrowser(date, requestedDepartments = [], sched
   let departmentValues = requestedDepartments.length > 0
     ? [...new Set(requestedDepartments)]
     : (['外場／洗滌', '行政／洗滌'].includes(schedule?.sheet_type) ? [] : [departmentValue]);
-  // LINE can deliver multiple attendance sheets at the same instant. Reusing
-  // one persistent Browserbase context lets concurrent NUEIP navigations log
-  // each other out or replace the login page. Credentials are supplied for
-  // every run, so isolate each comparison in its own browser session.
+  // Keep the persisted NUEIP login state. A completely fresh Browserbase
+  // session can be held at NUEIP's blank shell/login challenge long enough to
+  // hit Vercel's five-minute function limit.
   const browser = await launchBrowser(process.env, globalThis.fetch, {
     workflow: 'nueip-attendance-compare',
-    useContext: false
+    useContext: true
   });
 
   let stage = '開啟登入頁';
@@ -370,6 +369,25 @@ async function loadNueipAttendanceBrowser(date, requestedDepartments = [], sched
       if (authenticatedHome) {
         // Browserbase preserves this NUEIP session. The portal can render the
         // signed-in home screen at /login, so continue directly to attendance.
+        hasLoginForm = false;
+      } else if (lastUrl.includes('portal.nueip.com/login')) {
+        // A persisted authenticated session sometimes renders only NUEIP's
+        // empty application shell at /login. Probe the protected attendance
+        // page before treating this as a login failure.
+        stage = '確認既有登入工作階段';
+        await page.goto('https://cloud.nueip.com/attendance_record', {
+          waitUntil: 'domcontentloaded',
+          timeout: 25000
+        });
+        lastUrl = page.url();
+        if (lastUrl.includes('portal.nueip.com/login')) {
+          const details = [
+            loginPage.title ? `標題=${loginPage.title}` : '',
+            loginPage.text ? `內容=${loginPage.text}` : '',
+            Array.isArray(loginPage.inputs) && loginPage.inputs.length ? `欄位=${loginPage.inputs.join(',')}` : ''
+          ].filter(Boolean).join('；');
+          throw new Error(`找不到NUEIP登入欄位${details ? `（${details}）` : ''}`);
+        }
         hasLoginForm = false;
       } else {
         const details = [
@@ -519,12 +537,15 @@ async function loadNueipAttendanceBrowser(date, requestedDepartments = [], sched
 
 async function loadNueipAttendanceBrowserWithRetry(date, requestedDepartments = [], schedule = {}) {
   let lastError;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  // Two bounded retries leave enough headroom below Vercel's 300-second limit.
+  // The former three full browser attempts could convert a recoverable NUEIP
+  // page problem into an opaque connection-aborted error at exactly 5 minutes.
+  for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
       return await loadNueipAttendanceBrowser(date, requestedDepartments, schedule);
     } catch (error) {
       lastError = error;
-      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 2500 * (attempt + 1)));
+      if (attempt < 1) await new Promise((resolve) => setTimeout(resolve, 2500));
     }
   }
   throw lastError;
