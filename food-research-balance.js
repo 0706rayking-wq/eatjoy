@@ -59,7 +59,7 @@
     stamina: {
       base: 100,
       perTrainingLevel: 6,
-      regenPerSecond: 2.5,
+      regenPerSecond: 2.0,
       regenPerTrainingLevel: 0.10,
       dodgeCost: 22,
       skill1ByRarity: { normal: 20, rare: 22, noble: 24, top: 26 },
