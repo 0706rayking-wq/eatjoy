@@ -1125,12 +1125,12 @@
 <script src="food-research-question-bank.js?v=2"></script>
 <script src="food-research-question-bank-expansion.js"></script>
 <script src="food-research-forms.js?v=31"></script>
-<script src="food-research-skills-v2.js?v=25"></script>
+<script src="food-research-skills-v2.js?v=26"></script>
 <script src="food-research-weapons.js?v=30"></script>
 <script src="food-research-amulets.js?v=6"></script>
     <script src="food-research-bosses.js?v=57"></script>
     <script src="food-research-ui.js?v=12"></script>
-<script src="food-research-balance.js?v=31"></script>
+<script src="food-research-balance.js?v=32"></script>
 <script src="food-research-timing.js?v=1"></script>
       <script src="food-research-audio.js?v=4"></script>
 
@@ -9243,7 +9243,7 @@ if (selectedActivity === 'food_research') {
   {key:'rangedSpeed', label:'🏹 遠程熟練', costBase:100, max:10, effect:'遠程攻速 +1.5% / Lv'},
   {key:'meleeSpeed', label:'⚔️ 近戰熟練', costBase:100, max:10, effect:'近戰攻速 +2% / Lv'},
   {key:'critDamage', label:'✨ 暴擊鍛鍊', costBase:110, max:10, effect:'暴擊傷害 +3% / Lv'},
-  {key:'skillPower', label:'🔮 技能修行', costBase:110, max:10, effect:'小招與大招傷害 +2% / Lv'},
+  {key:'skillPower', label:'🔮 技能修行', costBase:110, max:10, effect:'小招與大招傷害 +5% / Lv（滿級 +50%）'},
  ];
  const getTrainingCost = (stat, lv) => Math.round(stat.costBase * (1 + lv * .55));
   const refreshTrainingPhase = () => {

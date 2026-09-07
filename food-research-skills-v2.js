@@ -55,7 +55,7 @@
  function frV2Distance(a,b){return Math.hypot((a.x||0)-(b.x||0),(a.y||0)-(b.y||0));}
  function frV2Nearest(x,y){let best=null,dist=Infinity;frV2Targets().forEach(function(t){const d=Math.hypot(t.x-x,t.y-y);if(d<dist){dist=d;best=t;}});return best;}
  function frV2Ready(key,ms,now){now=now||frV2Now();if(!frV2.lastPassive[key]||now-frV2.lastPassive[key]>=ms){frV2.lastPassive[key]=now;return true;}return false;}
- function frV2SkillDamage(target,amount,context){if(!frV2Alive(target))return;const prior=window.frV2DamageContext;window.frV2DamageContext=context||'skill';frApplyDamage(target,amount*(window._curAtkMult||atkMult)*frFormDamageMultiplier()*frSkillPowerMultiplier());window.frV2DamageContext=prior;}
+ function frV2SkillDamage(target,amount,context,skillMult){if(!frV2Alive(target))return;const prior=window.frV2DamageContext;window.frV2DamageContext=context||'skill';frApplyDamage(target,amount*(window._curAtkMult||atkMult)*frFormDamageMultiplier()*(skillMult==null?frSkillPowerMultiplier():skillMult));window.frV2DamageContext=prior;}
  function frV2Area(x,y,r,amount,context,after){frV2Targets().forEach(function(t){if(Math.hypot(t.x-x,t.y-y)<=r+(t.r||18)){frV2SkillDamage(t,amount,context);if(after)after(t);}});}
  function frV2Heal(amount){return frHeal(amount);}
  function frV2Shield(amount,cap){player.shieldActive=true;player.shieldHp=Math.min(cap||999,Math.max(0,player.shieldHp||0)+amount);updateHUD();}
@@ -72,10 +72,10 @@
  function frV2DistanceToSegment(target,x1,y1,x2,y2){const dx=x2-x1,dy=y2-y1,len2=dx*dx+dy*dy;if(!len2)return Math.hypot(target.x-x1,target.y-y1);const q=Math.max(0,Math.min(1,((target.x-x1)*dx+(target.y-y1)*dy)/len2));return Math.hypot(target.x-(x1+dx*q),target.y-(y1+dy*q));}
 
  function frV2SetCooldown(level,seconds){const ms=seconds*1000,slot=charSlots&&charSlots[activeChar],end=frV2Now()+ms;if(level===1){sk1Cd=ms;if(slot)slot._frV2Cd1End=end;}else{sk2Cd=ms;if(slot)slot._frV2Cd2End=end;}}
- function frV2Begin(level){const spec=frV2ActiveSpec(),cost=level===1?spec.skill1Cost:spec.skill2Cost,cd=level===1?sk1Cd:sk2Cd;if(!gameRunning||stamina<cost||cd>0)return null;stamina=Math.max(0,stamina-cost);frV2SetCooldown(level,level===1?spec.skill1Cooldown:spec.skill2Cooldown);const name=level===1?spec.skill1:spec.skill2,c=currentForm.bulletColor||'#fbbf24';addText(name,player.x,player.y-38,c,16);frPlayCast(level,currentForm.id,c,name);frV2SignatureCue(currentForm.id,level,c);updateHUD();return{id:currentForm.id,c:c,spec:spec};}
+ function frV2Begin(level){const spec=frV2ActiveSpec(),cost=level===1?spec.skill1Cost:spec.skill2Cost,cd=level===1?sk1Cd:sk2Cd;if(!gameRunning||stamina<cost||cd>0)return null;stamina=Math.max(0,stamina-cost);frV2SetCooldown(level,level===1?spec.skill1Cooldown:spec.skill2Cooldown);const name=level===1?spec.skill1:spec.skill2,c=currentForm.bulletColor||'#fbbf24';addText(name,player.x,player.y-38,c,16);frPlayCast(level,currentForm.id,c,name);frV2SignatureCue(currentForm.id,level,c);updateHUD();return{id:currentForm.id,c:c,spec:spec,skillMult:frSkillPowerMultiplier()};}
 
  function frV2ExplodePopcorn(x,y){frV2Area(x,y,55,14,'skill');frV2Burst(x,y,'#fde68a',16);frGroundFx(x,y,'#fde68a',55,500);}
- function frV2SpawnMeteor(delay){const target=frV2Nearest(CW/2,CH*.25),x=target?target.x:60+Math.random()*(CW-120),y=target?Math.min(CH*.55,target.y):120+Math.random()*CH*.3,launch=frV2Now()+delay,impact=launch+700;frV2Field('meteor',{x:x,y:y,fromX:x,fromY:-180,r:Math.max(62,CW/6),launch:launch,activate:impact,until:impact+850});}
+ function frV2SpawnMeteor(delay,skillMult){const target=frV2Nearest(CW/2,CH*.25),x=target?target.x:60+Math.random()*(CW-120),y=target?Math.min(CH*.55,target.y):120+Math.random()*CH*.3,launch=frV2Now()+delay,impact=launch+700;frV2Field('meteor',{x:x,y:y,fromX:x,fromY:-180,r:Math.max(62,CW/6),launch:launch,activate:impact,until:impact+850,skillMult:skillMult});}
  function frV2StartPopcornRain(index){const x=45+Math.random()*(CW-90),y=85+Math.random()*CH*.42,launch=frV2Now()+index*260;frV2Field('popcornDrop',{x:x,y:y,fromY:-45,activate:launch+620,until:launch+900,launch:launch,r:55});}
  function frV2Aura(style,color,duration,data){return frV2Field('aura',Object.assign({style:style,color:color,x:player.x,y:player.y,follow:true,until:frV2Now()+duration},data||{}));}
  function frV2SignatureCue(id,level,color){return frV2Field('signature',{formId:id,level:level,color:color,x:player.x,y:player.y,follow:true,until:frV2Now()+(level===2?1050:750)});}
@@ -215,7 +215,7 @@
    else if(f.kind==='truffleDomain'){f.y-=.85;if(now>=f.nextTick){f.nextTick=now+500;frV2Targets().forEach(function(t){if(frV2Distance(t,f)<=180+(t.r||18))frV2SkillDamage(t,20,'skill');});}}
    else if(f.kind==='dragonBreath'&&now>=f.activate&&now>=f.nextTick){f.nextTick=now+500;const angle=-Math.PI/2+Math.sin((now-f.start)/520)*.52,x2=player.x+Math.cos(angle)*CH,y2=player.y+Math.sin(angle)*CH;frV2Targets().forEach(function(t){if(frV2DistanceToSegment(t,player.x,player.y,x2,y2)<=35+(t.r||18)){frV2SkillDamage(t,30,'skill');frV2Burn(t,2500,16);}});}
    else if(f.kind==='popcornDrop'&&now>=f.activate&&!f.exploded){f.exploded=true;frV2ExplodePopcorn(f.x,f.y);}
-   else if(f.kind==='meteor'&&now>=f.activate&&!f.exploded){f.exploded=true;f.explodedAt=now;frV2Targets().forEach(function(t){const d=frV2Distance(t,f);if(d<=f.r+(t.r||18)){frV2SkillDamage(t,d<=f.r*.45?120:90,'skill');frV2Burn(t,3500,16);t._frV2ParalyzedUntil=Math.max(t._frV2ParalyzedUntil||0,now+(frV2Boss(t)?1000:1500));}});frV2Burst(f.x,f.y,'#fb923c',35);frShakeFx(12,520);frFlashFx('#f97316',320,.26);}
+   else if(f.kind==='meteor'&&now>=f.activate&&!f.exploded){f.exploded=true;f.explodedAt=now;frV2Targets().forEach(function(t){const d=frV2Distance(t,f);if(d<=f.r+(t.r||18)){frV2SkillDamage(t,d<=f.r*.45?120:90,'skill',f.skillMult);frV2Burn(t,3500,16);t._frV2ParalyzedUntil=Math.max(t._frV2ParalyzedUntil||0,now+(frV2Boss(t)?1000:1500));}});frV2Burst(f.x,f.y,'#fb923c',35);frShakeFx(12,520);frFlashFx('#f97316',320,.26);}
    else if(f.kind==='honey'&&now>=f.nextTick){f.nextTick=now+1000;if(frV2Distance(f,player)<f.r)frV2Heal(10);}
    else if(f.kind==='icewall'){for(let j=eBullets.length-1;j>=0;j--){const b=eBullets[j];if(Math.abs(b.x-f.x)<f.w/2&&Math.abs(b.y-f.y)<f.h/2){f.hp-=Math.max(1,b.dmg||5);eBullets.splice(j,1);}}if(now>=f.nextTick){f.nextTick=now+600;frV2Targets().forEach(function(t){if(Math.abs(t.x-f.x)<f.w/2+(t.r||18)&&Math.abs(t.y-f.y)<f.h/2+(t.r||18)){frV2SkillDamage(t,30,'skill');frV2Slow(t,900,.75);}});}if(f.hp<=0)f.until=0;}
    else if(f.kind==='cheese'){frV2Targets().forEach(function(t){const pull=frV2Boss(t)?.006:.025;t.x+=(f.x-t.x)*pull;t.y+=(f.y-t.y)*pull;});for(let j=eBullets.length-1;j>=0;j--){const b=eBullets[j],d=frV2Distance(b,f);if(d<150&&d>1){const speed=Math.hypot(b.vx,b.vy)||1,turn=.075;b.vx=b.vx*(1-turn)+(f.x-b.x)/d*speed*turn;b.vy=b.vy*(1-turn)+(f.y-b.y)/d*speed*turn;}if(d<32+(b.r||5)){f.hp-=Math.max(1,b.dmg||5);eBullets.splice(j,1);}}if(f.hp<=0)f.until=0;}
@@ -225,10 +225,10 @@
 
  function frV2UpdateSummons(now){
   for(let i=frV2.summons.length-1;i>=0;i--){const s=frV2.summons[i];if(now>=s.until||s.hp<=0){frV2.summons.splice(i,1);continue;}const t=frV2Nearest(s.x,s.y);
-   if(s.kind==='bee'&&t){const d=frV2Distance(s,t)||1;s.x+=(t.x-s.x)/d*(d>38?2.1:-1);s.y+=(t.y-s.y)/d*(d>38?2.1:-1);if(now>=s.nextAttack&&d<50+(t.r||18)){s.nextAttack=now+700;frV2SkillDamage(t,s.damage,'summon');frV2Burst(t.x,t.y,'#fde047',7);frRingFx(t.x,t.y,'#fef3c7',30,260,4);if(!frV2Boss(t))frV2Push(t,s.x,s.y,16);}}
-   else if(s.kind==='ghost'&&t){const d=frV2Distance(s,t)||1;if(!s.passUntil||now>=s.passUntil){const a=Math.atan2(t.y-s.y,t.x-s.x);s.vx=Math.cos(a)*3.4;s.vy=Math.sin(a)*3.4;}s.x+=s.vx||0;s.y+=s.vy||0;if(now>=s.nextAttack&&d<(t.r||18)+22){s.nextAttack=now+700;s.passUntil=now+280;frV2SkillDamage(t,30,'summon');frV2Burst(t.x,t.y,'#a78bfa',7);}}
-   else if(s.kind==='clone'){const side=s.side||1,tx=Math.max(26,Math.min(CW-26,player.x+side*46)),ty=Math.max(40,Math.min(CH-30,player.y+12));s.x+=(tx-s.x)*.16;s.y+=(ty-s.y)*.16;if(t&&now>=s.nextAttack){s.nextAttack=now+(s.fireInterval||400);const a=Math.atan2(t.y-s.y,t.x-s.x),b=new Bullet(s.x,s.y,Math.cos(a)*8,Math.sin(a)*8,s.damage*(window._curAtkMult||atkMult),'#d8b4fe',7,false,true,false);b.frV2CloneShot=true;bullets.push(b);}}
-   else if(s.kind==='turret'&&t&&now>=s.nextAttack){s.nextAttack=now+650;const a=Math.atan2(t.y-s.y,t.x-s.x);const b=new Bullet(s.x,s.y,Math.cos(a)*7,Math.sin(a)*7,20*(window._curAtkMult||atkMult),'#fb923c',7,false,true,false);b.frV2TurretShot=true;bullets.push(b);}
+   if(s.kind==='bee'&&t){const d=frV2Distance(s,t)||1;s.x+=(t.x-s.x)/d*(d>38?2.1:-1);s.y+=(t.y-s.y)/d*(d>38?2.1:-1);if(now>=s.nextAttack&&d<50+(t.r||18)){s.nextAttack=now+700;frV2SkillDamage(t,s.damage,'summon',s.skillMult);frV2Burst(t.x,t.y,'#fde047',7);frRingFx(t.x,t.y,'#fef3c7',30,260,4);if(!frV2Boss(t))frV2Push(t,s.x,s.y,16);}}
+   else if(s.kind==='ghost'&&t){const d=frV2Distance(s,t)||1;if(!s.passUntil||now>=s.passUntil){const a=Math.atan2(t.y-s.y,t.x-s.x);s.vx=Math.cos(a)*3.4;s.vy=Math.sin(a)*3.4;}s.x+=s.vx||0;s.y+=s.vy||0;if(now>=s.nextAttack&&d<(t.r||18)+22){s.nextAttack=now+700;s.passUntil=now+280;frV2SkillDamage(t,30,'summon',s.skillMult);frV2Burst(t.x,t.y,'#a78bfa',7);}}
+   else if(s.kind==='clone'){const side=s.side||1,tx=Math.max(26,Math.min(CW-26,player.x+side*46)),ty=Math.max(40,Math.min(CH-30,player.y+12));s.x+=(tx-s.x)*.16;s.y+=(ty-s.y)*.16;if(t&&now>=s.nextAttack){s.nextAttack=now+(s.fireInterval||400);const a=Math.atan2(t.y-s.y,t.x-s.x),b=new Bullet(s.x,s.y,Math.cos(a)*8,Math.sin(a)*8,s.damage*(window._curAtkMult||atkMult)*(s.skillMult||1),'#d8b4fe',7,false,true,false);b.frV2CloneShot=true;bullets.push(b);}}
+   else if(s.kind==='turret'&&t&&now>=s.nextAttack){s.nextAttack=now+650;const a=Math.atan2(t.y-s.y,t.x-s.x);const b=new Bullet(s.x,s.y,Math.cos(a)*7,Math.sin(a)*7,20*(window._curAtkMult||atkMult)*(s.skillMult||1),'#fb923c',7,false,true,false);b.frV2TurretShot=true;bullets.push(b);}
    for(let j=eBullets.length-1;j>=0;j--){const b=eBullets[j];if(frV2Distance(b,s)<16+(b.r||5)){if(s.kind==='ghost'&&now<s.start+1000)continue;s.hp-=Math.max(1,(b.dmg||5)*(s.kind==='ghost'?.5:1));eBullets.splice(j,1);break;}}
   }
  }
@@ -333,7 +333,7 @@
   else if(id==='lobster_general'){frV2.lobsterAbsorbUntil=now+2500;frV2.lobsterAbsorbed=0;frV2.lobsterShieldCap=(player.shieldHp||0)+80;frV2Aura('shell','#fb923c',2500,{r:92});}
   else if(id==='truffle_thunder'){const y=Math.max(90,player.y-150),half=Math.min(115,CW*.28);frV2Field('magneticLane',{x1:Math.max(28,player.x-half),y1:y,x2:Math.min(CW-28,player.x+half),y2:y,until:now+8000});}
   else if(id==='dragonfruit_emperor')frV2Field('dragonBreath',{x:player.x,y:player.y,follow:true,activate:now+180,until:now+4500});
-  else if(id==='peach_divine'){for(let i=0;i<12;i++)setTimeout(function(){if(!gameRunning)return;const b=new Bullet(player.x,player.y,0,-13,25*(window._curAtkMult||atkMult),'#f9a8d4',10,true,false,false);b.frV2Qi=true;bullets.push(b);},i*500);}
+  else if(id==='peach_divine'){for(let i=0;i<12;i++)setTimeout(function(){if(!gameRunning)return;const b=new Bullet(player.x,player.y,0,-13,25*(window._curAtkMult||atkMult)*cast.skillMult,'#f9a8d4',10,true,false,false);b.frV2Qi=true;bullets.push(b);},i*500);}
   else if(id==='cocoa_popsicle_wargod'){const castId=now;[0,1000].forEach(function(d){setTimeout(function(){if(!gameRunning)return;frV2Field('iceSlashSprite',{x:player.x,y:player.y-18,side:d?1:-1,until:frV2Now()+900});frSoundFx('ice',1);frV2Targets().forEach(function(t){if(frV2InFront(t,CH,CW*.375)){frV2SkillDamage(t,20,'skill');if(t._frV2CocoaFreezeCast!==castId){const freezeMs=frV2Boss(t)?1000:2000,freezeNow=frV2Now();t._frV2CocoaFreezeCast=castId;t._frV2ParalyzedUntil=Math.max(t._frV2ParalyzedUntil||0,freezeNow+freezeMs);frV2Field('frozenTarget',{target:t,until:freezeNow+freezeMs});frV2Burst(t.x,t.y,'#bae6fd',14);addText('結冰',t.x,t.y-(t.r||22)-16,'#e0f2fe',12,-.35);}frV2Slow(t,frV2Boss(t)?1000:2000,.05);}});},d);});}
   updateHUD();
  };
@@ -341,24 +341,24 @@
  useSkill2=function(){const cast=frV2Begin(2);if(!cast)return;const id=cast.id,now=frV2Now();
   if(id==='normal'){frV2.normalBuffUntil=now+6000;normalFrenzyTimer=0;frV2Aura('frenzy','#fb7185',6000,{r:66});}
   else if(id==='onion_guard')frV2Field('onion',{layers:3,layerHp:[40,40,40],layerMax:40,until:now+8000});
-  else if(id==='popcorn'){for(let i=0;i<20;i++)setTimeout(function(){if(!gameRunning)return;const t=frV2Nearest(player.x,player.y),a=t?Math.atan2(t.y-player.y,t.x-player.x):-Math.PI/2,b=new Bullet(player.x,player.y,Math.cos(a)*7,Math.sin(a)*7,12*(window._curAtkMult||atkMult),'#fde68a',9,true,true,false);b.frV2Pop=true;bullets.push(b);},i*500);}
+  else if(id==='popcorn'){for(let i=0;i<20;i++)setTimeout(function(){if(!gameRunning)return;const t=frV2Nearest(player.x,player.y),a=t?Math.atan2(t.y-player.y,t.x-player.x):-Math.PI/2,b=new Bullet(player.x,player.y,Math.cos(a)*7,Math.sin(a)*7,12*(window._curAtkMult||atkMult)*cast.skillMult,'#fde68a',9,true,true,false);b.frV2Pop=true;bullets.push(b);},i*500);}
   else if(id==='healing_mushroom'){frV2Heal(35);frV2Shield(45,90);frV2Area(player.x,player.y,165,30,'skill');frV2Field('mushroomForest',{x:player.x,y:player.y,r:165,until:now+1800});}
   else if(id==='garlic_knight')frV2Field('garlic',{until:now+4000});
   else if(id==='chili_sprite')frV2Field('tornado',{x:player.x,y:player.y-80,until:now+10000});
-  else if(id==='lotus_archer'){for(let i=0;i<20;i++)setTimeout(function(){if(!gameRunning)return;const b=new Bullet(25+Math.random()*(CW-50),CH-15,0,-14,20*(window._curAtkMult||atkMult),'#a7f3d0',9,true,false,false);b.frV2Arrow=true;bullets.push(b);},i*500);}
-  else if(id==='potato_armor')frV2Summon('clone',{formId:id,side:player.x<CW/2?1:-1,hp:player.maxHp*.75,maxHp:player.maxHp*.75,damage:currentForm.bulletDmg*.5,fireInterval:400,until:now+10000,start:now});
+  else if(id==='lotus_archer'){for(let i=0;i<20;i++)setTimeout(function(){if(!gameRunning)return;const b=new Bullet(25+Math.random()*(CW-50),CH-15,0,-14,20*(window._curAtkMult||atkMult)*cast.skillMult,'#a7f3d0',9,true,false,false);b.frV2Arrow=true;bullets.push(b);},i*500);}
+  else if(id==='potato_armor')frV2Summon('clone',{formId:id,side:player.x<CW/2?1:-1,hp:player.maxHp*.75,maxHp:player.maxHp*.75,damage:currentForm.bulletDmg*.5,skillMult:cast.skillMult,fireInterval:400,until:now+10000,start:now});
   else if(id==='lemon_battery')frV2StartBeam(player.x,'#fde047',12,CW*.25,1600,{bossPercentPerTick:.0075});
   else if(id==='cheese_mage')frV2Field('cheese',{x:CW/2,y:CH*.38,hp:400,maxHp:400,until:now+8000});
-  else if(id==='honey_priest'){frV2Field('honey',{x:player.x,y:player.y-45,r:156,until:now+8000});for(let i=0;i<5;i++)frV2Summon('bee',{x:player.x+(i-2)*24,y:player.y-35-Math.abs(i-2)*8,hp:35,maxHp:35,damage:16,until:now+12000,start:now});}
+  else if(id==='honey_priest'){frV2Field('honey',{x:player.x,y:player.y-45,r:156,until:now+8000});for(let i=0;i<5;i++)frV2Summon('bee',{x:player.x+(i-2)*24,y:player.y-35-Math.abs(i-2)*8,hp:35,maxHp:35,damage:16,skillMult:cast.skillMult,until:now+12000,start:now});}
   else if(id==='coffee_pilot'){eBullets.length=0;frSlowAll(4000,.12);frV2.coffeeBuffUntil=now+4000;frV2Aura('coffee','#fef3c7',4000,{r:105});frV2Field('timeWarp',{x:CW/2,y:CH/2,until:now+4000});}
   else if(id==='octopus_samurai')frV2Field('tentacle',{until:now+10000});
   else if(id==='salmon_ronin')for(let i=0;i<12;i++)setTimeout(function(){if(gameRunning)frV2SalmonFlash(i);},i*500);
   else if(id==='beef_berserker'){frV2.beefGiantUntil=now+10000;frV2.beefLeechTotal=0;frV2.beefLeechReadyAt=0;frV2Aura('giant','#ef4444',10000,{r:150});}
   else if(id==='puffer_alchemist')frV2Field('thorn',{x:player.x,w:CW/3,bottom:player.y,until:now+10000});
-  else if(id==='black_garlic_void'){for(let i=0;i<2;i++)frV2Summon('ghost',{x:player.x+(i?35:-35),y:player.y-25,hp:70,maxHp:70,damage:30,until:now+10000,start:now});}
-  else if(id==='lobster_general'){frV2Summon('turret',{x:Math.max(25,player.x-90),y:player.y-50,hp:150,maxHp:150,until:now+10000,start:now});frV2Summon('turret',{x:Math.min(CW-25,player.x+90),y:player.y-50,hp:150,maxHp:150,until:now+10000,start:now});}
+  else if(id==='black_garlic_void'){for(let i=0;i<2;i++)frV2Summon('ghost',{x:player.x+(i?35:-35),y:player.y-25,hp:70,maxHp:70,damage:30,skillMult:cast.skillMult,until:now+10000,start:now});}
+  else if(id==='lobster_general'){frV2Summon('turret',{x:Math.max(25,player.x-90),y:player.y-50,hp:150,maxHp:150,skillMult:cast.skillMult,until:now+10000,start:now});frV2Summon('turret',{x:Math.min(CW-25,player.x+90),y:player.y-50,hp:150,maxHp:150,skillMult:cast.skillMult,until:now+10000,start:now});}
   else if(id==='truffle_thunder')frV2Field('truffleDomain',{x:player.x,y:player.y-50,until:now+6000});
-  else if(id==='dragonfruit_emperor')for(let i=0;i<5;i++)frV2SpawnMeteor(i*2000);
+  else if(id==='dragonfruit_emperor')for(let i=0;i<5;i++)frV2SpawnMeteor(i*2000,cast.skillMult);
   else if(id==='peach_divine'){frV2Heal(player.maxHp);frCleanse();frClearBullets(Infinity);player.invTimer=Math.max(player.invTimer,300);frV2Aura('divine','#f9a8d4',5000,{r:118});}
   else if(id==='cocoa_popsicle_wargod')frV2Field('icewall',{x:player.x,y:Math.max(85,player.y-105),w:330,h:50,hp:300,maxHp:300,until:now+10000});
   updateHUD();

@@ -81,7 +81,7 @@
       rangedSpeedPerLevel: 0.015,
       meleeSpeedPerLevel: 0.02,
       critDamagePerLevel: 0.03,
-      skillDamagePerLevel: 0.02,
+      skillDamagePerLevel: 0.05,
     },
   };
 
