@@ -241,22 +241,23 @@ const FR_BOSS_SKILL_ASSET_FILES={
 const frBossSkillAssetImages={};
 function frBossSkillAssetImage(key){
   if(!FR_BOSS_SKILL_ASSET_FILES[key])return null;
-  if(!frBossSkillAssetImages[key]){const img=new Image();img.decoding='async';img.src='assets/food-research/boss-skills/'+FR_BOSS_SKILL_ASSET_FILES[key];frBossSkillAssetImages[key]=img;}
+  if(!frBossSkillAssetImages[key]){const img=new Image();img.decoding='async';img.src='assets/food-research/boss-skills/'+FR_BOSS_SKILL_ASSET_FILES[key]+'?v=2';frBossSkillAssetImages[key]=img;}
   return frBossSkillAssetImages[key];
 }
+const FR_BOSS_SKILL_ASSET_FRAMES={coffeePools:4,espressoSweep:4,jellyClones:4,crownSlam:4,hornQuake:4,bloodBats:4,frostfireCorridor:4,bitterSeedling:4,bitterVineChase:4,pumpkinRoll:4,pumpkinChainBurst:4,sandwormBurrow:4,sandwormDevour:4,frostThornWheel:4,mangoSnowcone:4,swordNet:4};
 const FR_BOSS_SKILL_ASSET_FX={
-  coffeePools:{asset:'coffeePools',motion:'pulse',target:1,duration:150,drawW:150,drawH:100,alpha:.62},espressoSweep:{asset:'espressoSweep',motion:'sweep',follow:1,duration:92,drawW:255,drawH:128},
-  cleaverLanes:{asset:'niuCleaver',motion:'fall',target:1,duration:105,drawW:205,drawH:137},hornQuake:{asset:'hornQuake',motion:'impact',follow:1,duration:112,drawW:220,drawH:147},
+  coffeePools:{asset:'coffeePools',motion:'orbit',target:1,duration:150,drawW:118,drawH:132,alpha:.92},espressoSweep:{asset:'espressoSweep',motion:'sweep',follow:1,duration:92,drawW:145,drawH:170},
+  cleaverLanes:{asset:'niuCleaver',motion:'fall',target:1,duration:105,drawW:205,drawH:137},hornQuake:{asset:'hornQuake',motion:'impact',follow:1,duration:112,drawW:190,drawH:105},
   woolCloudSiege:{asset:'woolCloud',motion:'orbit',follow:1,duration:150,drawW:185,drawH:123},woolPrison:{asset:'woolPrison',motion:'spin',target:1,duration:175,drawW:245,drawH:245,alpha:.74},
-  bloodBatHunt:{asset:'bloodBats',motion:'projectile',duration:125,drawW:142,drawH:95},boilingBloodHunt:{asset:'boilingBloodHunt',motion:'trail',follow:1,duration:180,drawW:245,drawH:123,alpha:.72},
-  iceFlower:{asset:'iceFlower',motion:'spin',follow:1,duration:108,drawW:175,drawH:175},frostfireCorridor:{asset:'frostfireCorridor',motion:'slide',target:2,duration:150,drawW:255,drawH:330,alpha:.58},
-  seedlingPursuit:{asset:'bitterSeedling',motion:'rise',target:1,duration:145,drawW:155,drawH:103},bitterVineChase:{asset:'bitterVineChase',motion:'trail',target:1,duration:175,drawW:245,drawH:123,alpha:.7},
+  bloodBatHunt:{asset:'bloodBats',motion:'projectile',duration:125,drawW:116,drawH:82},boilingBloodHunt:{asset:'boilingBloodHunt',motion:'trail',follow:1,duration:180,drawW:245,drawH:123,alpha:.72},
+  iceFlower:{asset:'iceFlower',motion:'spin',follow:1,duration:108,drawW:175,drawH:175},frostfireCorridor:{asset:'frostfireCorridor',motion:'slide',target:2,duration:150,drawW:135,drawH:135,alpha:.88},
+  seedlingPursuit:{asset:'bitterSeedling',motion:'projectile',target:1,duration:145,drawW:82,drawH:112},bitterVineChase:{asset:'bitterVineChase',motion:'spin',target:1,duration:175,drawW:205,drawH:205,alpha:.84},
   pumpkinRoll:{asset:'pumpkinRoll',motion:'projectile',duration:100,drawW:125,drawH:125},pumpkinChainBurst:{asset:'pumpkinChainBurst',motion:'spin',target:1,duration:110,drawW:225,drawH:225},
   oilChainBlast:{asset:'karaageOilBomb',motion:'fall',target:1,duration:112,drawW:135,drawH:135},fryerShockDrop:{asset:'fryerShockDrop',motion:'fall',target:1,duration:105,drawW:205,drawH:137},
   eelShadowSwim:{asset:'eelShadow',motion:'sweep',follow:1,duration:135,drawW:235,drawH:118},sauceRushTrail:{asset:'sauceRushTrail',motion:'trail',follow:1,duration:175,drawW:245,drawH:123,alpha:.7},
   riceTornado:{asset:'riceTornado',motion:'spin',follow:1,duration:145,drawW:205,drawH:205},wokFlipBurst:{asset:'wokFlipBurst',motion:'impact',target:1,duration:120,drawW:220,drawH:147},
   durianIceLances:{asset:'durianIceLance',motion:'projectile',duration:115,drawW:155,drawH:103},frostThornWheel:{asset:'frostThornWheel',motion:'spin',target:2,duration:130,drawW:235,drawH:235},
-  snowcone:{asset:'mangoSnowcone',motion:'fall',target:1,duration:112,drawW:150,drawH:100},syrupAvalanche:{asset:'syrupAvalanche',motion:'slide',target:2,duration:180,drawW:300,drawH:150,alpha:.7},
+  snowcone:{asset:'mangoSnowcone',motion:'fall',target:1,duration:112,drawW:132,drawH:132},syrupAvalanche:{asset:'syrupAvalanche',motion:'slide',target:2,duration:180,drawW:300,drawH:150,alpha:.7},
   friesIaido:{asset:'friesIaido',motion:'sweep',follow:1,duration:90,drawW:255,drawH:128},swordNet:{asset:'swordNet',motion:'pulse',target:2,duration:135,drawW:260,drawH:260,alpha:.62},
   noodleBindSweep:{asset:'noodleBind',motion:'spin',target:1,duration:145,drawW:195,drawH:130,alpha:.78},noodleBindGrid:{asset:'noodleBindGrid',motion:'pulse',target:2,duration:175,drawW:285,drawH:285,alpha:.54},
   soupGeysers:{asset:'soupGeysers',motion:'rise',target:1,duration:125,drawW:185,drawH:123},pastryCollapse:{asset:'pastryCollapse',motion:'impact',target:1,duration:125,drawW:220,drawH:147},
@@ -314,7 +315,19 @@ function frBossDrawFx(b){
         ctx.globalCompositeOperation='source-over';ctx.shadowBlur=0;ctx.globalAlpha=Math.max(0,opacity)*(f.alpha==null?.96:f.alpha);
         ctx.translate(fromX+(toX-fromX)*ease+motionX,fromY+(toY-fromY)*ease+motionY);ctx.rotate((Number(f.rotate)||0)+(Number(f.spin)||0)*p+motionRotate);ctx.scale(baseScale*pulse*scaleX,baseScale*pulse*scaleY);
         const width=Number(f.drawW)||Math.min(220,img.naturalWidth),height=Number(f.drawH)||width*img.naturalHeight/img.naturalWidth,anchorX=f.anchorX==null?.5:Number(f.anchorX),anchorY=f.anchorY==null?.5:Number(f.anchorY);
-        ctx.drawImage(img,-width*anchorX,-height*anchorY,width,height);
+        const frames=FR_BOSS_SKILL_ASSET_FRAMES[f.asset]||1,frame=frames>1?Math.floor(age/6)%frames:0,sourceW=img.naturalWidth/frames;
+        ctx.drawImage(img,frame*sourceW,0,sourceW,img.naturalHeight,-width*anchorX,-height*anchorY,width,height);
+        if(frames>1){
+          const accent=f.asset,phase=(b.timer||0)*.14;ctx.save();ctx.globalCompositeOperation='lighter';ctx.lineCap='round';
+          if(accent==='espressoSweep'){const beam=height*1.65;ctx.globalAlpha=.18+.18*fade;ctx.fillStyle='#fde68a';ctx.beginPath();ctx.moveTo(-width*.26,height*.18);ctx.lineTo(width*.26,height*.18);ctx.lineTo(width*.7,beam);ctx.lineTo(-width*.7,beam);ctx.closePath();ctx.fill();ctx.globalAlpha=.65*fade;ctx.strokeStyle='#fff7cc';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(0,height*.2);ctx.lineTo(0,beam);ctx.stroke();}
+          else if(accent==='hornQuake'){ctx.globalAlpha=.65*(1-p);ctx.strokeStyle='#fb923c';ctx.lineWidth=5;for(let q=0;q<3;q++){ctx.beginPath();ctx.arc(0,height*.2,width*(.2+p*.55+q*.13),0,Math.PI*2);ctx.stroke();}}
+          else if(accent==='bloodBats'||accent==='pumpkinRoll'){ctx.globalAlpha=.35*fade;ctx.strokeStyle=accent==='bloodBats'?'#fb7185':'#f97316';ctx.lineWidth=8;ctx.beginPath();ctx.moveTo(-width*.55,0);ctx.quadraticCurveTo(-width*.9,Math.sin(phase)*16,-width*1.25,0);ctx.stroke();}
+          else if(accent==='frostfireCorridor'||accent==='frostThornWheel'||accent==='mangoSnowcone'){ctx.fillStyle='#e0f2fe';ctx.globalAlpha=.72*fade;for(let q=0;q<(FR_BOSS_FX_MOBILE?5:9);q++){const a=phase+q*2.4,rr=width*(.45+(q%3)*.18);ctx.beginPath();ctx.arc(Math.cos(a)*rr,Math.sin(a)*rr,2+q%3,0,Math.PI*2);ctx.fill();}}
+          else if(accent==='bitterSeedling'||accent==='bitterVineChase'){ctx.fillStyle='#a3e635';ctx.globalAlpha=.36*fade;for(let q=0;q<(FR_BOSS_FX_MOBILE?4:7);q++){const a=phase+q*1.7,rr=width*(.35+(q%2)*.25);ctx.beginPath();ctx.arc(Math.cos(a)*rr,Math.sin(a)*rr,3+q%2*2,0,Math.PI*2);ctx.fill();}}
+          else if(accent==='pumpkinChainBurst'||accent==='swordNet'){ctx.globalAlpha=.55*fade;ctx.strokeStyle=accent==='swordNet'?'#fde047':'#fb923c';ctx.lineWidth=3;ctx.setLineDash([9,7]);ctx.lineDashOffset=-phase*5;ctx.beginPath();ctx.arc(0,0,width*.47,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);}
+          else if(accent==='sandwormBurrow'||accent==='sandwormDevour'){ctx.globalAlpha=.45*fade;ctx.strokeStyle='#d97706';ctx.lineWidth=7;ctx.beginPath();ctx.ellipse(0,height*(1-anchorY)*.62,width*(.28+p*.35),height*.12,0,0,Math.PI*2);ctx.stroke();}
+          ctx.restore();
+        }
         if((motion==='fall'||motion==='impact'||motion==='rise')&&p>.62){const ringP=Math.min(1,(p-.62)/.38),radius=18+ringP*width*.55;ctx.globalAlpha=(1-ringP)*.65;ctx.strokeStyle=f.color||'#fff7cc';ctx.lineWidth=4;ctx.beginPath();ctx.ellipse(0,height*(1-anchorY)*.32,radius,radius*.28,0,0,Math.PI*2);ctx.stroke();}
       }
     }else if(f.kind==='entry'||f.kind==='rage'){
