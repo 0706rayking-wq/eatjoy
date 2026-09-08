@@ -1126,7 +1126,7 @@
 <script src="food-research-question-bank-expansion.js"></script>
 <script src="food-research-forms.js?v=35"></script>
 <script src="food-research-skills-v2.js?v=35"></script>
-<script src="food-research-awakenings.js?v=4"></script>
+<script src="food-research-awakenings.js?v=5"></script>
 <script src="food-research-weapons.js?v=34"></script>
 <script src="food-research-amulets.js?v=6"></script>
     <script src="food-research-bosses.js?v=67"></script>
@@ -11152,6 +11152,9 @@ if (selectedActivity === 'food_research') {
    "function shuffleQaBank(){const pool=[...qaBank];for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}return pool;}\n" +
    "function randQa(){return qaBank[Math.floor(Math.random()*qaBank.length)];}"
   ).replace(/revPool=\[\.\.\.qaBank\]\.sort\(\(\)=>Math\.random\(\)-\.5\);/g, 'revPool=shuffleQaBank();');
+  const gameBodyWithAwakeningHitHooks = gameBodyWithImportedRevivalQuestions
+   .replace('e.takeDamage(b.dmg);burst(b.x,b.y,b.color,3);', "if(window.frAwakenRangedBulletHit)window.frAwakenRangedBulletHit(b,e);else e.takeDamage(b.dmg);burst(b.x,b.y,b.color,3);")
+   .replace('boss.takeDamage(b.dmg);burst(b.x,b.y,b.color,3);', "if(window.frAwakenRangedBulletHit)window.frAwakenRangedBulletHit(b,boss);else boss.takeDamage(b.dmg);burst(b.x,b.y,b.color,3);");
 
   // 遊戲 HTML 由 game.js 提供，這裡動態組裝
  // Build once per expedition so parent data refreshes do not reload the iframe.
@@ -11162,7 +11165,7 @@ if (selectedActivity === 'food_research') {
     .replace('<br><b style="color:#92400e">魔王大絕→移到正確答案區！</b>', '');
   foodResearchHTML = balancedGameHtml +
    "<scr" + "ipt>\nconst PARTNERS=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(partnerData))) + "'))));\nconst SAVE=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(saveData))) + "'))));\nconst RIVALS=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(rivalDataRef.current))) + "'))));\nconst THUNDER_SUPPORTERS=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(thunderSupportDataRef.current))) + "'))));\nconst REVIVAL_QUESTION_BANK=JSON.parse(decodeURIComponent(escape(atob('" + btoa(unescape(encodeURIComponent(revivalQuestionData))) + "'))));\n" +
-    gameBodyWithImportedRevivalQuestions +
+    gameBodyWithAwakeningHitHooks +
      (window.FOOD_RESEARCH_GAME_PATCH || '') +
      (window.FOOD_RESEARCH_WEAPON_PATCH || '') +
      (window.FOOD_RESEARCH_AMULET_PATCH || '') +
