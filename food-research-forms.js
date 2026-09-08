@@ -26,16 +26,16 @@
   };
   const forms = [
     { id:'onion_guard', rarity:'normal', name:'洋蔥守衛', emoji:'🧅', passive:'每 10 秒生成防護罩', skill1:'洋蔥震波', skill2:'三層堡壘', color:'#d8b4fe' },
-    { id:'popcorn', rarity:'normal', name:'爆米花', emoji:'🍿', passive:'遠程子彈尺寸與命中範圍增加 55%', skill1:'爆米花散射', skill2:'玉米重砲', color:'#fde68a' },
+    { id:'popcorn', rarity:'normal', name:'爆米花', emoji:'🍿', passive:'閃避時留下接觸引爆的爆米花地雷', skill1:'爆米花散射', skill2:'玉米重砲', color:'#fde68a' },
     { id:'healing_mushroom', rarity:'normal', name:'療癒蘑菇', emoji:'🍄', passive:'菌絲網絡內敵方普通子彈速度 -20%、傷害 -10%', skill1:'蘑菇替身', skill2:'療癒菌林', color:'#f9a8d4' },
-    { id:'garlic_knight', rarity:'normal', name:'蒜頭騎士', emoji:'🧄', passive:'共享：切換角色時留下自動攻擊並衝向敵人爆炸的分身', skill1:'聖蒜淨化', skill2:'濃郁蒜味', color:'#f5f5dc' },
+    { id:'garlic_knight', rarity:'normal', name:'蒜頭騎士', emoji:'🧄', passive:'共享：切換角色時留下持續 3 秒的自動攻擊分身', skill1:'聖蒜淨化', skill2:'濃郁蒜味', color:'#f5f5dc' },
     { id:'chili_sprite', rarity:'normal', name:'辣椒精靈', emoji:'🌶️', passive:'全隊爆擊率 +8%', skill1:'焚風', skill2:'烈焰油海', color:'#fb7185' },
-    { id:'lotus_archer', rarity:'normal', name:'蓮藕射手', emoji:'🏹', passive:'遠程攻擊額外貫穿', skill1:'連環藕矢', skill2:'九孔光陣', color:'#fda4af' },
+    { id:'lotus_archer', rarity:'normal', name:'蓮藕射手', emoji:'🏹', passive:'閃避時向上射出兩發 50 傷害貫穿箭', skill1:'連環藕矢', skill2:'九孔光陣', color:'#fda4af' },
     { id:'potato_armor', rarity:'normal', name:'馬鈴薯裝甲', emoji:'🥔', passive:'發芽：每累積損失 25% 最大 HP 生成生命嫩芽，拾取回復 5% 最大 HP', skill1:'澱粉彈牆', skill2:'大地震盪', color:'#d6a86e' },
     { id:'lemon_battery', rarity:'normal', name:'檸檬電池', emoji:'🍋', passive:'遠程攻擊有 28% 機率觸發連鎖電流', skill1:'彈跳電球', skill2:'超載電網', color:'#facc15' },
 
-    { id:'cheese_mage', rarity:'rare', name:'起司法師', emoji:'🧀', passive:'所有敵人移動速度降低', skill1:'濃稠起司陣', skill2:'熟成結界', color:'#fbbf24' },
-    { id:'honey_priest', rarity:'rare', name:'蜂蜜祭司', emoji:'🍯', passive:'自動治療，溢補轉為護盾', skill1:'甜蜜祝福', skill2:'琥珀封印', color:'#f59e0b' },
+    { id:'cheese_mage', rarity:'rare', name:'起司法師', emoji:'🧀', passive:'閃避時留下使敵人短暫停攻的起司池', skill1:'熔岩起司', skill2:'熟成結界', color:'#fbbf24' },
+    { id:'honey_priest', rarity:'rare', name:'蜂蜜祭司', emoji:'🍯', passive:'閃避時回復全隊 5 HP', skill1:'甜蜜祝福', skill2:'琥珀封印', color:'#f59e0b' },
     { id:'coffee_pilot', rarity:'rare', name:'咖啡飛行員', emoji:'☕', passive:'持續移動 4 秒可逐步獲得最高 28% 移速', skill1:'濃縮超頻', skill2:'子彈時間', color:'#a16207' },
     { id:'octopus_samurai', rarity:'rare', name:'章魚武士', emoji:'🐙', passive:'武士精神：全隊近戰與八刀流命中可疊加破防', skill1:'噴灑墨汁', skill2:'八刀流', color:'#c084fc' },
     { id:'salmon_ronin', rarity:'rare', name:'鮭魚浪客', emoji:'🍣', passive:'閃避後 3 秒內攻擊、攻速與移速提升 25%', skill1:'逆流一閃', skill2:'鮭潮斷浪', color:'#fb7185' },
@@ -44,10 +44,10 @@
     { id:'puffer_alchemist', rarity:'noble', name:'河豚毒師', emoji:'🐡', passive:'160 範圍每 0.75 秒疊毒；8 點起，每層 +3，最高 5 層', skill1:'萬毒棘輪', skill2:'死海劇毒', color:'#a3e635' },
     { id:'black_garlic_void', rarity:'noble', name:'黑蒜虛空使', emoji:'⚫', passive:'共享：閃避留下 10 秒黑洞標記，再次閃避可返回上一標記', skill1:'虛空黑洞', skill2:'雙鬼召來', color:'#818cf8' },
     { id:'lobster_general', rarity:'noble', name:'龍蝦將軍', emoji:'🦞', passive:'每 8 秒獲得護甲，護盾格擋後 4 秒內傷害 +25%', skill1:'赤甲納彈', skill2:'百砲返還', color:'#ef4444' },
-    { id:'truffle_thunder', rarity:'noble', name:'松露雷將', emoji:'⚡', passive:'所有遠程攻擊附帶不衰減連鎖電流', skill1:'追身雷雲', skill2:'萬雷天牢', color:'#60a5fa' },
+    { id:'truffle_thunder', rarity:'noble', name:'松露雷將', emoji:'⚡', passive:'攻擊有 5% 機率觸發麻痺與減速雷鏈', skill1:'磁雷牽引', skill2:'雷域推進', color:'#60a5fa' },
 
     { id:'dragonfruit_emperor', rarity:'top', name:'火龍果龍皇', emoji:'🐉', passive:'185 範圍每 0.5 秒造成 14 點灼燒；擊破有 35% 機率爆破', skill1:'龍星雨', skill2:'焚界龍息', color:'#f43f5e' },
-    { id:'peach_divine', rarity:'top', name:'仙桃神使', emoji:'🍑', passive:'後排每秒回復 2% 最大 HP；每場戰鬥首次死亡可復活', skill1:'仙影分身', skill2:'蟠桃回天', color:'#f9a8d4' },
+    { id:'peach_divine', rarity:'top', name:'仙桃神使', emoji:'🍑', passive:'後排每秒回復 1% 最大 HP；每場首次死亡角色以 30% HP 復活並獲得 2 秒保護', skill1:'仙人模式', skill2:'蟠桃回天', color:'#f9a8d4' },
     { id:'cocoa_popsicle_wargod', rarity:'top', name:'可可冰棒戰神', emoji:'🍫', passive:'每 5 秒發射 2 枚雪花片，命中敵人使其緩速', skill1:'冰棒揮擊', skill2:'尖刺冰牆', color:'#67e8f9' },
   ].map((form) => ({
     ...form,
