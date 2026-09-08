@@ -29,8 +29,8 @@
     { id:'r18', name:'龍蝦艦隊砲', rarity:'noble', icon:17, pattern:'fleet', damage:.72, cooldown:25, size:7, color:'#fb7185', homing:true, desc:'四枚龍蝦彈先列成艦隊，再依序分散追蹤敵人。' },
 
     { id:'r19', name:'可可冰棒絕對零度砲', rarity:'top', icon:18, pattern:'absolute', damage:1.85, cooldown:31, size:16, color:'#67e8f9', freeze:220, pierce:true, desc:'蓄積寒氣後發射巨大冰棒光束，留下冰痕並長時間冰封。' },
-    { id:'r20', name:'萬味自律浮游砲', rarity:'top', icon:19, pattern:'drones', damage:.85, cooldown:17, size:8, color:'#a78bfa', homing:true, pierce:true, desc:'三枚浮游砲環繞待命，再從不同角度鎖定追擊。' },
-    { id:'r21', name:'白白神廚殲星砲', rarity:'top', icon:20, pattern:'star', damage:1.25, cooldown:34, size:12, color:'#fde047', pierce:true, homing:true, desc:'較長蓄力後依序發射四道神廚光束，追蹤、貫穿並清掃前方。' },
+    { id:'r20', name:'萬味自律浮游砲', rarity:'top', icon:19, pattern:'drones', damage:.85, cooldown:17, size:8, color:'#a78bfa', desc:'三枚浮游砲分別鎖定敵人，以有限轉向追擊並在命中後接力尋找下一個目標。' },
+    { id:'r21', name:'白白神廚殲星砲', rarity:'top', icon:20, pattern:'star', damage:1.25, cooldown:34, size:12, color:'#fde047', pierce:true, desc:'短暫鎖定後依序發射四道神廚光束；起飛時僅能微調，隨後沿鎖定直線貫穿清掃。' },
   ];
 
   const melee = [
@@ -520,10 +520,18 @@
    }
   }else{
    if(this.frHoldFrames&&!this.frReleased){
-    this.frReleased=true;this.homing=!!this.frReleaseHoming;
-    const t=findClosest(this.x,this.y,9999),a=t?Math.atan2(t.y-this.y,t.x-this.x):-Math.PI/2,sp=this.frReleaseSpeed||8;
+    this.frReleased=true;this.homing=!!this.frReleaseHoming&&!this.frDroneSeek;
+    const t=this.frLockedTarget&&this.frLockedTarget.hp>0?this.frLockedTarget:findClosest(this.x,this.y,9999),a=t?Math.atan2(t.y-this.y,t.x-this.x):-Math.PI/2,sp=this.frReleaseSpeed||8;
     this.vx=Math.cos(a)*sp;this.vy=Math.sin(a)*sp;
     pushWeaponFx('muzzle',this.x,this.y,this.color,13,8,this.frRarity,this.frPattern);
+   }
+   if(this.frDroneSeek){
+    if(this.hitTargets.size>=(this.frDroneMaxHits||3)){this.frForceDead=true;return;}
+    let t=this.frLockedTarget;
+    if(!t||t.hp<=0||this.hitTargets.has(t)){const pool=frWeaponLiveTargets().filter(e=>!this.hitTargets.has(e));t=pool.sort((a,b)=>Math.hypot(a.x-this.x,a.y-this.y)-Math.hypot(b.x-this.x,b.y-this.y))[0]||null;this.frLockedTarget=t;}
+    if(t){const desired=Math.atan2(t.y-this.y,t.x-this.x),current=Math.atan2(this.vy,this.vx),turn=frWeaponAngleDelta(current,desired),maxTurn=.045*(window.FR_FRAME_SCALE||1),angle=current+Math.max(-maxTurn,Math.min(maxTurn,turn)),speed=this.frReleaseSpeed||8.4;this.vx=Math.cos(angle)*speed;this.vy=Math.sin(angle)*speed;}
+   }else if(this.frStarAdjustFrames>0){
+    const desired=Math.atan2(this.frStarAimY-this.y,this.frStarAimX-this.x),current=Math.atan2(this.vy,this.vx),turn=frWeaponAngleDelta(current,desired),maxTurn=.018*(window.FR_FRAME_SCALE||1),angle=current+Math.max(-maxTurn,Math.min(maxTurn,turn)),speed=Math.hypot(this.vx,this.vy)||12.3;this.vx=Math.cos(angle)*speed;this.vy=Math.sin(angle)*speed;this.frStarAdjustFrames-=window.FR_FRAME_SCALE||1;
    }
    if(this.frWave)this.vx+=Math.sin(this.age*.55)*.16;
    oldBulletUpdate.call(this);
@@ -573,6 +581,8 @@
    }}
   }
  };
+ function frWeaponAngleDelta(from,to){let d=(to-from)%(Math.PI*2);if(d>Math.PI)d-=Math.PI*2;if(d<-Math.PI)d+=Math.PI*2;return d;}
+ function frWeaponLiveTargets(){const list=enemies.filter(function(e){return e&&e.hp>0;});if(boss&&!boss._defeated&&boss.hp>0)list.push(boss);return list;}
  Bullet.prototype.dead=function(){
   return !!this.frForceDead||!!(this.frMaxAge&&this.age>this.frMaxAge)||oldBulletDead.call(this);
  };
@@ -652,12 +662,15 @@
    setTimeout(function(){if(gameRunning)makeShot(def,up,2,1.35,.82);},240);
   }
   else if(def.pattern==='drones'){
-   for(let i=0;i<3;i++){const b=makeShot(def,up,1,1,.85);b.frSlot=i;b.frHoldType='drones';b.frHoldFrames=15+i*3;b.frReleaseHoming=true;b.frReleaseSpeed=8.4;b.homing=false;b.vx=0;b.vy=0;}
+   const targets=frWeaponLiveTargets().sort(function(a,b){return Math.hypot(a.x-player.x,a.y-player.y)-Math.hypot(b.x-player.x,b.y-player.y);});
+   for(let i=0;i<3;i++){const b=makeShot(def,up,1,1,.85);b.frSlot=i;b.frHoldType='drones';b.frHoldFrames=15+i*3;b.frReleaseHoming=false;b.frReleaseSpeed=8.4;b.frDroneSeek=true;b.frDroneMaxHits=3;b.frLockedTarget=targets.length?targets[i%targets.length]:null;b.pierce=true;b.homing=false;b.vx=0;b.vy=0;}
   }
   else if(def.pattern==='star'){
+   const target=findClosest(player.x,player.y,9999),aimX=target?target.x:player.x,aimY=target?target.y:Math.max(30,player.y-CH*.65);
+   pushWeaponFx('lock',player.x,player.y-24,def.color,18,24,def.rarity,def.pattern,{tx:aimX,ty:aimY});
    for(let i=0;i<4;i++){
-    const offset=i-1.5,tx=player.x+Math.sin(offset*.32)*CW*.42;pushWeaponFx('lock',player.x,player.y-24,def.color,12,17+i,def.rarity,def.pattern,{tx:tx,ty:8});
-    setTimeout(function(){if(gameRunning)makeShot(def,up+offset*.13,1,.75,1.12);},130+i*85);
+    const offset=i-1.5;
+    setTimeout(function(){if(!gameRunning)return;const sx=player.x+offset*10,sy=player.y-18,a=Math.atan2(aimY-sy,aimX-sx),b=makeShot(def,a,1,.75,1.12);b.x=sx;b.y=sy;b.homing=false;b.frStarAimX=aimX;b.frStarAimY=aimY;b.frStarAdjustFrames=12;},220+i*75);
    }
   }
   else {makeShot(def,up-.045);makeShot(def,up+.045);}
