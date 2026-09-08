@@ -81,7 +81,10 @@
  weaponMap['初始鍋鏟']=Object.assign({},data.melee[0],{name:'初始鍋鏟'});
  weaponMap['辣油火焰炮']=Object.assign({},data.ranged[9],{name:'辣油火焰炮'});
  function defFor(type){
-  const fallback=type==='ranged'?'初始食材砲':'初始鍋鏟',base=weaponMap[(SAVE.equip||{})[type]||fallback]||weaponMap[fallback];
+  const fallback=type==='ranged'?'初始食材砲':'初始鍋鏟';
+  const activeSlot=typeof charSlots!=='undefined'&&charSlots[activeChar];
+  const activeEquip=activeSlot&&activeSlot.equip ? activeSlot.equip : (SAVE.equip||{});
+  const base=weaponMap[activeEquip[type]||fallback]||weaponMap[fallback];
   if(type==='melee'&&currentForm&&currentForm.id==='octopus_samurai')return Object.assign({},base,{range:Math.round((base.range||90)*1.2),cut:1,frFormCut:true,guardRatio:Math.max(base.guardRatio||0,.72)});
   return base;
  }
