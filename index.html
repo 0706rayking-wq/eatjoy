@@ -7841,7 +7841,10 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
        .onSnapshot(snap => {
         const entries = snap.docs.map(d=>({id:d.id,...d.data()}));
         setWarlogEntries(entries);
-        const claimed = entries.filter(e=>e.date===today&&e.claimed).reduce((s,e)=>s+(e.coins||0),0);
+        const claimed = entries.reduce((sum, entry) => {
+         if (entry.claimedTodayDate === today) return sum + Math.max(0, Number(entry.claimedTodayAmount) || 0);
+         return sum + (entry.claimed && entry.date === today ? Math.max(0, Number(entry.coins) || 0) : 0);
+        }, 0);
         setTodayClaimed(claimed);
        }, ()=>{});
       return () => unsub();
@@ -7856,29 +7859,46 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
       }
      };
 
+     const entryRemaining = (entry) => Math.max(0, Number.isFinite(Number(entry?.remainingCoins)) ? Number(entry.remainingCoins) : Number(entry?.coins) || 0);
+
      const claimEntry = async (entry) => {
       if (entry.claimed) return;
       if (todayClaimed >= MAX_DAILY_COINS) { alert('\u4ECA\u65E5\u6230\u6CC1\u91D1\u5E63\u5DF2\u9054\u4E0A\u9650 ' + MAX_DAILY_COINS + ' \uD83D\uDCB0'); return; }
-      const canClaim = Math.min(entry.coins, MAX_DAILY_COINS - todayClaimed);
+      const available = entryRemaining(entry);
+      const canClaim = Math.min(available, MAX_DAILY_COINS - todayClaimed);
+      if (canClaim <= 0) return;
+      const remainingCoins = available - canClaim;
       const newGold = (loadSave().gold||0) + canClaim;
       writeSave({ gold: newGold });
-      await db.collection(getPublicPath(`warlog_${currentUser.phone}`)).doc(entry.id).update({ claimed: true }).catch(()=>{});
+      await db.collection(getPublicPath(`warlog_${currentUser.phone}`)).doc(entry.id).update({
+       claimed:remainingCoins <= 0,
+       remainingCoins,
+       claimedTodayDate:today,
+       claimedTodayAmount:(entry.claimedTodayDate === today ? Number(entry.claimedTodayAmount) || 0 : 0) + canClaim
+      }).catch(()=>{});
      };
 
      const claimAllEntries = async () => {
       if (todayClaimed >= MAX_DAILY_COINS) { alert('\u4ECA\u65E5\u6230\u6CC1\u91D1\u5E63\u5DF2\u9054\u4E0A\u9650 ' + MAX_DAILY_COINS + ' \uD83D\uDCB0'); return; }
-      const pending = warlogEntries.filter(e => e.coins > 0 && !e.claimed);
+      const pending = warlogEntries.filter(e => entryRemaining(e) > 0 && !e.claimed);
       if (pending.length === 0) { alert('\u76EE\u524D\u6C92\u6709\u53EF\u9818\u53D6\u7684\u91D1\u5E63'); return; }
       let remain = MAX_DAILY_COINS - todayClaimed;
       let gain = 0;
       const batch = db.batch();
       for (const entry of pending) {
        if (remain <= 0) break;
-       const take = Math.min(entry.coins || 0, remain);
+       const available = entryRemaining(entry);
+       const take = Math.min(available, remain);
        if (take <= 0) continue;
        gain += take;
        remain -= take;
-       batch.update(db.collection(getPublicPath(`warlog_${currentUser.phone}`)).doc(entry.id), { claimed: true });
+       const remainingCoins = available - take;
+       batch.update(db.collection(getPublicPath(`warlog_${currentUser.phone}`)).doc(entry.id), {
+        claimed:remainingCoins <= 0,
+        remainingCoins,
+        claimedTodayDate:today,
+        claimedTodayAmount:(entry.claimedTodayDate === today ? Number(entry.claimedTodayAmount) || 0 : 0) + take
+       });
       }
       if (gain <= 0) { alert('\u4ECA\u65E5\u6230\u6CC1\u91D1\u5E63\u5DF2\u9054\u4E0A\u9650 ' + MAX_DAILY_COINS + ' \uD83D\uDCB0'); return; }
       writeSave({ gold: (loadSave().gold||0) + gain });
@@ -7957,11 +7977,11 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
            </div>
           </div>
           <div style={{flexShrink:0, textAlign:'right'}}>
-           {e.coins>0 && !e.claimed && todayClaimed<MAX_DAILY_COINS ? (
+           {entryRemaining(e)>0 && !e.claimed && todayClaimed<MAX_DAILY_COINS ? (
             <button onClick={()=>claimEntry(e)}
              style={{background:'linear-gradient(135deg,#b08800,#fbbf24)',color:'#000',border:'none',
               borderRadius:'8px',padding:'6px 10px',fontWeight:900,fontSize:'11px',cursor:'pointer',whiteSpace:'nowrap'}}>
-             領取 💰{e.coins}
+             領取 💰{entryRemaining(e)}
             </button>
            ) : e.claimed ? (
             <span style={{fontSize:'10px',color:'#3fb950',fontWeight:900}}>已領取 ✓</span>
@@ -8323,14 +8343,20 @@ useEffect(() => {
   setWarlogUnclaimedCoins(0);
   return;
  }
+ const today = new Date().toDateString();
  const unsub = db.collection(getPublicPath(`warlog_${currentUser.phone}`))
-  .orderBy('timestamp','desc').limit(100)
+  .orderBy('timestamp','desc').limit(30)
   .onSnapshot(snap => {
-   const amount = snap.docs.reduce((sum, doc) => {
-    const entry = doc.data() || {};
-    return sum + (!entry.claimed ? Math.max(0, Number(entry.coins) || 0) : 0);
+   const entries = snap.docs.map(doc => doc.data() || {});
+   const claimedToday = entries.reduce((sum, entry) => {
+    if (entry.claimedTodayDate === today) return sum + Math.max(0, Number(entry.claimedTodayAmount) || 0);
+    return sum + (entry.claimed && entry.date === today ? Math.max(0, Number(entry.coins) || 0) : 0);
    }, 0);
-   setWarlogUnclaimedCoins(Math.round(amount));
+   const pending = entries.reduce((sum, entry) => {
+    const remaining = Number.isFinite(Number(entry.remainingCoins)) ? Number(entry.remainingCoins) : Number(entry.coins);
+    return sum + (!entry.claimed ? Math.max(0, remaining || 0) : 0);
+   }, 0);
+   setWarlogUnclaimedCoins(Math.round(Math.min(pending, Math.max(0, 300 - claimedToday))));
   }, () => setWarlogUnclaimedCoins(0));
  return () => unsub();
 }, [selectedActivity, currentUser?.phone, getPublicPath]);
