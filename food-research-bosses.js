@@ -230,7 +230,7 @@ const FR_BOSS_SKILL_ASSET_FILES={
   jellyClones:'jelly-clones.png',crownSlam:'jelly-crown-slam.png',sandwormBurrow:'sandworm-burrow.png',sandwormDevour:'sandworm-devour.png',
   chickenLegRain:'cream-chicken-rain.png',creamBaptism:'cream-baptism.png',mechMissile:'heavy-mech-missile.png',pressureCannon:'heavy-mech-pressure-cannon.png',
   coffeePools:'tiramisu-coffee-pools.png',espressoSweep:'tiramisu-espresso-sweep.png',niuCleaver:'niu-cleaver.png',hornQuake:'niu-horn-quake.png',
-  woolCloud:'yang-wool-cloud.png',woolPrison:'yang-wool-prison.png',bloodBats:'mala-blood-bats.png',boilingBloodHunt:'mala-boiling-hunt.png',
+  woolCloud:'yang-wool-cloud.png',bloodBats:'mala-blood-bats.png',boilingBloodHunt:'mala-boiling-hunt.png',
   iceFlower:'white-ice-flower.png',frostfireCorridor:'white-frostfire-corridor.png',bitterSeedling:'bitter-seedling.png',bitterVineChase:'bitter-vine-chase.png',
   pumpkinRoll:'pumpkin-roll.png',pumpkinChainBurst:'pumpkin-chain-burst.png',karaageOilBomb:'karaage-oil-bomb.png',fryerShockDrop:'karaage-fryer-drop.png',
   eelShadow:'eel-shadow.png',sauceRushTrail:'eel-sauce-rush.png',riceTornado:'fried-rice-tornado.png',wokFlipBurst:'fried-rice-wok-burst.png',
@@ -239,16 +239,37 @@ const FR_BOSS_SKILL_ASSET_FILES={
   soupGeysers:'pastry-soup-geyser.png',pastryCollapse:'pastry-collapse.png',inkEightThrust:'octopus-ink-thrust.png',eightArmCombo:'octopus-eight-arm.png'
 };
 const frBossSkillAssetImages={};
+const frBossSkillAssetBounds=new WeakMap();
 function frBossSkillAssetImage(key){
   if(!FR_BOSS_SKILL_ASSET_FILES[key])return null;
-  if(!frBossSkillAssetImages[key]){const img=new Image();img.decoding='async';img.src='assets/food-research/boss-skills/'+FR_BOSS_SKILL_ASSET_FILES[key]+'?v=3';frBossSkillAssetImages[key]=img;}
+  if(!frBossSkillAssetImages[key]){const img=new Image();img.decoding='async';img.onload=function(){const scan=function(){frBossSkillAssetBoundsFor(img,FR_BOSS_SKILL_ASSET_FRAMES[key]||1);};if(typeof requestIdleCallback==='function')requestIdleCallback(scan,{timeout:800});else setTimeout(scan,0);};img.src='assets/food-research/boss-skills/'+FR_BOSS_SKILL_ASSET_FILES[key]+'?v=4';frBossSkillAssetImages[key]=img;}
   return frBossSkillAssetImages[key];
 }
 const FR_BOSS_SKILL_ASSET_FRAMES=Object.fromEntries(Object.keys(FR_BOSS_SKILL_ASSET_FILES).map(function(key){return [key,4];}));
+function frBossSkillAssetBoundsFor(img,frames){
+  if(!img||!img.complete||!img.naturalWidth)return null;
+  if(frBossSkillAssetBounds.has(img))return frBossSkillAssetBounds.get(img);
+  const count=Math.max(1,frames||1),frameW=Math.floor(img.naturalWidth/count),fallback={x:0,y:0,w:frameW,h:img.naturalHeight};
+  try{
+    const canvas=document.createElement('canvas');canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;
+    const scan=canvas.getContext('2d',{willReadFrequently:true});scan.drawImage(img,0,0);
+    const pixels=scan.getImageData(0,0,canvas.width,canvas.height).data;
+    let left=frameW,top=img.naturalHeight,right=0,bottom=0;
+    for(let frame=0;frame<count;frame++){
+      const offset=frame*frameW;
+      for(let y=0;y<img.naturalHeight;y++)for(let x=0;x<frameW;x++){
+        if(pixels[((y*canvas.width)+offset+x)*4+3]<=8)continue;
+        if(x<left)left=x;if(x+1>right)right=x+1;if(y<top)top=y;if(y+1>bottom)bottom=y+1;
+      }
+    }
+    const pad=2,x=Math.max(0,left-pad),y=Math.max(0,top-pad),bounds=right>left&&bottom>top?{x:x,y:y,w:Math.min(frameW,right+pad)-x,h:Math.min(img.naturalHeight,bottom+pad)-y}:fallback;
+    frBossSkillAssetBounds.set(img,bounds);return bounds;
+  }catch(error){frBossSkillAssetBounds.set(img,fallback);return fallback;}
+}
 const FR_BOSS_SKILL_ASSET_FX={
   coffeePools:{asset:'coffeePools',motion:'orbit',target:1,duration:150,drawW:118,drawH:132,alpha:.92},espressoSweep:{asset:'espressoSweep',motion:'sweep',follow:1,duration:92,drawW:145,drawH:170},
   cleaverLanes:{asset:'niuCleaver',motion:'fall',target:1,duration:105,drawW:205,drawH:137},hornQuake:{asset:'hornQuake',motion:'impact',follow:1,duration:112,drawW:190,drawH:105},
-  woolCloudSiege:{asset:'woolCloud',motion:'orbit',follow:1,duration:150,drawW:185,drawH:123},woolPrison:{asset:'woolPrison',motion:'spin',target:1,duration:175,drawW:245,drawH:245,alpha:.74},
+  woolCloudSiege:{asset:'woolCloud',motion:'orbit',follow:1,duration:150,drawW:185,drawH:123},
   bloodBatHunt:{asset:'bloodBats',motion:'projectile',duration:125,drawW:116,drawH:82},boilingBloodHunt:{asset:'boilingBloodHunt',motion:'trail',follow:1,duration:180,drawW:245,drawH:123,alpha:.72},
   iceFlower:{asset:'iceFlower',motion:'spin',follow:1,duration:108,drawW:175,drawH:175},frostfireCorridor:{asset:'frostfireCorridor',motion:'slide',target:2,duration:150,drawW:135,drawH:135,alpha:.88},
   seedlingPursuit:{asset:'bitterSeedling',motion:'projectile',target:1,duration:145,drawW:82,drawH:112},bitterVineChase:{asset:'bitterVineChase',motion:'spin',target:1,duration:175,drawW:205,drawH:205,alpha:.84},
@@ -301,22 +322,23 @@ function frBossDrawFx(b){
         const ease=1-Math.pow(1-p,3),fromX=Number(f.fromX)||0,fromY=Number(f.fromY)||0,toX=Number(f.toX)||0,toY=Number(f.toY)||0;
         const opacity=p<.14?p/.14:p>.82?(1-p)/.18:1,baseScale=Number(f.scale)||1,pulse=f.pulse?1+Math.sin(p*Math.PI)*Number(f.pulse):1,motion=f.motion||'';
         let motionX=0,motionY=0,scaleX=1,scaleY=1,motionRotate=0;
-        if(motion==='bounce'){motionY=-Math.abs(Math.sin(p*Math.PI*2))*58;scaleX=1+Math.abs(Math.cos(p*Math.PI*2))*.13;scaleY=1-Math.abs(Math.cos(p*Math.PI*2))*.14;}
-        else if(motion==='fall'){motionY=-190*Math.pow(1-p,2);if(p>.68){const hit=Math.sin(Math.min(1,(p-.68)/.2)*Math.PI);scaleX+=hit*.22;scaleY-=hit*.24;}}
-        else if(motion==='rise'){motionY=105*(1-ease);scaleY=.35+.65*ease;scaleX=1.12-.12*ease;}
-        else if(motion==='sweep'){motionRotate=(-.42+p*.84);scaleX=.78+.22*ease;}
-        else if(motion==='projectile'){motionRotate=Math.sin(p*Math.PI*5)*.08;scaleX=1.08;scaleY=.92;}
+        if(motion==='bounce'){motionY=-Math.abs(Math.sin(p*Math.PI*2))*58;scaleX=scaleY=.94+.06*ease;}
+        else if(motion==='fall'){motionY=-190*Math.pow(1-p,2);if(p>.68)scaleX=scaleY=1+Math.sin(Math.min(1,(p-.68)/.2)*Math.PI)*.08;}
+        else if(motion==='rise'){motionY=105*(1-ease);scaleX=scaleY=.55+.45*ease;}
+        else if(motion==='sweep'){motionRotate=(-.42+p*.84);scaleX=scaleY=.82+.18*ease;}
+        else if(motion==='projectile'){motionRotate=Math.sin(p*Math.PI*5)*.08;scaleX=scaleY=1.02+.05*Math.sin(p*Math.PI);}
         else if(motion==='spin'){motionRotate=p*Math.PI*1.35;scaleX=scaleY=.72+.28*ease;}
         else if(motion==='orbit'){motionX=Math.cos(p*Math.PI*4)*48;motionY=Math.sin(p*Math.PI*4)*24;motionRotate=p*Math.PI*.8;scaleX=scaleY=.86+.14*ease;}
         else if(motion==='pulse'){scaleX=scaleY=.82+.18*ease+.06*Math.sin(p*Math.PI*6);}
-        else if(motion==='slide'){motionX=(-CW*.65)*(1-ease);scaleX=.88+.12*ease;}
-        else if(motion==='trail'){motionX=-42*(1-p);scaleX=.75+.25*ease;scaleY=.9+.1*Math.sin(p*Math.PI);}
-        else if(motion==='impact'){scaleX=scaleY=.62+.38*ease;if(p>.55){const hit=Math.sin(Math.min(1,(p-.55)/.28)*Math.PI);scaleX+=hit*.18;scaleY-=hit*.12;}}
+        else if(motion==='slide'){motionX=(-CW*.65)*(1-ease);scaleX=scaleY=.88+.12*ease;}
+        else if(motion==='trail'){motionX=-42*(1-p);scaleX=scaleY=.78+.22*ease;}
+        else if(motion==='impact'){scaleX=scaleY=.62+.38*ease;if(p>.55)scaleX=scaleY=1+Math.sin(Math.min(1,(p-.55)/.28)*Math.PI)*.12;}
         ctx.globalCompositeOperation='source-over';ctx.shadowBlur=0;ctx.globalAlpha=Math.max(0,opacity)*(f.alpha==null?.96:f.alpha);
         ctx.translate(fromX+(toX-fromX)*ease+motionX,fromY+(toY-fromY)*ease+motionY);ctx.rotate((Number(f.rotate)||0)+(Number(f.spin)||0)*p+motionRotate);ctx.scale(baseScale*pulse*scaleX,baseScale*pulse*scaleY);
         const width=Number(f.drawW)||Math.min(220,img.naturalWidth),height=Number(f.drawH)||width*img.naturalHeight/img.naturalWidth,anchorX=f.anchorX==null?.5:Number(f.anchorX),anchorY=f.anchorY==null?.5:Number(f.anchorY);
-        const frames=FR_BOSS_SKILL_ASSET_FRAMES[f.asset]||1,frame=frames>1?Math.floor(age/6)%frames:0,sourceW=img.naturalWidth/frames;
-        ctx.drawImage(img,frame*sourceW,0,sourceW,img.naturalHeight,-width*anchorX,-height*anchorY,width,height);
+        const frames=FR_BOSS_SKILL_ASSET_FRAMES[f.asset]||1,frame=frames>1?Math.floor(age/6)%frames:0,sourceW=img.naturalWidth/frames,bounds=frBossSkillAssetBoundsFor(img,frames)||{x:0,y:0,w:sourceW,h:img.naturalHeight};
+        const fit=Math.max(width/bounds.w,height/bounds.h),renderW=bounds.w*fit,renderH=bounds.h*fit;
+        ctx.drawImage(img,frame*sourceW+bounds.x,bounds.y,bounds.w,bounds.h,-renderW*anchorX,-renderH*anchorY,renderW,renderH);
         if(frames>1){
           const accent=f.asset,phase=(b.timer||0)*.14;ctx.save();ctx.globalCompositeOperation='lighter';ctx.lineCap='round';
           if(accent==='espressoSweep'){const beam=height*1.65;ctx.globalAlpha=.18+.18*fade;ctx.fillStyle='#fde68a';ctx.beginPath();ctx.moveTo(-width*.26,height*.18);ctx.lineTo(width*.26,height*.18);ctx.lineTo(width*.7,beam);ctx.lineTo(-width*.7,beam);ctx.closePath();ctx.fill();ctx.globalAlpha=.65*fade;ctx.strokeStyle='#fff7cc';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(0,height*.2);ctx.lineTo(0,beam);ctx.stroke();}
@@ -759,7 +781,7 @@ function frBossCast(b,pattern,isSkill){
   else if(pattern==='hornFan'){frBossWarning(b,'cone',w,{angle:frBossAim(b),spread:.35});frBossLater(b,w,function(){frBossFan(b,3,5.2,d,.2,c);});}
   else if(pattern==='doubleCharge'){for(let q=0;q<2;q++)frBossLater(b,q*82,function(){const a=frBossAim(b,true);frBossWarning(b,'line',48,{angle:a});frBossLater(b,48,function(){b._frDash={vx:Math.cos(a)*8,vy:Math.sin(a)*8,left:28,damage:d};});});}
   else if(pattern==='shockRings'){for(let q=0;q<3;q++)frBossLater(b,w+q*24,function(){frBossRadial(b,12,3+q*.5,d,c,q*.22);});}
-  else if(pattern==='cleaverLanes'){const gap=Math.floor(Math.random()*4);frBossLater(b,w,function(){for(let i=0;i<5;i++){if(i===gap||i===gap+1)continue;frBossHazard({kind:'rect',x:(i+.5)*CW/5,y:CH/2,w:Math.min(CW/7,48),h:CH,color:c,damage:d,delay:90+(i>gap?i-2:i)*12,minDelay:90,duration:24});}});}
+  else if(pattern==='cleaverLanes'){const gap=Math.floor(Math.random()*4);frBossLater(b,w,function(){for(let i=0;i<5;i++){if(i===gap||i===gap+1)continue;frBossHazard({kind:'rect',x:(i+.5)*CW/5,y:CH/2,w:Math.min(CW/5.5,68),h:CH,color:c,damage:d,delay:90+(i>gap?i-2:i)*12,minDelay:90,duration:24});}});}
   else if(pattern==='woolSplit'){frBossWarning(b,'line',w,{angle:frBossAim(b)});frBossLater(b,w,function(){frBossShot(b,frBossAim(b),3.2,d,c,13,{splitAt:40,splitCount:4,splitSpeed:3.3});});}
   else if(pattern==='sheepLanes'){for(let q=0;q<3;q++)frBossLater(b,w+q*30,function(){frBossLineRain(b,7,c,d);});}
   else if(pattern==='woolSpiral'){for(let q=0;q<5;q++)frBossLater(b,w+q*14,function(){frBossRadial(b,7,3.2,d,c,q*.35);});}
@@ -833,7 +855,7 @@ function frBossCast(b,pattern,isSkill){
   else if(pattern==='cleaverCollapse'){const order=frBossShuffle([0,1,2,3,4]);for(let q=0;q<5;q++)frBossLater(b,q*22,function(){const x=(order[q]+.5)*CW/5;frBossHazard({kind:'line',x:x-80,y:0,x2:x+80,y2:CH,w:34,color:'#ef4444',damage:d,delay:48,duration:15});});}
   else if(pattern==='hornCyclone'){for(let q=0;q<8;q++)frBossLater(b,q*13,function(){const a=q*Math.PI/4+b.timer*.04;frBossShot(b,a,4,d,c,11,{curve:q%2?.018:-.018,status:{kind:'slow',duration:1300}});frBossShot(b,a+Math.PI,4,d,c,11,{curve:q%2?.018:-.018,status:{kind:'slow',duration:1300}});});}
   else if(pattern==='woolCloudSiege'){const x=player.x,y=player.y;for(let q=0;q<3;q++)frBossLater(b,q*42,function(){frBossHazard({kind:'ring',x:x,y:y,r:190-q*36,inner:126-q*29,color:'#e9d5ff',damage:d,status:{kind:'slow',duration:2300},delay:54,duration:34});});}
-  else if(pattern==='bloodBatHunt'){for(let q=0;q<6;q++)frBossLater(b,q*16,function(){const a=frBossAim(b,true)+(q-2.5)*.12;frBossShot(b,a,4.8,d,'#fb7185',9,{curve:q%2?.012:-.012,burn:true,status:{kind:'burn',duration:2400}});});}
+  else if(pattern==='bloodBatHunt'){for(let q=0;q<6;q++)frBossLater(b,q*16,function(){const a=frBossAim(b,true)+(q-2.5)*.12;frBossShot(b,a,4.8,d,'#fb7185',12,{curve:q%2?.012:-.012,burn:true,status:{kind:'burn',duration:2400}});});}
   else if(pattern==='bloodMoonBroth'){const x=CW/2,y=CH*.53;for(let q=0;q<4;q++)frBossLater(b,q*36,function(){frBossHazard({kind:'ring',x:x,y:y,r:92+q*32,inner:45+q*29,color:'#e11d48',damage:d,status:{kind:'burn',duration:2600},delay:48,duration:22});b.hp=Math.min(b.maxHp,b.hp+Math.max(1,Math.round(b.maxHp*.008)));updateBossHp();});}
   else if(pattern==='frostBrothPaths'){const reach=Math.max(CW,CH)*1.3;for(let q=0;q<2;q++){const a=q?Math.PI*.72:Math.PI*.28;frBossHazard({kind:'line',x:CW/2-Math.cos(a)*reach,y:CH*.5-Math.sin(a)*reach,x2:CW/2+Math.cos(a)*reach,y2:CH*.5+Math.sin(a)*reach,w:48,color:'#7dd3fc',damage:d,status:{kind:'freeze',duration:1800},delay:55+q*8,duration:70});}}
   else if(pattern==='frostfireTwins'){const first=Math.random()<.5;for(let q=0;q<4;q++)frBossLater(b,q*38,function(){const ice=(q%2===0)===first,left=q%2===0;frBossHazard({kind:'rect',x:left?CW*.25:CW*.75,y:CH/2,w:CW/2,h:CH,color:ice?'#38bdf8':'#ef4444',damage:d,status:ice?{kind:'freeze',duration:1800}:{kind:'burn',duration:2600},delay:52,duration:25});});}
