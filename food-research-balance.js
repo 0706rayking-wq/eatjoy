@@ -625,6 +625,14 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
   if(window.frAttackDownUntil&&now<window.frAttackDownUntil)labels.push(['攻擊降低','#f59e0b']);
   if(player.burnTimer>0)labels.push(['灼燒','#ef4444']);
   if(player.poisoned)labels.push(['中毒','#84cc16']);
+  if(window.frParalyzedUntil&&now<window.frParalyzedUntil)labels.push(['麻痺','#fde047']);
+  if(player.burnTimer>0||player.poisoned||(window.frParalyzedUntil&&now<window.frParalyzedUntil)){
+   const radius=(player.radius||20)+10,phase=now*.007;ctx.save();ctx.globalCompositeOperation='lighter';
+   if(player.poisoned){ctx.globalAlpha=.65;ctx.fillStyle='#84cc16';for(let k=0;k<5;k++){const a=phase+k*1.3;ctx.beginPath();ctx.arc(player.x+Math.cos(a)*radius*.8,player.y+Math.sin(a*1.2)*radius*.7,2+k%3,0,Math.PI*2);ctx.fill();}}
+   if(player.burnTimer>0){ctx.globalAlpha=.8;for(let k=0;k<5;k++){const a=phase*1.5+k*1.25,x=player.x+Math.cos(a)*radius*.65,y=player.y+radius*.4-((now*.045+k*9)%(radius*1.4));ctx.fillStyle=k%2?'#fde047':'#f97316';ctx.beginPath();ctx.moveTo(x,y-6);ctx.quadraticCurveTo(x-4,y+1,x,y+6);ctx.quadraticCurveTo(x+4,y+1,x,y-6);ctx.fill();}}
+   if(window.frParalyzedUntil&&now<window.frParalyzedUntil){ctx.globalAlpha=.95;ctx.strokeStyle='#fde047';ctx.lineWidth=2.5;for(let k=0;k<3;k++){const a=phase*2+k*2.1,x=player.x+Math.cos(a)*radius,y=player.y+Math.sin(a)*radius;ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(a+1)*8,y+Math.sin(a+1)*8);ctx.lineTo(x+Math.cos(a-.5)*14,y+Math.sin(a-.5)*14);ctx.stroke();}}
+   ctx.restore();
+  }
   if(labels.length){ctx.save();ctx.textAlign='center';ctx.font='900 10px sans-serif';labels.forEach(function(item,i){ctx.fillStyle=item[1];ctx.fillText(item[0],player.x,player.y-48-i*12);});ctx.restore();}
  };
  const frGuardedBaseLoop=loop;

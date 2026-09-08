@@ -241,10 +241,10 @@ const FR_BOSS_SKILL_ASSET_FILES={
 const frBossSkillAssetImages={};
 function frBossSkillAssetImage(key){
   if(!FR_BOSS_SKILL_ASSET_FILES[key])return null;
-  if(!frBossSkillAssetImages[key]){const img=new Image();img.decoding='async';img.src='assets/food-research/boss-skills/'+FR_BOSS_SKILL_ASSET_FILES[key]+'?v=2';frBossSkillAssetImages[key]=img;}
+  if(!frBossSkillAssetImages[key]){const img=new Image();img.decoding='async';img.src='assets/food-research/boss-skills/'+FR_BOSS_SKILL_ASSET_FILES[key]+'?v=3';frBossSkillAssetImages[key]=img;}
   return frBossSkillAssetImages[key];
 }
-const FR_BOSS_SKILL_ASSET_FRAMES={coffeePools:4,espressoSweep:4,jellyClones:4,crownSlam:4,hornQuake:4,bloodBats:4,frostfireCorridor:4,bitterSeedling:4,bitterVineChase:4,pumpkinRoll:4,pumpkinChainBurst:4,sandwormBurrow:4,sandwormDevour:4,frostThornWheel:4,mangoSnowcone:4,swordNet:4};
+const FR_BOSS_SKILL_ASSET_FRAMES=Object.fromEntries(Object.keys(FR_BOSS_SKILL_ASSET_FILES).map(function(key){return [key,4];}));
 const FR_BOSS_SKILL_ASSET_FX={
   coffeePools:{asset:'coffeePools',motion:'orbit',target:1,duration:150,drawW:118,drawH:132,alpha:.92},espressoSweep:{asset:'espressoSweep',motion:'sweep',follow:1,duration:92,drawW:145,drawH:170},
   cleaverLanes:{asset:'niuCleaver',motion:'fall',target:1,duration:105,drawW:205,drawH:137},hornQuake:{asset:'hornQuake',motion:'impact',follow:1,duration:112,drawW:190,drawH:105},
@@ -738,7 +738,7 @@ function frBossMeteor(b,count,color,damage,largeLast,status){
   });
 }
 function frBossCast(b,pattern,isSkill){
-  const c=b._frFinal&&(b._frThunderPhase||0)===0?'#fde047':b.color,curve=frBalanceCurve(stage),phasePower=b._frFinal?[1,1.3,1.6][b._frThunderPhase||0]:1,stage11Power=b._frStage11Enhanced?FR_STAGE11_THUNDER.damage:1,d=Math.round((isSkill?14:9)*curve.bossDamage*frBossDamageScale(stage)*phasePower*stage11Power),tempo=frBossTempo(stage),w=tempo.warningMin||55;
+  const c=b._frFinal&&(b._frThunderPhase||0)===0?'#fde047':b.color,curve=frBalanceCurve(stage),phasePower=b._frFinal?[1,1.2,1.4][b._frThunderPhase||0]:1,stage11Power=b._frStage11Enhanced?FR_STAGE11_THUNDER.damage:1,d=Math.round((isSkill?14:9)*curve.bossDamage*frBossDamageScale(stage)*phasePower*stage11Power),tempo=frBossTempo(stage),w=tempo.warningMin||55;
   const controlPatterns=['creamWalls','cleaverLanes','conveyor','sideAvalanche','closingWalls','waterWalls','jazzSyncopation','thousandFries','noodleGrid','tomatoCoffin','creamSweep','creamBaptism','railClamp','woolPrison'],locksControl=controlPatterns.indexOf(pattern)>=0;
   if(locksControl)b._frControlLockUntil=Math.max(b._frControlLockUntil||0,b.timer+180);
   b._frBusyUntil=b.timer+(isSkill?tempo.skillBusy:tempo.normalBusy);frBossAnimate(b,isSkill?105:72);
@@ -987,7 +987,7 @@ function frThunderApplyPhase(b,phase,refill){
 }
 function frThunderApplyPhaseStats(b){
   if(!b||!b._frFinal||Number(stage)!==22)return;
-  const phase=Math.max(0,Math.min(2,Number(b._frThunderPhase)||0)),multipliers=[1,1.3,1.6];
+  const phase=Math.max(0,Math.min(2,Number(b._frThunderPhase)||0)),multipliers=[1,1.2,1.4];
   if(!b._frThunderBaseMaxHp)b._frThunderBaseMaxHp=Math.max(1,Math.round(b.maxHp));
   if(b._frThunderStatsPhase===phase)return;
   const target=Math.round(b._frThunderBaseMaxHp*multipliers[phase]);

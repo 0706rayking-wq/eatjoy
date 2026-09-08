@@ -26,7 +26,7 @@
     { id:'a24', name:'連擊御守', emoji:'🔗', desc:'連續命中每層傷害 +2%，最多 10 層，1.5 秒未命中重置', effects:{ comboDamage:0.02 } },
     { id:'a25', name:'處刑御守', emoji:'🗡️', desc:'對 HP 低於 30% 的敵人傷害 +15%', effects:{ executeDamage:0.15 } },
     { id:'a26', name:'巨刃御守', emoji:'🥢', desc:'近戰攻擊範圍 +15%', effects:{ meleeRange:0.15 } },
-    { id:'a27', name:'彈心御守', emoji:'🔵', desc:'遠程子彈尺寸 +15%', effects:{ projectileSize:0.15 } },
+    { id:'a27', name:'巧技御守', emoji:'🌀', desc:'技能傷害 +10%', effects:{ skillDamage:0.10 } },
     { id:'a28', name:'爆破御守', emoji:'💥', desc:'擊敗敵人有 10% 機率爆破，對周圍造成 30 傷害', effects:{ deathExplosion:0.10, explosionDamage:30 } },
     { id:'a30', name:'金剛御守', emoji:'💎', desc:'每 15 秒生成 18 點防護罩', effects:{ autoShield:18 } },
     { id:'a31', name:'鎮雷御守', emoji:'⚡', desc:'受到麻痺的狀態時間減半', effects:{ paralyzeDuration:0.50 } },
@@ -35,6 +35,8 @@
   const effectKeys = [...new Set(catalog.flatMap(item => Object.keys(item.effects)))];
   const byName = Object.fromEntries(catalog.map(item => [item.name, item]));
   const descriptions = Object.fromEntries(catalog.map(item => [item.name, item.desc]));
+  byName['彈心御守'] = byName['巧技御守'];
+  descriptions['彈心御守'] = byName['巧技御守'].desc;
 
   function calc(names) {
     const bonus = Object.fromEntries(effectKeys.map(key => [key, 0]));
@@ -64,7 +66,11 @@
 ;(function(){
  const FR_AMULETS=JSON.parse(decodeURIComponent(escape(atob('${encoded}'))));
  const FR_AMULET_MAP=Object.fromEntries(FR_AMULETS.map(function(item){return [item.name,item];}));
+ FR_AMULET_MAP['彈心御守']=FR_AMULET_MAP['巧技御守'];
  const FR_EFFECT_KEYS=[...new Set(FR_AMULETS.flatMap(function(item){return Object.keys(item.effects||{});}))];
+ function frRenameLegacyAmulets(list){return (Array.isArray(list)?list:[]).map(function(name){return name==='彈心御守'?'巧技御守':name;});}
+ if(SAVE&&SAVE.equip)SAVE.equip.amulets=frRenameLegacyAmulets(SAVE.equip.amulets);
+ (typeof PARTNERS!=='undefined'&&Array.isArray(PARTNERS)?PARTNERS:[]).forEach(function(partner){if(partner&&partner.equip)partner.equip.amulets=frRenameLegacyAmulets(partner.equip.amulets);});
  function frCalcAmulets(names){
   const b=Object.fromEntries(FR_EFFECT_KEYS.map(function(key){return [key,0];}));
   (Array.isArray(names)?names:[]).forEach(function(name){const item=FR_AMULET_MAP[name];if(!item)return;Object.entries(item.effects||{}).forEach(function(entry){b[entry[0]]=(b[entry[0]]||0)+entry[1];});});
