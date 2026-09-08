@@ -228,13 +228,51 @@ const FR_BOSS_FX_MOBILE=!!((window.matchMedia&&window.matchMedia('(pointer:coars
 const frBossFx=[];
 const FR_BOSS_SKILL_ASSET_FILES={
   jellyClones:'jelly-clones.png',crownSlam:'jelly-crown-slam.png',sandwormBurrow:'sandworm-burrow.png',sandwormDevour:'sandworm-devour.png',
-  chickenLegRain:'cream-chicken-rain.png',creamBaptism:'cream-baptism.png',mechMissile:'heavy-mech-missile.png',pressureCannon:'heavy-mech-pressure-cannon.png'
+  chickenLegRain:'cream-chicken-rain.png',creamBaptism:'cream-baptism.png',mechMissile:'heavy-mech-missile.png',pressureCannon:'heavy-mech-pressure-cannon.png',
+  coffeePools:'tiramisu-coffee-pools.png',espressoSweep:'tiramisu-espresso-sweep.png',niuCleaver:'niu-cleaver.png',hornQuake:'niu-horn-quake.png',
+  woolCloud:'yang-wool-cloud.png',woolPrison:'yang-wool-prison.png',bloodBats:'mala-blood-bats.png',boilingBloodHunt:'mala-boiling-hunt.png',
+  iceFlower:'white-ice-flower.png',frostfireCorridor:'white-frostfire-corridor.png',bitterSeedling:'bitter-seedling.png',bitterVineChase:'bitter-vine-chase.png',
+  pumpkinRoll:'pumpkin-roll.png',pumpkinChainBurst:'pumpkin-chain-burst.png',karaageOilBomb:'karaage-oil-bomb.png',fryerShockDrop:'karaage-fryer-drop.png',
+  eelShadow:'eel-shadow.png',sauceRushTrail:'eel-sauce-rush.png',riceTornado:'fried-rice-tornado.png',wokFlipBurst:'fried-rice-wok-burst.png',
+  durianIceLance:'durian-ice-lance.png',frostThornWheel:'durian-frost-wheel.png',mangoSnowcone:'mango-snowcone.png',syrupAvalanche:'mango-syrup-avalanche.png',
+  friesIaido:'fries-iaido.png',swordNet:'fries-sword-net.png',noodleBind:'pasta-noodle-bind.png',noodleBindGrid:'pasta-bind-grid.png',
+  soupGeysers:'pastry-soup-geyser.png',pastryCollapse:'pastry-collapse.png',inkEightThrust:'octopus-ink-thrust.png',eightArmCombo:'octopus-eight-arm.png'
 };
 const frBossSkillAssetImages={};
 function frBossSkillAssetImage(key){
   if(!FR_BOSS_SKILL_ASSET_FILES[key])return null;
   if(!frBossSkillAssetImages[key]){const img=new Image();img.decoding='async';img.src='assets/food-research/boss-skills/'+FR_BOSS_SKILL_ASSET_FILES[key];frBossSkillAssetImages[key]=img;}
   return frBossSkillAssetImages[key];
+}
+const FR_BOSS_SKILL_ASSET_FX={
+  coffeePools:{asset:'coffeePools',motion:'pulse',target:1,duration:150,drawW:150,drawH:100,alpha:.62},espressoSweep:{asset:'espressoSweep',motion:'sweep',follow:1,duration:92,drawW:255,drawH:128},
+  cleaverLanes:{asset:'niuCleaver',motion:'fall',target:1,duration:105,drawW:205,drawH:137},hornQuake:{asset:'hornQuake',motion:'impact',follow:1,duration:112,drawW:220,drawH:147},
+  woolCloudSiege:{asset:'woolCloud',motion:'orbit',follow:1,duration:150,drawW:185,drawH:123},woolPrison:{asset:'woolPrison',motion:'spin',target:1,duration:175,drawW:245,drawH:245,alpha:.74},
+  bloodBatHunt:{asset:'bloodBats',motion:'projectile',duration:125,drawW:142,drawH:95},boilingBloodHunt:{asset:'boilingBloodHunt',motion:'trail',follow:1,duration:180,drawW:245,drawH:123,alpha:.72},
+  iceFlower:{asset:'iceFlower',motion:'spin',follow:1,duration:108,drawW:175,drawH:175},frostfireCorridor:{asset:'frostfireCorridor',motion:'slide',target:2,duration:150,drawW:255,drawH:330,alpha:.58},
+  seedlingPursuit:{asset:'bitterSeedling',motion:'rise',target:1,duration:145,drawW:155,drawH:103},bitterVineChase:{asset:'bitterVineChase',motion:'trail',target:1,duration:175,drawW:245,drawH:123,alpha:.7},
+  pumpkinRoll:{asset:'pumpkinRoll',motion:'projectile',duration:100,drawW:125,drawH:125},pumpkinChainBurst:{asset:'pumpkinChainBurst',motion:'spin',target:1,duration:110,drawW:225,drawH:225},
+  oilChainBlast:{asset:'karaageOilBomb',motion:'fall',target:1,duration:112,drawW:135,drawH:135},fryerShockDrop:{asset:'fryerShockDrop',motion:'fall',target:1,duration:105,drawW:205,drawH:137},
+  eelShadowSwim:{asset:'eelShadow',motion:'sweep',follow:1,duration:135,drawW:235,drawH:118},sauceRushTrail:{asset:'sauceRushTrail',motion:'trail',follow:1,duration:175,drawW:245,drawH:123,alpha:.7},
+  riceTornado:{asset:'riceTornado',motion:'spin',follow:1,duration:145,drawW:205,drawH:205},wokFlipBurst:{asset:'wokFlipBurst',motion:'impact',target:1,duration:120,drawW:220,drawH:147},
+  durianIceLances:{asset:'durianIceLance',motion:'projectile',duration:115,drawW:155,drawH:103},frostThornWheel:{asset:'frostThornWheel',motion:'spin',target:2,duration:130,drawW:235,drawH:235},
+  snowcone:{asset:'mangoSnowcone',motion:'fall',target:1,duration:112,drawW:150,drawH:100},syrupAvalanche:{asset:'syrupAvalanche',motion:'slide',target:2,duration:180,drawW:300,drawH:150,alpha:.7},
+  friesIaido:{asset:'friesIaido',motion:'sweep',follow:1,duration:90,drawW:255,drawH:128},swordNet:{asset:'swordNet',motion:'pulse',target:2,duration:135,drawW:260,drawH:260,alpha:.62},
+  noodleBindSweep:{asset:'noodleBind',motion:'spin',target:1,duration:145,drawW:195,drawH:130,alpha:.78},noodleBindGrid:{asset:'noodleBindGrid',motion:'pulse',target:2,duration:175,drawW:285,drawH:285,alpha:.54},
+  soupGeysers:{asset:'soupGeysers',motion:'rise',target:1,duration:125,drawW:185,drawH:123},pastryCollapse:{asset:'pastryCollapse',motion:'impact',target:1,duration:125,drawW:220,drawH:147},
+  inkEightThrust:{asset:'inkEightThrust',motion:'sweep',follow:1,duration:115,drawW:215,drawH:108},eightArmCombo:{asset:'eightArmCombo',motion:'spin',target:1,duration:140,drawW:265,drawH:265,alpha:.76}
+};
+function frBossSkillAssetFx(b,pattern){
+  const base=FR_BOSS_SKILL_ASSET_FX[pattern];
+  if(!base||!b)return;
+  const f=Object.assign({},base,{color:b.color||'#fef08a',follow:!!base.follow});
+  if(base.target===1){f.x=player.x;f.y=player.y;f.follow=false;}
+  else if(base.target===2){f.x=CW/2;f.y=CH*.54;f.follow=false;}
+  else if(!base.follow){
+    f.x=b.x;f.y=b.y;f.follow=false;f.toX=player.x-b.x;f.toY=player.y-b.y;f.rotate=Math.atan2(f.toY,f.toX);
+  }
+  if(base.follow&&(base.motion==='sweep'||base.motion==='trail'))f.rotate=frBossAim(b,true);
+  frBossFxPush(b,'asset',f);
 }
 const FR_BOSS_THEME_IDS=new Set(['tiramisu-jazz','jelly-king','niu-mowang','yang-mowang','mala-vampire','white-soup-princess','bitter-melon-witch','halloween-pumpkin-king','karaage-superhero','eel-dragon','fried-rice-beast','intestine-sandworm','durian-icepop-warrior','mango-ice-monster','fries-swordsman','pasta-mummy','pastry-soup-wizard','cream-chicken-pontiff','octopus-warrior','heavy-armor-mech']);
 function frBossFxPush(b,kind,options){
@@ -260,11 +298,24 @@ function frBossDrawFx(b){
       const img=frBossSkillAssetImage(f.asset);
       if(img&&img.complete&&img.naturalWidth){
         const ease=1-Math.pow(1-p,3),fromX=Number(f.fromX)||0,fromY=Number(f.fromY)||0,toX=Number(f.toX)||0,toY=Number(f.toY)||0;
-        const opacity=p<.14?p/.14:p>.82?(1-p)/.18:1,baseScale=Number(f.scale)||1,pulse=f.pulse?1+Math.sin(p*Math.PI)*Number(f.pulse):1;
+        const opacity=p<.14?p/.14:p>.82?(1-p)/.18:1,baseScale=Number(f.scale)||1,pulse=f.pulse?1+Math.sin(p*Math.PI)*Number(f.pulse):1,motion=f.motion||'';
+        let motionX=0,motionY=0,scaleX=1,scaleY=1,motionRotate=0;
+        if(motion==='bounce'){motionY=-Math.abs(Math.sin(p*Math.PI*2))*58;scaleX=1+Math.abs(Math.cos(p*Math.PI*2))*.13;scaleY=1-Math.abs(Math.cos(p*Math.PI*2))*.14;}
+        else if(motion==='fall'){motionY=-190*Math.pow(1-p,2);if(p>.68){const hit=Math.sin(Math.min(1,(p-.68)/.2)*Math.PI);scaleX+=hit*.22;scaleY-=hit*.24;}}
+        else if(motion==='rise'){motionY=105*(1-ease);scaleY=.35+.65*ease;scaleX=1.12-.12*ease;}
+        else if(motion==='sweep'){motionRotate=(-.42+p*.84);scaleX=.78+.22*ease;}
+        else if(motion==='projectile'){motionRotate=Math.sin(p*Math.PI*5)*.08;scaleX=1.08;scaleY=.92;}
+        else if(motion==='spin'){motionRotate=p*Math.PI*1.35;scaleX=scaleY=.72+.28*ease;}
+        else if(motion==='orbit'){motionX=Math.cos(p*Math.PI*4)*48;motionY=Math.sin(p*Math.PI*4)*24;motionRotate=p*Math.PI*.8;scaleX=scaleY=.86+.14*ease;}
+        else if(motion==='pulse'){scaleX=scaleY=.82+.18*ease+.06*Math.sin(p*Math.PI*6);}
+        else if(motion==='slide'){motionX=(-CW*.65)*(1-ease);scaleX=.88+.12*ease;}
+        else if(motion==='trail'){motionX=-42*(1-p);scaleX=.75+.25*ease;scaleY=.9+.1*Math.sin(p*Math.PI);}
+        else if(motion==='impact'){scaleX=scaleY=.62+.38*ease;if(p>.55){const hit=Math.sin(Math.min(1,(p-.55)/.28)*Math.PI);scaleX+=hit*.18;scaleY-=hit*.12;}}
         ctx.globalCompositeOperation='source-over';ctx.shadowBlur=0;ctx.globalAlpha=Math.max(0,opacity)*(f.alpha==null?.96:f.alpha);
-        ctx.translate(fromX+(toX-fromX)*ease,fromY+(toY-fromY)*ease);ctx.rotate((Number(f.rotate)||0)+(Number(f.spin)||0)*p);ctx.scale(baseScale*pulse,baseScale*pulse);
+        ctx.translate(fromX+(toX-fromX)*ease+motionX,fromY+(toY-fromY)*ease+motionY);ctx.rotate((Number(f.rotate)||0)+(Number(f.spin)||0)*p+motionRotate);ctx.scale(baseScale*pulse*scaleX,baseScale*pulse*scaleY);
         const width=Number(f.drawW)||Math.min(220,img.naturalWidth),height=Number(f.drawH)||width*img.naturalHeight/img.naturalWidth,anchorX=f.anchorX==null?.5:Number(f.anchorX),anchorY=f.anchorY==null?.5:Number(f.anchorY);
         ctx.drawImage(img,-width*anchorX,-height*anchorY,width,height);
+        if((motion==='fall'||motion==='impact'||motion==='rise')&&p>.62){const ringP=Math.min(1,(p-.62)/.38),radius=18+ringP*width*.55;ctx.globalAlpha=(1-ringP)*.65;ctx.strokeStyle=f.color||'#fff7cc';ctx.lineWidth=4;ctx.beginPath();ctx.ellipse(0,height*(1-anchorY)*.32,radius,radius*.28,0,0,Math.PI*2);ctx.stroke();}
       }
     }else if(f.kind==='entry'||f.kind==='rage'){
       const radius=(f.kind==='entry'?42:34)+p*(f.kind==='entry'?118:92);ctx.globalAlpha=fade*.72;ctx.lineWidth=f.kind==='entry'?5:7;ctx.beginPath();ctx.arc(0,0,radius,0,Math.PI*2);ctx.stroke();
@@ -683,12 +734,13 @@ function frBossCast(b,pattern,isSkill){
   if(isSkill)frBossThemeFx(b,pattern,68);
   if(isSkill)frBossWarning(b,'circle',48,{r:82});
   addText(isSkill?'⚠ '+b._frSkillLabels[pattern]:b._frNormalLabel,b.x,b.y-86,c,isSkill?15:12);
+  if(isSkill)frBossSkillAssetFx(b,pattern);
   if(pattern==='cocoaFan'){frBossWarning(b,'cone',w,{angle:frBossAim(b),spread:.58});frBossLater(b,w,function(){frBossFan(b,5,4.6,d,.18,c);});}
   else if(pattern==='coffeePools'){for(let i=0;i<3;i++)frBossLater(b,i*16,function(){frBossHazard({kind:'circle',x:player.x+(Math.random()-.5)*100,y:player.y+(Math.random()-.5)*80,r:48,color:'#78350f',damage:d,status:{kind:'slow',duration:2400},delay:48,duration:150});});}
   else if(pattern==='cookieRain'){frBossMeteor(b,7,'#d97706',d,true);}
   else if(pattern==='creamWalls'){const gap=frBossWallGap();frBossWarning(b,'rect',w,{x:CW/2,y:CH/2,w:CW,h:42});frBossLater(b,w,function(){frBossWallWithGap(b,-1,'#fff7ed',d,gap);frBossWallWithGap(b,1,'#fff7ed',d,gap);});}
   else if(pattern==='jellyBounce'){frBossWarning(b,'line',w,{angle:frBossAim(b)});frBossLater(b,w,function(){frBossShot(b,frBossAim(b),4,d,c,11,{bounce:true});});}
-  else if(pattern==='jellyClones'){frBossFxPush(b,'asset',{asset:'jellyClones',x:b.x,y:b.y+28,follow:false,duration:58,drawW:176,drawH:117,fromY:-20,toY:128,pulse:.08});frBossLater(b,w,function(){frBossSummonMinions(b,2,1);});for(let s=-1;s<=1;s++)frBossLater(b,w+s*8,function(){frBossFan({x:b.x+s*70,y:b.y,color:c},3,4,d,.22,c);});}
+  else if(pattern==='jellyClones'){frBossFxPush(b,'asset',{asset:'jellyClones',motion:'bounce',x:b.x,y:b.y+28,follow:false,duration:72,drawW:176,drawH:117,toY:96,pulse:.05});frBossLater(b,w,function(){frBossSummonMinions(b,2,1);});for(let s=-1;s<=1;s++)frBossLater(b,w+s*8,function(){frBossFan({x:b.x+s*70,y:b.y,color:c},3,4,d,.22,c);});}
   else if(pattern==='jellyRings'){for(let q=0;q<3;q++)frBossLater(b,w+q*26,function(){frBossRadial(b,10,3.2,d,c,q*.2);});}
   else if(pattern==='jellyRain'){frBossMeteor(b,9,c,d,true);}
   else if(pattern==='hornFan'){frBossWarning(b,'cone',w,{angle:frBossAim(b),spread:.35});frBossLater(b,w,function(){frBossFan(b,3,5.2,d,.2,c);});}
@@ -763,7 +815,7 @@ function frBossCast(b,pattern,isSkill){
   else if(pattern==='jazzSyncopation'){const first=Math.floor(Math.random()*4);for(let q=0;q<3;q++)frBossLater(b,q*42,function(){const gap=(first+q)%4;for(let i=0;i<5;i++)if(i!==gap&&i!==gap+1)frBossHazard({kind:'rect',x:(i+.5)*CW/5,y:CH/2,w:CW/5-14,h:CH,color:'#92400e',damage:d,status:{kind:'slow',duration:1700},delay:90,minDelay:90,duration:16});});}
   else if(pattern==='mochaSpotlight'){for(let q=0;q<4;q++)frBossLater(b,q*30,function(){const x=player.x+(player.vx||0)*10,y=player.y+(player.vy||0)*10;frBossHazard({kind:'circle',x:x,y:y,r:52,color:'#78350f',damage:d,status:{kind:'slow',duration:1900},delay:56,duration:55});});}
   else if(pattern==='jellyWall'){for(let q=0;q<3;q++)frBossLater(b,q*28,function(){const side=q%2?-1:1,src={x:side<0?-16:CW+16,y:145+q*(CH-250)/3,color:c};frBossShot(src,side<0?.18:Math.PI-.18,4.6,d,c,18,{oy:0,bounce:true,splitAt:70,splitCount:4,splitSpeed:3.1});});}
-  else if(pattern==='crownSlam'){for(let q=0;q<3;q++)frBossLater(b,q*48,function(){const x=player.x+(player.vx||0)*12,y=player.y+(player.vy||0)*12;frBossFxPush(b,'asset',{asset:'crownSlam',x:x,y:y,follow:false,duration:68,drawW:190+q*14,drawH:199+q*15,fromY:-190,toY:0,pulse:.06});frBossHazard({kind:'circle',x:x,y:y,r:68+q*7,color:c,damage:d,delay:52,duration:18});frBossLater(b,34,function(){if(!b._defeated){b.x=Math.max(60,Math.min(CW-60,x));b.y=Math.max(frBossSafeCenterY(b),Math.min(CH*.52,y));}});});}
+  else if(pattern==='crownSlam'){for(let q=0;q<3;q++)frBossLater(b,q*48,function(){const x=player.x+(player.vx||0)*12,y=player.y+(player.vy||0)*12;frBossFxPush(b,'asset',{asset:'crownSlam',motion:'fall',x:x,y:y,follow:false,duration:68,drawW:190+q*14,drawH:199+q*15,pulse:.04});frBossHazard({kind:'circle',x:x,y:y,r:68+q*7,color:c,damage:d,delay:52,duration:18});frBossLater(b,34,function(){if(!b._defeated){b.x=Math.max(60,Math.min(CW-60,x));b.y=Math.max(frBossSafeCenterY(b),Math.min(CH*.52,y));}});});}
   else if(pattern==='returningCharge'){for(let q=0;q<2;q++)frBossLater(b,q*82,function(){const a=frBossAim(b,true);frBossWarning(b,'line',46,{angle:a,color:'#fca5a5'});frBossLater(b,46,function(){b._frDash={vx:Math.cos(a)*9.4,vy:Math.sin(a)*9.4,left:28,damage:d};});});}
   else if(pattern==='cleaverCollapse'){const order=frBossShuffle([0,1,2,3,4]);for(let q=0;q<5;q++)frBossLater(b,q*22,function(){const x=(order[q]+.5)*CW/5;frBossHazard({kind:'line',x:x-80,y:0,x2:x+80,y2:CH,w:34,color:'#ef4444',damage:d,delay:48,duration:15});});}
   else if(pattern==='hornCyclone'){for(let q=0;q<8;q++)frBossLater(b,q*13,function(){const a=q*Math.PI/4+b.timer*.04;frBossShot(b,a,4,d,c,11,{curve:q%2?.018:-.018,status:{kind:'slow',duration:1300}});frBossShot(b,a+Math.PI,4,d,c,11,{curve:q%2?.018:-.018,status:{kind:'slow',duration:1300}});});}
@@ -782,7 +834,7 @@ function frBossCast(b,pattern,isSkill){
   else if(pattern==='kabayakiGrid'){const cx=player.x,cy=player.y,reach=Math.max(CW,CH)*1.4;for(let q=0;q<4;q++)frBossLater(b,q*28,function(){const a=Math.PI*.2+q*Math.PI*.2;frBossHazard({kind:'line',x:cx-Math.cos(a)*reach,y:cy-Math.sin(a)*reach,x2:cx+Math.cos(a)*reach,y2:cy+Math.sin(a)*reach,w:27,color:'#d97706',damage:d,status:{kind:'slow',duration:1800},delay:48,duration:14});});}
   else if(pattern==='tripleWokFlip'){for(let q=0;q<3;q++)frBossLater(b,q*32,function(){frBossFan(b,7,4.8,d,.14,q%2?'#facc15':'#f97316',null,frBossAim(b,true)+(q-1)*.2);});}
   else if(pattern==='wokVolcano'){for(let q=0;q<4;q++)frBossLater(b,q*30,function(){const x=player.x+(player.vx||0)*12,y=player.y+(player.vy||0)*12;frBossHazard({kind:'circle',x:x,y:y,r:q===3?78:46,color:'#f97316',damage:d,status:{kind:'burn',duration:2600},delay:48,duration:18});if(q===3)frBossRadial({x:x,y:y,color:c},12,4,d,c,.12);});}
-  else if(pattern==='undergroundHunt'){const tx=player.x+(player.vx||0)*18,ty=player.y+(player.vy||0)*18,a=Math.atan2(ty-b.y,tx-b.x),reach=Math.max(CW,CH)*1.4;frBossFxPush(b,'asset',{asset:'sandwormBurrow',x:tx,y:ty,follow:false,duration:74,drawW:170,drawH:152,fromY:92,toY:0,pulse:.1});frBossHazard({kind:'line',x:b.x,y:b.y,x2:b.x+Math.cos(a)*reach,y2:b.y+Math.sin(a)*reach,w:42,color:c,damage:d,status:{kind:'poison',duration:3600},delay:50,duration:18});frBossLater(b,52,function(){b.x=Math.max(55,Math.min(CW-55,tx));b.y=Math.max(frBossSafeCenterY(b),Math.min(CH*.58,ty));frBossHazard({kind:'circle',x:b.x,y:b.y,r:86,color:c,damage:d,status:{kind:'poison',duration:3600},delay:38,duration:18});});}
+  else if(pattern==='undergroundHunt'){const tx=player.x+(player.vx||0)*18,ty=player.y+(player.vy||0)*18,a=Math.atan2(ty-b.y,tx-b.x),reach=Math.max(CW,CH)*1.4;frBossFxPush(b,'asset',{asset:'sandwormBurrow',motion:'rise',x:tx,y:ty,follow:false,duration:82,drawW:170,drawH:152,anchorY:.78,pulse:.05});frBossHazard({kind:'line',x:b.x,y:b.y,x2:b.x+Math.cos(a)*reach,y2:b.y+Math.sin(a)*reach,w:42,color:c,damage:d,status:{kind:'poison',duration:3600},delay:50,duration:18});frBossLater(b,52,function(){b.x=Math.max(55,Math.min(CW-55,tx));b.y=Math.max(frBossSafeCenterY(b),Math.min(CH*.58,ty));frBossHazard({kind:'circle',x:b.x,y:b.y,r:86,color:c,damage:d,status:{kind:'poison',duration:3600},delay:38,duration:18});});}
   else if(pattern==='gutRingDevour'){const x=player.x,y=player.y;for(let q=0;q<4;q++)frBossLater(b,q*38,function(){frBossHazard({kind:'ring',x:x,y:y,r:205-q*34,inner:145-q*30,color:c,damage:d,status:{kind:'poison',duration:3500},delay:50,duration:24});});}
   else if(pattern==='durianIceLances'){const offset=Math.random()*Math.PI*2,reach=Math.max(CW,CH)*1.7;for(let q=0;q<6;q++)frBossLater(b,q*23,function(){const a=offset+q*Math.PI/3,sx=CW/2+Math.cos(a)*reach*.65,sy=CH/2+Math.sin(a)*reach*.65,aim=Math.atan2(player.y-sy,player.x-sx);frBossHazard({kind:'line',x:sx,y:sy,x2:sx+Math.cos(aim)*reach,y2:sy+Math.sin(aim)*reach,w:24,color:'#bae6fd',damage:d,status:{kind:'freeze',duration:1800},delay:46,duration:14});});}
   else if(pattern==='frostOrbHunt'){for(let q=0;q<2;q++){const a=frBossAim(b,true)+(q?-.34:.34),shot=frBossShot(b,a,3.2,d,'#7dd3fc',18,{turnAt:28,status:{kind:'slow',duration:2400}});shot.frBossOrb=true;}}
@@ -811,7 +863,7 @@ function frBossCast(b,pattern,isSkill){
   else if(pattern==='fryerShockDrop'){const tx=player.x,ty=player.y;frBossHazard({kind:'circle',x:tx,y:ty,r:72,color:c,damage:d,status:{kind:'burn',duration:3000},delay:52,duration:20});frBossLater(b,62,function(){b.x=tx;b.y=Math.min(CH*.55,ty);frBossHazard({kind:'ring',x:tx,y:ty,r:178,inner:78,color:'#fbbf24',damage:d,delay:38,duration:28});});}
   else if(pattern==='sauceRushTrail'){for(let q=0;q<2;q++)frBossLater(b,q*78,function(){const a=frBossAim(b,true);frBossWarning(b,'line',44,{angle:a,color:'#f59e0b'});frBossLater(b,44,function(){b._frDash={vx:Math.cos(a)*9.4,vy:Math.sin(a)*9.4,left:30,damage:d,trail:true,status:{kind:'slow',duration:2200}};});});}
   else if(pattern==='wokFlipBurst'){frBossLater(b,w,function(){frBossFan(b,9,4.7,d,.11,c,null,frBossAim(b,true));});for(let q=0;q<4;q++)frBossLater(b,35+q*28,function(){frBossHazard({kind:'circle',x:player.x,y:player.y,r:44+q*5,color:'#f97316',damage:d,delay:42,duration:16});});}
-  else if(pattern==='burrowAmbush'){const tx=player.x+(player.vx||0)*18,ty=player.y+(player.vy||0)*18,a=Math.atan2(ty-b.y,tx-b.x),reach=Math.max(CW,CH)*1.35;frBossFxPush(b,'asset',{asset:'sandwormDevour',x:tx,y:ty,follow:false,duration:88,drawW:230,drawH:230,fromY:95,toY:0,spin:Math.PI*.45,pulse:.08});frBossHazard({kind:'line',x:b.x,y:b.y,x2:b.x+Math.cos(a)*reach,y2:b.y+Math.sin(a)*reach,w:38,color:c,damage:d,status:{kind:'poison',duration:3600},delay:50,duration:20});frBossLater(b,52,function(){b.x=Math.max(55,Math.min(CW-55,tx));b.y=Math.max(frBossSafeCenterY(b),Math.min(CH*.58,ty));frBossHazard({kind:'circle',x:b.x,y:b.y,r:78,color:c,damage:d,delay:34,minDelay:24,duration:18});});}
+  else if(pattern==='burrowAmbush'){const tx=player.x+(player.vx||0)*18,ty=player.y+(player.vy||0)*18,a=Math.atan2(ty-b.y,tx-b.x),reach=Math.max(CW,CH)*1.35;frBossFxPush(b,'asset',{asset:'sandwormDevour',motion:'rise',x:tx,y:ty,follow:false,duration:96,drawW:230,drawH:230,anchorY:.72,spin:Math.PI*.45,pulse:.05});frBossHazard({kind:'line',x:b.x,y:b.y,x2:b.x+Math.cos(a)*reach,y2:b.y+Math.sin(a)*reach,w:38,color:c,damage:d,status:{kind:'poison',duration:3600},delay:50,duration:20});frBossLater(b,52,function(){b.x=Math.max(55,Math.min(CW-55,tx));b.y=Math.max(frBossSafeCenterY(b),Math.min(CH*.58,ty));frBossHazard({kind:'circle',x:b.x,y:b.y,r:78,color:c,damage:d,delay:34,minDelay:24,duration:18});});}
   else if(pattern==='frostThornWheel'){const cx=CW/2,cy=CH*.55,reach=Math.max(CW,CH);for(let q=0;q<8;q++){const a=Math.PI*q/8;frBossHazard({kind:'line',x:cx-Math.cos(a)*reach,y:cy-Math.sin(a)*reach,x2:cx+Math.cos(a)*reach,y2:cy+Math.sin(a)*reach,w:28,color:'#bae6fd',damage:d,status:{kind:'freeze',duration:2100},delay:42+q*8,duration:12});}}
   else if(pattern==='syrupAvalanche'){for(let q=0;q<4;q++)frBossHazard({kind:'circle',x:player.x+(Math.random()-.5)*130,y:player.y+(Math.random()-.5)*105,r:42,color:'#fbbf24',damage:d,status:{kind:'slow',duration:2700},delay:48+q*8,duration:75});for(let q=0;q<4;q++)frBossLater(b,72+q*27,function(){frBossLineRain(b,8,'#e0f2fe',d);});}
   else if(pattern==='swordNet'){const cx=player.x,cy=player.y,reach=Math.max(CW,CH);for(let q=0;q<4;q++){const a=q*Math.PI/4;frBossHazard({kind:'line',x:cx-Math.cos(a)*reach,y:cy-Math.sin(a)*reach,x2:cx+Math.cos(a)*reach,y2:cy+Math.sin(a)*reach,w:30,color:c,damage:d,delay:44+q*12,duration:13});}}
