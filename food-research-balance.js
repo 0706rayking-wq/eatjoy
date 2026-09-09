@@ -94,7 +94,9 @@ const FR_PERF={enemyBulletCap:FR_MOBILE_PERF?90:110,particleCap:FR_MOBILE_PERF?9
 const FR_POISON_DURATION_MS=FR_BALANCE.combat.poisonDurationMs;
 function frScaleEnemyNormalBullet(b){
  if(!b||b._frNormalSizeScaled||b.unblockable||b.special||b.bossSkill||b.frSpecial)return b;
- b.r=Math.max(1,(Number(b.r)||5)*.7);b._frNormalSizeScaled=true;return b;
+ b.r=Math.max(1,(Number(b.r)||5)*.7);
+ if(FR_MOBILE_PERF){b.vx=(Number(b.vx)||0)*.85;b.vy=(Number(b.vy)||0)*.85;}
+ b._frNormalSizeScaled=true;return b;
 }
 function frLateStageBoost(stageNum){
  const s=Math.max(1,Math.round(Number(stageNum)||1));
