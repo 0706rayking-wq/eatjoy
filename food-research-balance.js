@@ -160,6 +160,8 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
       .replace('ctx.drawImage(heroNormalImg,-25,-42,50,58);', 'ctx.drawImage(heroNormalImg,-22,-37,44,51);')
       .replace('const STAM_REGEN=0.0005*(1+(tr.stamRegen||0)*.1);', 'const STAM_REGEN=(FR_BALANCE.stamina.regenPerSecond/1000)*(1+(tr.stamRegen||0)*FR_BALANCE.stamina.regenPerTrainingLevel);')
       .replace('const DODGE_COST=30;', 'const DODGE_COST=FR_BALANCE.stamina.dodgeCost;')
+      .replace('MELEE_CD/(normalFrenzyTimer>0?2:1)', "MELEE_CD/((normalFrenzyTimer>0?2:1)*(typeof frFormAttackSpeedMultiplier==='function'?frFormAttackSpeedMultiplier():1))")
+      .replace('WEAPON_CD/(normalFrenzyTimer>0?2:1)', "WEAPON_CD/((normalFrenzyTimer>0?2:1)*(typeof frFormAttackSpeedMultiplier==='function'?frFormAttackSpeedMultiplier():1))")
       .replace('let gold=0,score=0,stage=1,gameRunning=false,stageCleared=false;', "let gold=0,score=Number(SAVE.runScore||0),stage=1,gameRunning=false,stageCleared=false;let frBossDefeatedCount=0;const frRunStartedAt=Number(SAVE.runStartedAt||Date.now());const frRunId=String(SAVE.runId||'');")
       .replace('const goldChance=.5;', 'const goldChance=this._frBossSummoned?0:frEnemyCoinChance(this.type);')
       .replace('const earn=1+Math.floor(Math.random()*3);', 'const earn=frEnemyCoinAmount(this.type);')
