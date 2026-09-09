@@ -58,7 +58,7 @@
     },
     stamina: {
       base: 100,
-      perTrainingLevel: 6,
+      perTrainingLevel: 10,
       regenPerSecond: 2.0,
       regenPerTrainingLevel: 0.10,
       dodgeCost: 22,
@@ -76,7 +76,7 @@
       attackPerLevel: 0.05,
       defensePerLevel: 0.04,
       hpPerLevel: 12,
-      staminaPerLevel: 6,
+      staminaPerLevel: 10,
       critPerLevel: 0.03,
       rangedSpeedPerLevel: 0.015,
       meleeSpeedPerLevel: 0.02,
