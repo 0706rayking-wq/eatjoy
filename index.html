@@ -9875,7 +9875,7 @@ if (selectedActivity === 'food_research') {
  const PARTNER_MELEE_DESC = Object.fromEntries(MELEE_POOL.map(w=>[w.name,w.desc]));
  PARTNER_MELEE_DESC['初始鍋鏟']='基礎揮擊，攻速、範圍與反彈能力均衡。';
  const PARTNER_AMULET_DESC = AMULET_DESC_MAP;
- const PARTNER_FORM_DESC = {normal:'原始型態，可靠隊伍支援型。被動可與隊友共享並疊加。'};
+ const PARTNER_FORM_DESC = {normal:'純白柔軟的初始姿態，能力均衡，擅長回復與支援隊伍。'};
  const PARTNER_FORM_ABILITIES = {
   normal:[
    {label:'被動技能',name:'MHP+10',desc:'全隊最大 HP +10，可與隊友共享並疊加。'},
@@ -9884,7 +9884,7 @@ if (selectedActivity === 'food_research') {
   ],
  };
  FOOD_RESEARCH_FORM_CATALOG.forEach(form=>{
-  PARTNER_FORM_DESC[form.id]=`${FOOD_RESEARCH_RARITIES[form.rarity]?.label||''}型態 · ${form.passive}`;
+  PARTNER_FORM_DESC[form.id]=form.intro||`${FOOD_RESEARCH_RARITIES[form.rarity]?.label||''}型態`;
   const [passiveName,...passiveDescParts]=form.passive.split('：');
   const passiveDesc=passiveDescParts.join('：');
    PARTNER_FORM_ABILITIES[form.id]=[
@@ -10789,7 +10789,7 @@ if (selectedActivity === 'food_research') {
    const PARTNER_MELEE_DESC = Object.fromEntries(MELEE_POOL.map(w=>[w.name,w.desc]));
    PARTNER_MELEE_DESC['初始鍋鏟']='基礎揮擊，攻速、範圍與反彈能力均衡。';
    const PARTNER_AMULET_DESC = AMULET_DESC_MAP;
-   const PARTNER_FORM_DESC = {normal:'原始型態，可靠隊伍支援型。被動可與隊友共享並疊加。'};
+   const PARTNER_FORM_DESC = {normal:'純白柔軟的初始姿態，能力均衡，擅長回復與支援隊伍。'};
    const PARTNER_FORM_ABILITIES = {
     normal:[
      {label:'被動技能',name:'MHP+10',desc:'全隊最大 HP +10，可與隊友共享並疊加。'},
@@ -10798,7 +10798,7 @@ if (selectedActivity === 'food_research') {
     ],
    };
    FOOD_RESEARCH_FORM_CATALOG.forEach(form=>{
-    PARTNER_FORM_DESC[form.id]=`${FOOD_RESEARCH_RARITIES[form.rarity]?.label||''}型態 · ${form.passive}`;
+    PARTNER_FORM_DESC[form.id]=form.intro||`${FOOD_RESEARCH_RARITIES[form.rarity]?.label||''}型態`;
     const [passiveName,...passiveDescParts]=form.passive.split('：');
     const passiveDesc=passiveDescParts.join('：');
     PARTNER_FORM_ABILITIES[form.id]=[
@@ -11458,7 +11458,7 @@ if (selectedActivity === 'food_research') {
  const CAMP_MELEE_DESC = Object.fromEntries(MELEE_POOL.map(w=>[w.name,w.desc]));
  CAMP_MELEE_DESC['初始鍋鏟']='基礎揮擊，攻速、範圍與反彈能力均衡。';
  const CAMP_AMULET_DESC = AMULET_DESC_MAP;
- const CAMP_FORM_DESC = {normal:'原始型態，可靠隊伍支援型。被動可與隊友共享並疊加。'};
+ const CAMP_FORM_DESC = {normal:'純白柔軟的初始姿態，能力均衡，擅長回復與支援隊伍。'};
  const CAMP_FORM_ABILITIES = {
   normal:[
    {label:'被動技能',name:'MHP+10',desc:'全隊最大 HP +10，可與隊友共享並疊加。'},
@@ -11467,7 +11467,7 @@ if (selectedActivity === 'food_research') {
   ],
  };
  FOOD_RESEARCH_FORM_CATALOG.forEach(form=>{
-  CAMP_FORM_DESC[form.id]=`${FOOD_RESEARCH_RARITIES[form.rarity]?.label||''}型態 · ${form.passive}`;
+  CAMP_FORM_DESC[form.id]=form.intro||`${FOOD_RESEARCH_RARITIES[form.rarity]?.label||''}型態`;
   const [passiveName,...passiveDescParts]=form.passive.split('：');
   const passiveDesc=passiveDescParts.join('：');
   CAMP_FORM_ABILITIES[form.id]=[
