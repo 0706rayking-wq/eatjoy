@@ -92,6 +92,10 @@ const FR_BALANCE=${JSON.stringify(balance)};
 const FR_MOBILE_PERF=(window.matchMedia&&window.matchMedia('(pointer: coarse)').matches)||Math.min(window.innerWidth||9999,window.innerHeight||9999)<=520;
 const FR_PERF={enemyBulletCap:FR_MOBILE_PERF?90:110,particleCap:FR_MOBILE_PERF?90:120,textCap:FR_MOBILE_PERF?20:25};
 const FR_POISON_DURATION_MS=FR_BALANCE.combat.poisonDurationMs;
+function frScaleEnemyNormalBullet(b){
+ if(!b||b._frNormalSizeScaled||b.unblockable||b.special||b.bossSkill||b.frSpecial)return b;
+ b.r=Math.max(1,(Number(b.r)||5)*.8);b._frNormalSizeScaled=true;return b;
+}
 function frLateStageBoost(stageNum){
  const s=Math.max(1,Math.round(Number(stageNum)||1));
  if(s>=22)return {enemyHp:1,enemyDamage:1,bossHp:1.28,bossDamage:1.16,eliteChance:0,eliteCap:0};
@@ -156,7 +160,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
       .replace('if(eBullets.length>120)eBullets.length=120;', 'if(eBullets.length>FR_PERF.enemyBulletCap)eBullets.length=FR_PERF.enemyBulletCap;')
       .replace('if(texts.length>25)texts.length=25;', 'if(texts.length>FR_PERF.textCap)texts.splice(0,texts.length-FR_PERF.textCap);')
       .replace('if(!bossSpawned)tickSpawner();tickRivalFight();', "if(!bossSpawned)tickSpawner();if(eBullets.some(function(b){return !b||typeof b.update!=='function';}))eBullets=eBullets.filter(function(b){return b&&typeof b.update==='function';});tickRivalFight();")
-      .replace(/for\(let i=eBullets\.length-1;i>=0;i--\)\{const b=eBullets\[i\];b\.update\(\);/, "for(let i=eBullets.length-1;i>=0;i--){const b=eBullets[i];if(!b||typeof b.update!=='function'){eBullets.splice(i,1);continue;}b.update();")
+      .replace(/for\(let i=eBullets\.length-1;i>=0;i--\)\{const b=eBullets\[i\];b\.update\(\);/, "for(let i=eBullets.length-1;i>=0;i--){const b=eBullets[i];if(!b||typeof b.update!=='function'){eBullets.splice(i,1);continue;}frScaleEnemyNormalBullet(b);b.update();")
       .replaceAll('bullets.forEach(b=>b.draw());eBullets.forEach(b=>b.draw());', "bullets.forEach(b=>b.draw());eBullets.forEach(function(b){if(!b||typeof b.draw!=='function')return;const dawn=currentBgIdx===8,oldColor=b.color;if(dawn)b.color='#00e5ff';b.draw();ctx.save();ctx.strokeStyle='#020617';ctx.lineWidth=3;ctx.globalAlpha=.96;ctx.beginPath();ctx.arc(b.x,b.y,(b.r||5)+2,0,Math.PI*2);ctx.stroke();if(dawn){ctx.fillStyle='#ecfeff';ctx.beginPath();ctx.arc(b.x,b.y,Math.max(2,(b.r||5)*.38),0,Math.PI*2);ctx.fill();}ctx.restore();b.color=oldColor;});")
       .replace('if(eBullets.length>FR_PERF.enemyBulletCap)eBullets.length=FR_PERF.enemyBulletCap;', 'if(eBullets.length>FR_PERF.enemyBulletCap)eBullets.splice(0,eBullets.length-FR_PERF.enemyBulletCap);')
       .replace("function reportKill(){window.parent.postMessage({type:'FR_QUEST_KILL'},'*');}", "let frPendingQuestKills=0,frQuestKillTimer=0;function frFlushQuestKills(sync){if(frQuestKillTimer){clearTimeout(frQuestKillTimer);frQuestKillTimer=0;}if(!frPendingQuestKills&&!sync)return;const count=frPendingQuestKills;frPendingQuestKills=0;window.parent.postMessage({type:'FR_QUEST_KILL',count:count,flush:!!sync},'*');}function reportKill(){if(window.frSuppressSummonedKillReward)return;frPendingQuestKills++;if(frPendingQuestKills>=10)frFlushQuestKills(false);else if(!frQuestKillTimer)frQuestKillTimer=setTimeout(function(){frFlushQuestKills(false);},2500);}")
