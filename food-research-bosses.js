@@ -176,7 +176,7 @@ function frThunderUpdateHands(b){
 function frThunderRelicHome(b,relic){return relic.kind==='lance'?{x:b.x-76,y:b.y-4}:{x:b.x+76,y:b.y};}
 function frThunderLance(b){return b&&Array.isArray(b._frRelics)?b._frRelics.find(function(relic){return relic.kind==='lance'&&!relic.dead;}):null;}
 function frThunderLanceVisual(b,kind,duration,data){if(!b._frLanceVisuals)b._frLanceVisuals=[];b._frLanceVisuals.push(Object.assign({kind:kind,start:b.timer,end:b.timer+duration},data||{}));}
-function frThunderExactWarning(b,kind,frames,data){b._frWarnings.push(Object.assign({kind:kind,start:b.timer,end:b.timer+frames,color:'#fde047',x:b.x,y:b.y},data||{}));}
+function frThunderExactWarning(b,kind,frames,data){const tempo=frBossTempo(stage),scaled=Math.max(1,Math.round(frames*tempo.eventScale));b._frPendingWarning={at:b.timer,raw:frames,scaled:scaled};b._frWarnings.push(Object.assign({kind:kind,start:b.timer,end:b.timer+scaled,color:'#fde047',x:b.x,y:b.y},data||{}));}
 function frThunderLanceKnockback(sx,sy,angle,width,push){const reach=Math.max(CW,CH)*1.4,dx=Math.cos(angle)*reach,dy=Math.sin(angle)*reach,len2=dx*dx+dy*dy,t=Math.max(0,Math.min(1,((player.x-sx)*dx+(player.y-sy)*dy)/len2)),px=sx+dx*t,py=sy+dy*t;if(Math.hypot(player.x-px,player.y-py)>width/2+player.radius)return;player.x=Math.max(player.radius,Math.min(CW-player.radius,player.x+Math.cos(angle)*push));player.y=Math.max(player.radius,Math.min(CH-player.radius,player.y+Math.sin(angle)*push));}
 function frThunderUpdateRelics(b){
   if(!b||!b._frFullEncounter||b._frThunderPhase!==1||!Array.isArray(b._frRelics))return;
@@ -419,9 +419,10 @@ function frThunderDrawPowerAura(b){
   ctx.restore();
 }
 function frBossTempo(stageNum){
-  const s=Number(stageNum)||1;
+  const s=Number(stageNum)||1,mobile=typeof FR_MOBILE_PERF!=='undefined'&&FR_MOBILE_PERF,frequencyScale=mobile?.9:1,warningScale=mobile?1.2:1;
   const stage22=s===22,late=s>=16&&s<=21,mid=s>=12&&s<=15,stage11=s===11;
-  return {normalCd:stage22?60:late?72:mid?78:stage11?60:90,skillCd:stage22?102:late?114:mid?126:stage11?120:150,normalBusy:stage22?60:66,skillBusy:stage22?102:108,busyRate:1,eventScale:1,warningMin:stage22?60:late?66:mid?78:stage11?60:90,warningMax:stage22?60:late?66:mid?78:stage11?60:90,moveRetarget:s>=12?46:64,moveRate:s>=12?.033:.027};
+  const normalCd=stage22?60:late?72:mid?78:stage11?60:90,skillCd=stage22?102:late?114:mid?126:stage11?120:150,warning=stage22?60:late?66:mid?78:stage11?60:90;
+  return {normalCd:Math.round(normalCd/frequencyScale),skillCd:Math.round(skillCd/frequencyScale),normalBusy:stage22?60:66,skillBusy:stage22?102:108,busyRate:1,eventScale:warningScale,warningMin:Math.round(warning*warningScale),warningMax:Math.round(warning*warningScale),moveRetarget:s>=12?46:64,moveRate:s>=12?.033:.027};
 }
 function frBossHighStageSkillPool(b){
   const pool=(b&&b._frDef&&b._frDef.skills||[]).slice();
@@ -469,7 +470,7 @@ function frBossRadial(b,count,speed,damage,color,offset,options){
 }
 function frBossLater(b,frames,fn){const scale=frBossTempo(stage).eventScale;let delay=scale<1?Math.max(8,Math.round(frames*scale)):frames;const pending=b._frPendingWarning;if(pending&&pending.at===b.timer&&pending.raw===frames){delay=Math.max(delay,pending.scaled);b._frPendingWarning=null;}b._frEvents.push({at:b.timer+delay,fn:fn});}
 function frBossWarning(b,kind,frames,data){
-  const tempo=frBossTempo(stage),raw=tempo.eventScale<1?Math.round(frames*tempo.eventScale):frames,scaled=Math.min(tempo.warningMax||raw,Math.max(tempo.warningMin||0,raw));
+  const tempo=frBossTempo(stage),raw=Math.max(1,Math.round(frames*tempo.eventScale)),scaled=Math.min(tempo.warningMax||raw,Math.max(tempo.warningMin||0,raw));
   const w=Object.assign({kind:kind,start:b.timer,end:b.timer+scaled,color:b.color,x:b.x,y:b.y},data||{});
   b._frPendingWarning={at:b.timer,raw:frames,scaled:scaled};b._frWarnings.push(w);return w;
 }
