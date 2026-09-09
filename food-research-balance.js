@@ -6,10 +6,10 @@
       cycleLength: 11,
       finalMap: 10,
       rollback: [
-        { min: 22, max: 22, amount: 1 },
-        { min: 19, max: 21, amount: 3 },
-        { min: 16, max: 18, amount: 2 },
-        { min: 9, max: 15, amount: 1 },
+        { min: 22, max: 22, amount: 0 },
+        { min: 18, max: 21, amount: 2 },
+        { min: 17, max: 17, amount: 0 },
+        { min: 13, max: 16, amount: 1 },
       ],
       activeEnemyCaps: [
         { stage: 1, cap: 6 },
@@ -253,9 +253,9 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
  function frFailureRollbackStage(value){
   const failed=Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Math.round(Number(value)||1)));
   if(SAVE.freeRoam||SAVE.finalChallenge)return failed;
-  if(failed<=8)return failed;
+  if(failed<=12)return failed;
   const rule=(FR_BALANCE.progression.rollback||[]).find(function(item){return failed>=item.min&&failed<=item.max;});
-  return Math.max(8,failed-Math.max(0,Number(rule&&rule.amount)||0));
+  return Math.max(12,failed-Math.max(0,Number(rule&&rule.amount)||0));
  }
  function frProgressPayload(){
   return {score:Math.max(0,Math.round(Number(score)||0)),stageBestScores:Object.assign({},frStageBestScores),creditedStages:Array.from(frCreditedStages).sort(function(a,b){return a-b;}),uniqueBossStages:Array.from(frUniqueBossStages).sort(function(a,b){return a-b;}),maxStage:Math.max(1,Math.min(22,Math.round(frHistoricalMaxStage||1))),resumeStage:Math.max(1,Math.min(22,Math.round(frResumeStage||stage||1))),resumeStageUpdatedAt:Date.now(),scoreLegacyBase:Math.max(0,Math.round(frScoreLegacyBase)),scoreCatchupFloor:Math.max(0,Math.round(frCatchupFloor)),scoreRulesVersion:'fr-stage-best-v2',finalClearAwarded:!!frFinalClearAwarded};
