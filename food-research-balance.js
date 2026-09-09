@@ -39,6 +39,11 @@
       stageClearPerStage: 90,
       flawlessBase: 450,
       flawlessPerStage: 35,
+      lowDamageBase: 1000,
+      lowDamagePerStage: 100,
+      lowDamageStartStage: 13,
+      lowDamageZeroAtPartyHpRatio: 1.20,
+      lowDamageCurveExponent: 1.40,
       timeBonusMax: 700,
       timeBonusLossPerSecond: 12,
       rivalBase: 650,
@@ -318,7 +323,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
     "#frStageTransition .fr-st-kicker{font-size:11px;font-weight:900;color:#fde047;letter-spacing:0;margin-bottom:5px}",
     "#frStageTransition .fr-st-title{font-size:28px;line-height:1.16;font-weight:900;color:#fff;letter-spacing:0;text-shadow:0 0 18px rgba(250,204,21,.34)}",
     "#frStageTransition .fr-st-boss{font-size:14px;line-height:1.45;font-weight:800;color:#cbd5e1;margin-top:6px}",
-    "#frStageTransition .fr-st-rewards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;width:min(100%,406px);margin:13px auto 0;background:rgba(148,163,184,.22);border:1px solid rgba(148,163,184,.2);border-radius:8px;overflow:hidden}",
+    "#frStageTransition .fr-st-rewards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;width:min(100%,480px);margin:13px auto 0;background:rgba(148,163,184,.22);border:1px solid rgba(148,163,184,.2);border-radius:8px;overflow:hidden}",
     "#frStageTransition .fr-st-reward{min-width:0;padding:8px 3px;background:rgba(15,23,42,.94)}",
     "#frStageTransition .fr-st-reward-label{display:block;font-size:9px;font-weight:800;color:#94a3b8;margin-bottom:2px;white-space:nowrap}",
     "#frStageTransition .fr-st-reward-value{display:block;font-size:14px;font-weight:900;color:#fef08a;white-space:nowrap}",
@@ -357,7 +362,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
    document.head.appendChild(style);
   }
   overlay=document.createElement('div');overlay.id='frStageTransition';overlay.setAttribute('role','status');overlay.setAttribute('aria-live','polite');
-   overlay.innerHTML='<canvas class="fr-st-death-frame"></canvas><div class="fr-st-shade"></div><div class="fr-st-death-fx"><div class="fr-st-death-core">✦</div><div class="fr-st-fragments"></div></div><div class="fr-st-band"><div class="fr-st-kicker"></div><div class="fr-st-title"></div><div class="fr-st-boss"></div><div class="fr-st-rewards"><div class="fr-st-reward"><span class="fr-st-reward-label">金幣</span><span class="fr-st-reward-value fr-st-gold">+0</span></div><div class="fr-st-reward"><span class="fr-st-reward-label">關卡分數</span><span class="fr-st-reward-value fr-st-base-score">+0</span></div><div class="fr-st-reward"><span class="fr-st-reward-label">速通</span><span class="fr-st-reward-value fr-st-time">+0</span></div><div class="fr-st-reward"><span class="fr-st-reward-label">無傷</span><span class="fr-st-reward-value fr-st-flawless">未達成</span></div></div><div class="fr-st-total">排行榜增加<strong class="fr-st-score">+0</strong></div><div class="fr-st-final-stats"><div class="fr-st-final-stat"><small>遠征總分</small><strong class="fr-st-final-score">0</strong></div><div class="fr-st-final-stat"><small>帶回金幣</small><strong class="fr-st-final-gold">0</strong></div><div class="fr-st-final-stat"><small>通關時間</small><strong class="fr-st-final-time">0:00</strong></div></div><div class="fr-st-phases"><div class="fr-st-phase">披風形態 ✓</div><div class="fr-st-phase">雷鎧真身 ✓</div><div class="fr-st-phase">閃電化身 ✓</div></div><div class="fr-st-note"></div><button type="button" class="fr-st-next-btn">下一關</button></div><div class="fr-st-last-words"></div><div class="fr-st-curtain"></div>';
+   overlay.innerHTML='<canvas class="fr-st-death-frame"></canvas><div class="fr-st-shade"></div><div class="fr-st-death-fx"><div class="fr-st-death-core">✦</div><div class="fr-st-fragments"></div></div><div class="fr-st-band"><div class="fr-st-kicker"></div><div class="fr-st-title"></div><div class="fr-st-boss"></div><div class="fr-st-rewards"><div class="fr-st-reward"><span class="fr-st-reward-label">金幣</span><span class="fr-st-reward-value fr-st-gold">+0</span></div><div class="fr-st-reward"><span class="fr-st-reward-label">關卡分數</span><span class="fr-st-reward-value fr-st-base-score">+0</span></div><div class="fr-st-reward"><span class="fr-st-reward-label">速通</span><span class="fr-st-reward-value fr-st-time">+0</span></div><div class="fr-st-reward"><span class="fr-st-reward-label">低受傷</span><span class="fr-st-reward-value fr-st-low-damage">未開放</span></div><div class="fr-st-reward"><span class="fr-st-reward-label">無傷</span><span class="fr-st-reward-value fr-st-flawless">未達成</span></div></div><div class="fr-st-total">排行榜增加<strong class="fr-st-score">+0</strong></div><div class="fr-st-final-stats"><div class="fr-st-final-stat"><small>遠征總分</small><strong class="fr-st-final-score">0</strong></div><div class="fr-st-final-stat"><small>帶回金幣</small><strong class="fr-st-final-gold">0</strong></div><div class="fr-st-final-stat"><small>通關時間</small><strong class="fr-st-final-time">0:00</strong></div></div><div class="fr-st-phases"><div class="fr-st-phase">披風形態 ✓</div><div class="fr-st-phase">雷鎧真身 ✓</div><div class="fr-st-phase">閃電化身 ✓</div></div><div class="fr-st-note"></div><button type="button" class="fr-st-next-btn">下一關</button></div><div class="fr-st-last-words"></div><div class="fr-st-curtain"></div>';
   document.getElementById('gc').appendChild(overlay);return overlay;
  }
 
@@ -367,10 +372,11 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
  function frSpecialSeenKey(stageNum){return 'fr_transition_seen_'+stageNum+'_'+String(SAVE.playerPhone||'guest');}
  function frUpdateStageTransitionResult(result){
   if(!result)return;frStageResultPending=Object.assign({},frStageResultPending||{},result);
-  const base=(Number(result.bossScore)||0)+(Number(result.clearScore)||0),time=Number(result.timeScore)||0,flawless=Number(result.flawlessScore)||0,total=Number(result.totalStageScore)||base+time+flawless;
+  const base=(Number(result.bossScore)||0)+(Number(result.clearScore)||0),time=Number(result.timeScore)||0,lowDamage=Number(result.lowDamageScore)||0,flawless=Number(result.flawlessScore)||0,total=Number(result.totalStageScore)||base+time+lowDamage+flawless;
   frTransitionText('.fr-st-gold','+'+Math.max(0,Math.round(result.bossGold||0)).toLocaleString());
   frTransitionText('.fr-st-base-score','+'+Math.max(0,Math.round(base)).toLocaleString());
   frTransitionText('.fr-st-time','+'+Math.max(0,Math.round(time)).toLocaleString());
+  frTransitionText('.fr-st-low-damage',Number(result.stage)>=FR_BALANCE.scoring.lowDamageStartStage?'+'+Math.max(0,Math.round(lowDamage)).toLocaleString():'未開放');
   frTransitionText('.fr-st-flawless',flawless>0?'+'+Math.round(flawless).toLocaleString():'未達成');
   frTransitionText('.fr-st-score','+'+Math.max(0,Math.round(total)).toLocaleString());
  }
@@ -395,7 +401,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
   let assetsReady=finalStage||patrol,finished=false;
   const later=function(ms,fn){setTimeout(function(){if(token===frStageTransitionToken)fn();},ms);};
   frStopClearedStageThreats();frPrepareDeathFx(overlay,info,clearedStage);
-  frStageResultPending={stage:clearedStage,bossName:info&&info.bossName||'魔王',bossGold:Number(info&&info.bossGold)||0,bossScore:Number(info&&info.bossScore)||0,clearScore:0,timeScore:0,flawlessScore:0,totalStageScore:Number(info&&info.bossScore)||0};
+  frStageResultPending={stage:clearedStage,bossName:info&&info.bossName||'魔王',bossGold:Number(info&&info.bossGold)||0,bossScore:Number(info&&info.bossScore)||0,clearScore:0,timeScore:0,lowDamageScore:0,flawlessScore:0,totalStageScore:Number(info&&info.bossScore)||0};
   document.documentElement.setAttribute('data-fr-stage-transition','active');
   band.style.display='';button.disabled=true;button.textContent=finalStage||patrol?'返回營地':'地圖載入中...';
   overlay.style.display='block';overlay.className=(special11?'fr-special-11 ':'')+(finalStage?'fr-special-22 ':'');overlay.setAttribute('data-phase','lastwords');overlay.setAttribute('data-stage',String(clearedStage));
@@ -600,9 +606,10 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
    if(SAVE.freeRoam){score=frStageScoreAtStart;frUpdateStageTransitionResult({stage:stage,bossName:this.name||'魔王',bossGold:frBossCoinReward(stage),bossScore:0,clearScore:0,timeScore:0,flawlessScore:0,totalStageScore:0,scoreNote:'世界巡遊不計排行榜分數'});updateHUD();return result;}
    const elapsed=Math.max(0,(performance.now()-frStageStartedAt)/1000),clear=frStageClearScore(stage);
    const target=48+stage*2.5,time=Math.max(0,Math.round(FR_BALANCE.scoring.timeBonusMax-Math.max(0,elapsed-target)*FR_BALANCE.scoring.timeBonusLossPerSecond));
+   const stageNum=Math.max(1,Math.round(Number(stage)||1)),partyMaxHp=Array.isArray(charSlots)?charSlots.reduce(function(total,ch){return total+Math.max(0,Number(ch&&ch.maxHp)||0);},0):Math.max(1,Number(player&&player.maxHp)||1),lowDamageLevel=Math.max(0,stageNum-12),lowDamageCap=FR_BALANCE.scoring.lowDamageBase+FR_BALANCE.scoring.lowDamagePerStage*lowDamageLevel,damageRatio=frStageHpDamage/Math.max(1,partyMaxHp),lowDamage=stageNum>=FR_BALANCE.scoring.lowDamageStartStage?Math.round(lowDamageCap*Math.pow(Math.max(0,Math.min(1,1-damageRatio/FR_BALANCE.scoring.lowDamageZeroAtPartyHpRatio)),FR_BALANCE.scoring.lowDamageCurveExponent)):0;
    const flawless=frStageHpDamage<=0?FR_BALANCE.scoring.flawlessBase+stage*FR_BALANCE.scoring.flawlessPerStage:0;
-   score+=clear+time+flawless;
-   const stageNum=Math.max(1,Math.round(Number(stage)||1)),rawStageScore=Math.max(0,Math.round(score-frStageScoreAtStart)),hadCredit=frCreditedStages.has(stageNum),hasRecordedBest=Object.prototype.hasOwnProperty.call(frStageBestScores,String(stageNum)),oldBest=Math.max(0,Number(frStageBestScores[stageNum])||0);
+   score+=clear+time+lowDamage+flawless;
+   const rawStageScore=Math.max(0,Math.round(score-frStageScoreAtStart)),hadCredit=frCreditedStages.has(stageNum),hasRecordedBest=Object.prototype.hasOwnProperty.call(frStageBestScores,String(stageNum)),oldBest=Math.max(0,Number(frStageBestScores[stageNum])||0);
    let awarded=rawStageScore,scoreNote='首次通關完整計分';
    if(hadCredit){
     if(!hasRecordedBest){awarded=0;scoreNote='既有通關已計分';}
@@ -616,7 +623,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
    else if(awarded>rankedAward)scoreNote='已追上保留分數，本關排行榜增加 '+rankedAward.toLocaleString()+' 分';
    frCreditedStages.add(stageNum);frHistoricalMaxStage=Math.max(frHistoricalMaxStage,Math.min(22,stageNum+1));
    if(!frUniqueBossStages.has(stageNum)){frUniqueBossStages.add(stageNum);frBossDefeatedCount=frUniqueBossStages.size;}
-   frUpdateStageTransitionResult({stage:stageNum,bossName:this.name||'魔王',bossGold:frBossCoinReward(stageNum),bossScore:Number(this.scoreVal)||0,clearScore:clear,timeScore:time,flawlessScore:flawless,totalStageScore:rankedAward,rawStageScore:rawStageScore,previousBest:oldBest,verifiedScore:verifiedScore,catchupRemaining:catchupRemaining,scoreNote:scoreNote});
+   frUpdateStageTransitionResult({stage:stageNum,bossName:this.name||'魔王',bossGold:frBossCoinReward(stageNum),bossScore:Number(this.scoreVal)||0,clearScore:clear,timeScore:time,lowDamageScore:lowDamage,flawlessScore:flawless,totalStageScore:rankedAward,rawStageScore:rawStageScore,previousBest:oldBest,verifiedScore:verifiedScore,catchupRemaining:catchupRemaining,scoreNote:scoreNote});
    addText(rankedAward>0?('排行榜 +'+rankedAward):(catchupRemaining>0?'追趕保留分數':'本關已計分'),CW/2,CH*.36,rankedAward>0?'#fde047':'#93c5fd',18,0);frSyncStageProgress();updateHUD();
   }
   return result;
