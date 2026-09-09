@@ -9885,8 +9885,10 @@ if (selectedActivity === 'food_research') {
  };
  FOOD_RESEARCH_FORM_CATALOG.forEach(form=>{
   PARTNER_FORM_DESC[form.id]=`${FOOD_RESEARCH_RARITIES[form.rarity]?.label||''}型態 · ${form.passive}`;
+  const [passiveName,...passiveDescParts]=form.passive.split('：');
+  const passiveDesc=passiveDescParts.join('：');
    PARTNER_FORM_ABILITIES[form.id]=[
-    {label:'被動技能',name:form.passive,desc:form.passive},
+    {label:'被動技能',name:`${passiveName}：`,desc:passiveDesc||form.passive},
     {label:'小招',name:form.skill1,desc:`${form.skill1Desc}｜氣力 ${form.skill1Cost}｜冷卻 ${form.skill1Cooldown} 秒`},
     {label:'大招',name:form.skill2,desc:`${form.skill2Desc}｜氣力 ${form.skill2Cost}｜冷卻 ${form.skill2Cooldown} 秒`},
   ];
@@ -10797,8 +10799,10 @@ if (selectedActivity === 'food_research') {
    };
    FOOD_RESEARCH_FORM_CATALOG.forEach(form=>{
     PARTNER_FORM_DESC[form.id]=`${FOOD_RESEARCH_RARITIES[form.rarity]?.label||''}型態 · ${form.passive}`;
+    const [passiveName,...passiveDescParts]=form.passive.split('：');
+    const passiveDesc=passiveDescParts.join('：');
     PARTNER_FORM_ABILITIES[form.id]=[
-     {label:'被動技能',name:form.passive,desc:form.passive},
+     {label:'被動技能',name:`${passiveName}：`,desc:passiveDesc||form.passive},
      {label:'小招',name:form.skill1,desc:`${form.skill1Desc}｜氣力 ${form.skill1Cost}｜冷卻 ${form.skill1Cooldown} 秒`},
      {label:'大招',name:form.skill2,desc:`${form.skill2Desc}｜氣力 ${form.skill2Cost}｜冷卻 ${form.skill2Cooldown} 秒`},
     ];
@@ -11464,8 +11468,10 @@ if (selectedActivity === 'food_research') {
  };
  FOOD_RESEARCH_FORM_CATALOG.forEach(form=>{
   CAMP_FORM_DESC[form.id]=`${FOOD_RESEARCH_RARITIES[form.rarity]?.label||''}型態 · ${form.passive}`;
+  const [passiveName,...passiveDescParts]=form.passive.split('：');
+  const passiveDesc=passiveDescParts.join('：');
   CAMP_FORM_ABILITIES[form.id]=[
-   {label:'被動技能',name:form.passive,desc:form.passive},
+   {label:'被動技能',name:`${passiveName}：`,desc:passiveDesc||form.passive},
    {label:'小招',name:form.skill1,desc:`${form.skill1Desc}｜氣力 ${form.skill1Cost}｜冷卻 ${form.skill1Cooldown} 秒`},
    {label:'大招',name:form.skill2,desc:`${form.skill2Desc}｜氣力 ${form.skill2Cost}｜冷卻 ${form.skill2Cooldown} 秒`},
   ];
