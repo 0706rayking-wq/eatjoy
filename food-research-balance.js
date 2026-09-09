@@ -166,9 +166,12 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
       .replace('if(particles.length>200)particles.length=200;', 'if(particles.length>FR_PERF.particleCap)particles.splice(0,particles.length-FR_PERF.particleCap);')
       .replace('if(eBullets.length>120)eBullets.length=120;', 'if(eBullets.length>FR_PERF.enemyBulletCap)eBullets.length=FR_PERF.enemyBulletCap;')
       .replace('if(texts.length>25)texts.length=25;', 'if(texts.length>FR_PERF.textCap)texts.splice(0,texts.length-FR_PERF.textCap);')
+      .replace('map:"assets/food-research/maps/sweet-amusement-park.png"', 'map:"assets/food-research/maps/sweet-amusement-hd2d/background.webp"')
+      .replace('ctx.clearRect(0,0,CW,CH);drawBg();\nhazards.forEach(h=>h.draw());', "ctx.clearRect(0,0,CW,CH);drawBg();if(typeof frDrawSweetHd2dMid==='function')frDrawSweetHd2dMid();\nhazards.forEach(h=>h.draw());")
       .replace('if(!bossSpawned)tickSpawner();tickRivalFight();', "if(!bossSpawned)tickSpawner();if(eBullets.some(function(b){return !b||typeof b.update!=='function';}))eBullets=eBullets.filter(function(b){return b&&typeof b.update==='function';});tickRivalFight();")
       .replace(/for\(let i=eBullets\.length-1;i>=0;i--\)\{const b=eBullets\[i\];b\.update\(\);/, "for(let i=eBullets.length-1;i>=0;i--){const b=eBullets[i];if(!b||typeof b.update!=='function'){eBullets.splice(i,1);continue;}frScaleEnemyNormalBullet(b);b.update();")
       .replaceAll('bullets.forEach(b=>b.draw());eBullets.forEach(b=>b.draw());', "bullets.forEach(b=>b.draw());eBullets.forEach(function(b){if(!b||typeof b.draw!=='function')return;const dawn=currentBgIdx===8,oldColor=b.color;if(dawn)b.color='#00e5ff';b.draw();ctx.save();ctx.strokeStyle='#020617';ctx.lineWidth=3;ctx.globalAlpha=.96;ctx.beginPath();ctx.arc(b.x,b.y,(b.r||5)+2,0,Math.PI*2);ctx.stroke();if(dawn){ctx.fillStyle='#ecfeff';ctx.beginPath();ctx.arc(b.x,b.y,Math.max(2,(b.r||5)*.38),0,Math.PI*2);ctx.fill();}ctx.restore();b.color=oldColor;});")
+      .replace('particles.forEach(p=>{ctx.globalAlpha=Math.max(0,p.life);', "if(typeof frDrawSweetHd2dFront==='function')frDrawSweetHd2dFront();particles.forEach(p=>{ctx.globalAlpha=Math.max(0,p.life);")
       .replace('if(eBullets.length>FR_PERF.enemyBulletCap)eBullets.length=FR_PERF.enemyBulletCap;', 'if(eBullets.length>FR_PERF.enemyBulletCap)eBullets.splice(0,eBullets.length-FR_PERF.enemyBulletCap);')
       .replace("function reportKill(){window.parent.postMessage({type:'FR_QUEST_KILL'},'*');}", "let frPendingQuestKills=0,frQuestKillTimer=0;function frFlushQuestKills(sync){if(frQuestKillTimer){clearTimeout(frQuestKillTimer);frQuestKillTimer=0;}if(!frPendingQuestKills&&!sync)return;const count=frPendingQuestKills;frPendingQuestKills=0;window.parent.postMessage({type:'FR_QUEST_KILL',count:count,flush:!!sync},'*');}function reportKill(){if(window.frSuppressSummonedKillReward)return;frPendingQuestKills++;if(frPendingQuestKills>=10)frFlushQuestKills(false);else if(!frQuestKillTimer)frQuestKillTimer=setTimeout(function(){frFlushQuestKills(false);},2500);}")
       .replace("function reportBossKill(){window.parent.postMessage({type:'FR_BOSS_KILLED',gold},'*');}", "function reportBossKill(){frFlushQuestKills(true);window.parent.postMessage({type:'FR_BOSS_KILLED',gold},'*');}")
@@ -246,7 +249,23 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
  let frHistoricalMaxStage=Math.max(1,Number(SAVE.maxStage)||1),frResumeStage=Math.max(1,Math.min(22,Number(SAVE.resumeStage)||Number(SAVE.maxStage)||1)),frFinalClearAwarded=!!SAVE.finalClearAwarded,frScoringMigrated=SAVE.scoreRulesVersion==='fr-stage-best-v2',frFailureSummary=null;
  frBossDefeatedCount=frUniqueBossStages.size;
  const frBgCache=document.createElement('canvas'),frBgCtx=frBgCache.getContext('2d');
+ const frSweetHd2dMid=new Image(),frSweetHd2dFront=new Image();
+ frSweetHd2dMid.src='assets/food-research/maps/sweet-amusement-hd2d/midground.webp';
+ frSweetHd2dFront.src='assets/food-research/maps/sweet-amusement-hd2d/foreground.webp';
  let frBgCacheKey='';
+
+ function frDrawSweetHd2dLayer(img){
+  if(currentBgIdx!==0||!img||!img.complete||!img.naturalWidth||CW<=0||CH<=0)return;
+  const scale=Math.max(CW/img.naturalWidth,CH/img.naturalHeight),dw=img.naturalWidth*scale,dh=img.naturalHeight*scale,dx=(CW-dw)/2,overflow=Math.max(0,dh-CH),dy=-overflow*(Math.round(mapCameraY*100)/100);
+  ctx.save();ctx.imageSmoothingEnabled=false;ctx.drawImage(img,dx,dy,dw,dh);ctx.restore();
+ }
+ function frDrawSweetHd2dMid(){frDrawSweetHd2dLayer(frSweetHd2dMid);}
+ function frDrawSweetHd2dFront(){
+  if(currentBgIdx!==0)return;frDrawSweetHd2dLayer(frSweetHd2dFront);
+  ctx.save();ctx.globalCompositeOperation='screen';
+  const glow=ctx.createRadialGradient(CW*.5,CH*.12,0,CW*.5,CH*.12,CH*.72);glow.addColorStop(0,'rgba(255,244,196,.20)');glow.addColorStop(.55,'rgba(255,190,210,.07)');glow.addColorStop(1,'rgba(255,255,255,0)');ctx.fillStyle=glow;ctx.fillRect(0,0,CW,CH);
+  ctx.globalCompositeOperation='source-over';const vignette=ctx.createRadialGradient(CW*.5,CH*.48,CH*.18,CW*.5,CH*.48,CH*.72);vignette.addColorStop(.55,'rgba(76,29,70,0)');vignette.addColorStop(1,FR_MOBILE_PERF?'rgba(76,29,70,.10)':'rgba(76,29,70,.16)');ctx.fillStyle=vignette;ctx.fillRect(0,0,CW,CH);ctx.restore();
+ }
 
  function frFailureRollbackStage(value){
   const failed=Math.max(1,Math.min(FR_BALANCE.progression.maxStage,Math.round(Number(value)||1)));
