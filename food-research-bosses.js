@@ -440,6 +440,7 @@ function frBossShot(b,angle,speed,damage,color,radius,options){
   const baseUpdate=shot.update.bind(shot);
   const baseDead=shot.dead.bind(shot);
   shot._frDead=false;
+  shot.bossSkill=true;
   shot.frStatus=opt.status||null;
   shot.update=function(){
     if(this._frDead)return;
