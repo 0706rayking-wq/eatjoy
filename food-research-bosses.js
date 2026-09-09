@@ -419,7 +419,7 @@ function frThunderDrawPowerAura(b){
   ctx.restore();
 }
 function frBossTempo(stageNum){
-  const s=Number(stageNum)||1,mobile=typeof FR_MOBILE_PERF!=='undefined'&&FR_MOBILE_PERF,frequencyScale=mobile?.9:1,warningScale=mobile?1.2:1;
+  const s=Number(stageNum)||1,mobile=typeof FR_MOBILE_PERF!=='undefined'&&FR_MOBILE_PERF,frequencyScale=mobile?.9:1,warningScale=mobile?1.1:1;
   const stage22=s===22,late=s>=16&&s<=21,mid=s>=12&&s<=15,stage11=s===11;
   const normalCd=stage22?60:late?72:mid?78:stage11?60:90,skillCd=stage22?102:late?114:mid?126:stage11?120:150,warning=stage22?60:late?66:mid?78:stage11?60:90;
   return {normalCd:Math.round(normalCd/frequencyScale),skillCd:Math.round(skillCd/frequencyScale),normalBusy:stage22?60:66,skillBusy:stage22?102:108,busyRate:1,eventScale:warningScale,warningMin:Math.round(warning*warningScale),warningMax:Math.round(warning*warningScale),moveRetarget:s>=12?46:64,moveRate:s>=12?.033:.027};
