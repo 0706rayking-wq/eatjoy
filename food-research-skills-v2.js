@@ -8,14 +8,14 @@
     chili_sprite:{passive:'辛辣直覺：全隊爆擊率 +8%',skill1:'辣椒池',skill1Cost:24,skill1Cooldown:7,skill1Desc:'在敵人路徑生成半徑 108 的辣椒池 10 秒，每 0.5 秒造成 9 灼燒傷害。',skill2:'麻辣風暴',skill2Cost:64,skill2Cooldown:18,skill2Desc:'生成追蹤敵群的龍捲風 10 秒，每 0.5 秒造成 13 傷害並彈開小型敵人。'},
     lotus_archer:{passive:'多孔箭道：閃避時向上射出 2 發強力貫穿箭，每發 50 傷害',skill1:'多孔導流',skill1Cost:32,skill1Cooldown:10,skill1Desc:'透明化 2.5 秒，使一般子彈無效；其他攻擊仍然有效。',skill2:'二十發貫穿箭',skill2Cost:60,skill2Cooldown:19,skill2Desc:'每 0.5 秒由畫面下方向上射出 1 發貫穿箭，共 20 發，每發 20 傷害。'},
     potato_armor:{passive:'發芽：每累積損失 25% 最大 HP，在附近生成生命嫩芽；拾取回復 5% 最大 HP，每名角色冷卻 10 秒',skill1:'澱粉彈牆',skill1Cost:30,skill1Cooldown:8,skill1Desc:'獲得 35 護盾，清除半徑 300 內的一般子彈，並使範圍內敵人停止 0.5 秒。',skill2:'澱粉分裂',skill2Cost:58,skill2Cooldown:20,skill2Desc:'召喚跟隨玩家 10 秒的遠程分身，擁有本體 75% HP，並每 0.4 秒以本體 50% 火力射擊。'},
-    lemon_battery:{passive:'連鎖充能：攻擊有 12% 機率觸發連鎖電流',skill1:'充能力場',skill1Cost:22,skill1Cooldown:10,skill1Desc:'生成半徑 108 的黃色充能力場 7 秒；站在力場內時攻擊力 +20%、攻擊速度 +25%。',skill2:'電磁巨砲',skill2Cost:60,skill2Cooldown:22,skill2Desc:'充能 0.9 秒後，向前發射畫面 1/4 寬的電磁砲 1.6 秒；每 0.2 秒造成 12 傷害，並額外削減首領最大 HP 的 6%。'},
+    lemon_battery:{passive:'連鎖充能：攻擊有 12% 機率觸發連鎖電流',skill1:'充能力場',skill1Cost:22,skill1Cooldown:10,skill1Desc:'生成半徑 108 的黃色充能力場 7 秒；站在力場內時攻擊力 +20%、攻擊速度 +40%。',skill2:'電磁巨砲',skill2Cost:60,skill2Cooldown:22,skill2Desc:'充能 0.9 秒後，向前發射畫面 1/4 寬的電磁砲 1.6 秒；每 0.2 秒造成 12 傷害，並額外削減首領最大 HP 的 6%。'},
     cheese_mage:{passive:'黏稠咒法：閃避時留下半徑 80 的起司池 3 秒，使接觸敵人短暫停止攻擊',skill1:'熔岩起司',skill1Cost:28,skill1Cooldown:12,skill1Desc:'8 秒內攻擊附加灼燒，持續 4 秒、每秒 8 傷害。',skill2:'起司誘餌',skill2Cost:65,skill2Cooldown:22,skill2Desc:'在畫面中段召喚 400 HP 起司吸引一般敵人與部分首領普通攻擊，最多 8 秒；消失或擊破時半徑 140 引爆造成 50 傷害。'},
     honey_priest:{passive:'蜜糖餘韻：每次閃避時回復全隊 5 HP',skill1:'甜蜜祝福',skill1Cost:28,skill1Cooldown:8,skill1Desc:'回復 12 HP，移動與攻擊速度提升 20%，持續 4 秒。',skill2:'蜜語結界',skill2Cost:65,skill2Cooldown:22,skill2Desc:'設置半徑 156 的治療結界 8 秒，範圍內每秒回復 10 HP；並召喚 5 隻傷害加倍的小蜜蜂作戰 12 秒。'},
     coffee_pilot:{passive:'提神：持續移動 3 秒後移速最高 +25%',skill1:'濃縮超頻',skill1Cost:30,skill1Cooldown:10,skill1Desc:'攻擊速度 +45%、移動速度 +25%，持續 5 秒。',skill2:'子彈時間',skill2Cost:75,skill2Cooldown:24,skill2Desc:'清除一般子彈並使敵人減速 4 秒，自身同時進入超頻。'},
     octopus_samurai:{passive:'武士精神（共享）：全隊近戰或八刀流命中時，使敵人防禦降低 3% 持續 4 秒；一般敵人最多 15%，首領最多 10%',skill1:'噴灑墨汁',skill1Cost:24,skill1Cooldown:8,skill1Desc:'在上半場投下 2 灘半徑 79 的墨汁 5 秒，使接觸敵人短暫停止攻擊。',skill2:'八刀流',skill2Cost:70,skill2Cooldown:24,skill2Desc:'召喚 8 支各有 50 HP 的持刀觸手順時針環繞，最久維持 10 秒；斬除一般子彈，命中造成 24 傷害並擊退。'},
     salmon_ronin:{passive:'浪人步：閃避後攻擊與移速 +15%，持續 5 秒，每 8 秒最多觸發一次',skill1:'斷浪',skill1Cost:32,skill1Cooldown:9,skill1Desc:'向上揮出距離加倍的圓弧斬，清除軌跡子彈並造成 28 傷害；一般敵人推至畫面上方，首領向上擊退 140。',skill2:'逆流多重閃',skill2Cost:65,skill2Cooldown:21,skill2Desc:'從四面八方依序放出 12 道藍色直線光束，每 0.5 秒 1 道，每擊 38 傷害。'},
     beef_berserker:{passive:'背水狂戰：血量越低，攻擊與攻速越高',skill1:'怒吼',skill1Cost:28,skill1Cooldown:10,skill1Desc:'使前方大扇形敵人防禦降低 25% 持續 6 秒；首領降低 12%。',skill2:'巨兵斬',skill2Cost:60,skill2Cooldown:20,skill2Desc:'使用近戰武器時，武器視覺提升至 5 倍、實際攻擊範圍提升至 3.5 倍；命中每秒回復 5 HP、最多回復 50 HP，持續 10 秒。'},
-    puffer_alchemist:{passive:'劇毒調和：遠程 4%、近戰 8% 機率使敵人中毒 5 秒；一般敵人攻擊降低 15%，首領降低 7%',skill1:'毒沼',skill1Cost:30,skill1Cooldown:11,skill1Desc:'在角色上方生成螢幕寬度的毒沼 7 秒，每秒造成 10 傷害並施加劇毒。',skill2:'荊棘路',skill2Cost:70,skill2Cooldown:24,skill2Desc:'向畫面頂端生成荊棘路；一般敵人困住 3 秒，首領移速降低 20%，並附加每秒 6 傷害、持續 10 秒的劇毒。'},
+    puffer_alchemist:{passive:'劇毒調和：遠程 4%、近戰 8% 機率使敵人中毒 5 秒；敵人僅在中毒期間降低攻擊傷害與攻擊頻率（一般敵人 15%、首領 7%）',skill1:'毒沼',skill1Cost:30,skill1Cooldown:11,skill1Desc:'在角色上方生成螢幕寬度的毒沼 7 秒，每秒造成 10 傷害並施加劇毒。',skill2:'荊棘路',skill2Cost:70,skill2Cooldown:24,skill2Desc:'向畫面頂端生成荊棘路；一般敵人困住 3 秒，首領移速降低 20%，並附加每秒 6 傷害、持續 10 秒的劇毒。'},
     black_garlic_void:{passive:'虛空換位（共享）：隊伍中有黑蒜虛空使時，閃避會留下持續 10 秒的黑洞標記；已有標記時會留下新標記並瞬移到上一個標記',skill1:'虛空黑洞',skill1Cost:50,skill1Cooldown:14,skill1Desc:'在畫面中心生成黑洞 3 秒，持續吸聚敵人與子彈，結束後造成 25 傷害。',skill2:'雙鬼召來',skill2Cost:70,skill2Cooldown:22,skill2Desc:'召喚 2 隻 HP 70 的幽體鬼影 10 秒；登場 1 秒無敵，之後一般投射物傷害減半，穿過敵人時每 0.7 秒造成 30 傷害。'},
     lobster_general:{passive:'龍蝦甲胄：目前角色受到傷害 -10%，近戰反彈子彈傷害 +40%，同型態不疊加',skill1:'甲殼吸收',skill1Cost:28,skill1Cooldown:9,skill1Desc:'2.5 秒內吸收最多 10 發一般子彈，每發轉化為 8 護盾，最多獲得 80 護盾。',skill2:'雙側砲台',skill2Cost:65,skill2Cooldown:22,skill2Desc:'角色左右各架設 1 座 HP 150 砲台 10 秒；每 0.65 秒發射 20 傷害的追蹤砲彈。'},
     truffle_thunder:{name:'松露雷將',passive:'雷鏈麻痺：攻擊有 5% 機率連鎖，對附近敵人造成 8 傷害並麻痺、減速；同目標觸發冷卻 2 秒',skill1:'磁雷牽引',skill1Cost:30,skill1Cooldown:13,skill1Desc:'在角色前方左右放置 2 顆磁極雷球，形成持續 8 秒的電流通道；通道每 0.5 秒造成 14 傷害，一般敵人減速 25%，首領減速 10%。',skill2:'雷域推進',skill2Cost:70,skill2Cooldown:23,skill2Desc:'生成直徑 360、向上緩慢推進的雷電立場 6 秒；每 0.5 秒造成 20 傷害。'},
@@ -120,7 +120,7 @@
   if(now<frV2.honeyBuffUntil)m*=1.2;
   if(now<frV2.coffeeBuffUntil)m*=1.45;
   if(now<frV2.normalBuffUntil)m*=1.35;
-  if(frV2InsideField('lemonCharge'))m*=1.25;
+  if(frV2InsideField('lemonCharge'))m*=1.4;
   if(frV2Has('beef_berserker')){const hp=player.maxHp?player.hp/player.maxHp:1;if(hp<.6)m*=1+Math.min(.25,(.6-hp)*.625);}
   return m;
  };
@@ -179,7 +179,7 @@
  function frV2WrapTakeDamage(proto){if(!proto||proto._frV2Wrapped)return;proto._frV2Wrapped=true;const base=proto.takeDamage;proto.takeDamage=function(amount){const adjusted=frV2HitEffects(this,amount);const result=base.call(this,adjusted);frV2AfterHit(this,adjusted);return result;};}
  if(typeof Enemy!=='undefined')frV2WrapTakeDamage(Enemy.prototype);
  if(typeof Boss!=='undefined')frV2WrapTakeDamage(Boss.prototype);
- function frV2WrapEnemyUpdate(proto){if(!proto||proto._frV2UpdateWrapped)return;proto._frV2UpdateWrapped=true;const base=proto.update;proto.update=function(){const now=frV2Now();if(this._frV2ParalyzedUntil>now)return;if(this._frV2AttackDownUntil>now){this._frV2AttackDownProgress=(this._frV2AttackDownProgress||0)+(this._frV2AttackDownRate||0);if(this._frV2AttackDownProgress>=1){this._frV2AttackDownProgress-=1;return;}}return base.apply(this,arguments);};}
+ function frV2WrapEnemyUpdate(proto){if(!proto||proto._frV2UpdateWrapped)return;proto._frV2UpdateWrapped=true;const base=proto.update;proto.update=function(){const now=frV2Now();if(this._frV2ParalyzedUntil>now)return;const poisoned=this._frV2PoisonUntil>now,rate=poisoned?(this._frV2AttackDownRate||0):0;if(!poisoned)this._frV2AttackDownProgress=0;if(rate){this._frV2AttackDownProgress=(this._frV2AttackDownProgress||0)+rate;if(this._frV2AttackDownProgress>=1){this._frV2AttackDownProgress-=1;return;}}const originalAtk=this.atk;if(rate&&typeof originalAtk==='number')this.atk=originalAtk*(1-rate);try{return base.apply(this,arguments);}finally{if(rate&&typeof originalAtk==='number')this.atk=originalAtk;}};}
  if(typeof Enemy!=='undefined')frV2WrapEnemyUpdate(Enemy.prototype);
  if(typeof Boss!=='undefined')frV2WrapEnemyUpdate(Boss.prototype);
 
