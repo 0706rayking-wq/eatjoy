@@ -47,7 +47,7 @@
     { id:'truffle_thunder', rarity:'noble', name:'松露雷將', emoji:'⚡', intro:'駕馭磁力與雷電的控場型態，能牽引敵人並以移動雷域持續轟擊戰場。', passive:'攻擊有 5% 機率觸發麻痺與減速雷鏈', skill1:'磁雷牽引', skill2:'雷域推進', color:'#60a5fa' },
 
     { id:'dragonfruit_emperor', rarity:'top', name:'火龍果龍皇', emoji:'🐉', intro:'展開火龍雙翼的頂級型態，以灼燒光環、龍焰吐息與巨大隕星毀滅敵群。', passive:'185 範圍每 0.5 秒造成 14 點灼燒；擊破有 35% 機率爆破', skill1:'龍星雨', skill2:'焚界龍息', color:'#f43f5e' },
-    { id:'peach_divine', rarity:'top', name:'仙桃神使', emoji:'🍑', intro:'沐浴粉色仙光的神聖型態，擅長守護夥伴、發射仙氣並逆轉隊伍危局。', passive:'後排每秒回復 1% 最大 HP；每場首次死亡角色以 30% HP 復活並獲得 2 秒保護', skill1:'仙人模式', skill2:'蟠桃回天', color:'#f9a8d4' },
+    { id:'peach_divine', rarity:'top', name:'仙桃神使', emoji:'🍑', intro:'沐浴粉色仙光的神聖型態，擅長守護夥伴、發射仙氣並逆轉隊伍危局。', passive:'後排每秒回復 1% 最大 HP；每場首次死亡角色以 50% HP 復活並獲得 2 秒保護', skill1:'仙人模式', skill2:'蟠桃回天', color:'#f9a8d4' },
     { id:'cocoa_popsicle_wargod', rarity:'top', name:'可可冰棒戰神', emoji:'🍫', intro:'揮舞冰棒巨劍的寒冰戰神，能凍結敵人、斬出冰霜劍氣並築起冰刺高牆。', passive:'每 5 秒發射 2 枚雪花片，命中敵人使其緩速', skill1:'冰棒揮擊', skill2:'尖刺冰牆', color:'#67e8f9' },
   ].map((form) => ({
     ...form,
@@ -148,11 +148,13 @@ function frFormDamageMultiplier(){
   if(id==='salmon_ronin'&&now<(window.frSalmonBuffUntil||0))mult*=1.25;
   if(id==='beef_berserker'&&player.maxHp>0)mult*=1+.45*(1-Math.max(0,player.hp)/player.maxHp);
   if(id==='lobster_general'&&now<(window.frLobsterGuardUntil||0))mult*=1.25;
+  if(id==='peach_divine'&&now<(window.frPeachModeUntil||0))mult*=1.5;
   return mult;
 }
 function frFormAttackSpeedMultiplier(){
   if(!currentForm)return 1;
   const now=performance.now(),id=currentForm.id;
+  if(id==='peach_divine'&&now<(window.frPeachModeUntil||0))return 1.5;
   if(id==='salmon_ronin'&&now<(window.frSalmonBuffUntil||0))return 1.25;
   if(id==='beef_berserker'&&player.maxHp>0)return 1+.55*(1-Math.max(0,player.hp)/player.maxHp);
   return 1;
@@ -173,6 +175,7 @@ function frFormMoveMultiplier(){
   let mult=id==='coffee_pilot'?1+frCoffeeMomentum*.28:1;
   if(id==='coffee_pilot'&&now<(window.frCoffeeOverdriveUntil||0))mult*=1.25;
   if(id==='salmon_ronin'&&now<(window.frSalmonBuffUntil||0))mult*=1.25;
+  if(id==='peach_divine'&&now<(window.frPeachModeUntil||0))mult*=1.5;
   return mult;
 }
 function frDamage(amount,radius,color,applySkillPower){
@@ -572,7 +575,7 @@ if(typeof Enemy!=='undefined'){
 const frOriginalBuildStage=buildStage;
 buildStage=function(s,keepPlayerPos){
   frOriginalBuildStage(s,keepPlayerPos);
-  window.frPeachRevived=false;window.frSalmonBuffUntil=0;window.frLobsterGuardUntil=0;window.frCoffeeOverdriveUntil=0;frCoffeeMomentum=0;frFxState.iceWall=null;
+  window.frPeachRevived=false;window.frPeachModeUntil=0;window.frSalmonBuffUntil=0;window.frLobsterGuardUntil=0;window.frCoffeeOverdriveUntil=0;frCoffeeMomentum=0;frFxState.iceWall=null;
   if(currentBgIdx===10){spawnQueue=[];stageInitSpawnLen=0;bossIntroTimer=1;mapCameraTargetY=0;}
 };
 const frOriginalInitCharSlots=initCharSlots;
@@ -928,7 +931,7 @@ useSkill1=function(){
     else if(id==='lobster_general'){window.frLobsterCharge=frClearBullets(240);player.shieldActive=true;player.shieldHp=Math.max(player.shieldHp||0,100);addText('吸收 '+window.frLobsterCharge+' 發',player.x,player.y-52,'#fb7185',13,-.45);}
     else if(id==='truffle_thunder'){for(let i=0;i<5;i++)setTimeout(function(){frDamage(14,null,c);frBoltFx(Math.random()*CW,0,Math.random()*CW,CH*.65,c,220,0,4);},i*180);}
     else if(id==='dragonfruit_emperor'){for(let i=0;i<9;i++)setTimeout(function(){frDamage(11,null,c);const bx=Math.random()*CW,by=Math.random()*CH*.65;burst(bx,by,c,8);frMoteFx(bx,by,12,'#fbbf24','flame',45,4,520);},i*140);}
-    else if(id==='peach_divine'){normalFrenzyTimer=6000;frRadial(12,8,18,c,true,false);}
+    else if(id==='peach_divine'){window.frPeachModeUntil=performance.now()+6000;frRadial(12,8,18,c,true,false);}
     else if(id==='cocoa_popsicle_wargod'){frCocoaLaunchArc(-1);setTimeout(function(){if(gameRunning)frCocoaLaunchArc(1);},1000);}
     else frFan(3,15,c,false,false);
     updateHUD();
