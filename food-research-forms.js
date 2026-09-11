@@ -163,7 +163,8 @@ function frActiveTraining(){
   return (typeof charSlots!=='undefined'&&charSlots[activeChar]&&charSlots[activeChar].training)||tr||{};
 }
 function frSkillPowerMultiplier(){
-  return 1+(frActiveTraining().skillPower||0)*FR_BALANCE.training.skillDamagePerLevel;
+  const charge=window._frExecutingChargeContext;
+  return (1+(frActiveTraining().skillPower||0)*FR_BALANCE.training.skillDamagePerLevel)*(charge?charge.power:1);
 }
 let frCoffeeMomentum=0,frCoffeeMoveAt=performance.now();
 function frFormMoveMultiplier(){
@@ -176,15 +177,17 @@ function frFormMoveMultiplier(){
   if(id==='coffee_pilot'&&now<(window.frCoffeeOverdriveUntil||0))mult*=1.25;
   if(id==='salmon_ronin'&&now<(window.frSalmonBuffUntil||0))mult*=1.25;
   if(id==='peach_divine'&&now<(window.frPeachModeUntil||0))mult*=1.5;
+  if(window.frSkillChargeState&&window.frSkillChargeState.active)mult*=.7;
   return mult;
 }
 function frDamage(amount,radius,color,applySkillPower){
-  const skillMult=applySkillPower===false?1:frSkillPowerMultiplier();
+  const skillMult=applySkillPower===false?1:frSkillPowerMultiplier(),charge=window._frExecutingChargeContext;
+  if(radius!=null&&charge)radius*=charge.range;
   frForEachEnemy(function(e){if(radius==null||Math.hypot(e.x-player.x,e.y-player.y)<=radius){frApplyDamage(e,amount*(window._curAtkMult||atkMult)*frFormDamageMultiplier()*skillMult);if(color)burst(e.x,e.y,color,5);}});
 }
 function frSkillBullet(x,y,vx,vy,color,damage,radius,pierce,burn,options){
-  const mult=(window._curAtkMult||atkMult)*frFormDamageMultiplier()*frSkillPowerMultiplier(),opt=options||{};
-  const shot=new Bullet(x,y,vx,vy,damage*mult,color,radius,!!pierce,!!opt.homing,!!burn);
+  const mult=(window._curAtkMult||atkMult)*frFormDamageMultiplier()*frSkillPowerMultiplier(),opt=options||{},charge=window._frExecutingChargeContext;
+  const shot=new Bullet(x,y,vx,vy,damage*mult,color,radius*(charge?charge.range:1),!!pierce,!!opt.homing,!!burn);
   if(opt.chain){shot.frChain=true;shot.frChainHits=new Set();shot.frChainRange=opt.chainRange||110;shot.frChainDamage=opt.chainDamage||.3;shot.frChainMax=opt.chainMax||2;}
   bullets.push(shot);return shot;
 }
@@ -199,6 +202,7 @@ function frForwardFan(count,spread,speed,damage,color,pierce,burn,options){
 }
 function frHeal(amount){const before=player.hp;player.hp=Math.min(player.maxHp,player.hp+amount);const healed=Math.max(0,Math.round(player.hp-before));if(charSlots[activeChar])charSlots[activeChar].hp=player.hp;updateHUD();addText(healed>0?'+'+healed+' HP':'HP 已滿',player.x,player.y-28,healed>0?'#22c55e':'#86efac');return healed;}
 function frClearBullets(radius,reflect){
+  const charge=window._frExecutingChargeContext;if(radius!=null&&charge)radius*=charge.range;
   let cleared=0;
   for(let i=eBullets.length-1;i>=0;i--){const b=eBullets[i];if(radius==null||Math.hypot(b.x-player.x,b.y-player.y)<=radius){if(reflect)frSkillBullet(b.x,b.y,-b.vx,-b.vy,'#67e8f9',Math.max(12,b.dmg||12),7,true,false);eBullets.splice(i,1);cleared++;}}
   return cleared;
@@ -212,6 +216,7 @@ function frCurrentSlowFactor(e,now){
   return e._frSlowFactor;
 }
 function frSlowAll(ms,factor){
+  const charge=window._frExecutingChargeContext;if(charge)ms*=charge.effect;
   const now=performance.now(),slow=Math.max(.08,Math.min(1,factor||.45));
   frForEachEnemy(function(e){e._frSlowEffects=(e._frSlowEffects||[]).filter(function(effect){return effect.until>now;});e._frSlowEffects.push({until:now+ms,factor:slow});frCurrentSlowFactor(e,now);});
 }
@@ -1120,5 +1125,31 @@ drawRivalEnemies=function(){
  const active=rivalEnemies.filter(function(r){return !r.defeated;}).length;
  if(active>0){ctx.save();ctx.font='bold 12px Segoe UI Emoji,Segoe UI Symbol,sans-serif';ctx.fillStyle='rgba(251,191,36,.92)';ctx.textAlign='right';ctx.textBaseline='top';ctx.fillText('入侵者 '+active+'名',CW-10,88);ctx.restore();}
 };
+
+/* === 全型態共用三級蓄力（四設施完工後解鎖） === */
+const FR_CHARGE_TIERS={1:{power:1,range:1,effect:1,color:'#38bdf8',label:'一階'},2:{power:1.3,range:1.15,effect:1.15,color:'#a855f7',label:'二階'},3:{power:1.7,range:1.3,effect:1.3,color:'#fbbf24',label:'三階'}};
+window.frSkillChargeState={active:false,skill:0,pointerId:null,startedAt:0,tier:1,raf:0,autoTimer:0,button:null};
+function frChargeCost(skill){if(!currentForm)return Infinity;if(skill===1)return FR_BALANCE.stamina.skill1ByRarity[currentForm.rarity]||22;const m=FR_FORM_MAP[currentForm.id];return(m&&m.skill2Cost)||(FR_BALANCE.stamina.skill2ByRarity[currentForm.rarity]||52);}
+function frChargeReady(skill){return!!(gameRunning&&player&&player.hp>0&&stamina>=frChargeCost(skill)&&(skill===1?sk1Cd<=0:sk2Cd<=0));}
+function frChargeTier(ms){return ms>=1500?3:ms>=500?2:1;}
+function frChargeButton(skill){return document.getElementById(skill===1?'sk1':'sk2')||document.getElementById(skill===1?'sk1Btn':'sk2Btn');}
+function frChargeEnsureUi(btn){if(!btn)return null;let r=btn.querySelector('.frChargeRing'),l=btn.querySelector('.frChargeTier');if(!r){r=document.createElement('div');r.className='frChargeRing';btn.appendChild(r);}if(!l){l=document.createElement('div');l.className='frChargeTier';btn.appendChild(l);}return{ring:r,label:l};}
+function frChargeResetUi(btn){if(!btn)return;const u=frChargeEnsureUi(btn);u.ring.style.setProperty('--fr-charge','0deg');u.label.textContent='';btn.classList.remove('frCharging','frChargeTier2','frChargeTier3');}
+function frChargeVibrate(ms){try{if(navigator.vibrate)navigator.vibrate(ms);}catch(e){}}
+function frChargeDraw(){const s=window.frSkillChargeState;if(!s.active)return;if(!gameRunning||!player||player.hp<=0){frCancelSkillCharge();return;}const elapsed=Math.min(2000,performance.now()-s.startedAt),tier=frChargeTier(elapsed),m=FR_CHARGE_TIERS[tier],u=frChargeEnsureUi(s.button);if(tier!==s.tier){s.tier=tier;frChargeVibrate(tier===3?[35,35,55]:28);}if(u){u.ring.style.setProperty('--fr-charge',Math.round(elapsed/2000*360)+'deg');u.ring.style.setProperty('--fr-charge-color',m.color);u.label.textContent=m.label;s.button.classList.toggle('frChargeTier2',tier===2);s.button.classList.toggle('frChargeTier3',tier===3);}s.raf=requestAnimationFrame(frChargeDraw);}
+function frScaleChargeResult(ctx,b){if(!ctx||!player)return;if(player.hp>b.hp){const g=player.hp-b.hp;player.hp=Math.min(player.maxHp,b.hp+g*ctx.power);if(charSlots[activeChar])charSlots[activeChar].hp=player.hp;}if((player.shieldHp||0)>b.shield){const g=(player.shieldHp||0)-b.shield;player.shieldHp=b.shield+g*ctx.power;}if((player.invTimer||0)>b.inv)player.invTimer=b.inv+((player.invTimer||0)-b.inv)*ctx.effect;if(normalFrenzyTimer>b.frenzy)normalFrenzyTimer=b.frenzy+(normalFrenzyTimer-b.frenzy)*ctx.effect;['frInvincibleUntil','frCoffeeOverdriveUntil','frPeachModeUntil','frUndyingUntil'].forEach(function(k){const n=performance.now(),v=Number(window[k]||0),old=Number(b.until[k]||0);if(v>n&&v>old)window[k]=n+(v-n)*ctx.effect;});updateHUD();}
+function frWithChargeContext(ctx,fn){const prev=window._frExecutingChargeContext,b={hp:player?player.hp:0,shield:player?(player.shieldHp||0):0,inv:player?(player.invTimer||0):0,frenzy:normalFrenzyTimer,until:{}};['frInvincibleUntil','frCoffeeOverdriveUntil','frPeachModeUntil','frUndyingUntil'].forEach(function(k){b.until[k]=window[k]||0;});window._frExecutingChargeContext=ctx;try{return fn();}finally{frScaleChargeResult(ctx,b);window._frExecutingChargeContext=prev;}}
+const frNativeChargeTimeout=window.setTimeout.bind(window);
+window.setTimeout=function(fn,delay){const args=Array.prototype.slice.call(arguments,2),ctx=window._frExecutingChargeContext;if(!ctx||typeof fn!=='function')return frNativeChargeTimeout.apply(window,[fn,delay].concat(args));return frNativeChargeTimeout(function(){return frWithChargeContext(ctx,function(){return fn.apply(window,args);});},delay);};
+function frCastChargedSkill(skill,tier){if(!frChargeReady(skill))return false;const m=FR_CHARGE_TIERS[tier]||FR_CHARGE_TIERS[1],ctx={tier:tier,power:m.power,range:m.range,effect:m.effect};addText(m.label+'蓄力',player.x,player.y-58,m.color,14,-.45);frWithChargeContext(ctx,function(){if(skill===1)useSkill1();else useSkill2();});return true;}
+function frCancelSkillCharge(){const s=window.frSkillChargeState;if(!s.active)return;s.active=false;if(s.raf)cancelAnimationFrame(s.raf);if(s.autoTimer)clearTimeout(s.autoTimer);frChargeResetUi(s.button);s.raf=0;s.autoTimer=0;s.button=null;s.pointerId=null;}
+function frReleaseSkillCharge(pointerId,forceTier){const s=window.frSkillChargeState;if(!s.active)return false;if(pointerId!=null&&s.pointerId!=null&&pointerId!==s.pointerId)return false;const tier=forceTier||frChargeTier(performance.now()-s.startedAt),skill=s.skill;frCancelSkillCharge();return frCastChargedSkill(skill,tier);}
+window.frBeginSkillCharge=function(skill,event,element){if(!SAVE.chargeUnlocked)return false;if(window.frSkillChargeState.active||!frChargeReady(skill))return true;const s=window.frSkillChargeState,btn=frChargeButton(skill)||element;s.active=true;s.skill=skill;s.pointerId=event&&event.pointerId!=null?event.pointerId:(event&&event.identifier!=null?event.identifier:null);s.startedAt=performance.now();s.tier=1;s.button=btn;if(btn){btn.classList.add('frCharging');frChargeEnsureUi(btn);}frChargeVibrate(14);s.raf=requestAnimationFrame(frChargeDraw);s.autoTimer=frNativeChargeTimeout(function(){if(s.active)frReleaseSkillCharge(s.pointerId,3);},2000);return true;};
+document.addEventListener('pointerup',function(e){frReleaseSkillCharge(e.pointerId);},{passive:false,capture:true});document.addEventListener('pointercancel',frCancelSkillCharge,{passive:true,capture:true});
+document.addEventListener('touchend',function(e){if(window.PointerEvent)return;for(let i=0;i<e.changedTouches.length;i++)frReleaseSkillCharge(e.changedTouches[i].identifier);},{passive:false,capture:true});document.addEventListener('touchcancel',frCancelSkillCharge,{passive:true,capture:true});
+document.addEventListener('visibilitychange',function(){if(document.hidden)frCancelSkillCharge();});
+const frChargeOriginalSwitchToChar=switchToChar;switchToChar=function(i){frCancelSkillCharge();return frChargeOriginalSwitchToChar(i);};
+(function(){const style=document.createElement('style');style.textContent='.skBadge,.rBtn{overflow:visible}.frChargeRing{position:absolute;inset:-7px;border-radius:26px;pointer-events:none;background:conic-gradient(var(--fr-charge-color,#38bdf8) var(--fr-charge,0deg),rgba(255,255,255,.08) 0);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 0);mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 0);opacity:0;filter:drop-shadow(0 0 5px var(--fr-charge-color,#38bdf8))}.frCharging .frChargeRing{opacity:1}.frChargeTier{position:absolute;left:50%;bottom:-18px;transform:translateX(-50%);min-width:34px;text-align:center;color:#e0f2fe;font:900 10px sans-serif;text-shadow:0 1px 4px #000;pointer-events:none}.frChargeTier2{box-shadow:0 0 18px rgba(168,85,247,.8)!important}.frChargeTier3{box-shadow:0 0 24px rgba(251,191,36,.95)!important}';document.head.appendChild(style);[1,2].forEach(function(s){const b=frChargeButton(s);if(b)frChargeEnsureUi(b);});if(SAVE.chargeUnlocked)setTimeout(function(){addText('蓄力已解鎖：長按技能可升至三階',CW/2,CH*.68,'#fbbf24',14,-.25);},650);})();
+
 `;
 })();

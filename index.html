@@ -11153,6 +11153,10 @@ if (selectedActivity === 'food_research') {
  // RIVALS: 已在 handleDeparture 背景計算並存入 rivalDataRef（不觸發 re-render）
   const normalizedExpeditionEquip = {...(s2.equip||{}),amulets:normalizeAmuletNames(s2.equip?.amulets).concat(['','','']).slice(0,3)};
   const activeTestBoss = frBossDuelRef.current ? (window.FOOD_RESEARCH_BOSSES || []).find(item=>item.id===frTestBossIdRef.current) : null;
+  const chargeUnlocked = !!frTestModeRef.current || REBUILD_FACILITY_IDS.every(id => {
+   const facility = rebuildData.facilities?.[id] || {};
+   return !!facility.completed || !!facility.completedAt || Number(facility.totalCorrect || 0) >= REBUILD_TARGET;
+  });
   const saveData = JSON.stringify({
   training: s2.training||{atk:0,def:0,hp:0,stam:0,stamRegen:0,crit:0},
   equip: normalizedExpeditionEquip,
@@ -11169,6 +11173,7 @@ if (selectedActivity === 'food_research') {
     scoreCatchupFloor: frTestModeRef.current ? 0 : (Number.isFinite(Number(s2.scoreCatchupFloor)) ? Math.max(0,Number(s2.scoreCatchupFloor)) : Math.max(0,Number(s2.runScore)||0,Number(s2.bestScore)||0)),
    scoreRulesVersion: frTestModeRef.current ? 'fr-stage-best-v2' : (s2.scoreRulesVersion||''),
    finalClearAwarded: frTestModeRef.current ? false : !!s2.finalClearAwarded,
+   chargeUnlocked,
   quests: s2.quests||null,
   playerName: currentUser?.name || (isSuperAdmin ? '主廚' : '玩家'),
   playerPhone: playerPhone,
@@ -11191,7 +11196,13 @@ if (selectedActivity === 'food_research') {
    const normalized = getFoodResearchQuestionParts(item);
    return shuffleFoodResearchQuestion(normalized, `revival:${index}:${normalized.q}`, index % 4);
   }).filter(item => item.q && item.opts.length === 4 && item.opts.every(Boolean)));
-  const balancedGameBody = window.FOOD_RESEARCH_APPLY_BALANCE_PATCH ? window.FOOD_RESEARCH_APPLY_BALANCE_PATCH(GAME_JS_BODY) : GAME_JS_BODY;
+  const chargeInputGameBody = GAME_JS_BODY
+   .replace('function triggerTouchControl(el){', 'function triggerTouchControl(el,event){')
+   .replace("if(id==='sk1'||id==='sk1Btn'){useSkill1();return true;}", "if(id==='sk1'||id==='sk1Btn'){if(window.frBeginSkillCharge&&window.frBeginSkillCharge(1,event,el))return true;useSkill1();return true;}")
+   .replace("if(id==='sk2'||id==='sk2Btn'){useSkill2();return true;}", "if(id==='sk2'||id==='sk2Btn'){if(window.frBeginSkillCharge&&window.frBeginSkillCharge(2,event,el))return true;useSkill2();return true;}")
+   .replace('if(triggerTouchControl(e.target)){', 'if(triggerTouchControl(e.target,e)){')
+   .replace('if(triggerTouchControl(document.elementFromPoint(t.clientX,t.clientY)))handled=true;', 'if(triggerTouchControl(document.elementFromPoint(t.clientX,t.clientY),t))handled=true;');
+  const balancedGameBody = window.FOOD_RESEARCH_APPLY_BALANCE_PATCH ? window.FOOD_RESEARCH_APPLY_BALANCE_PATCH(chargeInputGameBody) : chargeInputGameBody;
   const amuletPatchedGameBody = window.FOOD_RESEARCH_APPLY_AMULET_PATCH ? window.FOOD_RESEARCH_APPLY_AMULET_PATCH(balancedGameBody) : balancedGameBody;
   const timingPatchedGameBody = window.FOOD_RESEARCH_APPLY_TIMING_PATCH ? window.FOOD_RESEARCH_APPLY_TIMING_PATCH(amuletPatchedGameBody) : amuletPatchedGameBody;
   const gameBodyWithImportedRevivalQuestions = timingPatchedGameBody.replace(
