@@ -242,7 +242,7 @@ const frBossSkillAssetImages={};
 const frBossSkillAssetBounds=new WeakMap();
 function frBossSkillAssetImage(key){
   if(!FR_BOSS_SKILL_ASSET_FILES[key])return null;
-  if(!frBossSkillAssetImages[key]){const img=new Image();img.decoding='async';img.onload=function(){if(FR_BOSS_FX_MOBILE)return;const scan=function(){frBossSkillAssetBoundsFor(img,FR_BOSS_SKILL_ASSET_FRAMES[key]||1);};if(typeof requestIdleCallback==='function')requestIdleCallback(scan,{timeout:800});else setTimeout(scan,0);};img.src='assets/food-research/boss-skills/'+FR_BOSS_SKILL_ASSET_FILES[key]+'?v=5';frBossSkillAssetImages[key]=img;}
+  if(!frBossSkillAssetImages[key]){const img=new Image();img.decoding='async';img.onload=function(){const scan=function(){frBossSkillAssetBoundsFor(img,FR_BOSS_SKILL_ASSET_FRAMES[key]||1);};if(typeof requestIdleCallback==='function')requestIdleCallback(scan,{timeout:800});else setTimeout(scan,0);};img.src='assets/food-research/boss-skills/'+FR_BOSS_SKILL_ASSET_FILES[key]+'?v=5';frBossSkillAssetImages[key]=img;}
   return frBossSkillAssetImages[key];
 }
 const FR_BOSS_SKILL_ASSET_FRAMES=Object.assign(Object.fromEntries(Object.keys(FR_BOSS_SKILL_ASSET_FILES).map(function(key){return [key,4];})),{creamBaptism:1});
@@ -250,7 +250,6 @@ function frBossSkillAssetBoundsFor(img,frames){
   if(!img||!img.complete||!img.naturalWidth)return null;
   if(frBossSkillAssetBounds.has(img))return frBossSkillAssetBounds.get(img);
   const count=Math.max(1,frames||1),frameW=Math.floor(img.naturalWidth/count),fallback={x:0,y:0,w:frameW,h:img.naturalHeight};
-  if(FR_BOSS_FX_MOBILE)return fallback;
   try{
     const canvas=document.createElement('canvas');canvas.width=img.naturalWidth;canvas.height=img.naturalHeight;
     const scan=canvas.getContext('2d',{willReadFrequently:true});scan.drawImage(img,0,0);
@@ -303,7 +302,7 @@ function frBossSkillAssetFx(b,pattern){
 const FR_BOSS_THEME_IDS=new Set(['tiramisu-jazz','jelly-king','niu-mowang','yang-mowang','mala-vampire','white-soup-princess','bitter-melon-witch','halloween-pumpkin-king','karaage-superhero','eel-dragon','fried-rice-beast','intestine-sandworm','durian-icepop-warrior','mango-ice-monster','fries-swordsman','pasta-mummy','pastry-soup-wizard','cream-chicken-pontiff','octopus-warrior','heavy-armor-mech']);
 function frBossFxPush(b,kind,options){
   if(!b)return;
-  const cap=FR_BOSS_FX_MOBILE?12:36;
+  const cap=FR_BOSS_FX_MOBILE?22:36;
   if(frBossFx.length>=cap)frBossFx.splice(0,frBossFx.length-cap+1);
   frBossFx.push(Object.assign({boss:b,kind:kind,start:b.timer||0,duration:45,color:b.color||'#fef08a',x:b.x,y:b.y,follow:kind!=='summon'},options||{}));
 }
@@ -319,7 +318,7 @@ function frBossDrawFx(b){
     if(age<0)continue;
     if(age>f.duration){frBossFx.splice(i,1);continue;}
     const p=Math.max(0,Math.min(1,age/Math.max(1,f.duration))),fade=Math.sin(Math.PI*p),x=f.follow?b.x:f.x,y=f.follow?b.y:f.y,spin=(b.timer||0)*.08;
-    ctx.save();ctx.translate(x,y);ctx.globalCompositeOperation='lighter';ctx.strokeStyle=f.color;ctx.fillStyle=f.color;ctx.shadowColor=f.color;ctx.shadowBlur=FR_BOSS_FX_MOBILE?0:13;
+    ctx.save();ctx.translate(x,y);ctx.globalCompositeOperation='lighter';ctx.strokeStyle=f.color;ctx.fillStyle=f.color;ctx.shadowColor=f.color;ctx.shadowBlur=FR_BOSS_FX_MOBILE?5:13;
     if(f.kind==='asset'){
       const img=frBossSkillAssetImage(f.asset);
       if(img&&img.complete&&img.naturalWidth){

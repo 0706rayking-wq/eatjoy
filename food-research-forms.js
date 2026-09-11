@@ -904,18 +904,16 @@ const frOriginalUpdateSkillUI=updateSkillUI;
 updateSkillUI=function(){frOriginalUpdateSkillUI();frSetSkillArt();};
 
 const frPartyHudStyle=document.createElement('style');
-frPartyHudStyle.textContent='.fr-form-hud-img{display:block;width:100%;height:100%;object-fit:contain;image-rendering:pixelated}.cSwEmoji{width:38px;height:38px;display:flex;align-items:center;justify-content:center;overflow:hidden}.cSwEmoji .fr-form-hud-img{filter:drop-shadow(0 2px 3px rgba(15,23,42,.45))}.charBarEmoji{width:30px;height:30px;display:flex;align-items:center;justify-content:center;overflow:hidden}.charBarEmoji .fr-form-hud-img{filter:drop-shadow(0 0 5px rgba(249,115,22,.72))}.formBadgeInline{display:inline-flex!important;align-items:center;gap:3px}.formBadgeInline .fr-form-hud-img{width:18px;height:18px;flex:0 0 18px}@media (pointer:coarse),(max-width:520px){.cSwEmoji .fr-form-hud-img,.charBarEmoji .fr-form-hud-img{filter:none}}';
+frPartyHudStyle.textContent='.fr-form-hud-img{display:block;width:100%;height:100%;object-fit:contain;image-rendering:pixelated}.cSwEmoji{width:38px;height:38px;display:flex;align-items:center;justify-content:center;overflow:hidden}.cSwEmoji .fr-form-hud-img{filter:drop-shadow(0 2px 3px rgba(15,23,42,.45))}.charBarEmoji{width:30px;height:30px;display:flex;align-items:center;justify-content:center;overflow:hidden}.charBarEmoji .fr-form-hud-img{filter:drop-shadow(0 0 5px rgba(249,115,22,.72))}.formBadgeInline{display:inline-flex!important;align-items:center;gap:3px}.formBadgeInline .fr-form-hud-img{width:18px;height:18px;flex:0 0 18px}';
 document.head.appendChild(frPartyHudStyle);
 function frPartyHudImageSrc(formId){
   if(!formId||formId==='normal')return 'assets/food-research/hero-normal-portrait.png';
   const form=FR_FORM_MAP[formId];return form&&form.portrait?form.portrait:'assets/food-research/hero-normal-portrait.png';
 }
 function frSetPartyHudImage(node,formId){
-  if(!node)return;const key=formId||'normal',src=frPartyHudImageSrc(key),existing=node.querySelector('img.fr-form-hud-img');
-  if(node.dataset.frFormId===key&&existing&&existing.getAttribute('src')===src)return;
-  const fallback=(FR_FORM_MAP[key]&&FR_FORM_MAP[key].emoji)||'🐾',img=document.createElement('img');
-  node.textContent='';node.dataset.frFormId=key;img.className='fr-form-hud-img';img.alt=(FR_FORM_MAP[key]&&FR_FORM_MAP[key].name)||'角色型態';img.src=src;
-  img.onerror=function(){node.textContent=fallback;node.dataset.frFormId='';};node.appendChild(img);
+  if(!node)return;const fallback=(FR_FORM_MAP[formId]&&FR_FORM_MAP[formId].emoji)||'🐾',img=document.createElement('img');
+  node.textContent='';img.className='fr-form-hud-img';img.alt=(FR_FORM_MAP[formId]&&FR_FORM_MAP[formId].name)||'角色型態';img.src=frPartyHudImageSrc(formId);
+  img.onerror=function(){node.textContent=fallback;};node.appendChild(img);
 }
 const frOriginalPartySwitchUI=updatePSwitchUI;
 updatePSwitchUI=function(){
@@ -930,7 +928,7 @@ updateHUD=function(){
   const ch=charSlots[activeChar]||charSlots.find(function(item){return item&&item.alive;})||charSlots[0],bars=document.getElementById('charBars');
   if(!ch||!bars)return;frSetPartyHudImage(bars.querySelector('.charBarEmoji'),ch.formId||'normal');
   const badge=bars.querySelector('.formBadgeInline');
-  if(badge){const formId=ch.formId||'normal',label=currentForm&&currentForm.name?currentForm.name.replace('型',''):'';if(badge.dataset.frFormId!==formId||badge.dataset.frLabel!==label){badge.textContent='';badge.dataset.frFormId=formId;badge.dataset.frLabel=label;const icon=document.createElement('span');icon.style.cssText='width:18px;height:18px;display:inline-flex';frSetPartyHudImage(icon,formId);badge.appendChild(icon);badge.appendChild(document.createTextNode(label));}}
+  if(badge){const label=currentForm&&currentForm.name?currentForm.name.replace('型',''):'';badge.textContent='';const icon=document.createElement('span');icon.style.cssText='width:18px;height:18px;display:inline-flex';frSetPartyHudImage(icon,ch.formId||'normal');badge.appendChild(icon);badge.appendChild(document.createTextNode(label));}
 };
 
 useSkill1=function(){
