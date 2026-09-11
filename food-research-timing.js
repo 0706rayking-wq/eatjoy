@@ -3,7 +3,7 @@
  function swap(source,before,after,label){if(source.indexOf(before)<0){console.warn('[FR timing] target missing:',label);return source;}return source.replace(before,after);}
  window.FOOD_RESEARCH_APPLY_TIMING_PATCH=function(source){
   let out=source;
-  out=swap(out,'last=ts;const dt=Math.min(Math.max(rawDt,0),16.7);','last=ts;const dt=Math.min(Math.max(rawDt,8.35),50.1);window.FR_FRAME_SCALE=Math.max(.5,Math.min(3,dt/(1000/60)));if(window.frPerfFrame)window.frPerfFrame(rawDt,ts);','delta');
+  out=swap(out,'last=ts;const dt=Math.min(Math.max(rawDt,0),16.7);','last=ts;const dt=Math.min(Math.max(rawDt,8.35),33.4);window.FR_FRAME_SCALE=Math.max(.5,Math.min(2,dt/(1000/60)));if(window.frPerfFrame)window.frPerfFrame(rawDt,ts);','delta');
   out=swap(out,'stars.forEach(s=>{s.y+=s.spd;if(s.y>CH){s.y=0;s.x=Math.random()*CW;}});','stars.forEach(s=>{s.y+=s.spd*window.FR_FRAME_SCALE;if(s.y>CH){s.y=0;s.x=Math.random()*CW;}});','stars');
   out=swap(out,'this.age++;\n if(this.homing){','this.age+=window.FR_FRAME_SCALE;\n if(this.homing){','bullet age');
   out=swap(out,' this.x+=this.vx;this.y+=this.vy;\n}\ndraw(){ctx.save();ctx.fillStyle=this.color;',' this.x+=this.vx*window.FR_FRAME_SCALE;this.y+=this.vy*window.FR_FRAME_SCALE;\n}\ndraw(){ctx.save();ctx.fillStyle=this.color;','bullet move');
@@ -23,16 +23,16 @@
   out=swap(out,'let last=0;\nfunction loop(ts){',`let last=0;
 const FR_COLLISION_CELL=96;let frCollisionGrid=new Map();
 function frCollisionKey(x,y){return Math.floor(x/FR_COLLISION_CELL)+','+Math.floor(y/FR_COLLISION_CELL);}
-function frBuildCollisionGrid(){frCollisionGrid.clear();for(let i=0;i<enemies.length;i++){const e=enemies[i];if(!e||e.hp<=0)continue;const key=frCollisionKey(e.x,e.y),bucket=frCollisionGrid.get(key);if(bucket)bucket.push(e);else frCollisionGrid.set(key,[e]);}}
-function frCollisionCandidates(b){const reach=(b.r||8)+40,cx=Math.floor(b.x/FR_COLLISION_CELL),cy=Math.floor(b.y/FR_COLLISION_CELL),span=Math.max(1,Math.ceil(reach/FR_COLLISION_CELL)),out=[];for(let y=cy-span;y<=cy+span;y++)for(let x=cx-span;x<=cx+span;x++){const bucket=frCollisionGrid.get(x+','+y);if(bucket)for(let i=0;i<bucket.length;i++)out.push(bucket[i]);}return out;}
+function frBuildCollisionGrid(){frCollisionGrid.clear();for(let i=0;i<enemies.length;i++){const e=enemies[i];if(!e||e.hp<=0||!Number.isFinite(e.x)||!Number.isFinite(e.y))continue;const key=frCollisionKey(e.x,e.y),bucket=frCollisionGrid.get(key);if(bucket)bucket.push(e);else frCollisionGrid.set(key,[e]);}}
+function frCollisionCandidates(b){if(!b||!Number.isFinite(b.x)||!Number.isFinite(b.y))return [];const reach=(b.r||8)+40,cx=Math.floor(b.x/FR_COLLISION_CELL),cy=Math.floor(b.y/FR_COLLISION_CELL),span=Math.max(1,Math.ceil(reach/FR_COLLISION_CELL)),out=[];for(let y=cy-span;y<=cy+span;y++)for(let x=cx-span;x<=cx+span;x++){const bucket=frCollisionGrid.get(x+','+y);if(bucket)for(let i=0;i<bucket.length;i++)out.push(bucket[i]);}return out;}
 function loop(ts){`,'collision grid helpers');
-  out=swap(out,'for(let i=bullets.length-1;i>=0;i--){\n const b=bullets[i];b.update();let rm=false;','frBuildCollisionGrid();\nfor(let i=bullets.length-1;i>=0;i--){\n const b=bullets[i];b.update();let rm=false;','build collision grid');
+  out=swap(out,'for(let i=bullets.length-1;i>=0;i--){\n const b=bullets[i];b.update();let rm=false;','frBuildCollisionGrid();\nfor(let i=bullets.length-1;i>=0;i--){\n const b=bullets[i];if(!b||typeof b.update!==\'function\'||typeof b.dead!==\'function\'){bullets[i]=null;continue;}b.update();let rm=false;','build collision grid');
   out=swap(out,' for(const e of enemies){if(b.hitTargets.has(e))continue;',' for(const e of frCollisionCandidates(b)){if(b.hitTargets.has(e))continue;','spatial projectile collision');
-  out=swap(out,"if(b.dead())rm=true;if(rm)bullets.splice(i,1);\n}\nfor(let i=eBullets.length-1;i>=0;i--){const b=eBullets[i];if(!b||typeof b.update!=='function'){eBullets.splice(i,1);continue;}frScaleEnemyNormalBullet(b);b.update();if(!qaActive&&Math.hypot(b.x-player.x,b.y-player.y)<b.r+player.radius&&player.invTimer<=0){hurtPlayer(b.dmg);if(b.frStatus&&typeof frBossApplyStatus==='function')frBossApplyStatus(b.frStatus);burst(b.x,b.y,b.color,5);eBullets.splice(i,1);continue;}if(b.dead())eBullets.splice(i,1);}",`if(b.dead())rm=true;if(rm)bullets[i]=null;
+  out=swap(out,"if(b.dead())rm=true;if(rm)bullets.splice(i,1);\n}\nfor(let i=eBullets.length-1;i>=0;i--){const b=eBullets[i];if(!b||typeof b.update!=='function'){eBullets.splice(i,1);continue;}frScaleEnemyNormalBullet(b);b.update();if(!qaActive&&Math.hypot(b.x-player.x,b.y-player.y)<b.r+player.radius&&player.invTimer<=0){hurtPlayer(b.dmg);if(b.frStatus&&typeof frBossApplyStatus==='function')frBossApplyStatus(b.frStatus);burst(b.x,b.y,b.color,5);eBullets.splice(i,1);continue;}if(b.dead())eBullets.splice(i,1);}",`if(b.dead())rm=true;if(rm)b._frRemove=true;
 }
-let frWrite=0;for(let i=0;i<bullets.length;i++)if(bullets[i])bullets[frWrite++]=bullets[i];bullets.length=frWrite;
-for(let i=eBullets.length-1;i>=0;i--){const b=eBullets[i];if(!b||typeof b.update!=='function'){eBullets[i]=null;continue;}frScaleEnemyNormalBullet(b);b.update();let remove=false;if(!qaActive&&Math.hypot(b.x-player.x,b.y-player.y)<b.r+player.radius&&player.invTimer<=0){hurtPlayer(b.dmg);if(b.frStatus&&typeof frBossApplyStatus==='function')frBossApplyStatus(b.frStatus);burst(b.x,b.y,b.color,5);remove=true;}else if(b.dead())remove=true;if(remove)eBullets[i]=null;}
-frWrite=0;for(let i=0;i<eBullets.length;i++)if(eBullets[i])eBullets[frWrite++]=eBullets[i];eBullets.length=frWrite;`,'batched projectile cleanup');
+let frWrite=0;for(let i=0;i<bullets.length;i++)if(bullets[i]&&!bullets[i]._frRemove)bullets[frWrite++]=bullets[i];bullets.length=frWrite;
+for(let i=eBullets.length-1;i>=0;i--){const b=eBullets[i];if(!b||typeof b.update!=='function'||typeof b.dead!=='function'){eBullets[i]=null;continue;}frScaleEnemyNormalBullet(b);b.update();let remove=false;if(!qaActive&&Math.hypot(b.x-player.x,b.y-player.y)<b.r+player.radius&&player.invTimer<=0){hurtPlayer(b.dmg);if(b.frStatus&&typeof frBossApplyStatus==='function')frBossApplyStatus(b.frStatus);burst(b.x,b.y,b.color,5);remove=true;}else if(b.dead())remove=true;if(remove)b._frRemove=true;}
+frWrite=0;for(let i=0;i<eBullets.length;i++)if(eBullets[i]&&!eBullets[i]._frRemove)eBullets[frWrite++]=eBullets[i];eBullets.length=frWrite;`,'batched projectile cleanup');
   out=swap(out,'for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.x+=p.vx*window.FR_FRAME_SCALE;p.y+=p.vy*window.FR_FRAME_SCALE;p.vy+=.1*window.FR_FRAME_SCALE;p.life-=p.decay*window.FR_FRAME_SCALE;if(p.life<=0)particles.splice(i,1);}\nfor(let i=texts.length-1;i>=0;i--){const t=texts[i];t.y+=t.vy*0.5*window.FR_FRAME_SCALE;t.life-=.011*window.FR_FRAME_SCALE;if(t.life<=0)texts.splice(i,1);}',`frWrite=0;for(let i=0;i<particles.length;i++){const p=particles[i];p.x+=p.vx*window.FR_FRAME_SCALE;p.y+=p.vy*window.FR_FRAME_SCALE;p.vy+=.1*window.FR_FRAME_SCALE;p.life-=p.decay*window.FR_FRAME_SCALE;if(p.life>0)particles[frWrite++]=p;}particles.length=frWrite;
 frWrite=0;for(let i=0;i<texts.length;i++){const t=texts[i];t.y+=t.vy*0.5*window.FR_FRAME_SCALE;t.life-=.011*window.FR_FRAME_SCALE;if(t.life>0)texts[frWrite++]=t;}texts.length=frWrite;`,'batched transient cleanup');
   return out;
@@ -54,7 +54,25 @@ window.FR_FRAME_SCALE=1;window.FR_PERF_QUALITY='high';window.FR_EFFECT_SCALE=1;
   const sig=[Math.ceil(player.hp||0),Math.ceil(player.maxHp||0),Math.floor(stamina||0),Math.ceil(maxStamina||0),gold||0,score||0,stage||0,activeChar||0,currentWeapon||'',currentForm&&currentForm.id||'',Math.ceil(switchCd||0),slots,player.shieldActive?Math.ceil(player.shieldHp||0):0].join(';');
   if(force!==true&&sig===lastHudSignature)return;lastHudSignature=sig;return baseHud.apply(this,arguments);
  };
- const baseLoop=loop;loop=function(ts){return baseLoop(ts);};
+ function compact(list,valid){let w=0;for(let i=0;i<list.length;i++){const item=list[i];if(item&&(!valid||valid(item)))list[w++]=item;}list.length=w;}
+ function sanitizeCombatState(){
+  if(Array.isArray(bullets))compact(bullets,function(b){return !b._frRemove&&typeof b.update==='function'&&typeof b.draw==='function'&&typeof b.dead==='function';});
+  if(Array.isArray(eBullets))compact(eBullets,function(b){return !b._frRemove&&typeof b.update==='function'&&typeof b.draw==='function'&&typeof b.dead==='function';});
+  if(Array.isArray(enemies))compact(enemies,function(e){return typeof e.update==='function'&&typeof e.draw==='function';});
+  if(Array.isArray(hazards))compact(hazards,function(h){return typeof h.update==='function'&&typeof h.draw==='function';});
+  if(Array.isArray(particles))compact(particles);if(Array.isArray(texts))compact(texts);if(Array.isArray(coins))compact(coins);
+ }
+ let errorWindowAt=0,errorCount=0;const baseLoop=loop;loop=function(ts){
+  _rafId=null;
+  try{sanitizeCombatState();return baseLoop(ts);}
+  catch(error){
+   const now=performance.now();if(now-errorWindowAt>2000){errorWindowAt=now;errorCount=0;}errorCount++;
+   window.FR_LAST_RUNTIME_ERROR={message:String(error&&error.message||error),stage:Number(stage)||0,form:currentForm&&currentForm.id||'',weapon:currentWeapon||'',quality:window.FR_PERF_QUALITY||'',time:Date.now()};
+   console.error('[FR runtime recovered]',window.FR_LAST_RUNTIME_ERROR,error);
+   sanitizeCombatState();if(FR_MOBILE_PERF&&errorCount>=2){quality='low';window.FR_PERF_QUALITY='low';window.FR_EFFECT_SCALE=.42;}
+   if(gameRunning&&!stageCleared&&!_rafId)_rafId=requestAnimationFrame(loop);
+  }
+ };
  document.addEventListener('visibilitychange',function(){if(!document.hidden){window.FR_FRAME_SCALE=1;sampleStart=performance.now();sampleFrames=0;}});
 })();`;
 })();
