@@ -41,7 +41,7 @@ const FR_THUNDER_SOURCES={
   phase3:'little-thunder-god-phase3-spritesheet.png',
   transition12:'little-thunder-god-transition-1-to-2-spritesheet.png',
   transition23:'little-thunder-god-transition-2-to-3-spritesheet.png',
-  chaserOrb:'little-thunder-god-chaser-orb-walk.png'
+  chaserOrb:'little-thunder-god-chaser-orb-walk-v2.png'
 };
 const FR_THUNDER_RELIC_SOURCES={lance:'little-thunder-god-lance.png',shield:'little-thunder-god-shield.png',leftHand:'little-thunder-god-left-hand.png',rightHand:'little-thunder-god-right-hand.png',leftHandAnim:'little-thunder-god-left-hand-spritesheet.png',rightHandAnim:'little-thunder-god-right-hand-spritesheet.png'};
 function frLoadBossImage(cache,key,src,version){
@@ -714,9 +714,7 @@ class FrThunderChaserOrb{
       ctx.drawImage(sprite,frame*cellW,0,cellW,sprite.naturalHeight,this.x-size*.5,this.y-size*.5,size,size);
       return;
     }
-    if(typeof frDrawHeartBullet==='function'){frDrawHeartBullet(this.x,this.y,this.r,1.45);return;}
-    ctx.save();ctx.translate(this.x,this.y);ctx.scale(1.45,1.45);ctx.fillStyle='#ef3340';ctx.strokeStyle='#050505';ctx.lineWidth=2.5;ctx.lineJoin='round';
-    ctx.beginPath();ctx.moveTo(0,this.r*.72);ctx.bezierCurveTo(-this.r*.2,this.r*.5,-this.r*.68,this.r*.18,-this.r*.68,-this.r*.28);ctx.bezierCurveTo(-this.r*.68,-this.r*.78,-this.r*.18,-this.r*.88,0,-this.r*.45);ctx.bezierCurveTo(this.r*.18,-this.r*.88,this.r*.68,-this.r*.78,this.r*.68,-this.r*.28);ctx.bezierCurveTo(this.r*.68,this.r*.18,this.r*.2,this.r*.5,0,this.r*.72);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
+    ctx.save();ctx.fillStyle='#0f172a';ctx.beginPath();ctx.arc(this.x,this.y,this.r+3,0,Math.PI*2);ctx.fill();ctx.fillStyle='#38bdf8';ctx.beginPath();ctx.arc(this.x,this.y,this.r*.72,0,Math.PI*2);ctx.fill();ctx.restore();
   }
 }
 function frThunderEnsureChaserOrbs(){
