@@ -163,7 +163,7 @@
   ctx.restore();
  }
  function pushWeaponFx(kind,x,y,color,size,life,rarity,pattern,extra){
-  const cap=frLowWeaponFx?42:70;
+  const quality=window.FR_PERF_QUALITY||'high',cap=frLowWeaponFx?(quality==='low'?22:quality==='medium'?32:42):70;
   if(weaponFx.length>=cap)weaponFx.splice(0,weaponFx.length-cap+1);
   weaponFx.push(Object.assign({kind,x,y,color,size,life,age:0,rarity:rarity||'normal',pattern:pattern||'basic',seed:Math.random()*Math.PI*2},extra||{}));
  }
@@ -197,6 +197,7 @@
  function drawWeaponFx(){
   for(let i=weaponFx.length-1;i>=0;i--){
    const f=weaponFx[i],p=f.age/f.life,ease=1-Math.pow(1-Math.min(1,p),2),rank=rarityRank[f.rarity]||0;
+   if(frLowWeaponFx&&window.FR_PERF_QUALITY==='low'&&(i&1)){f.age+=window.FR_FRAME_SCALE||1;if(f.age>=f.life)weaponFx.splice(i,1);continue;}
    ctx.save();ctx.translate(f.x,f.y);ctx.globalCompositeOperation='lighter';ctx.lineCap='round';
    if(f.kind==='target'){
     ctx.globalCompositeOperation='source-over';ctx.globalAlpha=Math.max(0,1-p)*.78;ctx.strokeStyle=f.color;ctx.shadowColor=f.color;ctx.shadowBlur=8;ctx.lineWidth=2;
@@ -542,6 +543,8 @@
    const specialTrail={fan:5,rapid:5,pierce:7,heavy:5,triple:5,popcorn:2,shotgun:4,freeze:8,flame:6,laser:10,sticky:8,mortar:6,homing:9,gravity:7,lightning:9,meteor:8,fleet:3,absolute:11,drones:10,star:4};
    let trailMax=specialTrail[this.frPattern]||3+(rarityRank[this.frRarity]||0);
    if(frLowWeaponFx&&/^(triple|popcorn|fleet|star)$/.test(this.frPattern))trailMax=Math.max(2,Math.ceil(trailMax*.55));
+   if(frLowWeaponFx&&window.FR_PERF_QUALITY==='medium')trailMax=Math.max(2,Math.ceil(trailMax*.72));
+   if(frLowWeaponFx&&window.FR_PERF_QUALITY==='low')trailMax=Math.max(2,Math.ceil(trailMax*.45));
    if(this.frTrail.length>trailMax)this.frTrail.shift();
   }
   if(held)return;
