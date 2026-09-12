@@ -40,7 +40,8 @@ const FR_THUNDER_SOURCES={
   phase2:'little-thunder-god-phase2-spritesheet.png',
   phase3:'little-thunder-god-phase3-spritesheet.png',
   transition12:'little-thunder-god-transition-1-to-2-spritesheet.png',
-  transition23:'little-thunder-god-transition-2-to-3-spritesheet.png'
+  transition23:'little-thunder-god-transition-2-to-3-spritesheet.png',
+  chaserOrb:'little-thunder-god-chaser-orb-walk.png'
 };
 const FR_THUNDER_RELIC_SOURCES={lance:'little-thunder-god-lance.png',shield:'little-thunder-god-shield.png',leftHand:'little-thunder-god-left-hand.png',rightHand:'little-thunder-god-right-hand.png',leftHandAnim:'little-thunder-god-left-hand-spritesheet.png',rightHandAnim:'little-thunder-god-right-hand-spritesheet.png'};
 function frLoadBossImage(cache,key,src,version){
@@ -56,7 +57,7 @@ function frPreloadBossesForMap(mapIdx){
   const pool=FR_BOSS_BY_MAP[mapIdx]||[];
   const keep={};pool.forEach(function(item){keep[item.id]=true;frBossImage(item);});
   Object.keys(FR_BOSS_IMAGES).forEach(function(id){if(!keep[id]){frReleaseBossImage(FR_BOSS_IMAGES[id]);delete FR_BOSS_IMAGES[id];}});
-  if(Number(mapIdx)===10)frThunderImage('phase1');
+  if(Number(mapIdx)===10){frThunderImage('phase1');frThunderImage('chaserOrb');}
   else Object.keys(FR_THUNDER_IMAGES).forEach(function(key){frReleaseBossImage(FR_THUNDER_IMAGES[key]);delete FR_THUNDER_IMAGES[key];});
 }
 
@@ -707,6 +708,12 @@ class FrThunderChaserOrb{
     }
   }
   draw(){
+    const sprite=frThunderImage('chaserOrb');
+    if(sprite&&sprite.complete&&sprite.naturalWidth){
+      const frame=(Math.floor(this.age/8)+this.index*2)%4,cellW=sprite.naturalWidth/4,size=this.r*3.45;
+      ctx.drawImage(sprite,frame*cellW,0,cellW,sprite.naturalHeight,this.x-size*.5,this.y-size*.5,size,size);
+      return;
+    }
     if(typeof frDrawHeartBullet==='function'){frDrawHeartBullet(this.x,this.y,this.r,1.45);return;}
     ctx.save();ctx.translate(this.x,this.y);ctx.scale(1.45,1.45);ctx.fillStyle='#ef3340';ctx.strokeStyle='#050505';ctx.lineWidth=2.5;ctx.lineJoin='round';
     ctx.beginPath();ctx.moveTo(0,this.r*.72);ctx.bezierCurveTo(-this.r*.2,this.r*.5,-this.r*.68,this.r*.18,-this.r*.68,-this.r*.28);ctx.bezierCurveTo(-this.r*.68,-this.r*.78,-this.r*.18,-this.r*.88,0,-this.r*.45);ctx.bezierCurveTo(this.r*.18,-this.r*.88,this.r*.68,-this.r*.78,this.r*.68,-this.r*.28);ctx.bezierCurveTo(this.r*.68,this.r*.18,this.r*.2,this.r*.5,0,this.r*.72);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
