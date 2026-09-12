@@ -50,7 +50,8 @@
  function frV2Has(id){return !!(charSlots&&charSlots.some(function(ch){return ch&&ch.formId===id;}));}
  function frV2ActiveSpec(){return FR_V2_SPEC[currentForm&&currentForm.id||'normal']||FR_V2_SPEC.normal;}
  function frV2Alive(target){return !!(target&&target.hp>0&&!target._defeated&&!target.defeated);}
- function frV2Targets(){const list=[];frForEachEnemy(function(t){if(frV2Alive(t))list.push(t);});return list;}
+ let frV2TargetCacheFrame=-1,frV2TargetCache=[];
+ function frV2Targets(){const frame=window.FR_LOGIC_FRAME||0;if(frame===frV2TargetCacheFrame)return frV2TargetCache;const list=[];frForEachEnemy(function(t){if(frV2Alive(t))list.push(t);});frV2TargetCacheFrame=frame;frV2TargetCache=list;return list;}
  function frV2Boss(target){return target===boss;}
  function frV2Distance(a,b){return Math.hypot((a.x||0)-(b.x||0),(a.y||0)-(b.y||0));}
  function frV2Nearest(x,y){let best=null,dist=Infinity;frV2Targets().forEach(function(t){const d=Math.hypot(t.x-x,t.y-y);if(d<dist){dist=d;best=t;}});return best;}

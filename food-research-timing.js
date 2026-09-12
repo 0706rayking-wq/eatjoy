@@ -1,6 +1,23 @@
 (function(){
  'use strict';
  function swap(source,before,after,label){if(source.indexOf(before)<0){console.warn('[FR timing] target missing:',label);return source;}return source.replace(before,after);}
+ function installFixedStep(source){
+  const loopStart=source.indexOf('function loop(ts){'),rawStart=source.indexOf('const rawDt=ts-last;',loopStart);
+  const updateStart=source.indexOf('stars.forEach',rawStart),renderStart=source.indexOf('ctx.clearRect(0,0,CW,CH);drawBg();',updateStart);
+  const loopEndMarker='_rafId=requestAnimationFrame(loop);\n}',loopEnd=source.indexOf(loopEndMarker,renderStart);
+  if(loopStart<0||rawStart<0||updateStart<0||renderStart<0||loopEnd<0){console.warn('[FR timing] fixed-step loop markers missing');return source;}
+  const guard=source.slice(loopStart+'function loop(ts){'.length,rawStart).replace("if(rawDt<10){_rafId=requestAnimationFrame(loop);return;}\n",'');
+  const update=source.slice(updateStart,renderStart);
+  const render=source.slice(renderStart,loopEnd);
+  const fixed=`const FR_FIXED_STEP=1000/60,FR_MAX_FIXED_STEPS=3;let frFixedAccumulator=0;
+function frFixedUpdate(dt,ts){window.FR_FRAME_SCALE=1;window.FR_LOGIC_FRAME=(window.FR_LOGIC_FRAME||0)+1;
+${update}}
+function frFixedRender(){
+${render}}
+function loop(ts){${guard}const rawDt=Math.min(50,Math.max(0,ts-last));last=ts;frFixedAccumulator=Math.min(frFixedAccumulator+rawDt,FR_FIXED_STEP*FR_MAX_FIXED_STEPS);let fixedSteps=0;while(frFixedAccumulator>=FR_FIXED_STEP&&fixedSteps<FR_MAX_FIXED_STEPS){frFixedAccumulator-=FR_FIXED_STEP;frFixedUpdate(FR_FIXED_STEP,ts-frFixedAccumulator);fixedSteps++;}if(fixedSteps>0)frFixedRender();_rafId=requestAnimationFrame(loop);
+}`;
+  return source.slice(0,loopStart)+fixed+source.slice(loopEnd+loopEndMarker.length);
+ }
  window.FOOD_RESEARCH_APPLY_TIMING_PATCH=function(source){
   let out=source;
   out=swap(out,'last=ts;const dt=Math.min(Math.max(rawDt,0),16.7);','last=ts;const dt=Math.min(Math.max(rawDt,8.35),33.4);window.FR_FRAME_SCALE=Math.max(.5,Math.min(2,dt/(1000/60)));','delta');
@@ -20,6 +37,7 @@
   out=swap(out,'const t=texts[i];t.y+=t.vy*0.5;t.life-=.011;','const t=texts[i];t.y+=t.vy*0.5*window.FR_FRAME_SCALE;t.life-=.011*window.FR_FRAME_SCALE;','texts');
   out=swap(out,"function burst(x,y,color,n){for(let i=0;i<n;i++){const a=Math.random()*Math.PI*2,s=1+Math.random()*3.5;particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,r:2+Math.random()*3,color,life:1,decay:.03+Math.random()*.03});}}","function burst(x,y,color,n){const scale=FR_MOBILE_PERF?.68:1,count=Math.max(1,Math.ceil(n*scale));for(let i=0;i<count;i++){const a=Math.random()*Math.PI*2,s=1+Math.random()*3.5;particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1,r:2+Math.random()*3,color,life:1,decay:.03+Math.random()*.03});}}",'mobile particles');
   out=swap(out,"draw(){ctx.save();ctx.fillStyle=this.color;ctx.shadowBlur=8;ctx.shadowColor=this.color;ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);ctx.fill();ctx.restore();}","draw(){ctx.save();ctx.fillStyle=this.color;if(!FR_MOBILE_PERF){ctx.shadowBlur=8;ctx.shadowColor=this.color;}ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);ctx.fill();ctx.restore();}",'mobile bullet glow');
+  out=installFixedStep(out);
   return out;
  };
  window.FOOD_RESEARCH_TIMING_PATCH=String.raw`window.FR_FRAME_SCALE=1;window.FR_PERF_QUALITY=FR_MOBILE_PERF?'medium':'high';window.FR_EFFECT_SCALE=FR_MOBILE_PERF?.68:1;document.addEventListener('visibilitychange',function(){if(!document.hidden)window.FR_FRAME_SCALE=1;});`;
