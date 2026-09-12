@@ -707,15 +707,9 @@ class FrThunderChaserOrb{
     }
   }
   draw(){
-    const finalStage=Number(stage)>=22,pulse=.5+.5*Math.sin(this.age*.24+this.index*Math.PI),trail=Math.atan2(this.vy,this.vx),outer=finalStage?'#facc15':'#60a5fa',core=finalStage?'#ca8a04':'#1d4ed8';
-    ctx.save();ctx.translate(this.x,this.y);ctx.rotate(trail);
-    let grad=core;if(!FR_BOSS_FX_MOBILE){grad=ctx.createRadialGradient(0,0,3,0,0,this.r+12);grad.addColorStop(0,'rgba(255,255,255,.98)');grad.addColorStop(.24,'rgba(254,240,138,.98)');grad.addColorStop(.58,finalStage?'rgba(250,204,21,.82)':'rgba(59,130,246,.78)');grad.addColorStop(1,finalStage?'rgba(161,98,7,0)':'rgba(30,64,175,0)');}
-    ctx.globalAlpha=.28;ctx.fillStyle=outer;ctx.beginPath();ctx.ellipse(-18,0,30+pulse*8,12+pulse*3,0,0,Math.PI*2);ctx.fill();
-    ctx.globalAlpha=1;ctx.shadowBlur=FR_BOSS_FX_MOBILE?0:18+pulse*8;ctx.shadowColor=outer;ctx.fillStyle=core;ctx.beginPath();ctx.arc(0,0,this.r,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle=grad;ctx.beginPath();ctx.arc(0,0,this.r+10,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#bfdbfe';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,this.r+2+pulse*3,0,Math.PI*2);ctx.stroke();
-    ctx.shadowBlur=FR_BOSS_FX_MOBILE?0:8;ctx.strokeStyle='#ffffff';ctx.lineWidth=2.5;ctx.lineCap='round';
-    for(let i=0;i<(FR_BOSS_FX_MOBILE?2:4);i++){const a=this.age*.16+i*Math.PI/2;ctx.beginPath();ctx.moveTo(Math.cos(a)*5,Math.sin(a)*5);ctx.lineTo(Math.cos(a+.32)*(this.r*.58),Math.sin(a+.32)*(this.r*.58));ctx.lineTo(Math.cos(a-.18)*(this.r+7+pulse*4),Math.sin(a-.18)*(this.r+7+pulse*4));ctx.stroke();}
-    ctx.restore();
+    if(typeof frDrawHeartBullet==='function'){frDrawHeartBullet(this.x,this.y,this.r,1.45);return;}
+    ctx.save();ctx.translate(this.x,this.y);ctx.scale(1.45,1.45);ctx.fillStyle='#ef3340';ctx.strokeStyle='#050505';ctx.lineWidth=2.5;ctx.lineJoin='round';
+    ctx.beginPath();ctx.moveTo(0,this.r*.72);ctx.bezierCurveTo(-this.r*.2,this.r*.5,-this.r*.68,this.r*.18,-this.r*.68,-this.r*.28);ctx.bezierCurveTo(-this.r*.68,-this.r*.78,-this.r*.18,-this.r*.88,0,-this.r*.45);ctx.bezierCurveTo(this.r*.18,-this.r*.88,this.r*.68,-this.r*.78,this.r*.68,-this.r*.28);ctx.bezierCurveTo(this.r*.68,this.r*.18,this.r*.2,this.r*.5,0,this.r*.72);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
   }
 }
 function frThunderEnsureChaserOrbs(){
