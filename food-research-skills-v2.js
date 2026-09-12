@@ -65,7 +65,10 @@
  function frV2Burn(target,ms,dps){target._frV2BurnUntil=Math.max(target._frV2BurnUntil||0,frV2Now()+ms);target._frV2BurnDps=Math.max(target._frV2BurnDps||0,dps||5);}
  function frV2Poison(target,ms,dps){target._frV2PoisonUntil=Math.max(target._frV2PoisonUntil||0,frV2Now()+ms);target._frV2PoisonDps=Math.max(target._frV2PoisonDps||0,dps||4);target._frV2AttackDownUntil=target._frV2PoisonUntil;target._frV2AttackDownRate=frV2Boss(target)?.07:.15;}
  function frV2Reflect(b,color,mult){const lobster=frV2Has('lobster_general')?1.4:1,shot=new Bullet(b.x,b.y,-b.vx*1.25,-b.vy*1.25,Math.max(10,b.dmg||10)*(mult||1)*lobster,color||'#ffffff',(b.r||5)+1,true,false,false);shot.frV2Reflected=true;bullets.push(shot);}
- function frV2Field(kind,data){const field=Object.assign({kind:kind,start:frV2Now(),until:frV2Now()+1000,nextTick:0,hits:new Map()},data||{});frV2.fields.push(field);return field;}
+ const frV2Timers=[];let frV2TimerHandle=0;
+ function frV2PumpTimers(){frV2TimerHandle=0;const now=frV2Now();while(frV2Timers.length&&frV2Timers[0].at<=now){const task=frV2Timers.shift();try{task.fn();}catch(error){console.error('[FR skill timer]',error);}}if(frV2Timers.length)frV2TimerHandle=setTimeout(frV2PumpTimers,Math.max(0,frV2Timers[0].at-frV2Now()));}
+ function frV2Later(fn,delay){const cap=typeof FR_MOBILE_PERF!=='undefined'&&FR_MOBILE_PERF?64:128;if(frV2Timers.length>=cap)return 0;const task={at:frV2Now()+Math.max(0,delay||0),fn:fn};frV2Timers.push(task);frV2Timers.sort(function(a,b){return a.at-b.at;});if(frV2TimerHandle)clearTimeout(frV2TimerHandle);frV2TimerHandle=setTimeout(frV2PumpTimers,Math.max(0,frV2Timers[0].at-frV2Now()));return task;}
+ function frV2Field(kind,data){const field=Object.assign({kind:kind,start:frV2Now(),until:frV2Now()+1000,nextTick:0,hits:new Map()},data||{}),cap=typeof FR_MOBILE_PERF!=='undefined'&&FR_MOBILE_PERF?36:64;if(frV2.fields.length>=cap){const visualIndex=frV2.fields.findIndex(function(f){return /^(signature|frozenTarget|iceSlashSprite|popcornBlast|roar|peachRevive)$/.test(f.kind);});if(visualIndex>=0)frV2.fields.splice(visualIndex,1);}frV2.fields.push(field);return field;}
  function frV2Pickup(kind,x,y,until,data){frV2.pickups.push(Object.assign({kind:kind,x:x,y:y,until:until},data||{}));}
  function frV2Summon(kind,data){const summon=Object.assign({kind:kind,x:player.x,y:player.y,hp:1,maxHp:1,until:frV2Now()+1000,nextAttack:0},data||{});frV2.summons.push(summon);return summon;}
  function frV2Burst(x,y,color,count){burst(x,y,color,count||12);frRingFx(x,y,color,50,480,4);}
@@ -317,11 +320,11 @@
  useSkill1=function(){const cast=frV2Begin(1);if(!cast)return;const id=cast.id,c=cast.c,now=frV2Now();
   if(id==='normal'){frV2Heal(10);frV2Field('healPulse',{x:player.x,y:player.y,follow:true,until:now+720});}
   else if(id==='onion_guard'){frClearBullets(330);frV2Area(player.x,player.y,330,20,'skill',function(t){frV2Push(t,player.x,player.y,55);});frV2Field('shockwave',{x:player.x,y:player.y,r:330,until:now+720});}
-  else if(id==='popcorn'){for(let wave=0;wave<2;wave++)for(let i=0;i<5;i++)setTimeout(function(){if(gameRunning)frV2StartPopcornRain(i);},wave*1550);}
+  else if(id==='popcorn'){for(let wave=0;wave<2;wave++)for(let i=0;i<5;i++)frV2Later(function(){if(gameRunning)frV2StartPopcornRain(i);},wave*1550);}
   else if(id==='healing_mushroom'){for(let i=0;i<3;i++)frV2Pickup('mushroom',Math.max(30,Math.min(CW-30,player.x+(i-1)*70)),Math.max(80,player.y-70-Math.abs(i-1)*25),now+7000);}
   else if(id==='garlic_knight'){frCleanse();player.invTimer=Math.max(player.invTimer,72);frV2Aura('phase','#e9d5ff',1200,{r:72});}
   else if(id==='chili_sprite')frV2Field('chili',{x:CW/2,y:CH*.3,r:108,until:now+10000});
-  else if(id==='lotus_archer'){frV2.lotusPhaseUntil=now+2500;player.alpha=.42;frV2Aura('phase','#a7f3d0',2500,{r:68});setTimeout(function(){player.alpha=1;},2500);}
+  else if(id==='lotus_archer'){frV2.lotusPhaseUntil=now+2500;player.alpha=.42;frV2Aura('phase','#a7f3d0',2500,{r:68});frV2Later(function(){player.alpha=1;},2500);}
   else if(id==='potato_armor'){frV2Shield(35,(player.shieldHp||0)+35);frClearBullets(300);frV2Targets().forEach(function(t){if(frV2Distance(t,player)<=300+(t.r||18))t._frV2ParalyzedUntil=Math.max(t._frV2ParalyzedUntil||0,now+500);});frV2Field('starchGuard',{x:player.x,y:player.y,r:300,follow:true,until:now+1100});}
   else if(id==='lemon_battery')frV2Field('lemonCharge',{x:player.x,y:player.y,r:108,until:now+7000});
   else if(id==='cheese_mage'){frV2.cheeseBurnUntil=now+8000;frV2Aura('cheeseFire','#facc15',8000,{r:58});}
@@ -335,7 +338,7 @@
   else if(id==='lobster_general'){frV2.lobsterAbsorbUntil=now+2500;frV2.lobsterAbsorbed=0;frV2.lobsterShieldCap=(player.shieldHp||0)+80;frV2Aura('shell','#fb923c',2500,{r:92});}
   else if(id==='truffle_thunder'){const y=Math.max(90,player.y-150),half=Math.min(115,CW*.28);frV2Field('magneticLane',{x1:Math.max(28,player.x-half),y1:y,x2:Math.min(CW-28,player.x+half),y2:y,until:now+8000});}
   else if(id==='dragonfruit_emperor')frV2Field('dragonBreath',{x:player.x,y:player.y,follow:true,activate:now+180,until:now+4500});
-  else if(id==='peach_divine'){for(let i=0;i<12;i++)setTimeout(function(){if(!gameRunning)return;const b=new Bullet(player.x,player.y,0,-13,25*(window._curAtkMult||atkMult)*cast.skillMult,'#f9a8d4',10,true,false,false);b.frV2Qi=true;bullets.push(b);},i*500);}
+  else if(id==='peach_divine'){for(let i=0;i<12;i++)frV2Later(function(){if(!gameRunning)return;const b=new Bullet(player.x,player.y,0,-13,25*(window._curAtkMult||atkMult)*cast.skillMult,'#f9a8d4',10,true,false,false);b.frV2Qi=true;bullets.push(b);},i*500);}
   else if(id==='cocoa_popsicle_wargod'){const castId=now;[0,1000].forEach(function(d){setTimeout(function(){if(!gameRunning)return;frV2Field('iceSlashSprite',{x:player.x,y:player.y-18,side:d?1:-1,until:frV2Now()+900});frSoundFx('ice',1);frV2Targets().forEach(function(t){if(frV2InFront(t,CH,CW*.375)){frV2SkillDamage(t,20,'skill');if(t._frV2CocoaFreezeCast!==castId){const freezeMs=frV2Boss(t)?1000:2000,freezeNow=frV2Now();t._frV2CocoaFreezeCast=castId;t._frV2ParalyzedUntil=Math.max(t._frV2ParalyzedUntil||0,freezeNow+freezeMs);frV2Field('frozenTarget',{target:t,until:freezeNow+freezeMs});frV2Burst(t.x,t.y,'#bae6fd',14);addText('結冰',t.x,t.y-(t.r||22)-16,'#e0f2fe',12,-.35);}frV2Slow(t,frV2Boss(t)?1000:2000,.05);}});},d);});}
   updateHUD();
  };
@@ -343,18 +346,18 @@
  useSkill2=function(){const cast=frV2Begin(2);if(!cast)return;const id=cast.id,now=frV2Now();
   if(id==='normal'){frV2.normalBuffUntil=now+6000;normalFrenzyTimer=0;frV2Aura('frenzy','#fb7185',6000,{r:66});}
   else if(id==='onion_guard')frV2Field('onion',{layers:3,layerHp:[40,40,40],layerMax:40,until:now+8000});
-  else if(id==='popcorn'){for(let i=0;i<20;i++)setTimeout(function(){if(!gameRunning)return;const t=frV2Nearest(player.x,player.y),a=t?Math.atan2(t.y-player.y,t.x-player.x):-Math.PI/2,b=new Bullet(player.x,player.y,Math.cos(a)*7,Math.sin(a)*7,12*(window._curAtkMult||atkMult)*cast.skillMult,'#fde68a',9,true,true,false);b.frV2Pop=true;bullets.push(b);},i*500);}
+  else if(id==='popcorn'){for(let i=0;i<20;i++)frV2Later(function(){if(!gameRunning)return;const t=frV2Nearest(player.x,player.y),a=t?Math.atan2(t.y-player.y,t.x-player.x):-Math.PI/2,b=new Bullet(player.x,player.y,Math.cos(a)*7,Math.sin(a)*7,12*(window._curAtkMult||atkMult)*cast.skillMult,'#fde68a',9,true,true,false);b.frV2Pop=true;bullets.push(b);},i*500);}
   else if(id==='healing_mushroom'){frV2Heal(35);frV2Shield(45,90);frV2Area(player.x,player.y,165,30,'skill');frV2Field('mushroomForest',{x:player.x,y:player.y,r:165,until:now+1800});}
   else if(id==='garlic_knight')frV2Field('garlic',{until:now+4000});
   else if(id==='chili_sprite')frV2Field('tornado',{x:player.x,y:player.y-80,until:now+10000});
-  else if(id==='lotus_archer'){for(let i=0;i<20;i++)setTimeout(function(){if(!gameRunning)return;const b=new Bullet(25+Math.random()*(CW-50),CH-15,0,-14,20*(window._curAtkMult||atkMult)*cast.skillMult,'#a7f3d0',9,true,false,false);b.frV2Arrow=true;bullets.push(b);},i*500);}
+  else if(id==='lotus_archer'){for(let i=0;i<20;i++)frV2Later(function(){if(!gameRunning)return;const b=new Bullet(25+Math.random()*(CW-50),CH-15,0,-14,20*(window._curAtkMult||atkMult)*cast.skillMult,'#a7f3d0',9,true,false,false);b.frV2Arrow=true;bullets.push(b);},i*500);}
   else if(id==='potato_armor')frV2Summon('clone',{formId:id,side:player.x<CW/2?1:-1,hp:player.maxHp*.75,maxHp:player.maxHp*.75,damage:currentForm.bulletDmg*.5,skillMult:cast.skillMult,fireInterval:400,until:now+10000,start:now});
   else if(id==='lemon_battery')frV2StartBeam(player.x,'#fde047',12,CW*.25,1600,{bossPercentPerTick:.0075});
   else if(id==='cheese_mage')frV2Field('cheese',{x:CW/2,y:CH*.38,hp:400,maxHp:400,until:now+8000});
   else if(id==='honey_priest'){frV2Field('honey',{x:player.x,y:player.y-45,r:156,until:now+8000});for(let i=0;i<5;i++){const angle=-Math.PI/2+i*Math.PI*2/5;frV2Summon('bee',{x:player.x+Math.cos(angle)*54,y:player.y+Math.sin(angle)*38,hp:35,maxHp:35,damage:16,skillMult:cast.skillMult,until:now+12000,start:now,formationIndex:i,formationCount:5});}}
   else if(id==='coffee_pilot'){eBullets.length=0;frSlowAll(4000,.12);frV2.coffeeBuffUntil=now+4000;frV2Aura('coffee','#fef3c7',4000,{r:105});frV2Field('timeWarp',{x:CW/2,y:CH/2,until:now+4000});}
   else if(id==='octopus_samurai')frV2Field('tentacle',{blades:8,bladeHp:Array(8).fill(50),r:246,skillMult:cast.skillMult,nextTick:now+180,until:now+10000});
-  else if(id==='salmon_ronin')for(let i=0;i<12;i++)setTimeout(function(){if(gameRunning)frV2SalmonFlash(i);},i*500);
+  else if(id==='salmon_ronin')for(let i=0;i<12;i++)frV2Later(function(){if(gameRunning)frV2SalmonFlash(i);},i*500);
   else if(id==='beef_berserker'){frV2.beefGiantUntil=now+10000;frV2.beefLeechTotal=0;frV2.beefLeechReadyAt=0;frV2Aura('giant','#ef4444',10000,{r:150});}
   else if(id==='puffer_alchemist')frV2Field('thorn',{x:player.x,w:CW/3,bottom:player.y,until:now+10000});
   else if(id==='black_garlic_void'){for(let i=0;i<2;i++)frV2Summon('ghost',{x:player.x+(i?35:-35),y:player.y-25,hp:70,maxHp:70,damage:30,skillMult:cast.skillMult,until:now+10000,start:now});}
@@ -371,7 +374,7 @@
  const frV2BasePlayerDied=playerDied;
  playerDied=function(){const id=currentForm&&currentForm.id,now=frV2Now();if(frV2Has('peach_divine')&&!frV2.peachRevived){frV2.peachRevived=true;window.frPeachRevived=true;player.hp=Math.max(1,Math.round(player.maxHp*.3));if(charSlots[activeChar]){charSlots[activeChar].hp=player.hp;charSlots[activeChar].alive=true;}player.invTimer=120;frV2Field('peachRevive',{x:player.x,y:player.y-10,until:now+2200});frV2Burst(player.x,player.y,'#f9a8d4',36);frRingFx(player.x,player.y,'#ffffff',120,1200,8);frMoteFx(player.x,player.y,30,'#fbcfe8','heal',105,3.2,1700);frFlashFx('#fdf2f8',520,.32);frShakeFx(7,420);frSoundFx('heal',1.15);frV2SignatureCue('peach_divine',2,'#f9a8d4');addText('仙桃庇佑・重返戰場',player.x,player.y-48,'#fce7f3',18,-.35);updateHUD();return;}const r=frV2BasePlayerDied.apply(this,arguments),ch=charSlots[activeChar];if(ch&&ch.alive){sk1Cd=Math.max(0,(ch._frV2Cd1End||0)-frV2Now());sk2Cd=Math.max(0,(ch._frV2Cd2End||0)-frV2Now());}return r;};
  const frV2BaseBuildStage=buildStage;
- buildStage=function(){const r=frV2BaseBuildStage.apply(this,arguments);frV2.fields=[];frV2.summons=[];frV2.pickups=[];frV2.orbs=[];frV2.peachRevived=false;frV2.lastDamageAt=frV2Now();frV2.lastPassive={};frV2SuppressLegacy(frV2Now());return r;};
+ buildStage=function(){if(frV2TimerHandle)clearTimeout(frV2TimerHandle);frV2TimerHandle=0;frV2Timers.length=0;const r=frV2BaseBuildStage.apply(this,arguments);frV2.fields=[];frV2.summons=[];frV2.pickups=[];frV2.orbs=[];frV2.peachRevived=false;frV2.lastDamageAt=frV2Now();frV2.lastPassive={};frV2SuppressLegacy(frV2Now());return r;};
  const frV2BaseInitCharSlots=initCharSlots;
  initCharSlots=function(){
   const r=frV2BaseInitCharSlots.apply(this,arguments),normalCount=charSlots.filter(function(ch){return ch&&ch.formId==='normal';}).length,bonus=normalCount*10;
