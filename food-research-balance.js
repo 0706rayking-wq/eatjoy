@@ -97,16 +97,16 @@ const FR_BALANCE=${JSON.stringify(balance)};
 const FR_MOBILE_PERF=(window.matchMedia&&window.matchMedia('(pointer: coarse)').matches)||Math.min(window.innerWidth||9999,window.innerHeight||9999)<=520;
 const FR_PERF={enemyBulletCap:FR_MOBILE_PERF?90:110,particleCap:FR_MOBILE_PERF?90:120,textCap:FR_MOBILE_PERF?20:25};
 const FR_POISON_DURATION_MS=FR_BALANCE.combat.poisonDurationMs;
-let frHeartBulletCanvas=null;
-function frGetHeartBulletCanvas(){
- if(frHeartBulletCanvas)return frHeartBulletCanvas;
- const canvas=document.createElement('canvas');canvas.width=32;canvas.height=32;
- const paint=canvas.getContext('2d');paint.translate(16,15);paint.fillStyle='#ef3340';paint.strokeStyle='#050505';paint.lineWidth=3;paint.lineJoin='round';
- paint.beginPath();paint.moveTo(0,14);paint.bezierCurveTo(-3,10,-13,3,-13,-5);paint.bezierCurveTo(-13,-13,-3,-15,0,-8);paint.bezierCurveTo(3,-15,13,-13,13,-5);paint.bezierCurveTo(13,3,3,10,0,14);paint.closePath();paint.fill();paint.stroke();
- frHeartBulletCanvas=canvas;return canvas;
+let frEnemyBulletCanvas=null;
+function frGetEnemyBulletCanvas(){
+ if(frEnemyBulletCanvas)return frEnemyBulletCanvas;
+ const canvas=document.createElement('canvas');canvas.width=24;canvas.height=24;
+ const paint=canvas.getContext('2d');paint.fillStyle='#050505';paint.beginPath();paint.arc(12,12,11,0,Math.PI*2);paint.fill();
+ paint.fillStyle='#ef3340';paint.beginPath();paint.arc(12,12,7,0,Math.PI*2);paint.fill();
+ frEnemyBulletCanvas=canvas;return canvas;
 }
-function frDrawHeartBullet(x,y,r,scale){
- const sprite=frGetHeartBulletCanvas(),size=Math.max(8,(Number(r)||5)*2.4)*(scale||1);
+function frDrawEnemyNormalBullet(x,y,r){
+ const sprite=frGetEnemyBulletCanvas(),size=Math.max(8,(Number(r)||5)*2.4);
  ctx.drawImage(sprite,x-size*.5,y-size*.5,size,size);
 }
 function frScaleEnemyNormalBullet(b){
@@ -183,7 +183,7 @@ function frRivalCoinReward(stage){return FR_BALANCE.economy.rivalBase+Math.max(1
       .replace('if(texts.length>25)texts.length=25;', 'if(texts.length>FR_PERF.textCap)texts.splice(0,texts.length-FR_PERF.textCap);')
       .replace('if(!bossSpawned)tickSpawner();tickRivalFight();', "if(!bossSpawned)tickSpawner();if(eBullets.some(function(b){return !b||typeof b.update!=='function';}))eBullets=eBullets.filter(function(b){return b&&typeof b.update==='function';});tickRivalFight();")
       .replace(/for\(let i=eBullets\.length-1;i>=0;i--\)\{const b=eBullets\[i\];b\.update\(\);/, "for(let i=eBullets.length-1;i>=0;i--){const b=eBullets[i];if(!b||typeof b.update!=='function'){eBullets.splice(i,1);continue;}frScaleEnemyNormalBullet(b);b.update();")
-      .replaceAll('bullets.forEach(b=>b.draw());eBullets.forEach(b=>b.draw());', "bullets.forEach(b=>b.draw());eBullets.forEach(function(b){if(!b||typeof b.draw!=='function')return;const normal=!!b._frNormalSizeScaled,dawn=currentBgIdx===8,oldColor=b.color;if(normal){frDrawHeartBullet(b.x,b.y,b.r);return;}if(dawn)b.color='#00e5ff';b.draw();if(FR_MOBILE_PERF){b.color=oldColor;return;}ctx.save();ctx.strokeStyle='#020617';ctx.lineWidth=3;ctx.globalAlpha=.96;ctx.beginPath();ctx.arc(b.x,b.y,(b.r||5)+2,0,Math.PI*2);ctx.stroke();if(dawn){ctx.fillStyle='#ecfeff';ctx.beginPath();ctx.arc(b.x,b.y,Math.max(2,(b.r||5)*.38),0,Math.PI*2);ctx.fill();}ctx.restore();b.color=oldColor;});")
+      .replaceAll('bullets.forEach(b=>b.draw());eBullets.forEach(b=>b.draw());', "bullets.forEach(b=>b.draw());eBullets.forEach(function(b){if(!b||typeof b.draw!=='function')return;const normal=!!b._frNormalSizeScaled,dawn=currentBgIdx===8,oldColor=b.color;if(normal){frDrawEnemyNormalBullet(b.x,b.y,b.r);return;}if(dawn)b.color='#00e5ff';b.draw();if(FR_MOBILE_PERF){b.color=oldColor;return;}ctx.save();ctx.strokeStyle='#020617';ctx.lineWidth=3;ctx.globalAlpha=.96;ctx.beginPath();ctx.arc(b.x,b.y,(b.r||5)+2,0,Math.PI*2);ctx.stroke();if(dawn){ctx.fillStyle='#ecfeff';ctx.beginPath();ctx.arc(b.x,b.y,Math.max(2,(b.r||5)*.38),0,Math.PI*2);ctx.fill();}ctx.restore();b.color=oldColor;});")
       .replace('if(eBullets.length>FR_PERF.enemyBulletCap)eBullets.length=FR_PERF.enemyBulletCap;', 'if(eBullets.length>FR_PERF.enemyBulletCap)eBullets.splice(0,eBullets.length-FR_PERF.enemyBulletCap);')
       .replace("function reportKill(){window.parent.postMessage({type:'FR_QUEST_KILL'},'*');}", "let frPendingQuestKills=0,frQuestKillTimer=0;function frFlushQuestKills(sync){if(frQuestKillTimer){clearTimeout(frQuestKillTimer);frQuestKillTimer=0;}if(!frPendingQuestKills&&!sync)return;const count=frPendingQuestKills;frPendingQuestKills=0;window.parent.postMessage({type:'FR_QUEST_KILL',count:count,flush:!!sync},'*');}function reportKill(){if(window.frSuppressSummonedKillReward)return;frPendingQuestKills++;if(frPendingQuestKills>=10)frFlushQuestKills(false);else if(!frQuestKillTimer)frQuestKillTimer=setTimeout(function(){frFlushQuestKills(false);},2500);}")
       .replace("function reportBossKill(){window.parent.postMessage({type:'FR_BOSS_KILLED',gold},'*');}", "function reportBossKill(){frFlushQuestKills(true);window.parent.postMessage({type:'FR_BOSS_KILLED',gold},'*');}")
