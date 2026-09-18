@@ -1,5 +1,8 @@
 {
   "functions": {
+    "api/hr-attendance-archive.js": {
+      "maxDuration": 60
+    },
     "api/hr-attendance-compare.js": {
       "maxDuration": 300
     },

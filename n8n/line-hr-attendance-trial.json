@@ -223,6 +223,110 @@
           "name": "Header Auth account"
         }
       }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://eatjoy-git-agent-line-hr-webhook-relay-0706rayking-wqs-projects.vercel.app/api/hr-attendance-archive",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { messageId: $('僅處理下班條照片').first().json.event.message.id, schedule: $('整理辨識結果').first().json } }}",
+        "options": {
+          "timeout": 55000
+        }
+      },
+      "id": "attendance-photo-archive",
+      "name": "保存下班條照片",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        900,
+        -220
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3MgQHeI5cuvePCWR",
+          "name": "Header Auth account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "attendance-restore-schedule",
+      "name": "恢復下班條資料",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        -220
+      ],
+      "parameters": {
+        "jsCode": "return [{json: $('整理辨識結果').first().json}];"
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/push",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { to: $('僅處理下班條照片').first().json.event.source.groupId, messages: [{ type: 'text', text: $('保存下班條照片').first().json.lineText || '下班條照片存檔失敗，已嘗試三次，請稍後重新傳送照片。' }] } }}",
+        "options": {}
+      },
+      "id": "attendance-album-reply",
+      "name": "回傳LINE相簿連結",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "onError": "continueRegularOutput",
+      "position": [
+        1584,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eqZPgNeJ2WPXRyVW",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://eatjoy-git-agent-line-hr-webhook-relay-0706rayking-wqs-projects.vercel.app/api/hr-attendance-archive",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { action: 'comparison_result', messageId: $('僅處理下班條照片').first().json.event.message.id, result: { status: $json.status, normalCount: $json.normalCount, lineMessages: $json.lineMessages || [] } } }}",
+        "options": {
+          "timeout": 55000
+        }
+      },
+      "id": "attendance-index-result",
+      "name": "存檔索引寫入比對結果",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1344,
+        -400
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3MgQHeI5cuvePCWR",
+          "name": "Header Auth account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
     }
   ],
   "pinData": {},
@@ -275,7 +379,7 @@
       "main": [
         [
           {
-            "node": "NUEIP每日出勤比對",
+            "node": "保存下班條照片",
             "type": "main",
             "index": 0
           }
@@ -292,6 +396,11 @@
           },
           {
             "node": "準備相符人員班表",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "存檔索引寫入比對結果",
             "type": "main",
             "index": 0
           }
@@ -314,6 +423,39 @@
         [
           {
             "node": "逐一處理正常人員班表",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "保存下班條照片": {
+      "main": [
+        [
+          {
+            "node": "恢復下班條資料",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "恢復下班條資料": {
+      "main": [
+        [
+          {
+            "node": "NUEIP每日出勤比對",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "回傳LINE人事群": {
+      "main": [
+        [
+          {
+            "node": "回傳LINE相簿連結",
             "type": "main",
             "index": 0
           }

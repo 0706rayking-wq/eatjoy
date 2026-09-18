@@ -195,5 +195,6 @@ workflow.connections['準備相符人員班表'] = {
 };
 delete workflow.connections['寫入正常人員NUEIP說明'];
 delete workflow.connections['寫入當日部門全部打卡說明'];
+require('./add-attendance-archive').addArchive(workflow);
 fs.writeFileSync(workflowPath, `${JSON.stringify(workflow, null, 2)}\n`, 'utf8');
 console.log(workflowPath);

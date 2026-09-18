@@ -25,10 +25,11 @@ assert.match(scheduleCommitNode.parameters.jsonBody, /sync_schedule/);
 assert.match(scheduleCommitNode.parameters.jsonBody, /JSON\.stringify/);
 assert.match(scheduleCommitNode.parameters.jsonBody, /mode: 'commit'/);
 assert.match(scheduleCommitNode.parameters.jsonBody, /normalRecords: \$json\.normalRecords/);
-assert.equal(workflow.connections['整理辨識結果'].main[0][0].node, 'NUEIP每日出勤比對');
+assert.equal(workflow.connections['整理辨識結果'].main[0][0].node, '保存下班條照片');
+assert.equal(workflow.connections['恢復下班條資料'].main[0][0].node, 'NUEIP每日出勤比對');
 assert.deepEqual(
   workflow.connections['NUEIP每日出勤比對'].main[0].map((connection) => connection.node),
-  ['回傳LINE人事群', '準備相符人員班表']
+  ['回傳LINE人事群', '準備相符人員班表', '存檔索引寫入比對結果']
 );
 assert.equal(workflow.connections['準備相符人員班表'].main[0][0].node, '逐一處理正常人員班表');
 assert.equal(workflow.connections['逐一處理正常人員班表'].main[0][0].node, '寫入正常人員NUEIP班表');
