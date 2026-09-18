@@ -61,7 +61,7 @@ assert.equal(context.archivePhoto(input,props).status,'expired');
 assert.equal(downloads,1,'expired delivery must not restore photos');
 assert.equal(lockDepth,0);
 
-const handler=require('../api/hr-attendance-archive');
+const handler=require('../lib/hr-attendance-archive');
 async function request(body, token) {
   const res={status(code){this.code=code;return this;},json(value){this.value=value;return this;}};
   await handler({method:'POST',headers:{authorization:'Bearer '+token},body},res);return res;

@@ -1183,6 +1183,9 @@ function includeExplanationSyncFailures(comparison, explanationSync) {
 }
 
 async function handler(request, response) {
+  if (['archive_photo', 'archive_result'].includes(request.body?.action)) {
+    return require('../lib/hr-attendance-archive')(request, response);
+  }
   if (['sync_explanations', 'preview_schedule', 'sync_schedule'].includes(request.body?.action)) {
     return explanationSyncHandler(request, response);
   }

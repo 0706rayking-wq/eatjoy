@@ -26,7 +26,7 @@
 3. 執行 setupArchive，完成 Google 授權。此函式建立公開唯讀照片資料夾、私人索引及每日到期清理觸發器；ROOT_ID、INDEX_ID 與隨機 ARCHIVE_SECRET 自動保存。執行記錄會顯示容量資訊，但不輸出密鑰。
 4. 部署為網頁應用程式：執行身分為擁有者，允許任何人呼叫。程式另以 ARCHIVE_SECRET 驗證所有上傳請求。記下 /exec URL。
 5. 在既有 Vercel 專案新增 ATTENDANCE_ARCHIVE_URL 及 ATTENDANCE_ARCHIVE_SECRET，後者與 Script Properties 相同。既有 HR_AUTOMATION_SECRET（或 N8N_RELAY_SECRET）繼續作為 n8n → Vercel 驗證。
-6. 部署 api/hr-attendance-archive.js 與 vercel.json。
+6. 部署 api/hr-attendance-compare.js 與 lib/hr-attendance-archive.js。沿用既有 API 的 archive_photo / archive_result action，避免超過 Vercel Hobby 的 12 個函式上限。
 7. 先備份線上 n8n 工作流程。比對本機與線上版本後套用 n8n/add-attendance-archive.js 的變更，不要盲目覆蓋線上較新流程。HTTP 存檔節點沿用出勤比對節點的 Header Auth credential。
 8. 傳送一張測試照片，確認目標部門、索引、LINE 三種連結及免登入瀏覽／下載。重跑同一訊息測防重複；刻意設錯存檔端點驗證出勤比對照常執行。
 9. 在獨立測試資料夾確認三個月到期邊界與垃圾桶恢復。確認 Google Drive 可用容量，再啟用正式流程。
