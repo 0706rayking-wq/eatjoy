@@ -162,3 +162,20 @@ function recordComparison(input, p) {
     return {status: 'recorded', count};
   } finally { lock.releaseLock(); }
 }
+
+function verifyArchive() {
+  const p = PropertiesService.getScriptProperties();
+  const root = DriveApp.getFolderById(p.getProperty('ROOT_ID'));
+  const token = p.getProperty('LINE_CHANNEL_ACCESS_TOKEN');
+  if (!token) throw new Error('LINE token is missing');
+  const response = UrlFetchApp.fetch('https://api.line.me/v2/bot/info', {
+    headers: {Authorization: 'Bearer ' + token}, muteHttpExceptions: true
+  });
+  if (response.getResponseCode() !== 200) throw new Error('LINE token validation failed: ' + response.getResponseCode());
+  const report = {lineTokenValid: true,
+    publicReader: root.getSharingAccess() === DriveApp.Access.ANYONE_WITH_LINK && root.getSharingPermission() === DriveApp.Permission.VIEW,
+    cleanupTriggers: ScriptApp.getProjectTriggers().filter(t => t.getHandlerFunction() === 'cleanupExpired').length,
+    indexColumns: SpreadsheetApp.openById(p.getProperty('INDEX_ID')).getSheets()[0].getLastColumn()};
+  console.log(JSON.stringify(report));
+  return report;
+}

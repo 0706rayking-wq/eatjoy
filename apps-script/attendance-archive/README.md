@@ -1,12 +1,36 @@
-# 下班條照片存檔（尚未部署）
+# 下班條照片存檔（已啟用）
 
-本機程式與 n8n 工作流程已修改；Apps Script 雲端專案已建立並儲存程式。Google 授權、Apps Script 部署、Vercel 環境設定、線上 n8n 更新及真實照片驗收尚未完成。
+2026-09-19：Apps Script 已部署、Vercel 已配置，n8n 正式流程已發布「下班條照片三個月存檔」。新收到且辨識通過的照片自動存檔；未回補舊照片。真實照片上傳及 LINE 相簿訊息的完整驗收，仍待下一張照片事件。
+
+相簿：https://drive.google.com/drive/folders/1ELVVdHhUTJz9tg_yG6mlLM1IzevkkQe1
+
+私人索引：https://docs.google.com/spreadsheets/d/1jUreke1BMF85fpLs1bYdMqViuxq_7a88w41ilgbwW0Y/edit
+
+Apps Script 部署：https://script.google.com/macros/s/AKfycbxs5WXdS1jXmXnCna3wxxMPHCD9lOsnpCLwWWALxzwiLRv2UNpthDL-5efknoZD5eQA/exec
 
 雲端專案：https://script.google.com/home/projects/1dgUhM1tx031Px8aLzzV6EkntpyDhAa-lvHtFz3_ZFLfojbK83S-wCTxr/edit
 
 既有 n8n 正式流程：https://rayking0706.app.n8n.cloud/workflow/71jv8TYYNxIPFFHN
 
-2026-09-18 已確認登入 n8n，現有凭證僅 Header Auth account、Header Auth account 2、Google Gemini(PaLM) Api account。未讀取或變更現有密鑰，未改動線上正式流程。
+沿用 n8n 既有 Header Auth；使用者完成 Google 授權並填入 LINE token，已儲存且 LINE bot/info 驗證成功。ARCHIVE_SECRET 由腳本初始化產生，只存於 Script Properties 與人事分支的 Vercel Secret 環境變數。
+
+## 已完成驗證
+
+- 相簿權限：anyone / reader / allowFileDiscovery=false；匿名 HTTP 取得相簿頁面成功。
+- 索引只有 owner 權限，不公開。
+- verifyArchive 結果：lineTokenValid=true、publicReader=true、cleanupTriggers=1、indexColumns=11。
+- 獨立 n8n 測試經既有 Header Auth 呼叫 Vercel，再呼叫 Apps Script，正確取得 expired 結果；未傳 LINE、未執行 NUEIP。測試流程已封存。
+- 全部既有測試與新增存檔測試通過。
+- 線上排班節點與本機範本有既存差異；實際部署以線上匯出備份為基礎，逐項驗證原有節點參數和排班接線保持一致。正式流程目前共 14 節點。
+
+線上備份及實際匯入檔保存在本機（gitignored）：
+
+- `D:/OneDrive/Documents/ChatGPT/行政工作/eatjoy-repair/local/runtime/attendance-archive/before.json`
+- `D:/OneDrive/Documents/ChatGPT/行政工作/eatjoy-repair/local/runtime/attendance-archive/ready.json`
+
+後續修改應先重新匯出線上流程，不要使用本機範本覆蓋既有排班設定。
+
+Google 初始化回報 storageLimitBytes=5497558138880，storageUsedBytes=9014153987（Drive 檔案用量；非 Gmail/Photos 總用量）。
 
 ## 行為
 

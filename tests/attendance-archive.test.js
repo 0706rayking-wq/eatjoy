@@ -62,6 +62,10 @@ assert.equal(downloads,1,'expired delivery must not restore photos');
 assert.equal(lockDepth,0);
 
 const handler=require('../lib/hr-attendance-archive');
+assert.equal(handler.normalizeArchiveDate('9/18',new Date('2026-09-18T12:00:00Z')),'2026-09-18');
+assert.equal(handler.normalizeArchiveDate('115/9/18'),'2026-09-18');
+assert.equal(handler.normalizeArchiveDate('2026/9/18'),'2026-09-18');
+assert.throws(()=>handler.normalizeArchiveDate('2026-02-30'));
 async function request(body, token) {
   const res={status(code){this.code=code;return this;},json(value){this.value=value;return this;}};
   await handler({method:'POST',headers:{authorization:'Bearer '+token},body},res);return res;
