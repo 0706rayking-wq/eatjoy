@@ -51,7 +51,7 @@ Extraction rules when and only when is_attendance_sheet=true:
    - Otherwise set sheet_type=內場 for the unnumbered header.
    - A small sticker reading 行政 or 洗滌 is a section marker, not an employee name. It applies to the employee rows after it until the next section sticker. Set each employee.department to that section.
    - Record every visible section label in departments. If a row's section truly cannot be determined, use null and add a warning.
-3. Preserve printed Chinese names exactly. Never substitute a similar-looking character. In particular, distinguish 羿 from 翠 and 蕙 from 慧. If a name cannot be read confidently, use null and explain its row/location.
+3. Preserve printed Chinese names exactly. Never substitute a similar-looking character or convert a personal name between simplified and traditional forms. In particular, distinguish 羿 from 翠 and 蕙 from 慧. The printed employee name「棋云」is intentional and must remain exactly「棋云」; never change it to「棋雲」. If a name cannot be read confidently, use null and explain its row/location.
 4. Red handwritten annotations have fixed meanings and are not uncertainty by themselves:
    - 紅筆「遲」means the employee was late. Set late_marked=true, preserve every readable shift time, and do NOT set needs_review merely because of this annotation.
    - 紅筆「改休」means the employee changed to a day off. Set changed_to_off=true, shifts=[], off_or_unclear=true, and do NOT set needs_review merely because of this annotation.
@@ -126,6 +126,8 @@ schedule.sheet_type = titleHasAdminDepartment || titleHasWashDepartment || hasAd
     ? schedule.sheet_type
     : (headers.some((header) => /[123]$/.test(header)) ? '外場／洗滌' : '內場'));
 schedule.employees = schedule.employees.map((employee) => {
+  const recognizedName = String(employee?.name || '').trim();
+  const normalizedName = recognizedName === '棋雲' ? '棋云' : (employee?.name ?? null);
   const reviewReason = String(employee?.review_reason || '').trim();
   const shifts = Array.isArray(employee?.shifts) ? employee.shifts.slice(0, 3) : [];
   const hasCompleteShift = shifts.length > 0 && shifts.every((shift) => shift?.start && shift?.end);
@@ -135,6 +137,7 @@ schedule.employees = schedule.employees.map((employee) => {
   const annotationOnlyReview = !hasGenuineUncertainty && (lateMarked || changedToOff);
   return {
     ...employee,
+    name: normalizedName,
     department: employee?.department
       || (hasFrontDepartment ? '外場' : null)
       || (hasAdminDepartment && !hasWashDepartment ? '行政' : null)

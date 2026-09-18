@@ -710,7 +710,10 @@ function normalizeName(value) {
     .replace(/[^\p{Script=Han}A-Za-z0-9]/gu, '')
     .replace(/瀞/g, '靜')
     .replace(/濛/g, '濠')
-    .replace(/淩/g, '凌');
+    .replace(/淩/g, '凌')
+    // 「棋云」是正式姓名用字；OCR 偶爾會擅自轉成繁體「棋雲」。
+    // 僅校正這個完整姓名，避免全域替換云／雲而誤傷其他人名。
+    .replace(/^棋雲$/, '棋云');
 }
 
 function isSilentLineName(value, silentNames) {

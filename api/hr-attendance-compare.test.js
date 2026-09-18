@@ -314,6 +314,21 @@ const aliasSilentMessage = formatLineMessages(
 assert.equal(aliasSilentMessage.includes('王瀞妍'), false);
 assert.equal(aliasSilentMessage.includes('下班正常：0人'), true);
 
+const qiYunNameComparison = compareAttendance({
+  employees: [{ name: '棋雲', shifts: [{ start: '09:30', end: '14:45' }, { start: '16:45', end: '22:30' }] }]
+}, [{
+  employeeNumber: 'F005',
+  name: '棋云',
+  department: '南港三井Lalaport外場',
+  date: '2026-09-18',
+  schedule: '出勤日',
+  status: '',
+  clockIns: ['09:25', '16:40'],
+  clockOuts: ['14:50', '22:35']
+}], []);
+assert.equal(qiYunNameComparison.issues.length, 0);
+assert.equal(qiYunNameComparison.normalRecords[0].name, '棋云');
+
 const emptyScheduleOffComparison = compareAttendance({
   employees: [{ name: '余嘉浩', shifts: [], off_or_unclear: true }]
 }, [{

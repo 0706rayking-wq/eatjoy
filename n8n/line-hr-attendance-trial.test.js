@@ -39,6 +39,8 @@ assert.match(recognitionNode.parameters.text, /上班, 下班, 上班, 下班/);
 assert.match(recognitionNode.parameters.text, /上班1, 下班1, 上班2, 下班2/);
 assert.match(recognitionNode.parameters.text, /上班3, 下班3/);
 assert.match(recognitionNode.parameters.text, /ONLY when one visible printed table header row/);
+assert.match(recognitionNode.parameters.text, /棋云/);
+assert.match(recognitionNode.parameters.text, /never change it to「棋雲」/);
 
 const normalize = new Function('$json', normalizeNode.parameters.jsCode);
 const baseSchedule = {
@@ -57,6 +59,16 @@ const accepted = normalize({
 });
 assert.equal(accepted.length, 1);
 assert.equal(accepted[0].json.date, '2026-08-10');
+
+const acceptedQiYunAlias = normalize({
+  text: JSON.stringify({
+    ...baseSchedule,
+    is_attendance_sheet: true,
+    header_sequence: ['上班', '下班', '上班', '下班'],
+    employees: [{ name: '棋雲', shifts: [{ start: '09:30', end: '14:45' }] }]
+  })
+});
+assert.equal(acceptedQiYunAlias[0].json.employees[0].name, '棋云');
 
 const acceptedFrontWash = normalize({
   text: JSON.stringify({
