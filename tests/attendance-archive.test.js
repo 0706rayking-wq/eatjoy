@@ -45,6 +45,9 @@ context.UrlFetchApp={fetch:()=>{downloads++;return {getResponseCode:()=>200,getB
 const input={messageId:'12345678901234567890',schedule:{is_attendance_sheet:true,date:'2026-09-18',sheet_title:'行政／洗滌 下班條'}};
 const first=context.archivePhoto(input,props);
 assert.equal(first.links.length,1);
+assert.equal(first.lineText, '照片：' + first.links[0].photoUrl);
+assert.equal(first.lineText.includes('當月相簿'), false);
+assert.equal(first.lineText.includes('drive/folders'), false);
 assert.equal(rows.length,2);
 assert.equal(downloads,1);
 assert.equal(context.recordComparison({messageId:input.messageId,result:{normalCount:4}},props).count,1);

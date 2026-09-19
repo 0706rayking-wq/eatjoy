@@ -232,7 +232,7 @@ function archivePhoto(input, p) {
       links.push({department, folderUrl: target.getUrl(), photoUrl: file.getUrl()});
     }
     return {status: 'saved', monthUrl: month.getUrl(), links, expires,
-      lineText: ['下班條存檔（保留三個月）', '當月相簿：' + month.getUrl(), ...links.flatMap(l => [l.department + '：' + l.folderUrl, '照片：' + l.photoUrl])].join('\n')};
+      lineText: links.map(link => '照片：' + link.photoUrl).join('\n')};
   } finally { lock.releaseLock(); }
 }
 
