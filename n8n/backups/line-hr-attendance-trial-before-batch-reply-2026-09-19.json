@@ -1,0 +1,450 @@
+{
+  "name": "LINE人事－下班條全流程試跑",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "line-hr-relay-draft",
+        "authentication": "headerAuth",
+        "options": {}
+      },
+      "id": "5e6315fe-4505-4424-b20d-b7140a5ad5be",
+      "name": "LINE人事事件入口",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        6688,
+        624
+      ],
+      "webhookId": "53ab7f9f-0870-4c55-bf72-195fa0dcf551",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3MgQHeI5cuvePCWR",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const events = Array.isArray($json.body?.events) ? $json.body.events : [];\nconst event = events.find((item) => item?.type === 'message' && item?.message?.type === 'image');\nif (!event) return [];\nreturn [{ json: { event, receivedAt: $json.body?.receivedAt || null } }];"
+      },
+      "id": "b69cd558-9ed4-44db-a7eb-af46a847ea45",
+      "name": "僅處理下班條照片",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        6912,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://api-data.line.me/v2/bot/message/{{ $json.event.message.id }}/content",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "f1a94864-edbd-443f-aac3-62c64ad6448d",
+      "name": "下載LINE照片",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        7136,
+        624
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eqZPgNeJ2WPXRyVW",
+          "name": "Header Auth account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-3.6-flash",
+          "mode": "list"
+        },
+        "text": "You are classifying and reading a Taiwanese restaurant handwritten work shift / attendance sheet. Return valid JSON ONLY, with no markdown, code fences, or prose.\n\nUse exactly this structure:\n{\n  \"is_attendance_sheet\": boolean,\n  \"sheet_type\": \"內場\" | \"外場／洗滌\" | \"行政／洗滌\" | \"未知\",\n  \"sheet_title\": string | null,\n  \"departments\": string[],\n  \"header_sequence\": string[],\n  \"date\": string | null,\n  \"employees\": [\n    {\n      \"name\": string | null,\n      \"department\": \"內場\" | \"外場\" | \"行政\" | \"洗滌\" | null,\n      \"shifts\": [{\"start\": string | null, \"end\": string | null}],\n      \"off_or_unclear\": boolean,\n      \"late_marked\": boolean,\n      \"changed_to_off\": boolean,\n      \"needs_review\": boolean,\n      \"review_reason\": string | null\n    }\n  ],\n  \"warnings\": string[],\n  \"confidence\": number\n}\n\nMandatory classification gate:\n1. Set is_attendance_sheet=true ONLY when one visible printed table header row contains one of these consecutive work-time sequences:\n   - 內場: 上班, 下班, 上班, 下班\n   - 外場／洗滌: 上班1, 下班1, 上班2, 下班2\n   - Three-shift variant: 上班1, 下班1, 上班2, 下班2, 上班3, 下班3\n2. Copy one complete visible sequence verbatim into header_sequence. Full-width digits such as １, ２, ３ are acceptable as the same printed numbers.\n3. Do not infer headers from handwritten times, employee rows, another document, or the expected template.\n4. If no complete allowed sequence is clearly visible, set is_attendance_sheet=false, header_sequence to only the labels actually visible, date=null, employees=[], and stop.\n5. A title, date, names, grid, or handwritten times is never sufficient without one allowed printed header sequence.\n\nExtraction rules when and only when is_attendance_sheet=true:\n1. Read EVERY printed employee row across every repeated 姓名 block, in visual order. Never omit a row because it has a slash, blank times, changed day off, or unclear handwriting.\n2. Read the main printed title verbatim into sheet_title, then determine departments from that title and any section stickers:\n   - A title containing 外場 (for example「外場 下班條」) is authoritative: set sheet_type=外場／洗滌 and departments=[\"外場\"]. Do not route it to 內場 just because the header is unnumbered.\n   - A title containing 行政 and/or 洗滌 (for example「行政／洗滌 下班條」) is authoritative: set sheet_type=行政／洗滌. Read each visible 行政 or 洗滌 section sticker and assign every following employee row to that section until the next sticker.\n   - Only when neither title exists may an unnumbered 上班/下班 header be treated as 內場.\n   - Otherwise set sheet_type=內場 for the unnumbered header.\n   - A small sticker reading 行政 or 洗滌 is a section marker, not an employee name. It applies to the employee rows after it until the next section sticker. Set each employee.department to that section.\n   - Record every visible section label in departments. If a row's section truly cannot be determined, use null and add a warning.\n3. Preserve printed Chinese names exactly. Never substitute a similar-looking character or convert a personal name between simplified and traditional forms. In particular, distinguish 羿 from 翠 and 蕙 from 慧. The printed employee name「棋云」is intentional and must remain exactly「棋云」; never change it to「棋雲」. If a name cannot be read confidently, use null and explain its row/location.\n4. Red handwritten annotations have fixed meanings and are not uncertainty by themselves:\n   - 紅筆「遲」means the employee was late. Set late_marked=true, preserve every readable shift time, and do NOT set needs_review merely because of this annotation.\n   - 紅筆「改休」means the employee changed to a day off. Set changed_to_off=true, shifts=[], off_or_unclear=true, and do NOT set needs_review merely because of this annotation.\n   - For all other rows set late_marked=false and changed_to_off=false.\n5. A slash, 休, or blank schedule means shifts=[] and off_or_unclear=true.\n6. Convert readable times to 24-hour HH:mm. Examples: 930=>09:30, 15=>15:00, 2030=>20:30, 2145=>21:45.\n7. Each numbered 上班/下班 pair is one shift. Preserve one, two, or three complete shifts in chronological order. Never merge split shifts.\n8. A clear start and end time may be written across non-adjacent time columns. If their chronological pairing is still unambiguous, keep the complete shift and set needs_review=false; column placement alone is not a review reason.\n9. An unnumbered four-column sheet may squeeze six handwritten times into those four cells by stacking two times in a cell. When exactly six chronological times are clear, sort them chronologically and return three pairs: time1-time2, time3-time4, time5-time6. Example: 10, 14, 14:30, 16, 16:30, 20 => 10:00-14:00, 14:30-16:00, 16:30-20:00. Do not treat the fifth time as the second shift's clock-out.\n10. Distinguish similar handwritten hour digits such as 17 from 19 by inspecting the original strokes; never change 17:45 to 19:45 merely from context.\n11. If a cell contains overwritten, stacked, crossed-out, or multiple possible times, use the clearly final uncrossed value only. If the final value or pairing is genuinely uncertain, keep null where needed and set needs_review=true with a precise reason. Never invent a third shift unless six clear chronological times are visible.\n12. Set needs_review=true only when the name, department, date, time, correction, or start/end pairing is genuinely uncertain after applying the fixed red-annotation rules above.\n13. confidence must be between 0 and 1.",
+        "inputType": "binary",
+        "options": {}
+      },
+      "id": "7b9cbc51-61fb-43a6-a7ea-b0a2918f4f9b",
+      "name": "辨識下班條",
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        7360,
+        624
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "maxTries": 5,
+      "credentials": {
+        "googlePalmApi": {
+          "id": "ZpWaBKltRioEKUas",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const candidates = [\n  $json.text,\n  $json.content?.parts?.map((part) => part?.text).filter(Boolean).join('\\n'),\n  $json.content?.text,\n  $json.response?.text,\n  $json.output\n];\nlet raw = candidates.find((value) => typeof value === 'string' && value.trim());\nif (!raw && typeof $json.content === 'string') raw = $json.content;\nif (!raw) throw new Error('Gemini回傳缺少文字內容');\nlet cleaned = raw.replace(/^\\uFEFF/, '').replace(/^\\x60\\x60\\x60(?:json)?\\s*/i, '').replace(/\\x60\\x60\\x60\\s*$/i, '').trim();\nconst firstBrace = cleaned.indexOf('{');\nconst lastBrace = cleaned.lastIndexOf('}');\nif (firstBrace >= 0 && lastBrace > firstBrace) cleaned = cleaned.slice(firstBrace, lastBrace + 1);\nlet schedule;\ntry { schedule = JSON.parse(cleaned); } catch (error) { throw new Error('Gemini回傳不是有效JSON'); }\nif (typeof schedule === 'string') schedule = JSON.parse(schedule);\n\nconst fullWidthDigits = { '１': '1', '２': '2', '３': '3' };\nconst normalizeHeader = (value) => String(value || '')\n  .replace(/[１２３]/g, (digit) => fullWidthDigits[digit])\n  .replace(/\\s+/g, '');\nconst headers = Array.isArray(schedule.header_sequence)\n  ? schedule.header_sequence.map(normalizeHeader)\n  : [];\nconst allowedHeaderSequences = [\n  ['上班', '下班', '上班', '下班'],\n  ['上班1', '下班1', '上班2', '下班2'],\n  ['上班1', '下班1', '上班2', '下班2', '上班3', '下班3']\n];\nconst hasAllowedHeaderSequence = allowedHeaderSequences.some((requiredHeaders) =>\n  headers.some((_, index) =>\n    requiredHeaders.every((header, offset) => headers[index + offset] === header)\n  )\n);\nif (schedule.is_attendance_sheet !== true || !hasAllowedHeaderSequence) return [];\nif (!schedule.date || !Array.isArray(schedule.employees)) throw new Error('下班條缺少日期或員工資料');\n\nschedule.departments = Array.isArray(schedule.departments)\n  ? [...new Set(schedule.departments.map((value) => String(value || '').trim()).filter(Boolean))]\n  : [];\nconst sheetTitle = String(schedule.sheet_title || '').replace(/s+/g, '');\nconst titleHasFrontDepartment = sheetTitle.includes('外場');\nconst titleHasAdminDepartment = sheetTitle.includes('行政');\nconst titleHasWashDepartment = /洗滌|洗碗/.test(sheetTitle);\nconst hasFrontDepartment = titleHasFrontDepartment || schedule.departments.some((value) => value.includes('外場'));\nconst hasKitchenDepartment = schedule.departments.some((value) => value.includes('內場'));\nconst hasAdminDepartment = titleHasAdminDepartment || schedule.departments.some((value) => value.includes('行政'));\nconst hasWashDepartment = titleHasWashDepartment || schedule.departments.some((value) => /洗滌|洗碗/.test(value));\nif (titleHasFrontDepartment && !schedule.departments.includes('外場')) schedule.departments.push('外場');\nif (titleHasAdminDepartment && !schedule.departments.includes('行政')) schedule.departments.push('行政');\nif (titleHasWashDepartment && !schedule.departments.includes('洗滌')) schedule.departments.push('洗滌');\nschedule.sheet_type = titleHasAdminDepartment || titleHasWashDepartment || hasAdminDepartment || hasWashDepartment\n  ? '行政／洗滌'\n  : hasFrontDepartment\n  ? '外場／洗滌'\n  : (['內場', '外場／洗滌', '行政／洗滌'].includes(schedule.sheet_type)\n    ? schedule.sheet_type\n    : (headers.some((header) => /[123]$/.test(header)) ? '外場／洗滌' : '內場'));\nschedule.employees = schedule.employees.map((employee) => {\n  const recognizedName = String(employee?.name || '').trim();\n  const normalizedName = recognizedName === '棋雲' ? '棋云' : (employee?.name ?? null);\n  const reviewReason = String(employee?.review_reason || '').trim();\n  const shifts = Array.isArray(employee?.shifts) ? employee.shifts.slice(0, 3) : [];\n  const hasCompleteShift = shifts.length > 0 && shifts.every((shift) => shift?.start && shift?.end);\n  const lateMarked = employee?.late_marked === true || /(?:紅筆|marked).*?(?:遲|late)|(?:遲|late).*?(?:紅筆|red)/i.test(reviewReason);\n  const changedToOff = employee?.changed_to_off === true || /改休|changed?s+tos+(?:as+)?days+off/i.test(reviewReason);\n  const hasGenuineUncertainty = /不清|難辨|無法|unclear|illegible|ambiguous|uncertain|cannot|can't|overwrit|crossed|multiple possible/i.test(reviewReason);\n  const annotationOnlyReview = !hasGenuineUncertainty && (lateMarked || changedToOff);\n  return {\n    ...employee,\n    name: normalizedName,\n    department: employee?.department\n      || (hasFrontDepartment ? '外場' : null)\n      || (hasAdminDepartment && !hasWashDepartment ? '行政' : null)\n      || (hasWashDepartment && !hasAdminDepartment ? '洗滌' : null),\n    shifts: changedToOff ? [] : shifts,\n    off_or_unclear: changedToOff ? true : employee?.off_or_unclear === true,\n    late_marked: lateMarked,\n    changed_to_off: changedToOff,\n    needs_review: annotationOnlyReview && (changedToOff || hasCompleteShift)\n      ? false\n      : employee?.needs_review === true,\n    review_reason: annotationOnlyReview ? null : (employee?.review_reason || null)\n  };\n});\nreturn [{ json: schedule }];"
+      },
+      "id": "2ba341a6-b0f4-4efb-b053-6ce18d89ad55",
+      "name": "整理辨識結果",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        7584,
+        624
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first().json;\nconst normalRecords = Array.isArray(input.normalRecords)\n  ? input.normalRecords\n  : (Array.isArray(input.results)\n    ? input.results.filter((record) => ['updated', 'unchanged'].includes(record.status))\n    : []);\nreturn [{ json: { normalRecords } }];"
+      },
+      "id": "ee5bf3fd-b23f-46b1-9607-6bb3e52d2cad",
+      "name": "逐一處理正常人員班表",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        8272,
+        848
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://eatjoy-git-agent-line-hr-webhook-relay-0706rayking-wqs-projects.vercel.app/api/hr-attendance-compare",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {
+          "timeout": 290000
+        }
+      },
+      "id": "012875ec-2036-405e-89e3-6383e91d1fa1",
+      "name": "NUEIP每日出勤比對",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        7808,
+        624
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3MgQHeI5cuvePCWR",
+          "name": "Header Auth account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.line.me/v2/bot/message/push",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ (() => { const schedule = $('整理辨識結果').first().json; const isFrontWash = schedule.sheet_type === '外場／洗滌'; const lineMessages = ($json.lineMessages || []).slice(0, 5).map(text => isFrontWash ? String(text).replace('店別：南港內場', '店別：南港外場／洗滌') : String(text)); if (!lineMessages.length) { const displayDate = String(schedule.date || '').replace(/^\\d{4}-/, '').replace('-', '/'); const department = schedule.sheet_type === '外場／洗滌' ? '南港外場／洗滌' : schedule.sheet_type === '行政／洗滌' ? '南港行政／洗滌' : '南港內場'; lineMessages.push('【' + displayDate + ' 下班條比對】\\n店別：' + department + '\\n比對服務暫時無回應，已自動重試3次。\\n請稍後重新傳送這張照片。'); } const archiveText = $('保存下班條照片').first().json.lineText || '下班條照片存檔失敗，已嘗試三次，請稍後重新傳送照片。'; lineMessages[lineMessages.length - 1] += '\\n\\n' + archiveText; return { to: $('僅處理下班條照片').first().json.event.source.groupId, messages: lineMessages.map(text => ({ type: 'text', text })) }; })() }}",
+        "options": {}
+      },
+      "id": "d97dcd93-8235-4f6e-989d-09364d1a9c68",
+      "name": "回傳LINE人事群",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        8032,
+        624
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eqZPgNeJ2WPXRyVW",
+          "name": "Header Auth account 2"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://eatjoy-git-agent-line-hr-webhook-relay-0706rayking-wqs-projects.vercel.app/api/hr-attendance-compare",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ action: 'sync_schedule', mode: 'commit', normalRecords: $json.normalRecords || $json.results || [] }) }}",
+        "options": {}
+      },
+      "id": "cb861d57-5b9e-4b94-b5c8-2328af747775",
+      "name": "寫入正常人員NUEIP班表",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        8496,
+        848
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3MgQHeI5cuvePCWR",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://eatjoy-git-agent-line-hr-webhook-relay-0706rayking-wqs-projects.vercel.app/api/hr-attendance-compare",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ action: 'prepare_schedule_records', normalRecords: $json.normalRecords || [] }) }}",
+        "options": {}
+      },
+      "id": "772b9880-6ae6-4e32-91e0-dd6c9b123a07",
+      "name": "準備相符人員班表",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        8032,
+        848
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3MgQHeI5cuvePCWR",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://eatjoy-git-agent-line-hr-webhook-relay-0706rayking-wqs-projects.vercel.app/api/hr-attendance-compare",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { action: 'archive_photo', messageId: $('僅處理下班條照片').first().json.event.message.id, schedule: $('整理辨識結果').first().json } }}",
+        "options": {
+          "timeout": 55000
+        }
+      },
+      "id": "attendance-photo-archive",
+      "name": "保存下班條照片",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        900,
+        -220
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3MgQHeI5cuvePCWR",
+          "name": "Header Auth account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "attendance-restore-schedule",
+      "name": "恢復下班條資料",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        -220
+      ],
+      "parameters": {
+        "jsCode": "return [{json: $('整理辨識結果').first().json}];"
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://eatjoy-git-agent-line-hr-webhook-relay-0706rayking-wqs-projects.vercel.app/api/hr-attendance-compare",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { action: 'archive_result', messageId: $('僅處理下班條照片').first().json.event.message.id, result: { status: $json.status, normalCount: $json.normalCount, lineMessages: $json.lineMessages || [] } } }}",
+        "options": {
+          "timeout": 55000
+        }
+      },
+      "id": "attendance-index-result",
+      "name": "存檔索引寫入比對結果",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1344,
+        -400
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3MgQHeI5cuvePCWR",
+          "name": "Header Auth account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "LINE人事事件入口": {
+      "main": [
+        [
+          {
+            "node": "僅處理下班條照片",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "僅處理下班條照片": {
+      "main": [
+        [
+          {
+            "node": "下載LINE照片",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "下載LINE照片": {
+      "main": [
+        [
+          {
+            "node": "辨識下班條",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "辨識下班條": {
+      "main": [
+        [
+          {
+            "node": "整理辨識結果",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "整理辨識結果": {
+      "main": [
+        [
+          {
+            "node": "保存下班條照片",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NUEIP每日出勤比對": {
+      "main": [
+        [
+          {
+            "node": "回傳LINE人事群",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "逐一處理正常人員班表",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "存檔索引寫入比對結果",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "逐一處理正常人員班表": {
+      "main": [
+        [
+          {
+            "node": "準備相符人員班表",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "準備相符人員班表": {
+      "main": [
+        [
+          {
+            "node": "寫入正常人員NUEIP班表",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "保存下班條照片": {
+      "main": [
+        [
+          {
+            "node": "恢復下班條資料",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "恢復下班條資料": {
+      "main": [
+        [
+          {
+            "node": "NUEIP每日出勤比對",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "c0a1f53c-3206-40fb-9f91-c97eb0f55a92",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "59973f9231639d094a897b6f1d59412615877b10550d3baf76d1fec1f743bb20"
+  },
+  "nodeGroups": [],
+  "id": "71jv8TYYNxIPFFHN",
+  "tags": []
+}
