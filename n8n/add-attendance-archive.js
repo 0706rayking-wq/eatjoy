@@ -20,10 +20,10 @@ function addArchive(workflow) {
   workflow.connections['整理辨識結果'] = {main: [[{node: '保存下班條照片', type: 'main', index: 0}]]};
   workflow.connections['保存下班條照片'] = {main: [[{node: '恢復下班條資料', type: 'main', index: 0}]]};
   workflow.connections['恢復下班條資料'] = {main: [[{node: 'NUEIP每日出勤比對', type: 'main', index: 0}]]};
-  // Use a separate push so all comparison text survives LINE's five-message limit.
-  workflow.nodes.push({...JSON.parse(JSON.stringify(reply)), id: 'attendance-album-reply', name: '回傳LINE相簿連結', position: [1584, 0],
-    parameters: {...reply.parameters, jsonBody: "={{ { to: $('僅處理下班條照片').first().json.event.source.groupId, messages: [{ type: 'text', text: $('保存下班條照片').first().json.lineText || '下班條照片存檔失敗，已嘗試三次，請稍後重新傳送照片。' }] } }}"}});
-  workflow.connections['回傳LINE人事群'] = {main: [[{node: '回傳LINE相簿連結', type: 'main', index: 0}]]};
+  // Append the archive URLs to the final comparison bubble so each sheet consumes
+  // one LINE push instead of sending a second album-link message.
+  reply.parameters.jsonBody = `={{ (() => { const isFrontWash = $('整理辨識結果').first().json.sheet_type === '外場／洗滌'; const lineMessages = ($json.lineMessages || []).slice(0, 5).map(text => isFrontWash ? String(text).replace('店別：南港內場', '店別：南港外場／洗滌') : String(text)); const archiveText = $('保存下班條照片').first().json.lineText || '下班條照片存檔失敗，已嘗試三次，請稍後重新傳送照片。'; if (lineMessages.length) lineMessages[lineMessages.length - 1] += '\\n\\n' + archiveText; else lineMessages.push(archiveText); return { to: $('僅處理下班條照片').first().json.event.source.groupId, messages: lineMessages.map(text => ({ type: 'text', text })) }; })() }}`;
+  delete workflow.connections['回傳LINE人事群'];
   const archive = workflow.nodes.find(n => n.name === '保存下班條照片');
   workflow.nodes.push({...JSON.parse(JSON.stringify(archive)), id: 'attendance-index-result', name: '存檔索引寫入比對結果', position: [1344, -400],
     parameters: {...archive.parameters, jsonBody: "={{ { action: 'archive_result', messageId: $('僅處理下班條照片').first().json.event.message.id, result: { status: $json.status, normalCount: $json.normalCount, lineMessages: $json.lineMessages || [] } } }}"}});
