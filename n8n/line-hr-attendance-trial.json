@@ -95,7 +95,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const candidates = [\n  $json.text,\n  $json.content?.parts?.map((part) => part?.text).filter(Boolean).join('\\n'),\n  $json.content?.text,\n  $json.response?.text,\n  $json.output\n];\nlet raw = candidates.find((value) => typeof value === 'string' && value.trim());\nif (!raw && typeof $json.content === 'string') raw = $json.content;\nif (!raw) throw new Error('Gemini回傳缺少文字內容');\nlet cleaned = raw.replace(/^\\uFEFF/, '').replace(/^\\x60\\x60\\x60(?:json)?\\s*/i, '').replace(/\\x60\\x60\\x60\\s*$/i, '').trim();\nconst firstBrace = cleaned.indexOf('{');\nconst lastBrace = cleaned.lastIndexOf('}');\nif (firstBrace >= 0 && lastBrace > firstBrace) cleaned = cleaned.slice(firstBrace, lastBrace + 1);\nlet schedule;\ntry { schedule = JSON.parse(cleaned); } catch (error) { throw new Error('Gemini回傳不是有效JSON'); }\nif (typeof schedule === 'string') schedule = JSON.parse(schedule);\n\nconst fullWidthDigits = { '１': '1', '２': '2', '３': '3' };\nconst normalizeHeader = (value) => String(value || '')\n  .replace(/[１２３]/g, (digit) => fullWidthDigits[digit])\n  .replace(/\\s+/g, '');\nconst headers = Array.isArray(schedule.header_sequence)\n  ? schedule.header_sequence.map(normalizeHeader)\n  : [];\nconst allowedHeaderSequences = [\n  ['上班', '下班', '上班', '下班'],\n  ['上班1', '下班1', '上班2', '下班2'],\n  ['上班1', '下班1', '上班2', '下班2', '上班3', '下班3']\n];\nconst hasAllowedHeaderSequence = allowedHeaderSequences.some((requiredHeaders) =>\n  headers.some((_, index) =>\n    requiredHeaders.every((header, offset) => headers[index + offset] === header)\n  )\n);\nif (schedule.is_attendance_sheet !== true || !hasAllowedHeaderSequence) return [];\nif (!schedule.date || !Array.isArray(schedule.employees)) throw new Error('下班條缺少日期或員工資料');\n\nschedule.departments = Array.isArray(schedule.departments)\n  ? [...new Set(schedule.departments.map((value) => String(value || '').trim()).filter(Boolean))]\n  : [];\nconst sheetTitle = String(schedule.sheet_title || '').replace(/s+/g, '');\nconst titleHasFrontDepartment = sheetTitle.includes('外場');\nconst titleHasAdminDepartment = sheetTitle.includes('行政');\nconst titleHasWashDepartment = /洗滌|洗碗/.test(sheetTitle);\nconst hasFrontDepartment = titleHasFrontDepartment || schedule.departments.some((value) => value.includes('外場'));\nconst hasKitchenDepartment = schedule.departments.some((value) => value.includes('內場'));\nconst hasAdminDepartment = titleHasAdminDepartment || schedule.departments.some((value) => value.includes('行政'));\nconst hasWashDepartment = titleHasWashDepartment || schedule.departments.some((value) => /洗滌|洗碗/.test(value));\nif (titleHasFrontDepartment && !schedule.departments.includes('外場')) schedule.departments.push('外場');\nif (titleHasAdminDepartment && !schedule.departments.includes('行政')) schedule.departments.push('行政');\nif (titleHasWashDepartment && !schedule.departments.includes('洗滌')) schedule.departments.push('洗滌');\nschedule.sheet_type = titleHasAdminDepartment || titleHasWashDepartment || hasAdminDepartment || hasWashDepartment\n  ? '行政／洗滌'\n  : hasFrontDepartment\n  ? '外場／洗滌'\n  : (['內場', '外場／洗滌', '行政／洗滌'].includes(schedule.sheet_type)\n    ? schedule.sheet_type\n    : (headers.some((header) => /[123]$/.test(header)) ? '外場／洗滌' : '內場'));\nschedule.employees = schedule.employees.map((employee) => {\n  const recognizedName = String(employee?.name || '').trim();\n  const normalizedName = recognizedName === '棋雲' ? '棋云' : (employee?.name ?? null);\n  const reviewReason = String(employee?.review_reason || '').trim();\n  const shifts = Array.isArray(employee?.shifts) ? employee.shifts.slice(0, 3) : [];\n  const hasCompleteShift = shifts.length > 0 && shifts.every((shift) => shift?.start && shift?.end);\n  const lateMarked = employee?.late_marked === true || /(?:紅筆|marked).*?(?:遲|late)|(?:遲|late).*?(?:紅筆|red)/i.test(reviewReason);\n  const changedToOff = employee?.changed_to_off === true || /改休|changed?s+tos+(?:as+)?days+off/i.test(reviewReason);\n  const hasGenuineUncertainty = /不清|難辨|無法|unclear|illegible|ambiguous|uncertain|cannot|can't|overwrit|crossed|multiple possible/i.test(reviewReason);\n  const annotationOnlyReview = !hasGenuineUncertainty && (lateMarked || changedToOff);\n  return {\n    ...employee,\n    name: normalizedName,\n    department: employee?.department\n      || (hasFrontDepartment ? '外場' : null)\n      || (hasAdminDepartment && !hasWashDepartment ? '行政' : null)\n      || (hasWashDepartment && !hasAdminDepartment ? '洗滌' : null),\n    shifts: changedToOff ? [] : shifts,\n    off_or_unclear: changedToOff ? true : employee?.off_or_unclear === true,\n    late_marked: lateMarked,\n    changed_to_off: changedToOff,\n    needs_review: annotationOnlyReview && (changedToOff || hasCompleteShift)\n      ? false\n      : employee?.needs_review === true,\n    review_reason: annotationOnlyReview ? null : (employee?.review_reason || null)\n  };\n});\nreturn [{ json: schedule }];"
+        "jsCode": "const candidates = [\n  $json.text,\n  $json.content?.parts?.map((part) => part?.text).filter(Boolean).join('\\n'),\n  $json.content?.text,\n  $json.response?.text,\n  $json.output\n];\nlet raw = candidates.find((value) => typeof value === 'string' && value.trim());\nif (!raw && typeof $json.content === 'string') raw = $json.content;\nif (!raw) throw new Error('Gemini回傳缺少文字內容');\nlet cleaned = raw.replace(/^\\uFEFF/, '').replace(/^\\x60\\x60\\x60(?:json)?\\s*/i, '').replace(/\\x60\\x60\\x60\\s*$/i, '').trim();\nconst firstBrace = cleaned.indexOf('{');\nconst lastBrace = cleaned.lastIndexOf('}');\nif (firstBrace >= 0 && lastBrace > firstBrace) cleaned = cleaned.slice(firstBrace, lastBrace + 1);\nlet schedule;\ntry { schedule = JSON.parse(cleaned); } catch (error) { throw new Error('Gemini回傳不是有效JSON'); }\nif (typeof schedule === 'string') schedule = JSON.parse(schedule);\n\nconst fullWidthDigits = { '１': '1', '２': '2', '３': '3' };\nconst normalizeHeader = (value) => String(value || '')\n  .replace(/[１２３]/g, (digit) => fullWidthDigits[digit])\n  .replace(/\\s+/g, '');\nconst headers = Array.isArray(schedule.header_sequence)\n  ? schedule.header_sequence.map(normalizeHeader)\n  : [];\nconst allowedHeaderSequences = [\n  ['上班', '下班', '上班', '下班'],\n  ['上班1', '下班1', '上班2', '下班2'],\n  ['上班1', '下班1', '上班2', '下班2', '上班3', '下班3']\n];\nconst hasAllowedHeaderSequence = allowedHeaderSequences.some((requiredHeaders) =>\n  headers.some((_, index) =>\n    requiredHeaders.every((header, offset) => headers[index + offset] === header)\n  )\n);\nif (schedule.is_attendance_sheet !== true || !hasAllowedHeaderSequence) return [];\nif (!schedule.date || !Array.isArray(schedule.employees)) throw new Error('下班條缺少日期或員工資料');\n\nschedule.departments = Array.isArray(schedule.departments)\n  ? [...new Set(schedule.departments.map((value) => String(value || '').trim()).filter(Boolean))]\n  : [];\nconst sheetTitle = String(schedule.sheet_title || '').replace(/\\s+/g, '');\nconst titleHasFrontDepartment = sheetTitle.includes('外場');\nconst titleHasAdminDepartment = sheetTitle.includes('行政');\nconst titleHasWashDepartment = /洗滌|洗碗/.test(sheetTitle);\nconst hasFrontDepartment = titleHasFrontDepartment || schedule.departments.some((value) => value.includes('外場'));\nconst hasKitchenDepartment = schedule.departments.some((value) => value.includes('內場'));\nconst hasAdminDepartment = titleHasAdminDepartment || schedule.departments.some((value) => value.includes('行政'));\nconst hasWashDepartment = titleHasWashDepartment || schedule.departments.some((value) => /洗滌|洗碗/.test(value));\nif (titleHasFrontDepartment && !schedule.departments.includes('外場')) schedule.departments.push('外場');\nif (titleHasAdminDepartment && !schedule.departments.includes('行政')) schedule.departments.push('行政');\nif (titleHasWashDepartment && !schedule.departments.includes('洗滌')) schedule.departments.push('洗滌');\nschedule.sheet_type = titleHasAdminDepartment || titleHasWashDepartment || hasAdminDepartment || hasWashDepartment\n  ? '行政／洗滌'\n  : hasFrontDepartment\n  ? '外場／洗滌'\n  : (['內場', '外場／洗滌', '行政／洗滌'].includes(schedule.sheet_type)\n    ? schedule.sheet_type\n    : (headers.some((header) => /[123]$/.test(header)) ? '外場／洗滌' : '內場'));\nschedule.employees = schedule.employees.map((employee) => {\n  const recognizedName = String(employee?.name || '').trim();\n  const normalizedName = recognizedName === '棋雲' ? '棋云' : (employee?.name ?? null);\n  const reviewReason = String(employee?.review_reason || '').trim();\n  const shifts = Array.isArray(employee?.shifts) ? employee.shifts.slice(0, 3) : [];\n  const hasCompleteShift = shifts.length > 0 && shifts.every((shift) => shift?.start && shift?.end);\n  const lateMarked = employee?.late_marked === true || /(?:紅筆|marked).*?(?:遲|late)|(?:遲|late).*?(?:紅筆|red)/i.test(reviewReason);\n  const changedToOff = employee?.changed_to_off === true || /改休|changed?\\s+to\\s+(?:a\\s+)?day\\s+off/i.test(reviewReason);\n  const hasGenuineUncertainty = /不清|難辨|無法|unclear|illegible|ambiguous|uncertain|cannot|can't|overwrit|crossed|multiple possible/i.test(reviewReason);\n  const annotationOnlyReview = !hasGenuineUncertainty && (lateMarked || changedToOff);\n  return {\n    ...employee,\n    name: normalizedName,\n    department: employee?.department\n      || (hasFrontDepartment ? '外場' : null)\n      || (hasAdminDepartment && !hasWashDepartment ? '行政' : null)\n      || (hasWashDepartment && !hasAdminDepartment ? '洗滌' : null),\n    shifts: changedToOff ? [] : shifts,\n    off_or_unclear: changedToOff ? true : employee?.off_or_unclear === true,\n    late_marked: lateMarked,\n    changed_to_off: changedToOff,\n    needs_review: annotationOnlyReview && (changedToOff || hasCompleteShift)\n      ? false\n      : employee?.needs_review === true,\n    review_reason: annotationOnlyReview ? null : (employee?.review_reason || null)\n  };\n});\nreturn [{ json: schedule }];"
       },
       "id": "7d7ed12e-c595-414c-894b-a73c21b28d03",
       "name": "整理辨識結果",
@@ -159,7 +159,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ (() => { const schedule = $('整理辨識結果').first().json; const isFrontWash = schedule.sheet_type === '外場／洗滌'; const lineMessages = ($json.lineMessages || []).slice(0, 5).map(text => isFrontWash ? String(text).replace('店別：南港內場', '店別：南港外場／洗滌') : String(text)); if (!lineMessages.length) { const displayDate = String(schedule.date || '').replace(/^\\d{4}-/, '').replace('-', '/'); const department = schedule.sheet_type === '外場／洗滌' ? '南港外場／洗滌' : schedule.sheet_type === '行政／洗滌' ? '南港行政／洗滌' : '南港內場'; lineMessages.push('【' + displayDate + ' 下班條比對】\\n店別：' + department + '\\n比對服務暫時無回應，已自動重試3次。\\n請稍後重新傳送這張照片。'); } const archiveText = $('保存下班條照片').first().json.lineText || '下班條照片存檔失敗，已嘗試三次，請稍後重新傳送照片。'; lineMessages[lineMessages.length - 1] += '\\n\\n' + archiveText; return { to: $('僅處理下班條照片').first().json.event.source.groupId, messages: lineMessages.map(text => ({ type: 'text', text })) }; })() }}",
+        "jsonBody": "={{ { to: $('僅處理下班條照片').first().json.event.source.groupId, messages: [{ type: 'text', text: $json.lineText }] } }}",
         "options": {}
       },
       "id": "03e1b8e4-c8ed-4ccb-8de0-31f4c925b78b",
@@ -168,7 +168,7 @@
       "typeVersion": 4.4,
       "onError": "continueRegularOutput",
       "position": [
-        1344,
+        1808,
         0
       ],
       "credentials": {
@@ -283,6 +283,51 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
+        "jsonBody": "={{ { action: 'aggregate_line', messageId: $('僅處理下班條照片').first().json.event.message.id, groupId: $('僅處理下班條照片').first().json.event.source.groupId, date: $('整理辨識結果').first().json.date, sheetType: $('整理辨識結果').first().json.sheet_type, lineMessages: $json.lineMessages || [], archiveText: $('保存下班條照片').first().json.lineText || '下班條照片存檔失敗，請稍後重新傳送照片。' } }}",
+        "options": {
+          "timeout": 55000
+        }
+      },
+      "id": "attendance-line-aggregator",
+      "name": "彙整部門比對結果",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1344,
+        0
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "3MgQHeI5cuvePCWR",
+          "name": "Header Auth account"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "attendance-line-send-filter",
+      "name": "僅在彙整完成後回傳",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1584,
+        0
+      ],
+      "parameters": {
+        "jsCode": "if ($json.status === 'held') return [];\nif ($json.status === 'send' && $json.lineText) return [{json: {lineText: String($json.lineText)}}];\nconst comparison = $('NUEIP每日出勤比對').first().json;\nconst schedule = $('整理辨識結果').first().json;\nconst lines = Array.isArray(comparison.lineMessages) ? comparison.lineMessages.map(String) : [];\nif (!lines.length) {\n  const displayDate = String(schedule.date || '').replace(/^\\d{4}-/, '').replace('-', '/');\n  lines.push('【' + displayDate + ' 下班條比對】\\n比對服務暫時無回應，請稍後重新傳送這張照片。');\n}\nconst archiveText = $('保存下班條照片').first().json.lineText || '下班條照片存檔失敗，請稍後重新傳送照片。';\nreturn [{json: {lineText: lines.join('\\n') + '\\n\\n' + archiveText}}];"
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://eatjoy-git-agent-line-hr-webhook-relay-0706rayking-wqs-projects.vercel.app/api/hr-attendance-compare",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
         "jsonBody": "={{ { action: 'archive_result', messageId: $('僅處理下班條照片').first().json.event.message.id, result: { status: $json.status, normalCount: $json.normalCount, lineMessages: $json.lineMessages || [] } } }}",
         "options": {
           "timeout": 55000
@@ -369,12 +414,12 @@
       "main": [
         [
           {
-            "node": "回傳LINE人事群",
+            "node": "準備相符人員班表",
             "type": "main",
             "index": 0
           },
           {
-            "node": "準備相符人員班表",
+            "node": "彙整部門比對結果",
             "type": "main",
             "index": 0
           },
@@ -424,6 +469,28 @@
         [
           {
             "node": "NUEIP每日出勤比對",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "彙整部門比對結果": {
+      "main": [
+        [
+          {
+            "node": "僅在彙整完成後回傳",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "僅在彙整完成後回傳": {
+      "main": [
+        [
+          {
+            "node": "回傳LINE人事群",
             "type": "main",
             "index": 0
           }

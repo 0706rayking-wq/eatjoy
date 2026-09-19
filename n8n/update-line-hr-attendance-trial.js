@@ -107,7 +107,7 @@ if (!schedule.date || !Array.isArray(schedule.employees)) throw new Error('下�
 schedule.departments = Array.isArray(schedule.departments)
   ? [...new Set(schedule.departments.map((value) => String(value || '').trim()).filter(Boolean))]
   : [];
-const sheetTitle = String(schedule.sheet_title || '').replace(/\s+/g, '');
+const sheetTitle = String(schedule.sheet_title || '').replace(/\\s+/g, '');
 const titleHasFrontDepartment = sheetTitle.includes('外場');
 const titleHasAdminDepartment = sheetTitle.includes('行政');
 const titleHasWashDepartment = /洗滌|洗碗/.test(sheetTitle);
@@ -132,7 +132,7 @@ schedule.employees = schedule.employees.map((employee) => {
   const shifts = Array.isArray(employee?.shifts) ? employee.shifts.slice(0, 3) : [];
   const hasCompleteShift = shifts.length > 0 && shifts.every((shift) => shift?.start && shift?.end);
   const lateMarked = employee?.late_marked === true || /(?:紅筆|marked).*?(?:遲|late)|(?:遲|late).*?(?:紅筆|red)/i.test(reviewReason);
-  const changedToOff = employee?.changed_to_off === true || /改休|changed?\s+to\s+(?:a\s+)?day\s+off/i.test(reviewReason);
+  const changedToOff = employee?.changed_to_off === true || /改休|changed?\\s+to\\s+(?:a\\s+)?day\\s+off/i.test(reviewReason);
   const hasGenuineUncertainty = /不清|難辨|無法|unclear|illegible|ambiguous|uncertain|cannot|can't|overwrit|crossed|multiple possible/i.test(reviewReason);
   const annotationOnlyReview = !hasGenuineUncertainty && (lateMarked || changedToOff);
   return {

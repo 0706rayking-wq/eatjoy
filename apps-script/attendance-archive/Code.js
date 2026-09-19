@@ -60,11 +60,68 @@ function doPost(e) {
     const p = PropertiesService.getScriptProperties();
     const secret = p.getProperty('ARCHIVE_SECRET');
     if (!secret || input.secret !== secret) return jsonResponse({status: 'error', code: 'unauthorized'});
-    return jsonResponse(input.action === 'comparison_result' ? recordComparison(input, p) : archivePhoto(input, p));
+    if (input.action === 'comparison_result') return jsonResponse(recordComparison(input, p));
+    if (input.action === 'line_batch') return jsonResponse(collectLineBatch(input, p));
+    return jsonResponse(archivePhoto(input, p));
   } catch (error) {
     console.error(String(error));
     return jsonResponse({status: 'error', code: 'archive_failed'});
   }
+}
+
+function lineBatchKey(groupId, date) {
+  const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, groupId + '|' + date);
+  return 'LINE_BATCH_' + bytes.map(b => ('0' + ((b + 256) % 256).toString(16)).slice(-2)).join('').slice(0, 32);
+}
+
+function combineLineEntries(entries) {
+  const order = {'內場': 0, '外場／洗滌': 1, '行政／洗滌': 2};
+  return entries.slice().sort((a, b) => (order[a.sheetType] ?? 9) - (order[b.sheetType] ?? 9))
+    .map(entry => {
+      const comparison = (entry.lineMessages || []).join('\n');
+      return [comparison, entry.archiveText].filter(Boolean).join('\n\n');
+    }).filter(Boolean).join('\n\n════════════\n\n');
+}
+
+function collectLineBatch(input, p) {
+  if (!/^C[a-f0-9]{20,}$/i.test(String(input.groupId || ''))) throw new Error('Invalid group ID');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(input.date || ''))) throw new Error('Invalid date');
+  if (!/^\d{1,40}$/.test(String(input.messageId || ''))) throw new Error('Invalid message ID');
+  const key = lineBatchKey(String(input.groupId), String(input.date));
+  const now = Date.now();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    let batch;
+    try { batch = JSON.parse(p.getProperty(key) || 'null'); } catch (_) { batch = null; }
+    if (!batch || batch.sentAt || now - Number(batch.createdAt || 0) > 60000) {
+      batch = {createdAt: now, updatedAt: now, sentAt: null, entries: []};
+    }
+    const entry = {
+      messageId: String(input.messageId),
+      sheetType: String(input.sheetType || '未知'),
+      lineMessages: Array.isArray(input.lineMessages) ? input.lineMessages.map(String).slice(0, 5) : [],
+      archiveText: String(input.archiveText || '')
+    };
+    const existing = batch.entries.findIndex(item => item.messageId === entry.messageId);
+    if (existing >= 0) batch.entries[existing] = entry;
+    else batch.entries.push(entry);
+    batch.updatedAt = now;
+    p.setProperty(key, JSON.stringify(batch));
+  } finally { lock.releaseLock(); }
+
+  Utilities.sleep(12000);
+  const finalLock = LockService.getScriptLock();
+  finalLock.waitLock(30000);
+  try {
+    const batch = JSON.parse(p.getProperty(key) || 'null');
+    if (!batch || batch.sentAt) return {status: 'held'};
+    batch.sentAt = Date.now();
+    p.setProperty(key, JSON.stringify(batch));
+    const lineText = combineLineEntries(batch.entries);
+    if (!lineText) return {status: 'held'};
+    return {status: 'send', count: batch.entries.length, lineText: lineText.slice(0, 5000)};
+  } finally { finalLock.releaseLock(); }
 }
 
 function archivePhoto(input, p) {

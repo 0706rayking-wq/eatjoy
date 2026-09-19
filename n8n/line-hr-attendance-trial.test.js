@@ -8,6 +8,8 @@ const normalizeNode = workflow.nodes.find((node) => node.name === '整理辨識�
 const comparisonNode = workflow.nodes.find((node) => node.name === 'NUEIP每日出勤比對');
 const lineResponseNode = workflow.nodes.find((node) => node.name === '回傳LINE人事群');
 const albumResponseNode = workflow.nodes.find((node) => node.name === '回傳LINE相簿連結');
+const aggregationNode = workflow.nodes.find((node) => node.name === '彙整部門比對結果');
+const aggregationFilterNode = workflow.nodes.find((node) => node.name === '僅在彙整完成後回傳');
 const explanationPreviewNode = workflow.nodes.find((node) => node.name === '準備相符人員班表');
 const scheduleSplitNode = workflow.nodes.find((node) => node.name === '逐一處理正常人員班表');
 const scheduleCommitNode = workflow.nodes.find((node) => node.name === '寫入正常人員NUEIP班表');
@@ -16,6 +18,8 @@ assert.ok(normalizeNode);
 assert.ok(comparisonNode);
 assert.ok(lineResponseNode);
 assert.equal(albumResponseNode, undefined);
+assert.ok(aggregationNode);
+assert.ok(aggregationFilterNode);
 assert.ok(explanationPreviewNode);
 assert.ok(scheduleSplitNode);
 assert.ok(scheduleCommitNode);
@@ -33,16 +37,19 @@ assert.equal(workflow.connections['整理辨識結果'].main[0][0].node, '保存
 assert.equal(workflow.connections['恢復下班條資料'].main[0][0].node, 'NUEIP每日出勤比對');
 assert.deepEqual(
   workflow.connections['NUEIP每日出勤比對'].main[0].map((connection) => connection.node),
-  ['回傳LINE人事群', '準備相符人員班表', '存檔索引寫入比對結果']
+  ['準備相符人員班表', '彙整部門比對結果', '存檔索引寫入比對結果']
 );
 assert.equal(workflow.connections['準備相符人員班表'].main[0][0].node, '逐一處理正常人員班表');
 assert.equal(workflow.connections['逐一處理正常人員班表'].main[0][0].node, '寫入正常人員NUEIP班表');
 assert.match(lineResponseNode.parameters.jsonBody, /^=\{\{/);
-assert.match(lineResponseNode.parameters.jsonBody, /南港外場／洗滌/);
-assert.match(lineResponseNode.parameters.jsonBody, /保存下班條照片/);
-assert.match(lineResponseNode.parameters.jsonBody, /lineMessages\[lineMessages\.length - 1\].*archiveText/);
-assert.match(lineResponseNode.parameters.jsonBody, /比對服務暫時無回應/);
+assert.match(lineResponseNode.parameters.jsonBody, /\$json\.lineText/);
+assert.match(aggregationNode.parameters.jsonBody, /aggregate_line/);
+assert.match(aggregationNode.parameters.jsonBody, /保存下班條照片/);
+assert.match(aggregationFilterNode.parameters.jsCode, /status === 'held'/);
+assert.match(aggregationFilterNode.parameters.jsCode, /比對服務暫時無回應/);
 assert.equal(workflow.connections['回傳LINE人事群'], undefined);
+assert.equal(workflow.connections['彙整部門比對結果'].main[0][0].node, '僅在彙整完成後回傳');
+assert.equal(workflow.connections['僅在彙整完成後回傳'].main[0][0].node, '回傳LINE人事群');
 assert.equal(comparisonNode.retryOnFail, true);
 assert.equal(comparisonNode.maxTries, 3);
 assert.equal(comparisonNode.waitBetweenTries, 5000);

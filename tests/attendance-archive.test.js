@@ -11,6 +11,10 @@ assert.throws(() => context.expiryDate('2026-02-30'));
 assert.deepEqual(Array.from(context.departments({sheet_title:'行政／洗滌 下班條'})), ['行政','洗滌']);
 assert.deepEqual(Array.from(context.departments({sheet_title:'外場 下班條',sheet_type:'外場／洗滌'})), ['外場']);
 assert.deepEqual(Array.from(context.departments({sheet_type:'未知'})), ['待確認']);
+assert.equal(context.combineLineEntries([
+  {sheetType:'行政／洗滌',lineMessages:['行政結果'],archiveText:'行政網址'},
+  {sheetType:'外場／洗滌',lineMessages:['外場結果'],archiveText:'外場網址'}
+]), '外場結果\n\n外場網址\n\n════════════\n\n行政結果\n\n行政網址');
 
 const registry = new Map();
 const iterator = items => { let index=0; return {hasNext:()=>index<items.length,next:()=>items[index++]}; };
@@ -79,6 +83,12 @@ async function request(body, token) {
   process.env.ATTENDANCE_ARCHIVE_SECRET='test-secret';
   global.fetch=async()=>({ok:true,json:async()=>({status:'saved',lineText:'saved'})});
   assert.equal((await request(input,'test-auth')).code,200);
+  let forwarded;
+  global.fetch=async(_url,options)=>{forwarded=JSON.parse(options.body);return {ok:true,json:async()=>({status:'send',lineText:'combined'})};};
+  const aggregate={action:'aggregate_line',messageId:'123',groupId:'C12345678901234567890',date:'2026-09-18',sheetType:'外場／洗滌',lineMessages:['result'],archiveText:'url'};
+  assert.equal((await request(aggregate,'test-auth')).value.status,'send');
+  assert.equal(forwarded.action,'line_batch');
+  assert.deepEqual(forwarded.lineMessages,['result']);
   global.fetch=async()=>({ok:true,json:async()=>({status:'error'})});
   assert.equal((await request(input,'test-auth')).code,502,'Apps Script errors must trigger n8n retries');
   console.log('attendance archive tests passed');
