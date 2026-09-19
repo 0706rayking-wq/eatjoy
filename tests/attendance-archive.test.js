@@ -8,13 +8,15 @@ for (const [date, expected] of [['2026-09-18','2026-12-18'], ['2026-11-30','2027
   assert.equal(context.expiryDate(date), expected);
 }
 assert.throws(() => context.expiryDate('2026-02-30'));
-assert.deepEqual(Array.from(context.departments({sheet_title:'行政／洗滌 下班條'})), ['行政','洗滌']);
+assert.deepEqual(Array.from(context.departments({sheet_title:'行政／洗滌 下班條'})), ['行政／洗滌']);
 assert.deepEqual(Array.from(context.departments({sheet_title:'外場 下班條',sheet_type:'外場／洗滌'})), ['外場']);
 assert.deepEqual(Array.from(context.departments({sheet_type:'未知'})), ['待確認']);
 assert.equal(context.combineLineEntries([
   {sheetType:'行政／洗滌',lineMessages:['行政結果'],archiveText:'行政網址'},
   {sheetType:'外場／洗滌',lineMessages:['外場結果'],archiveText:'外場網址'}
 ]), '外場結果\n\n外場網址\n\n════════════\n\n行政結果\n\n行政網址');
+assert.equal(context.hasCompleteLinePair([{sheetType:'外場／洗滌'}]), false);
+assert.equal(context.hasCompleteLinePair([{sheetType:'行政／洗滌'},{sheetType:'外場／洗滌'}]), true);
 
 const registry = new Map();
 const iterator = items => { let index=0; return {hasNext:()=>index<items.length,next:()=>items[index++]}; };
@@ -42,14 +44,14 @@ context.LockService={getScriptLock:()=>({waitLock:()=>{assert.equal(lockDepth++,
 context.UrlFetchApp={fetch:()=>{downloads++;return {getResponseCode:()=>200,getBlob:()=>({getContentType:()=>'image/jpeg',copyBlob:()=>({setName:name=>({name})})})};}};
 const input={messageId:'12345678901234567890',schedule:{is_attendance_sheet:true,date:'2026-09-18',sheet_title:'行政／洗滌 下班條'}};
 const first=context.archivePhoto(input,props);
-assert.equal(first.links.length,2);
-assert.equal(rows.length,3);
+assert.equal(first.links.length,1);
+assert.equal(rows.length,2);
 assert.equal(downloads,1);
-assert.equal(context.recordComparison({messageId:input.messageId,result:{normalCount:4}},props).count,2);
+assert.equal(context.recordComparison({messageId:input.messageId,result:{normalCount:4}},props).count,1);
 assert.equal(rows[1][9],'已比對');
 assert.equal(JSON.parse(rows[1][10]).normalCount,4);
 context.archivePhoto(input,props);
-assert.equal(rows.length,3);
+assert.equal(rows.length,2);
 assert.equal(rows[1][9],'已比對','retry must preserve comparison results');
 assert.equal(downloads,1,'duplicate delivery must not download or create photos');
 // Simulate upload succeeding but index write failing: filename recovery must reuse it.
@@ -60,7 +62,6 @@ today='2026-12-17';context.cleanupExpired();
 assert.equal(rows[1][8],'已存檔');
 today='2026-12-18';context.cleanupExpired();
 assert.equal(rows[1][8],'已到期');
-assert.equal(rows[2][8],'已到期');
 assert.equal(context.archivePhoto(input,props).status,'expired');
 assert.equal(downloads,1,'expired delivery must not restore photos');
 assert.equal(lockDepth,0);

@@ -1,5 +1,7 @@
 /* Google Apps Script V8. Secrets belong in Script Properties, never in this file. */
 const HEADERS = ['訊息ID', '日期', '部門', '檔案ID', '照片連結', '月份連結', '部門連結', '到期日', '狀態', '比對狀態', '比對結果'];
+const LINE_PAIR_TYPES = ['外場／洗滌', '行政／洗滌'];
+const LINE_PAIR_WAIT_MS = 10 * 60 * 1000;
 
 function expiryDate(date) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Invalid date');
@@ -11,6 +13,7 @@ function expiryDate(date) {
 
 function departments(schedule) {
   const text = [schedule.sheet_title, ...(schedule.departments || []), ...(schedule.employees || []).map(e => e.department)].join(' ');
+  if (schedule.sheet_type === '行政／洗滌' || /行政|洗滌|洗碗/.test(text)) return ['行政／洗滌'];
   const found = ['內場', '外場', '行政', '洗滌'].filter(d => text.includes(d) || (d === '洗滌' && text.includes('洗碗')));
   if (found.length) return found;
   return schedule.sheet_type === '內場' ? ['內場'] : ['待確認'];
@@ -69,9 +72,23 @@ function doPost(e) {
   }
 }
 
-function lineBatchKey(groupId, date) {
-  const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, groupId + '|' + date);
+function lineBatchKey(groupId, date, scope) {
+  const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, groupId + '|' + date + '|' + (scope || 'single'));
   return 'LINE_BATCH_' + bytes.map(b => ('0' + ((b + 256) % 256).toString(16)).slice(-2)).join('').slice(0, 32);
+}
+
+function isPairedLineType(sheetType) {
+  return LINE_PAIR_TYPES.includes(String(sheetType || ''));
+}
+
+function hasCompleteLinePair(entries) {
+  const types = new Set((entries || []).map(entry => entry.sheetType));
+  return LINE_PAIR_TYPES.every(type => types.has(type));
+}
+
+function ensureLineBatchFlush() {
+  if (ScriptApp.getProjectTriggers().some(trigger => trigger.getHandlerFunction() === 'flushLineBatches')) return;
+  ScriptApp.newTrigger('flushLineBatches').timeBased().after(LINE_PAIR_WAIT_MS).create();
 }
 
 function combineLineEntries(entries) {
@@ -87,15 +104,20 @@ function collectLineBatch(input, p) {
   if (!/^C[a-f0-9]{20,}$/i.test(String(input.groupId || ''))) throw new Error('Invalid group ID');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(input.date || ''))) throw new Error('Invalid date');
   if (!/^\d{1,40}$/.test(String(input.messageId || ''))) throw new Error('Invalid message ID');
-  const key = lineBatchKey(String(input.groupId), String(input.date));
+  const paired = isPairedLineType(input.sheetType);
+  const key = lineBatchKey(String(input.groupId), String(input.date), paired ? 'front-admin-pair' : String(input.sheetType || 'single'));
   const now = Date.now();
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
     let batch;
     try { batch = JSON.parse(p.getProperty(key) || 'null'); } catch (_) { batch = null; }
-    if (!batch || batch.sentAt || now - Number(batch.createdAt || 0) > 60000) {
-      batch = {createdAt: now, updatedAt: now, sentAt: null, entries: []};
+    if (batch && batch.sentAt && (batch.entries || []).some(item => item.messageId === String(input.messageId))) {
+      return {status: 'held'};
+    }
+    const staleAfter = paired ? LINE_PAIR_WAIT_MS + 5 * 60 * 1000 : 60000;
+    if (!batch || batch.sentAt || now - Number(batch.createdAt || 0) > staleAfter) {
+      batch = {createdAt: now, updatedAt: now, sentAt: null, groupId: String(input.groupId), paired, entries: []};
     }
     const entry = {
       messageId: String(input.messageId),
@@ -108,6 +130,16 @@ function collectLineBatch(input, p) {
     else batch.entries.push(entry);
     batch.updatedAt = now;
     p.setProperty(key, JSON.stringify(batch));
+    if (paired && !hasCompleteLinePair(batch.entries)) {
+      ensureLineBatchFlush();
+      return {status: 'held'};
+    }
+    if (paired) {
+      batch.sentAt = now;
+      p.setProperty(key, JSON.stringify(batch));
+      const lineText = combineLineEntries(batch.entries);
+      return lineText ? {status: 'send', count: batch.entries.length, lineText: lineText.slice(0, 5000)} : {status: 'held'};
+    }
   } finally { lock.releaseLock(); }
 
   Utilities.sleep(12000);
@@ -122,6 +154,39 @@ function collectLineBatch(input, p) {
     if (!lineText) return {status: 'held'};
     return {status: 'send', count: batch.entries.length, lineText: lineText.slice(0, 5000)};
   } finally { finalLock.releaseLock(); }
+}
+
+function flushLineBatches() {
+  const p = PropertiesService.getScriptProperties();
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  let pending = false;
+  try {
+    const now = Date.now();
+    const properties = p.getProperties();
+    for (const key of Object.keys(properties).filter(name => name.startsWith('LINE_BATCH_'))) {
+      let batch;
+      try { batch = JSON.parse(properties[key]); } catch (_) { continue; }
+      if (!batch || batch.sentAt || !batch.paired) continue;
+      if (now - Number(batch.createdAt || 0) < LINE_PAIR_WAIT_MS) { pending = true; continue; }
+      const lineText = combineLineEntries(batch.entries).slice(0, 5000);
+      if (!lineText || !batch.groupId) continue;
+      const response = UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
+        method: 'post', contentType: 'application/json',
+        headers: {Authorization: 'Bearer ' + p.getProperty('LINE_CHANNEL_ACCESS_TOKEN')},
+        payload: JSON.stringify({to: batch.groupId, messages: [{type: 'text', text: lineText}]}),
+        muteHttpExceptions: true
+      });
+      if (response.getResponseCode() < 200 || response.getResponseCode() >= 300) {
+        pending = true;
+        console.error('LINE batch push failed: ' + response.getResponseCode());
+        continue;
+      }
+      batch.sentAt = now;
+      p.setProperty(key, JSON.stringify(batch));
+    }
+    if (pending) ScriptApp.newTrigger('flushLineBatches').timeBased().after(60000).create();
+  } finally { lock.releaseLock(); }
 }
 
 function archivePhoto(input, p) {
