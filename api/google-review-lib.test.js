@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
 const {
+  ageLabelToMinutes,
+  areReviewsNewestFirst,
   extractAgeLabel,
   isReviewEntryLabel,
   isRecentAgeLabel,
@@ -9,6 +11,20 @@ const {
   reviewSignature,
   verifyReviewSignature
 } = require('./google-review-lib');
+
+assert.equal(ageLabelToMinutes('12 小時前'), 720);
+assert.equal(ageLabelToMinutes('5 天前'), 7200);
+assert.equal(ageLabelToMinutes('1 week ago'), 10080);
+assert.equal(areReviewsNewestFirst([
+  { ageLabel: '12 小時前' },
+  { ageLabel: '5 天前' },
+  { ageLabel: '1 週前' }
+]), true);
+assert.equal(areReviewsNewestFirst([
+  { ageLabel: '1 年前' },
+  { ageLabel: '5 個月前' },
+  { ageLabel: '3 週前' }
+]), false);
 
 assert.equal(isRecentAgeLabel('剛剛'), true);
 assert.equal(isRecentAgeLabel('18 分鐘前'), true);

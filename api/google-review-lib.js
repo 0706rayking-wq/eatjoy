@@ -155,6 +155,40 @@ async function openNamedPlaceResult(page, storeName) {
   return clicked;
 }
 
+function ageLabelToMinutes(value) {
+  const label = String(value || '').trim().toLowerCase();
+  if (/^(?:剛剛|just now)$/.test(label)) return 0;
+  const match = label.match(/^(\d+)\s*(分鐘|小時|天|週|個月|年)前$/)
+    || label.match(/^(\d+)\s+(minute|hour|day|week|month|year)s? ago$/i);
+  if (!match) return Number.POSITIVE_INFINITY;
+  const amount = Number(match[1]);
+  const unit = match[2].toLowerCase();
+  const factors = {
+    '分鐘': 1,
+    minute: 1,
+    '小時': 60,
+    hour: 60,
+    '天': 1440,
+    day: 1440,
+    '週': 10080,
+    week: 10080,
+    '個月': 43200,
+    month: 43200,
+    '年': 525600,
+    year: 525600
+  };
+  return amount * factors[unit];
+}
+
+function areReviewsNewestFirst(reviews) {
+  const ages = (reviews || [])
+    .map((review) => ageLabelToMinutes(review.ageLabel))
+    .filter(Number.isFinite)
+    .slice(0, 8);
+  if (ages.length < 2) return false;
+  return ages.every((age, index) => index === 0 || age >= ages[index - 1]);
+}
+
 async function reviewCardHandles(page) {
   const preciseCards = await page.$$('.jftiEf');
   if (preciseCards.length) return preciseCards;
@@ -215,9 +249,6 @@ async function openLatestReviewsAttempt(page) {
           /(?:最新|newest)/i
         );
       } catch (error) {
-        // The configured Maps URL already carries the newest-review flag
-        // (!9m1!1b1). Google occasionally suppresses the sort popover in
-        // cloud sessions, so keep the URL ordering instead of failing the run.
         await page.keyboard.press('Escape').catch(() => {});
       }
     }
@@ -226,6 +257,27 @@ async function openLatestReviewsAttempt(page) {
   // list before callers attempt to read or screenshot its first card.
   await new Promise((resolve) => setTimeout(resolve, 1500));
   await page.waitForSelector(REVIEW_CARD_SELECTOR, { timeout: 20000 });
+  let visibleCards = await readCards(page);
+  if (!areReviewsNewestFirst(visibleCards)) {
+    const openedSort = await clickElementByLabel(
+      page,
+      'button, [role="button"]',
+      /排序評論|sort reviews/i
+    );
+    if (openedSort) {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      await clickElementByLabel(
+        page,
+        '[role="radio"], [role="menuitemradio"], [role="menuitem"], button, [role="button"]',
+        /(?:最新|newest)/i
+      );
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      visibleCards = await readCards(page);
+    }
+  }
+  if (!areReviewsNewestFirst(visibleCards)) {
+    throw new Error('Google review list could not be verified as newest-first');
+  }
 }
 
 async function openLatestReviews(page) {
@@ -543,6 +595,8 @@ async function screenshotCard(card) {
 }
 
 module.exports = {
+  ageLabelToMinutes,
+  areReviewsNewestFirst,
   launchBrowser,
   openLatestReviews,
   buildReviewImageUrl,
