@@ -128,7 +128,9 @@
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ $json }}",
-        "options": {}
+        "options": {
+          "timeout": 290000
+        }
       },
       "id": "f0cb1648-975b-4c58-b707-e0706dd7ff60",
       "name": "NUEIP每日出勤比對",
@@ -143,7 +145,11 @@
           "id": "3MgQHeI5cuvePCWR",
           "name": "Header Auth account"
         }
-      }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
     },
     {
       "parameters": {
@@ -153,7 +159,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ (() => { const isFrontWash = $('整理辨識結果').first().json.sheet_type === '外場／洗滌'; const lineMessages = ($json.lineMessages || []).slice(0, 5).map(text => isFrontWash ? String(text).replace('店別：南港內場', '店別：南港外場／洗滌') : String(text)); const archiveText = $('保存下班條照片').first().json.lineText || '下班條照片存檔失敗，已嘗試三次，請稍後重新傳送照片。'; if (lineMessages.length) lineMessages[lineMessages.length - 1] += '\\n\\n' + archiveText; else lineMessages.push(archiveText); return { to: $('僅處理下班條照片').first().json.event.source.groupId, messages: lineMessages.map(text => ({ type: 'text', text })) }; })() }}",
+        "jsonBody": "={{ (() => { const schedule = $('整理辨識結果').first().json; const isFrontWash = schedule.sheet_type === '外場／洗滌'; const lineMessages = ($json.lineMessages || []).slice(0, 5).map(text => isFrontWash ? String(text).replace('店別：南港內場', '店別：南港外場／洗滌') : String(text)); if (!lineMessages.length) { const displayDate = String(schedule.date || '').replace(/^\\d{4}-/, '').replace('-', '/'); const department = schedule.sheet_type === '外場／洗滌' ? '南港外場／洗滌' : schedule.sheet_type === '行政／洗滌' ? '南港行政／洗滌' : '南港內場'; lineMessages.push('【' + displayDate + ' 下班條比對】\\n店別：' + department + '\\n比對服務暫時無回應，已自動重試3次。\\n請稍後重新傳送這張照片。'); } const archiveText = $('保存下班條照片').first().json.lineText || '下班條照片存檔失敗，已嘗試三次，請稍後重新傳送照片。'; lineMessages[lineMessages.length - 1] += '\\n\\n' + archiveText; return { to: $('僅處理下班條照片').first().json.event.source.groupId, messages: lineMessages.map(text => ({ type: 'text', text })) }; })() }}",
         "options": {}
       },
       "id": "03e1b8e4-c8ed-4ccb-8de0-31f4c925b78b",
