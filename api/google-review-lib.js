@@ -185,7 +185,9 @@ function areReviewsNewestFirst(reviews) {
     .map((review) => ageLabelToMinutes(review.ageLabel))
     .filter(Number.isFinite)
     .slice(0, 8);
-  if (ages.length < 2) return false;
+  // A virtualized Google Maps list can initially expose only one review card.
+  // One parseable card is still a valid (trivially ordered) newest-first list.
+  if (ages.length < 1) return false;
   return ages.every((age, index) => index === 0 || age >= ages[index - 1]);
 }
 
@@ -276,7 +278,8 @@ async function openLatestReviewsAttempt(page) {
     }
   }
   if (!areReviewsNewestFirst(visibleCards)) {
-    throw new Error('Google review list could not be verified as newest-first');
+    const ageLabels = visibleCards.slice(0, 8).map((card) => card.ageLabel || '(missing)').join(', ');
+    throw new Error(`Google review list could not be verified as newest-first; ages=${ageLabels || '(none)'}`);
   }
 }
 

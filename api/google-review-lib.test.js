@@ -20,6 +20,8 @@ assert.equal(areReviewsNewestFirst([
   { ageLabel: '5 天前' },
   { ageLabel: '1 週前' }
 ]), true);
+assert.equal(areReviewsNewestFirst([{ ageLabel: '12 小時前' }]), true);
+assert.equal(areReviewsNewestFirst([{ ageLabel: '' }]), false);
 assert.equal(areReviewsNewestFirst([
   { ageLabel: '1 年前' },
   { ageLabel: '5 個月前' },
