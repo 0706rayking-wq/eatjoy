@@ -3,6 +3,7 @@ const {
   ageLabelToMinutes,
   areReviewsNewestFirst,
   extractAgeLabel,
+  extractReviewAgeLabel,
   isReviewEntryLabel,
   isRecentAgeLabel,
   parseReviewKey,
@@ -39,6 +40,8 @@ assert.equal(isRecentAgeLabel('2 天前', 1), false);
 assert.equal(isRecentAgeLabel('23 小時前', 1), false);
 assert.equal(isRecentAgeLabel('3 hours ago'), true);
 assert.equal(extractAgeLabel('五星 21 小時前 最新'), '21 小時前');
+assert.equal(extractAgeLabel('5 個月前'), '5 個月前');
+assert.equal(extractReviewAgeLabel('5 個月前', '評論 5 個月前 店家回覆 1 個月前'), '5 個月前');
 assert.equal(isReviewEntryLabel('Google 評論'), true);
 assert.equal(isReviewEntryLabel('2,529 則 Google 評論'), true);
 assert.equal(isReviewEntryLabel('查看所有 Google 評論'), true);

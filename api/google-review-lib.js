@@ -63,6 +63,10 @@ function extractAgeLabel(text) {
     || '';
 }
 
+function extractReviewAgeLabel(dateText, cardText) {
+  return extractAgeLabel(String(dateText || '').trim() || cardText);
+}
+
 function taipeiDate(now = new Date()) {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Taipei',
@@ -200,10 +204,18 @@ async function reviewCardHandles(page) {
 async function clickElementByLabel(page, selector, pattern) {
   const elements = await page.$$(selector);
   for (const element of elements) {
-    const label = await element.evaluate((node) => `${node.textContent || ''} ${node.getAttribute('aria-label') || ''}`
-      .replace(/\s+/g, ' ')
-      .trim());
-    if (!pattern.test(label)) continue;
+    const candidate = await element.evaluate((node) => {
+      const rect = node.getBoundingClientRect();
+      const style = getComputedStyle(node);
+      return {
+        text: String(node.textContent || '').replace(/\s+/g, ' ').trim(),
+        aria: String(node.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim(),
+        visible: rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none',
+        disabled: node.matches(':disabled') || node.getAttribute('aria-disabled') === 'true'
+      };
+    });
+    if (!candidate.visible || candidate.disabled) continue;
+    if (!pattern.test(candidate.text) && !pattern.test(candidate.aria)) continue;
     await element.evaluate((node) => node.scrollIntoView({ block: 'center', inline: 'center' }));
     await element.click();
     return true;
@@ -300,7 +312,7 @@ async function openLatestReviews(page) {
 }
 
 async function readCards(page) {
-  return page.$$eval(REVIEW_CARD_SELECTOR, (cards) => cards.map((card) => {
+  const cards = await page.$$eval(REVIEW_CARD_SELECTOR, (cards) => cards.map((card) => {
     const text = card.innerText || '';
     const ratingAlt = [...card.querySelectorAll('img, [role="img"], [aria-label]')]
       .map((image) => image.getAttribute('alt') || image.getAttribute('aria-label') || '')
@@ -313,10 +325,12 @@ async function readCards(page) {
       || reviewerLink?.textContent?.trim()
       || '未知評論者';
     const reviewText = card.querySelector('.OA1nbd, .wiI7pd')?.textContent?.trim() || '';
-    const ageLabel = text.match(/(?:剛剛|\d+\s*(?:分鐘|小時|天|週|個月|年)前)/)?.[0]
-      || text.match(/(?:just now|\d+\s+(?:minute|hour|day|week|month|year)s? ago)/i)?.[0]
-      || '';
-    return { reviewerId, reviewer, stars, ageLabel, reviewText };
+    const dateText = card.querySelector('.rsqaWe, .DU9Pgb')?.textContent?.trim() || '';
+    return { reviewerId, reviewer, stars, dateText, cardText: text, reviewText };
+  }));
+  return cards.map(({ dateText, cardText, ...card }) => ({
+    ...card,
+    ageLabel: extractReviewAgeLabel(dateText, cardText)
   }));
 }
 
@@ -606,6 +620,7 @@ module.exports = {
   checkGoogleReviews,
   checkGoogleReviewsWithScreenshots,
   extractAgeLabel,
+  extractReviewAgeLabel,
   isReviewEntryLabel,
   isRecentAgeLabel,
   parseReviewKey,
