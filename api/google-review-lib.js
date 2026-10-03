@@ -293,7 +293,7 @@ async function openLatestReviewsAttempt(page) {
   // list before callers attempt to read or screenshot its first card.
   await new Promise((resolve) => setTimeout(resolve, 1500));
   await page.waitForSelector(REVIEW_CARD_SELECTOR, { timeout: 20000 });
-  let visibleCards = await readCards(page);
+  let visibleCards = await waitForNewestCards(page);
   if (!areReviewsNewestFirst(visibleCards)) {
     const openedSort = await clickElementByLabel(
       page,
@@ -308,13 +308,26 @@ async function openLatestReviewsAttempt(page) {
         /(?:最新|newest)/i
       );
       await new Promise((resolve) => setTimeout(resolve, 1500));
-      visibleCards = await readCards(page);
+      visibleCards = await waitForNewestCards(page);
     }
   }
   if (!areReviewsNewestFirst(visibleCards)) {
     const ageLabels = visibleCards.slice(0, 8).map((card) => card.ageLabel || '(missing)').join(', ');
     throw new Error(`Google review list could not be verified as newest-first; ages=${ageLabels || '(none)'}`);
   }
+}
+
+async function waitForNewestCards(page) {
+  // Residential proxy responses can arrive well after the sort menu closes.
+  // Existing cards remain mounted meanwhile; their presence is not readiness.
+  const deadline = Date.now() + 15000;
+  let cards;
+  do {
+    cards = await readCards(page);
+    if (areReviewsNewestFirst(cards)) return cards;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  } while (Date.now() < deadline);
+  return cards;
 }
 
 async function openLatestReviews(page, options = {}) {
