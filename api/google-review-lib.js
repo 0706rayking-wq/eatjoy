@@ -34,7 +34,9 @@ async function launchBrowser(viewport = { width: 1280, height: 1600 }) {
     workflow: 'google-review-patrol',
     // Review pages are public. A shared persistent context causes concurrent
     // LINE image fetches to close each other's Browserbase targets.
-    useContext: false
+    useContext: false,
+    proxyCountry: 'TW',
+    protocolTimeout: 60000
   });
 }
 
@@ -95,7 +97,7 @@ function isReviewEntryLabel(value) {
   if (/撰寫評論|評論可使用的評論選項|write a review|review options/i.test(label)) return false;
   return /google\s*評論/i.test(label)
     || /google\s*reviews?/i.test(label)
-    || /(?:^|\s|[^\p{L}])(?:[\d,]+\s*則\s*)?評論(?:$|\s)/u.test(label)
+    || /(?:^|\s|[^\p{L}])(?:[\d,]+\s*(?:則|篇)\s*)?評論(?:$|\s)/u.test(label)
     || /(?:^|\s)(?:[\d,]+\s+)?reviews?(?:$|\s)/i.test(label);
 }
 
@@ -109,7 +111,7 @@ async function clickReviewEntry(page) {
         if (/撰寫評論|評論可使用的評論選項|write a review|review options/i.test(label)) return false;
         return /google\s*評論/i.test(label)
           || /google\s*reviews?/i.test(label)
-          || /(?:^|\s|[^\p{L}])(?:[\d,]+\s*則\s*)?評論(?:$|\s)/u.test(label)
+          || /(?:^|\s|[^\p{L}])(?:[\d,]+\s*(?:則|篇)\s*)?評論(?:$|\s)/u.test(label)
           || /(?:^|\s)(?:[\d,]+\s+)?reviews?(?:$|\s)/i.test(label);
       });
     if (!element) return false;
@@ -132,6 +134,15 @@ async function describeReviewPage(page) {
 }
 
 async function ensureReviewDialog(page) {
+  if (await page.$(REVIEW_CARD_SELECTOR)) return;
+
+  // Maps renders place controls before its ratings/review tab arrives.
+  await page.waitForFunction(() => document.querySelector('.bwb7ce, .jftiEf')
+    || [...document.querySelectorAll('button, a, [role="button"]')]
+      .some((element) => /^(?:評論|reviews)$/i.test((element.textContent || '').trim())
+        || /(?:\d[\d,]*\s*(?:則|篇)\s*(?:Google\s*)?評論|\d[\d,]*\s+reviews)/i.test(
+          `${element.textContent || ''} ${element.getAttribute('aria-label') || ''}`)),
+  { timeout: 20000 }).catch(() => {});
   if (await page.$(REVIEW_CARD_SELECTOR)) return;
 
   const clicked = await clickReviewEntry(page);
@@ -202,6 +213,12 @@ async function reviewCardHandles(page) {
 }
 
 async function clickElementByLabel(page, selector, pattern) {
+  await page.evaluate(() => {
+    if (!/登入即可享有最佳 Google 地圖體驗|Sign in to get the most out of Google Maps/i.test(document.body.innerText)) return;
+    const close = [...document.querySelectorAll('button, [role="button"]')]
+      .find((node) => /^(關閉|close)$/i.test((node.textContent || '').trim()));
+    close?.click();
+  });
   const elements = await page.$$(selector);
   for (const element of elements) {
     const candidate = await element.evaluate((node) => {
@@ -231,22 +248,24 @@ async function openLatestReviewsAttempt(page) {
   );
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.7' });
   await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }]);
-  await page.goto(reviewUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+  const navigation = await page.goto(reviewUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+  if (navigation && navigation.status() >= 400) {
+    throw new Error(`Google review navigation HTTP ${navigation.status()}; ${await describeReviewPage(page)}`);
+  }
   // Google Maps can spend 30+ seconds on its interstitial/CAPTCHA when opened
   // from a fresh cloud session. Browserbase solves those challenges, so give
   // the page enough time to expose its first interactive control.
-  await page.waitForSelector('button, a, [role="button"]', { timeout: 75000 });
+  try {
+    await page.waitForSelector('button, a, [role="button"]', { timeout: 75000 });
+  } catch {
+    throw new Error(`Google review page did not become interactive; ${await describeReviewPage(page)}`);
+  }
   if (!await page.$(REVIEW_CARD_SELECTOR)) {
     await openNamedPlaceResult(page, process.env.GOOGLE_REVIEW_STORE_NAME);
   }
   await ensureReviewDialog(page);
-  const latestWasVisible = await page.evaluate(() => {
-    const latest = [...document.querySelectorAll('[role="radio"], [role="menuitemradio"]')]
-      .find((element) => /^(最新|newest)$/i.test((element.textContent || '').trim()));
-    if (!latest) return false;
-    latest.click();
-    return true;
-  });
+  const latestWasVisible = await clickElementByLabel(page,
+    '[role="radio"], [role="menuitemradio"]', /^(最新|newest)$/i);
   if (!latestWasVisible) {
     const openedSort = await clickElementByLabel(
       page,
@@ -295,17 +314,40 @@ async function openLatestReviewsAttempt(page) {
   }
 }
 
-async function openLatestReviews(page) {
+async function openLatestReviews(page, options = {}) {
+  const maxAttempts = options.maxAttempts || 3;
   let lastError;
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       await openLatestReviewsAttempt(page);
       return;
     } catch (error) {
       lastError = error;
-      if (attempt < 3) {
+      if (attempt < maxAttempts) {
         await new Promise((resolve) => setTimeout(resolve, 1200 * attempt));
       }
+    }
+  }
+  if (maxAttempts === 1) throw lastError;
+  throw new Error(`Google review page failed after ${maxAttempts} attempts: ${lastError?.message || lastError}`);
+}
+
+async function withReviewPage(viewport, readResult) {
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    let browser;
+    try {
+      // A failed cloud session retains the same proxy/IP. Recreate it rather
+      // than navigating the blocked or stalled session three times.
+      browser = await launchBrowser(viewport);
+      const page = await browser.newPage();
+      await openLatestReviews(page, { maxAttempts: 1 });
+      return await readResult(page);
+    } catch (error) {
+      lastError = error;
+      console.warn(`Google review session attempt ${attempt} failed: ${String(error.message).slice(0, 300)}`);
+    } finally {
+      if (browser) await browser.close().catch(() => {});
     }
   }
   throw new Error(`Google review page failed after 3 attempts: ${lastError?.message || lastError}`);
@@ -400,10 +442,7 @@ async function loadRecentReviews(page, options = {}) {
 }
 
 async function checkGoogleReviews() {
-  const browser = await launchBrowser();
-  try {
-    const page = await browser.newPage();
-    await openLatestReviews(page);
+  return withReviewPage({ width: 1280, height: 1600 }, async (page) => {
     await expandReviewTexts(page);
     const debugCards = String(process.env.GOOGLE_REVIEW_DEBUG || '') === '1'
       ? await readCards(page)
@@ -420,16 +459,11 @@ async function checkGoogleReviews() {
       negativeReviews: reviews.filter((review) => review.stars > 0 && review.stars <= 3),
       ...(debugCards ? { debugCards } : {})
     };
-  } finally {
-    await browser.close();
-  }
+  });
 }
 
 async function checkGoogleReviewsWithScreenshots(options = {}) {
-  const browser = await launchBrowser({ width: 1280, height: 1800 });
-  try {
-    const page = await browser.newPage();
-    await openLatestReviews(page);
+  return withReviewPage({ width: 1280, height: 1800 }, async (page) => {
     await expandReviewTexts(page);
     const debugCards = String(process.env.GOOGLE_REVIEW_DEBUG || '') === '1'
       ? await readCards(page)
@@ -454,9 +488,7 @@ async function checkGoogleReviewsWithScreenshots(options = {}) {
       negativeScreenshots,
       ...(debugCards ? { debugCards } : {})
     };
-  } finally {
-    await browser.close();
-  }
+  });
 }
 
 function reviewSignature(reviewerId, date, secret) {

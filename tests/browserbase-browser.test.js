@@ -24,10 +24,10 @@ assert.deepEqual(browserbaseConfig(environment), {
 });
 assert.deepEqual(buildSessionPayload(environment), {
   projectId: 'project-id',
+  timeout: 900,
+  region: 'us-west-2',
   proxies: true,
   browserSettings: {
-    timeout: 900,
-    region: 'ap-southeast-1',
     solveCaptchas: true,
     viewport: { width: 1920, height: 1080 },
     context: { id: 'context-id', persist: true }
@@ -39,10 +39,10 @@ assert.deepEqual(buildSessionPayload(environment, {
   workflow: 'google-review-patrol'
 }), {
   projectId: 'project-id',
+  timeout: 900,
+  region: 'us-west-2',
   proxies: true,
   browserSettings: {
-    timeout: 900,
-    region: 'ap-southeast-1',
     solveCaptchas: true,
     viewport: { width: 1280, height: 1800 },
     context: { id: 'context-id', persist: true }
@@ -51,5 +51,11 @@ assert.deepEqual(buildSessionPayload(environment, {
 });
 const statelessPayload = buildSessionPayload(environment, { useContext: false });
 assert.equal('context' in statelessPayload.browserSettings, false);
+assert.equal(statelessPayload.region, 'ap-southeast-1');
+assert.equal(statelessPayload.timeout, 900);
+assert.equal('region' in statelessPayload.browserSettings, false);
+assert.equal('timeout' in statelessPayload.browserSettings, false);
+assert.deepEqual(buildSessionPayload(environment, { useContext: false, proxyCountry: 'TW' }).proxies,
+  [{ type: 'browserbase', geolocation: { country: 'TW' } }]);
 
 console.log('browserbase browser tests passed');
