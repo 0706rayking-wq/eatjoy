@@ -215,9 +215,11 @@ async function reviewCardHandles(page) {
 async function clickElementByLabel(page, selector, pattern) {
   await page.evaluate(() => {
     if (!/登入即可享有最佳 Google 地圖體驗|Sign in to get the most out of Google Maps/i.test(document.body.innerText)) return;
-    const close = [...document.querySelectorAll('button, [role="button"]')]
+    const dialog = [...document.querySelectorAll('[role="dialog"]')]
+      .find((node) => /登入即可享有最佳 Google 地圖體驗|Sign in to get the most out of Google Maps/i.test(node.innerText));
+    const close = [...(dialog || document).querySelectorAll('button, [role="button"]')]
       .find((node) => /^(關閉|close)$/i.test((node.textContent || '').trim())
-        || /^(關閉|close)$/i.test(node.getAttribute('aria-label') || ''));
+        || (dialog && /^(關閉|close)$/i.test(node.getAttribute('aria-label') || '')));
     close?.click();
   });
   const elements = await page.$$(selector);
