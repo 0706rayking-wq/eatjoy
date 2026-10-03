@@ -67,7 +67,9 @@ function buildLineMessageObjects(request, result, error) {
       type: 'text',
       text: [
         `【${displayDate(result?.date)} Google評論巡檢失敗】`,
-        'Browserbase 已自動重試 3 次仍無法讀取 Google 評論。',
+        String(error).includes('GOOGLE_REVIEW_SIGNIN_REQUIRED')
+          ? 'Google 要求登入才能讀取完整評論；請更新評論專用 Google 登入狀態。'
+          : 'Browserbase 已自動重試 3 次仍無法讀取 Google 評論。',
         `原因：${String(error).slice(0, 180)}`
       ].join('\n')
     }];

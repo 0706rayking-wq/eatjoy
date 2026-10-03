@@ -29,12 +29,17 @@ async function launchBrowser(viewport = { width: 1280, height: 1600 }) {
   if (!hasBrowserbaseConfig(process.env)) {
     throw new Error('Browserbase is not configured for Google review patrol');
   }
-  return launchAutomationBrowser(process.env, globalThis.fetch, {
+  const reviewContextId = String(process.env.GOOGLE_REVIEW_CONTEXT_ID || '').trim();
+  const environment = reviewContextId
+    ? { ...process.env, BROWSERBASE_CONTEXT_ID: reviewContextId }
+    : process.env;
+  return launchAutomationBrowser(environment, globalThis.fetch, {
     viewport,
     workflow: 'google-review-patrol',
-    // Review pages are public. A shared persistent context causes concurrent
-    // LINE image fetches to close each other's Browserbase targets.
-    useContext: false,
+    // Never share the HR context. A dedicated review context can preserve
+    // Google's guest-page preferences without logging in to another service.
+    useContext: Boolean(reviewContextId),
+    ...(reviewContextId ? { region: 'ap-southeast-1' } : {}),
     proxyCountry: 'TW',
     protocolTimeout: 60000
   });
@@ -213,15 +218,6 @@ async function reviewCardHandles(page) {
 }
 
 async function clickElementByLabel(page, selector, pattern) {
-  await page.evaluate(() => {
-    if (!/登入即可享有最佳 Google 地圖體驗|Sign in to get the most out of Google Maps/i.test(document.body.innerText)) return;
-    const dialog = [...document.querySelectorAll('[role="dialog"]')]
-      .find((node) => /登入即可享有最佳 Google 地圖體驗|Sign in to get the most out of Google Maps/i.test(node.innerText));
-    const close = [...(dialog || document).querySelectorAll('button, [role="button"]')]
-      .find((node) => /^(關閉|close)$/i.test((node.textContent || '').trim())
-        || (dialog && /^(關閉|close)$/i.test(node.getAttribute('aria-label') || '')));
-    close?.click();
-  });
   const elements = await page.$$(selector);
   for (const element of elements) {
     const candidate = await element.evaluate((node) => {
@@ -236,19 +232,23 @@ async function clickElementByLabel(page, selector, pattern) {
     });
     if (!candidate.visible || candidate.disabled) continue;
     if (!pattern.test(candidate.text) && !pattern.test(candidate.aria)) continue;
-    await element.evaluate((node) => node.scrollIntoView({ block: 'center', inline: 'center' }));
+    if (process.env.GOOGLE_REVIEW_DEBUG === '1') console.info('Google review control', candidate.text, candidate.aria);
     await element.click();
     return true;
   }
   return false;
 }
 
+async function requireFullReviewAccess(page) {
+  const signInRequired = await page.evaluate(() => /登入即可享有最佳 Google 地圖體驗|Sign in to get the (?:best|most) (?:of|out of) Google Maps/i.test(document.body.innerText));
+  if (!signInRequired) return;
+  const error = new Error('GOOGLE_REVIEW_SIGNIN_REQUIRED: Google Maps 要求登入才能讀取全部評論及最新排序；請更新評論專用 Google 登入狀態');
+  error.code = 'GOOGLE_REVIEW_SIGNIN_REQUIRED';
+  throw error;
+}
+
 async function openLatestReviewsAttempt(page) {
   const reviewUrl = resolveReviewUrl(process.env.GOOGLE_REVIEW_URL);
-  await page.setUserAgent(
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
-      + '(KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
-  );
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.7' });
   await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }]);
   const navigation = await page.goto(reviewUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
@@ -267,6 +267,7 @@ async function openLatestReviewsAttempt(page) {
     await openNamedPlaceResult(page, process.env.GOOGLE_REVIEW_STORE_NAME);
   }
   await ensureReviewDialog(page);
+  await requireFullReviewAccess(page);
   const latestWasVisible = await clickElementByLabel(page,
     '[role="radio"], [role="menuitemradio"]', /^(最新|newest)$/i);
   if (!latestWasVisible) {
@@ -277,14 +278,17 @@ async function openLatestReviewsAttempt(page) {
     );
     if (openedSort) {
       try {
-        await page.waitForFunction(() => [...document.querySelectorAll('[role="radio"], [role="menuitemradio"], [role="menuitem"], button, [role="button"]')]
+        await page.waitForFunction(() => /登入即可享有最佳 Google 地圖體驗|Sign in to get the (?:best|most) (?:of|out of) Google Maps/i.test(document.body.innerText)
+          || [...document.querySelectorAll('[role="radio"], [role="menuitemradio"], [role="menuitem"], button, [role="button"]')]
           .some((element) => /(?:最新|newest)/i.test(`${element.textContent || ''} ${element.getAttribute('aria-label') || ''}`)), { timeout: 10000 });
+        await requireFullReviewAccess(page);
         await clickElementByLabel(
           page,
           '[role="radio"], [role="menuitemradio"], [role="menuitem"], button, [role="button"]',
           /(?:最新|newest)/i
         );
       } catch (error) {
+        if (error.code === 'GOOGLE_REVIEW_SIGNIN_REQUIRED') throw error;
         await page.keyboard.press('Escape').catch(() => {});
       }
     }
@@ -302,6 +306,7 @@ async function openLatestReviewsAttempt(page) {
     );
     if (openedSort) {
       await new Promise((resolve) => setTimeout(resolve, 300));
+      await requireFullReviewAccess(page);
       await clickElementByLabel(
         page,
         '[role="radio"], [role="menuitemradio"], [role="menuitem"], button, [role="button"]',
@@ -339,6 +344,7 @@ async function openLatestReviews(page, options = {}) {
       return;
     } catch (error) {
       lastError = error;
+      if (error.code === 'GOOGLE_REVIEW_SIGNIN_REQUIRED') throw error;
       if (attempt < maxAttempts) {
         await new Promise((resolve) => setTimeout(resolve, 1200 * attempt));
       }
@@ -362,7 +368,7 @@ async function withReviewPage(viewport, readResult) {
       if (remaining <= 0) throw new Error('Google review patrol time budget exceeded');
       return await Promise.race([
         (async () => {
-          const page = await browser.newPage();
+          const page = (await browser.pages())[0] || await browser.newPage();
           await openLatestReviews(page, { maxAttempts: 1 });
           return readResult(page);
         })(),
@@ -373,6 +379,7 @@ async function withReviewPage(viewport, readResult) {
     } catch (error) {
       lastError = error;
       console.warn(`Google review session attempt ${attempt} failed: ${String(error.message).slice(0, 300)}`);
+      if (error.code === 'GOOGLE_REVIEW_SIGNIN_REQUIRED') throw error;
     } finally {
       clearTimeout(attemptTimer);
       if (browser) {
@@ -624,7 +631,7 @@ async function findReviewCard(page, target) {
 async function screenshotReview(target) {
   const browser = await launchBrowser({ width: 1280, height: 1800 });
   try {
-    const page = await browser.newPage();
+    const page = (await browser.pages())[0] || await browser.newPage();
     await openLatestReviews(page);
     const card = await findReviewCard(page, target);
     if (!card) throw new Error('Review is no longer available');

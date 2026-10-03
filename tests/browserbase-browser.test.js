@@ -52,6 +52,7 @@ assert.deepEqual(buildSessionPayload(environment, {
 const statelessPayload = buildSessionPayload(environment, { useContext: false });
 assert.equal('context' in statelessPayload.browserSettings, false);
 assert.equal(statelessPayload.region, 'ap-southeast-1');
+assert.equal(buildSessionPayload(environment, { region: 'ap-southeast-1' }).region, 'ap-southeast-1');
 assert.equal(statelessPayload.timeout, 900);
 assert.equal('region' in statelessPayload.browserSettings, false);
 assert.equal('timeout' in statelessPayload.browserSettings, false);

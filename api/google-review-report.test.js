@@ -50,6 +50,9 @@ const failed = buildLineMessageObjects({}, { date: '2026-08-07' }, 'blocked');
 assert.equal(failed.length, 1);
 assert.equal(failed[0].type, 'text');
 assert.match(failed[0].text, /Google評論巡檢失敗/);
+const signInFailed = buildLineMessageObjects({}, { date: '2026-10-04' }, 'GOOGLE_REVIEW_SIGNIN_REQUIRED: sign in required');
+assert.match(signInFailed[0].text, /Google 要求登入/);
+assert.doesNotMatch(signInFailed[0].text, /重試 3 次/);
 assert.equal(formatReportText({ date: '2026-08-07' }, 'blocked'), '');
 
 assert.equal(draftWebhookUrl({ GOOGLE_REVIEW_DRAFT_WEBHOOK_URL: 'https://example.test/drafts' }), 'https://example.test/drafts');
