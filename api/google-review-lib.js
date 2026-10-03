@@ -216,7 +216,8 @@ async function clickElementByLabel(page, selector, pattern) {
   await page.evaluate(() => {
     if (!/登入即可享有最佳 Google 地圖體驗|Sign in to get the most out of Google Maps/i.test(document.body.innerText)) return;
     const close = [...document.querySelectorAll('button, [role="button"]')]
-      .find((node) => /^(關閉|close)$/i.test((node.textContent || '').trim()));
+      .find((node) => /^(關閉|close)$/i.test((node.textContent || '').trim())
+        || /^(關閉|close)$/i.test(node.getAttribute('aria-label') || ''));
     close?.click();
   });
   const elements = await page.$$(selector);
@@ -270,7 +271,7 @@ async function openLatestReviewsAttempt(page) {
     const openedSort = await clickElementByLabel(
       page,
       'button, [role="button"]',
-      /排序評論|sort reviews/i
+      /排序評論|sort reviews|^(排序|sort)$/i
     );
     if (openedSort) {
       try {
@@ -295,7 +296,7 @@ async function openLatestReviewsAttempt(page) {
     const openedSort = await clickElementByLabel(
       page,
       'button, [role="button"]',
-      /排序評論|sort reviews/i
+      /排序評論|sort reviews|^(排序|sort)$/i
     );
     if (openedSort) {
       await new Promise((resolve) => setTimeout(resolve, 300));
@@ -334,21 +335,42 @@ async function openLatestReviews(page, options = {}) {
 
 async function withReviewPage(viewport, readResult) {
   let lastError;
+  const deadline = Date.now() + 240000;
   for (let attempt = 1; attempt <= 3; attempt += 1) {
     let browser;
+    let attemptTimer;
     try {
       // A failed cloud session retains the same proxy/IP. Recreate it rather
       // than navigating the blocked or stalled session three times.
       browser = await launchBrowser(viewport);
-      const page = await browser.newPage();
-      await openLatestReviews(page, { maxAttempts: 1 });
-      return await readResult(page);
+      const remaining = Math.min(80000, deadline - Date.now());
+      if (remaining <= 0) throw new Error('Google review patrol time budget exceeded');
+      return await Promise.race([
+        (async () => {
+          const page = await browser.newPage();
+          await openLatestReviews(page, { maxAttempts: 1 });
+          return readResult(page);
+        })(),
+        new Promise((_, reject) => {
+          attemptTimer = setTimeout(() => reject(new Error('Google review session exceeded its time budget')), remaining);
+        })
+      ]);
     } catch (error) {
       lastError = error;
       console.warn(`Google review session attempt ${attempt} failed: ${String(error.message).slice(0, 300)}`);
     } finally {
-      if (browser) await browser.close().catch(() => {});
+      clearTimeout(attemptTimer);
+      if (browser) {
+        let closeTimer;
+        await Promise.race([
+          browser.close().catch(() => {}),
+          new Promise((resolve) => { closeTimer = setTimeout(resolve, 5000); })
+        ]);
+        clearTimeout(closeTimer);
+        browser.disconnect();
+      }
     }
+    if (Date.now() >= deadline) break;
   }
   throw new Error(`Google review page failed after 3 attempts: ${lastError?.message || lastError}`);
 }
