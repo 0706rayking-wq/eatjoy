@@ -665,6 +665,18 @@ async function screenshotCard(card, page) {
       }
       targets[index].removeAttribute('id');
     });
+    // Maps uses a private icon font which is unavailable on the capture page.
+    // Render rating as standard Unicode and omit decorative private glyphs.
+    const rating = [...clone.querySelectorAll('[aria-label]')].find(node =>
+      /(?:獲評為|rated|顆星|stars?)\D*[1-5]|[1-5]\D*(?:顆星|stars?)/i.test(node.getAttribute('aria-label') || ''));
+    if (rating) {
+      const stars = Number(rating.getAttribute('aria-label').match(/[1-5]/)?.[0]);
+      rating.textContent = '★'.repeat(stars) + '☆'.repeat(5 - stars);
+      Object.assign(rating.style, { fontFamily: 'Arial, sans-serif', width: 'auto', height: 'auto', color: '#e8a400' });
+    }
+    clone.querySelectorAll('*').forEach(node => {
+      if (!node.children.length && /[\uE000-\uF8FF]/.test(node.textContent)) node.textContent = '';
+    });
     const width = Math.ceil(element.getBoundingClientRect().width);
     Object.assign(clone.style, { position: 'relative', left: 'auto', top: 'auto',
       transform: 'none', margin: '0', width: width + 'px', height: 'auto',
