@@ -522,7 +522,7 @@ async function checkGoogleReviewsWithScreenshots(options = {}) {
     for (const review of negativeReviews) {
       const card = await findReviewCard(page, review);
       if (!card) continue;
-      negativeScreenshots.push({ review, image: await screenshotCard(card) });
+      negativeScreenshots.push({ review, image: await screenshotCard(card, page) });
     }
     return {
       date: String(process.env.GOOGLE_REVIEW_REPORT_DATE || '').trim() || taipeiDate(),
@@ -636,54 +636,63 @@ async function screenshotReview(target) {
     const card = await findReviewCard(page, target);
     if (!card) throw new Error('Review is no longer available');
 
-    return screenshotCard(card);
+    return screenshotCard(card, page);
   } finally {
     await browser.close();
   }
 }
 
-async function screenshotCard(card) {
-  const originalStyle = await card.evaluate((element) => ({
-    height: element.style.height,
-    overflow: element.style.overflow,
-    boxSizing: element.style.boxSizing
-  }));
+async function screenshotCard(card, page) {
   await card.evaluate((element) => {
-    element.scrollIntoView({ block: 'center', inline: 'nearest' });
-    const more = [...element.querySelectorAll('[role="button"], button')]
-      .find((button) => /^(?:全文|更多|more|see more|顯示完整評論|show full review)$/i.test(
-        `${button.textContent || ''} ${button.getAttribute('aria-label') || ''}`
-          .replace(/\s+/g, ' ')
-          .trim()
-      ));
-    if (more) more.click();
+    const more = [...element.querySelectorAll('button')].find((button) =>
+      button.classList.contains('w8nwRe') || /^(全文|更多|more|see more)$/i.test(button.textContent.trim()));
+    more?.click();
   });
   await new Promise((resolve) => setTimeout(resolve, 250));
-  await card.evaluate((element) => {
-    const cardRect = element.getBoundingClientRect();
-    const action = [...element.querySelectorAll('[aria-label]')]
-      .find((candidate) => /^(回應|分享|like|share)/i.test(candidate.getAttribute('aria-label') || ''));
-    const content = element.querySelector('.OA1nbd, .wiI7pd');
-    const photos = [...element.querySelectorAll('button[aria-label*="評論中的第"]')];
-    const contentBottom = content?.getBoundingClientRect().bottom || cardRect.top + 130;
-    const photoBottom = photos.reduce(
-      (bottom, photo) => Math.max(bottom, photo.getBoundingClientRect().bottom),
-      contentBottom
-    );
-    const actionTop = action?.getBoundingClientRect().top || photoBottom + 8;
-    const targetHeight = Math.max(120, Math.ceil(Math.min(actionTop - 6, photoBottom + 8) - cardRect.top));
-    element.style.height = `${targetHeight}px`;
-    element.style.overflow = 'hidden';
-    element.style.boxSizing = 'border-box';
+  // Element screenshots still include ancestor clipping and overlaid Maps UI.
+  // Copy the actual card and its computed appearance to a clean capture page.
+  const snapshot = await card.evaluate((element) => {
+    const clone = element.cloneNode(true);
+    const sources = [element, ...element.querySelectorAll('*')];
+    const targets = [clone, ...clone.querySelectorAll('*')];
+    sources.forEach((source, index) => {
+      const style = getComputedStyle(source);
+      for (const property of style) targets[index].style.setProperty(property, style.getPropertyValue(property));
+      if (source instanceof HTMLImageElement) {
+        targets[index].src = source.currentSrc || source.src;
+        targets[index].removeAttribute('srcset');
+        targets[index].loading = 'eager';
+      }
+      targets[index].removeAttribute('id');
+    });
+    const width = Math.ceil(element.getBoundingClientRect().width);
+    Object.assign(clone.style, { position: 'relative', left: 'auto', top: 'auto',
+      transform: 'none', margin: '0', width: width + 'px', height: 'auto',
+      minHeight: '0', maxHeight: 'none', overflow: 'visible', background: '#fff' });
+    clone.setAttribute('data-review-capture', '');
+    // Never copy executable or embedded content from the source page.
+    clone.querySelectorAll('script, iframe, object, embed').forEach(node => node.remove());
+    [clone, ...clone.querySelectorAll('*')].forEach(node => {
+      for (const attribute of [...node.attributes]) if (/^on/i.test(attribute.name)) node.removeAttribute(attribute.name);
+    });
+    return { html: clone.outerHTML, width };
   });
+  if (!snapshot.width) throw new Error('Review card has no visible width');
+  const capture = await page.browser().newPage();
   try {
-    return await card.screenshot({ type: 'png' });
+    await capture.setViewport({ width: snapshot.width, height: 1000, deviceScaleFactor: 2 });
+    await capture.setContent('<!doctype html><html><head><meta charset="utf-8"></head><body style="margin:0;background:white">' + snapshot.html + '</body></html>');
+    await capture.evaluate(async () => {
+      await Promise.race([
+        Promise.all([...document.images].map(img => img.complete ? Promise.resolve() : new Promise(resolve => { img.onload = img.onerror = resolve; }))),
+        new Promise(resolve => setTimeout(resolve, 5000))
+      ]);
+      await document.fonts.ready;
+    });
+    const isolatedCard = await capture.$('[data-review-capture]');
+    return await isolatedCard.screenshot({ type: 'png' });
   } finally {
-    await card.evaluate((element, style) => {
-      element.style.height = style.height;
-      element.style.overflow = style.overflow;
-      element.style.boxSizing = style.boxSizing;
-    }, originalStyle);
+    await capture.close();
   }
 }
 
@@ -704,6 +713,7 @@ module.exports = {
   resolveReviewUrl,
   reviewSignature,
   screenshotReview,
+  screenshotCard,
   taipeiDate,
   verifyReviewSignature
 };
