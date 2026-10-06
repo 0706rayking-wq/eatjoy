@@ -9,6 +9,14 @@ const DEFAULT_REVIEW_URL =
 const REVIEW_CARD_SELECTOR = '.bwb7ce, .jftiEf';
 const REVIEW_CONTENT_SELECTOR = '.OA1nbd, .wiI7pd';
 const REVIEWER_SELECTOR = '.Vpc5Fe';
+const reviewProgress = new WeakMap();
+
+function reviewStage(page, stage) {
+  const progress = reviewProgress.get(page);
+  if (!progress) return;
+  progress.stage = stage;
+  console.info(`Google review stage=${stage} elapsedMs=${Date.now() - progress.started}`);
+}
 
 async function launchBrowser(viewport = { width: 1280, height: 1600 }) {
   if (String(process.env.GOOGLE_REVIEW_RUNTIME || '').toLowerCase() === 'local') {
@@ -218,25 +226,26 @@ async function reviewCardHandles(page) {
 }
 
 async function clickElementByLabel(page, selector, pattern) {
-  const elements = await page.$$(selector);
-  for (const element of elements) {
-    const candidate = await element.evaluate((node) => {
+  // Inspect all candidates in one browser call. One remote call per button
+  // consumed most of the cloud session budget on Maps' large control tree.
+  return page.evaluate(({ selector, source, flags }) => {
+    const pattern = new RegExp(source, flags);
+    for (const node of document.querySelectorAll(selector)) {
       const rect = node.getBoundingClientRect();
       const style = getComputedStyle(node);
-      return {
+      const candidate = {
         text: String(node.textContent || '').replace(/\s+/g, ' ').trim(),
         aria: String(node.getAttribute('aria-label') || '').replace(/\s+/g, ' ').trim(),
         visible: rect.width > 0 && rect.height > 0 && style.visibility !== 'hidden' && style.display !== 'none',
         disabled: node.matches(':disabled') || node.getAttribute('aria-disabled') === 'true'
       };
-    });
-    if (!candidate.visible || candidate.disabled) continue;
-    if (!pattern.test(candidate.text) && !pattern.test(candidate.aria)) continue;
-    if (process.env.GOOGLE_REVIEW_DEBUG === '1') console.info('Google review control', candidate.text, candidate.aria);
-    await element.click();
-    return true;
-  }
-  return false;
+      if (!candidate.visible || candidate.disabled) continue;
+      if (!pattern.test(candidate.text) && !pattern.test(candidate.aria)) continue;
+      node.click();
+      return true;
+    }
+    return false;
+  }, { selector, source: pattern.source, flags: pattern.flags });
 }
 
 async function requireFullReviewAccess(page) {
@@ -248,6 +257,7 @@ async function requireFullReviewAccess(page) {
 }
 
 async function openLatestReviewsAttempt(page) {
+  reviewStage(page, 'navigation');
   const reviewUrl = resolveReviewUrl(process.env.GOOGLE_REVIEW_URL);
   await page.setExtraHTTPHeaders({ 'Accept-Language': 'zh-TW,zh;q=0.9,en;q=0.7' });
   await page.emulateMediaFeatures([{ name: 'prefers-color-scheme', value: 'light' }]);
@@ -258,6 +268,7 @@ async function openLatestReviewsAttempt(page) {
   // Google Maps can spend 30+ seconds on its interstitial/CAPTCHA when opened
   // from a fresh cloud session. Browserbase solves those challenges, so give
   // the page enough time to expose its first interactive control.
+  reviewStage(page, 'interactive-controls');
   try {
     await page.waitForSelector('button, a, [role="button"]', { timeout: 75000 });
   } catch {
@@ -266,8 +277,10 @@ async function openLatestReviewsAttempt(page) {
   if (!await page.$(REVIEW_CARD_SELECTOR)) {
     await openNamedPlaceResult(page, process.env.GOOGLE_REVIEW_STORE_NAME);
   }
+  reviewStage(page, 'review-entry');
   await ensureReviewDialog(page);
   await requireFullReviewAccess(page);
+  reviewStage(page, 'newest-sort');
   const latestWasVisible = await clickElementByLabel(page,
     '[role="radio"], [role="menuitemradio"]', /^(最新|newest)$/i);
   if (!latestWasVisible) {
@@ -297,6 +310,7 @@ async function openLatestReviewsAttempt(page) {
   // list before callers attempt to read or screenshot its first card.
   await new Promise((resolve) => setTimeout(resolve, 1500));
   await page.waitForSelector(REVIEW_CARD_SELECTOR, { timeout: 20000 });
+  reviewStage(page, 'verify-newest');
   let visibleCards = await waitForNewestCards(page);
   if (!areReviewsNewestFirst(visibleCards)) {
     const openedSort = await clickElementByLabel(
@@ -356,28 +370,34 @@ async function openLatestReviews(page, options = {}) {
 
 async function withReviewPage(viewport, readResult) {
   let lastError;
-  const deadline = Date.now() + 240000;
-  for (let attempt = 1; attempt <= 3; attempt += 1) {
+  let attempts = 0;
+  const deadline = Date.now() + 265000;
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    attempts = attempt;
     let browser;
     let attemptTimer;
+    const progress = { stage: 'browser-launch', started: Date.now() };
     try {
       // A failed cloud session retains the same proxy/IP. Recreate it rather
       // than navigating the blocked or stalled session three times.
       browser = await launchBrowser(viewport);
-      const remaining = Math.min(80000, deadline - Date.now());
+      const remaining = Math.min(125000, deadline - Date.now());
       if (remaining <= 0) throw new Error('Google review patrol time budget exceeded');
       return await Promise.race([
         (async () => {
           const page = (await browser.pages())[0] || await browser.newPage();
+          reviewProgress.set(page, progress);
           await openLatestReviews(page, { maxAttempts: 1 });
+          reviewStage(page, 'read-reviews');
           return readResult(page);
         })(),
         new Promise((_, reject) => {
-          attemptTimer = setTimeout(() => reject(new Error('Google review session exceeded its time budget')), remaining);
+          attemptTimer = setTimeout(() => reject(new Error(`Google review session exceeded its time budget; stage=${progress.stage}; elapsedMs=${Date.now() - progress.started}`)), remaining);
         })
       ]);
     } catch (error) {
       lastError = error;
+      if (!error.message.includes('stage=')) error.message += `; stage=${progress.stage}`;
       console.warn(`Google review session attempt ${attempt} failed: ${String(error.message).slice(0, 300)}`);
       if (error.code === 'GOOGLE_REVIEW_SIGNIN_REQUIRED') throw error;
     } finally {
@@ -394,7 +414,7 @@ async function withReviewPage(viewport, readResult) {
     }
     if (Date.now() >= deadline) break;
   }
-  throw new Error(`Google review page failed after 3 attempts: ${lastError?.message || lastError}`);
+  throw new Error(`Google review page failed after ${attempts} attempts: ${lastError?.message || lastError}`);
 }
 
 async function readCards(page) {
@@ -593,6 +613,21 @@ function reviewTextMatches(expectedValue, actualValue) {
 }
 
 async function findReviewCard(page, target) {
+  reviewStage(page, 'locate-screenshot-card');
+  // Collection scrolls down the virtualized list. Search from its beginning,
+  // otherwise the newest negative cards may already have been unmounted.
+  await page.evaluate(() => {
+    let container = document.querySelector('.bwb7ce, .jftiEf')?.parentElement;
+    while (container) {
+      if (/auto|scroll/.test(getComputedStyle(container).overflowY)
+        && container.scrollHeight > container.clientHeight) {
+        container.scrollTop = 0;
+        break;
+      }
+      container = container.parentElement;
+    }
+  });
+  await new Promise(resolve => setTimeout(resolve, 500));
   const expected = typeof target === 'string' ? { reviewerId: target } : (target || {});
   for (let round = 0; round < 18; round += 1) {
     const cards = await reviewCardHandles(page);
@@ -643,6 +678,7 @@ async function screenshotReview(target) {
 }
 
 async function screenshotCard(card, page) {
+  reviewStage(page, 'screenshot');
   await card.evaluate((element) => {
     const more = [...element.querySelectorAll('button')].find((button) =>
       button.classList.contains('w8nwRe') || /^(全文|更多|more|see more)$/i.test(button.textContent.trim()));
@@ -726,6 +762,7 @@ module.exports = {
   reviewSignature,
   screenshotReview,
   screenshotCard,
+  clickElementByLabel,
   taipeiDate,
   verifyReviewSignature
 };
