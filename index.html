@@ -7724,7 +7724,7 @@ const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, 
                  <input
                   id="newUnitInput"
                   placeholder="輸入新單位（如：整、捆、筒）"
-                  className="flex-1 bg-slate-50 rounded-xl p-3 font-bold text-sm outline-none border border-slate-200"
+                  className="min-w-0 w-full flex-1 bg-slate-50 rounded-xl p-3 font-bold text-sm outline-none border border-slate-200"
                  />
                  <button
                   onClick={() => {
@@ -7732,7 +7732,7 @@ const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, 
                    if (addCustomUnit(el.value)) { el.value = ''; triggerNotify('單位已新增', 'success'); }
                    else triggerNotify('單位已存在或為空', 'error');
                   }}
-                  className="bg-brand-red text-white px-4 rounded-xl font-black text-sm">
+                  className="shrink-0 whitespace-nowrap bg-brand-red text-white px-4 rounded-xl font-black text-sm">
                   新增
                  </button>
                 </div>
