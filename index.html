@@ -7732,7 +7732,7 @@ const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, 
                  <select className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none" value={newItem.zone} onChange={e => setNewItem({...newItem, zone: e.target.value})}>
                   {currentDb.zones.map(z => <option key={z.name} value={z.name}>{z.name}</option>)}
                  </select>
-                 <button onClick={() => { if(newItem.unitPrice && orderingPrice(newItem.unitPrice) === null) { triggerNotify('單價必須是零或正數', 'error'); return; } if(newItem.name && newItem.vendor) { updateCurrentDb({ ingredients: [...currentDb.ingredients, { ...newItem, unitPrice: orderingPrice(newItem.unitPrice), id: Date.now() }] }); setNewItem({ ...newItem, name: '', vendor: '', unitPrice: '', unit: '包', zone: currentDb.zones[0]?.name }); triggerNotify('新增食材成功', 'success'); } }} className="w-full bg-brand-red text-white p-5 rounded-2xl font-black shadow-lg">確認新增</button>
+                 <button onClick={() => { if(newItem.unitPrice && orderingPrice(newItem.unitPrice) === null) { triggerNotify('單價必須是零或正數', 'error'); return; } if(newItem.name && newItem.vendor) { updateCurrentDb({ ingredients: [...currentDb.ingredients, { ...newItem, unitPrice: orderingPrice(newItem.unitPrice), id: Date.now() }] }); setNewItem({ ...newItem, name: '', unitPrice: '' }); triggerNotify('新增食材成功', 'success'); } }} className="w-full bg-brand-red text-white p-5 rounded-2xl font-black shadow-lg">確認新增</button>
                </div>
 
                {/* 自訂單位管理 */}
