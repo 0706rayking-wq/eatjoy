@@ -13870,11 +13870,14 @@ return (
  { id: 'indigo', name: '🫐 靛青深', color: '79 70 229', hex: '#4f46e5', bgHex: '#e0e7ff', desc: '深邃知性', vars:{} },
  { id: 'slate', name: '🌑 深夜灰', color: '71 85 105', hex: '#475569', bgHex: '#f8fafc', desc: '低調沉穩', vars:{} },
  { id: 'amber', name: '⭐ 琥珀金', color: '217 119 6', hex: '#d97706', bgHex: '#fffbeb', desc: '溫暖高貴', vars:{} },
- ];
+ ].filter(theme => ['red', 'blue', 'emerald', 'orange', 'purple', 'rose'].includes(theme.id));
     const App = () => {
      const [currentPage, setCurrentPage] = useState('auth');
      const [showThemeModal, setShowThemeModal] = useState(false);
-     const [activeTheme, setActiveTheme] = useState(() => localStorage.getItem('k_app_theme') || 'red');
+     const [activeTheme, setActiveTheme] = useState(() => {
+       const saved = localStorage.getItem('k_app_theme');
+       return APP_THEMES.some(theme => theme.id === saved) ? saved : 'red';
+     });
 
          useEffect(() => {
             const themeObj = APP_THEMES.find(t => t.id === activeTheme) || APP_THEMES[0];
@@ -14915,12 +14918,7 @@ return (
               <div className="overflow-y-auto no-scrollbar px-5 py-4 flex-1">
                {/* Group labels */}
                {[
-                 { label: '✨ 奢華系列', ids: ['crimson-gold','midnight-sapphire','obsidian-emerald','volcanic-amber','royal-violet'] },
-                 { label: '⚡ 科技系列', ids: ['cyber-neon','matrix-green','titanium'] },
-                 { label: '🌿 自然系列', ids: ['cherry-blossom','deep-ocean','forest-moss'] },
-                 { label: '🕯️ 復古系列', ids: ['vintage-burgundy','antique-bronze','ink-indigo'] },
-                 { label: '✦ 特殊系列', ids: ['rose-gold','arctic-white','sakura-white','lava-orange'] },
-                 { label: '🎨 純色系列', ids: ['red','blue','emerald','orange','purple','rose','teal','indigo','slate','amber'] },
+                 { label: '介面配色', ids: ['red','blue','emerald','orange','purple','rose'] },
                ].map(group => (
                  <div key={group.label} className="mb-5">
                   <p className="text-[10px] font-black uppercase tracking-widest mb-2.5 px-1" style={{color:'var(--t3,#888)'}}>{group.label}</p>
