@@ -6881,7 +6881,31 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
   );
 };
 
-    const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, isSuperAdmin, getPublicPath }) => {
+const orderingPrice = value => {
+  if (value == null || String(value).trim() === '') return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? Math.round(number * 100) / 100 : null;
+};
+const orderingMoney = value => `NT$ ${Number(value).toLocaleString('zh-TW', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const orderingMonthlyCosts = (history, month) => {
+  const rows = [];
+  let cents = 0;
+  let unpriced = 0;
+  (history || []).filter(Boolean).forEach(record => {
+    if (!(record.date || '').startsWith(month)) return;
+    (record.items || []).filter(Boolean).forEach(item => {
+      const qty = Number(item.qty);
+      if (!Number.isFinite(qty) || qty <= 0) return;
+      const price = orderingPrice(item.unitPrice);
+      const amountCents = price === null ? null : Math.round(qty * Math.round(price * 100));
+      if (amountCents === null) unpriced++;
+      else cents += amountCents;
+      rows.push({ ...item, date: record.date, qty, price, amount: amountCents === null ? null : amountCents / 100 });
+    });
+  });
+  return { rows: rows.sort((a, b) => b.date.localeCompare(a.date)), total: cents / 100, unpriced };
+};
+const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, isSuperAdmin, getPublicPath }) => {
      const [storeDatabases, setStoreDatabases] = useState({});
      const branches = isSuperAdmin ? globalBranches : [currentBranch];
      const [selectedBranch, setSelectedBranch] = useState(currentBranch);
@@ -7135,12 +7159,19 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
      };
 
      const saveOrderToHistory = () => {
+      const previousItems = currentDb.history.find(r => r && r.date === orderDate)?.items || [];
       const orderItems = currentDb.ingredients
-        .map(item => ({
+        .map(item => {
+         const previous = previousItems.find(p => p && String(p.ingredientId) === String(item.id) && p.unit === item.unit);
+         return {
+         ingredientId: item.id,
          name: item.name,
          qty: parseFloat(orderQuantities[item.id] || 0),
-         unit: item.unit
-        }))
+         unit: item.unit,
+         vendor: item.vendor || '',
+         zone: item.zone || '',
+         unitPrice: previous ? orderingPrice(previous.unitPrice) : orderingPrice(item.unitPrice)
+        }; })
         .filter(i => i.qty > 0);
         
       if (orderItems.length === 0) return;
@@ -7176,7 +7207,7 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
       currentDb.history.forEach(record => {
         if (record && (record.date || '').startsWith(analyticsMonth)) {
          (record.items || []).filter(Boolean).forEach(item => {
-           stats[item.name] = (stats[item.name] || 0) + item.qty;
+           stats[item.name] = (stats[item.name] || 0) + (Number(item.qty) || 0);
          });
         }
       });
@@ -7184,6 +7215,7 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
      }, [currentDb.history, analyticsMonth]); // 👈 這裡的依賴陣列也要改
 
      const handleDragStart = (id) => setDraggedId(id);
+     const monthlyCosts = useMemo(() => orderingMonthlyCosts(currentDb.history, analyticsMonth), [currentDb.history, analyticsMonth]);
      const handleDragOver = (e, id) => { e.preventDefault(); if (id !== draggedId) setOverId(id); };
      const handleDragEnd = () => {
       if (draggedId !== null && overId !== null) {
@@ -7506,6 +7538,23 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
            <div className="p-6 space-y-6">
             {!analyticsZone ? (
               <div className="space-y-4 animate-in fade-in">
+               <section className="border-b border-slate-200 pb-4 space-y-2">
+                <h3 className="text-sm font-bold text-slate-600">{analyticsMonth} 叫貨金額（已計價）</h3>
+                <p className="text-2xl font-black text-slate-800 break-words">{orderingMoney(monthlyCosts.total)}</p>
+                {monthlyCosts.unpriced > 0 && <p className="text-xs text-amber-700">另有 {monthlyCosts.unpriced} 筆明細未計價，未包含於上述金額。</p>}
+                <details className="text-sm">
+                 <summary className="cursor-pointer font-bold py-2">金額明細（{monthlyCosts.rows.length} 筆）</summary>
+                 <div className="max-h-96 overflow-y-auto divide-y divide-slate-200">
+                  {monthlyCosts.rows.map((row, index) => <div key={index} className="py-3 space-y-1">
+                   <div className="font-bold break-words">{row.name}</div>
+                   <div className="text-xs text-slate-500">{row.date} · {row.vendor || '未記錄廠商'} · {row.zone || '未記錄區站'}</div>
+                   <div className="text-xs text-slate-600">{row.qty} {row.unit} × {row.price === null ? '單價未記錄' : orderingMoney(row.price)}</div>
+                   <div className="font-bold">{row.amount === null ? '未計價' : orderingMoney(row.amount)}</div>
+                  </div>)}
+                  {monthlyCosts.rows.length === 0 && <p className="py-3 text-slate-500">本月尚無叫貨紀錄</p>}
+                 </div>
+                </details>
+               </section>
                <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200 text-xs font-bold text-amber-700 leading-relaxed shadow-inner flex flex-col gap-2">
                  <div className="flex justify-between items-center">
                   <span>💡 提示：請先選擇要檢視的月份 ➔</span>
@@ -7648,6 +7697,9 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
               <div className="space-y-6">
                <div className="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
                  <h3 className="font-black text-slate-800 flex items-center gap-2"><OrderSymbolIcon name="Plus" className="text-brand-red" /> 新增食材</h3>
+                 <label className="block text-sm font-bold text-slate-600">單價（NT$／{newItem.unit}）
+                  <input type="number" min="0" step="0.01" inputMode="decimal" placeholder="未設定" className="mt-1 w-full bg-slate-50 rounded-xl p-3 border border-slate-200" value={newItem.unitPrice ?? ''} onChange={e => setNewItem({...newItem, unitPrice: e.target.value})} />
+                 </label>
                  <input placeholder="食材名稱" className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none ring-1 ring-slate-100" value={newItem.name} onChange={e => setNewItem({...newItem, name: e.target.value})} />
                  <div className="grid grid-cols-2 gap-3">
                   <select className="bg-slate-50 rounded-xl p-4 font-bold outline-none" value={newItem.vendor} onChange={e => setNewItem({...newItem, vendor: e.target.value})}>
@@ -7661,7 +7713,7 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
                  <select className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none" value={newItem.zone} onChange={e => setNewItem({...newItem, zone: e.target.value})}>
                   {currentDb.zones.map(z => <option key={z.name} value={z.name}>{z.name}</option>)}
                  </select>
-                 <button onClick={() => { if(newItem.name && newItem.vendor) { updateCurrentDb({ ingredients: [...currentDb.ingredients, { ...newItem, id: Date.now() }] }); setNewItem({ ...newItem, name: '', vendor: '', unit: '包', zone: currentDb.zones[0]?.name }); triggerNotify('新增食材成功', 'success'); } }} className="w-full bg-brand-red text-white p-5 rounded-2xl font-black shadow-lg">確認新增</button>
+                 <button onClick={() => { if(newItem.unitPrice && orderingPrice(newItem.unitPrice) === null) { triggerNotify('單價必須是零或正數', 'error'); return; } if(newItem.name && newItem.vendor) { updateCurrentDb({ ingredients: [...currentDb.ingredients, { ...newItem, unitPrice: orderingPrice(newItem.unitPrice), id: Date.now() }] }); setNewItem({ ...newItem, name: '', vendor: '', unitPrice: '', unit: '包', zone: currentDb.zones[0]?.name }); triggerNotify('新增食材成功', 'success'); } }} className="w-full bg-brand-red text-white p-5 rounded-2xl font-black shadow-lg">確認新增</button>
                </div>
 
                {/* 自訂單位管理 */}
@@ -7717,6 +7769,9 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
                   .map(item => (
                   editingIngredientId === item.id ? (
                     <div key={item.id} className="bg-slate-50 p-5 rounded-[2.5rem] shadow-sm border border-brand-red/30 space-y-3">
+                     <label className="block text-sm font-bold text-slate-600">單價（NT$／{editIngredientData.unit}）
+                      <input type="number" min="0" step="0.01" inputMode="decimal" placeholder="未設定" className="mt-1 w-full bg-white rounded-xl p-3 border border-slate-200" value={editIngredientData.unitPrice ?? ''} onChange={e => setEditIngredientData({...editIngredientData, unitPrice: e.target.value})} />
+                     </label>
                      <input placeholder="食材名稱" className="w-full bg-white rounded-xl p-3.5 font-bold outline-none ring-1 ring-slate-200" value={editIngredientData.name} onChange={e => setEditIngredientData({...editIngredientData, name: e.target.value})} />
                      <div className="grid grid-cols-2 gap-2">
                        <select className="bg-white rounded-xl p-3.5 font-bold outline-none text-sm" value={editIngredientData.vendor} onChange={e => setEditIngredientData({...editIngredientData, vendor: e.target.value})}>
@@ -7734,7 +7789,8 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
                        <button onClick={() => setEditingIngredientId(null)} className="flex-1 bg-slate-200 text-slate-600 p-3 rounded-xl font-bold active:scale-95 transition-all">取消</button>
                        <button onClick={() => {
                         if(editIngredientData.name && editIngredientData.vendor) {
-                          const newIngredients = currentDb.ingredients.map(i => i.id === item.id ? editIngredientData : i);
+                          if (editIngredientData.unitPrice && orderingPrice(editIngredientData.unitPrice) === null) { triggerNotify('單價必須是零或正數', 'error'); return; }
+                          const newIngredients = currentDb.ingredients.map(i => i.id === item.id ? { ...editIngredientData, unitPrice: orderingPrice(editIngredientData.unitPrice) } : i);
                           updateCurrentDb({ ingredients: newIngredients });
                           setEditingIngredientId(null);
                           triggerNotify('食材更新成功', 'success');
@@ -7747,6 +7803,7 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
                      <div className="min-w-0 pr-4">
                        <p className="font-black text-slate-700 truncate">{item.name}</p>
                        <p className="text-[10px] font-bold text-slate-400 uppercase">{item.vendor} • {item.zone} • {item.unit}</p>
+                       <p className="text-xs font-bold text-slate-600 mt-1">{orderingPrice(item.unitPrice) === null ? '單價未設定' : `${orderingMoney(item.unitPrice)}／${item.unit}`}</p>
                      </div>
                      <div className="flex gap-1">
                        <button onClick={() => { setEditingIngredientId(item.id); setEditIngredientData(item); }} className="bg-slate-50 text-slate-400 hover:text-blue-500 p-2.5 rounded-xl"><OrderSymbolIcon name="Edit" /></button>
