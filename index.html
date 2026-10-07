@@ -684,6 +684,25 @@
             color: var(--gold-bright, #b9121b);
             border-color: rgba(185,18,27,0.24);
         }
+        body:not(.theme-dark) .app-header button[aria-label="切換主題"],
+        body:not(.theme-dark) .app-header button[aria-label="切換主題"] svg {
+            color: #334155 !important;
+            -webkit-text-fill-color: #334155 !important;
+        }
+        body:not(.theme-dark) .home-selector-card {
+            background: #ffffff !important;
+            color: #1e293b !important;
+        }
+        body:not(.theme-dark) .home-selector-card .text-slate-400 {
+            color: #475569 !important;
+            -webkit-text-fill-color: #475569 !important;
+        }
+        body:not(.theme-dark) .home-selector-card select,
+        body:not(.theme-dark) .home-selector-card select option {
+            background: #ffffff !important;
+            color: #1e293b !important;
+            -webkit-text-fill-color: #1e293b !important;
+        }
         .app-header {
             min-height: 72px;
         }
