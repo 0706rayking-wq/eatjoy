@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const { checkGoogleReviewsWithScreenshots } = require('../api/google-review-lib');
+const { checkGoogleReviews } = require('../api/google-review-lib');
 
 const repoDir = path.resolve(__dirname, '..');
 const runtimeDir = path.join(__dirname, 'runtime');
@@ -26,7 +26,7 @@ function appendLog(message) {
 async function captureReviewsWithRetry(maxAttempts = 3) {
   let result;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    result = await checkGoogleReviewsWithScreenshots();
+    result = await checkGoogleReviews();
     if (result.total > 0 || attempt === maxAttempts) return result;
     appendLog(`Google 評論暫時擷取為 0 則，${attempt + 1}/${maxAttempts} 次重試`);
     await new Promise((resolve) => setTimeout(resolve, 4000));
@@ -112,7 +112,7 @@ async function publishScreenshots(result, screenshots, config) {
 }
 
 async function sendToN8n(config, result, images) {
-  const messages = [{ type: 'text', text: reportText(result, config.storeName || '南港店') }];
+  const messages = require('../api/google-review-report')._test.buildLineMessageObjects({}, result, null);
   if (process.argv.includes('--test')) {
     messages[0].text = `【功能測試】\n${messages[0].text}`;
   }
@@ -133,6 +133,9 @@ async function sendToN8n(config, result, images) {
     })
   });
   if (!response.ok) throw new Error(`n8n returned HTTP ${response.status}`);
+  const receipt = await response.json();
+  if (!Array.isArray(receipt.sentMessages) || !receipt.sentMessages.length) throw new Error("n8n did not return LINE delivery receipt");
+  appendLog(`LINE accepted ${receipt.sentMessages.length} message(s)`);
 }
 
 async function sendDraftsToN8n(config, result) {
@@ -184,7 +187,7 @@ async function main() {
   const force = process.argv.includes('--force');
   const scheduledDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Taipei' }).format(new Date());
   const initialState = loadRunState(requestedDate || scheduledDate);
-  if (!captureOnly && !draftOnly && !force && initialState.reportSent && initialState.draftsSent) {
+  if (!captureOnly && !draftOnly && !force && initialState.reportSent) {
     appendLog(`${requestedDate || scheduledDate} 已完成，略過重複排程`);
     return;
   }
@@ -195,8 +198,11 @@ async function main() {
   process.env.GOOGLE_REVIEW_PROFILE_DIR = config.chromeProfileDir;
   process.env.GOOGLE_REVIEW_HEADLESS = process.argv.includes('--show-browser') ? 'false' : 'true';
   const result = await captureReviewsWithRetry();
+  fs.mkdirSync(runtimeDir, { recursive: true });
+  fs.writeFileSync(path.join(runtimeDir, `${result.date}-captured.json`), JSON.stringify(result, null, 2));
   appendLog(`${result.date} 擷取完成：${result.total} 則，三星以下 ${(result.negativeReviews || []).length} 則`);
   const negativeReviews = (result.negativeReviews || []).slice(0, 4);
+  if (draftOnly && config.enableAiDrafts !== true) throw new Error("AI drafts are paused");
   if (draftOnly) {
     const sent = await sendDraftsToN8n(config, result);
     console.log(`${result.date}: sent ${sent} review draft(s)`);
@@ -208,7 +214,7 @@ async function main() {
     if (process.argv.includes('--test-screenshot')) {
       const testDir = path.join(__dirname, 'test-output', result.date);
       fs.mkdirSync(testDir, { recursive: true });
-      for (let index = 0; index < result.negativeScreenshots.length; index += 1) {
+      for (let index = 0; index < (result.negativeScreenshots || []).length; index += 1) {
         const item = result.negativeScreenshots[index];
         const output = path.join(testDir, safeAssetName(item.review, index));
         fs.writeFileSync(output, item.image);
@@ -218,7 +224,7 @@ async function main() {
     console.log(`擷取完成：${result.total} 則，三星以下 ${negativeReviews.length} 則`);
     return;
   }
-  const images = await publishScreenshots(result, result.negativeScreenshots, config);
+  const images = [];
   const state = loadRunState(result.date);
   if (!state.reportSent || force) {
     await sendToN8n(config, result, images);
@@ -226,7 +232,7 @@ async function main() {
     saveRunState(result.date, state);
     appendLog(`${result.date} 正常巡檢報告已送達 n8n`);
   }
-  if (!state.draftsSent || force) {
+  if (config.enableAiDrafts === true && (!state.draftsSent || force)) {
     const draftCount = await sendDraftsToN8n(config, result);
     state.draftsSent = true;
     saveRunState(result.date, state);
