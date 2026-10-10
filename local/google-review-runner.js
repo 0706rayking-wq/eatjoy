@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const { checkGoogleReviews } = require('../api/google-review-lib');
+const { checkGoogleReviewsWithScreenshots } = require('../api/google-review-lib');
 
 const repoDir = path.resolve(__dirname, '..');
 const runtimeDir = path.join(__dirname, 'runtime');
@@ -26,7 +26,7 @@ function appendLog(message) {
 async function captureReviewsWithRetry(maxAttempts = 3) {
   let result;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    result = await checkGoogleReviews();
+    result = await checkGoogleReviewsWithScreenshots();
     if (result.total > 0 || attempt === maxAttempts) return result;
     appendLog(`Google 評論暫時擷取為 0 則，${attempt + 1}/${maxAttempts} 次重試`);
     await new Promise((resolve) => setTimeout(resolve, 4000));
@@ -199,7 +199,7 @@ async function main() {
   process.env.GOOGLE_REVIEW_HEADLESS = process.argv.includes('--show-browser') || config.headless === false ? 'false' : 'true';
   const result = await captureReviewsWithRetry();
   fs.mkdirSync(runtimeDir, { recursive: true });
-  fs.writeFileSync(path.join(runtimeDir, `${result.date}-captured.json`), JSON.stringify(result, null, 2));
+  fs.writeFileSync(path.join(runtimeDir, `${result.date}-captured.json`), JSON.stringify({ ...result, negativeScreenshots: (result.negativeScreenshots || []).map(({ review }) => ({ review })) }, null, 2));
   appendLog(`${result.date} 擷取完成：${result.total} 則，三星以下 ${(result.negativeReviews || []).length} 則`);
   const negativeReviews = (result.negativeReviews || []).slice(0, 4);
   if (draftOnly && config.enableAiDrafts !== true) throw new Error("AI drafts are paused");
@@ -224,7 +224,7 @@ async function main() {
     console.log(`擷取完成：${result.total} 則，三星以下 ${negativeReviews.length} 則`);
     return;
   }
-  const images = [];
+  const images = await publishScreenshots(result, result.negativeScreenshots || [], config);
   const state = loadRunState(result.date);
   if (!state.reportSent || force) {
     await sendToN8n(config, result, images);
