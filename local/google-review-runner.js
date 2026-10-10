@@ -196,7 +196,7 @@ async function main() {
   process.env.GOOGLE_REVIEW_URL = config.googleReviewUrl;
   process.env.GOOGLE_CHROME_PATH = config.chromePath;
   process.env.GOOGLE_REVIEW_PROFILE_DIR = config.chromeProfileDir;
-  process.env.GOOGLE_REVIEW_HEADLESS = process.argv.includes('--show-browser') ? 'false' : 'true';
+  process.env.GOOGLE_REVIEW_HEADLESS = process.argv.includes('--show-browser') || config.headless === false ? 'false' : 'true';
   const result = await captureReviewsWithRetry();
   fs.mkdirSync(runtimeDir, { recursive: true });
   fs.writeFileSync(path.join(runtimeDir, `${result.date}-captured.json`), JSON.stringify(result, null, 2));

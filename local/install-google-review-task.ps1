@@ -12,7 +12,7 @@ if (!$systemNode -and !(Test-Path -LiteralPath $stableNode)) {
   New-Item -ItemType Directory -Path $stableRuntimeDir -Force | Out-Null
   Copy-Item -LiteralPath $bundledNode -Destination $stableNode -Force
 }
-$nodePath = if ($systemNode) { $systemNode } else { $stableNode }
+$nodePath = if (Test-Path -LiteralPath $stableNode) { $stableNode } else { $systemNode }
 
 $action = New-ScheduledTaskAction `
   -Execute $nodePath `
@@ -49,3 +49,4 @@ Register-ScheduledTask `
   -Force | Out-Null
 
 Write-Output "Updated scheduled task: $taskName"
+

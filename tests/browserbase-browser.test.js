@@ -60,3 +60,10 @@ assert.deepEqual(buildSessionPayload(environment, { useContext: false, proxyCoun
   [{ type: 'browserbase', geolocation: { country: 'TW' } }]);
 
 console.log('browserbase browser tests passed');
+
+(async () => {
+  let requested = false;
+  await assert.rejects(require('../lib/browserbase-browser').launchBrowser(environment, async () => { requested = true; }), /BROWSERBASE_PAUSED/);
+  assert.equal(requested, false);
+  console.log('Browserbase pause prevents remote requests');
+})().catch(error => { console.error(error); process.exitCode = 1; });
