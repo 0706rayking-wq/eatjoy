@@ -432,7 +432,8 @@ async function readCards(page) {
       || '未知評論者';
     const reviewText = card.querySelector('.OA1nbd, .wiI7pd')?.textContent?.trim() || '';
     const dateText = card.querySelector('.rsqaWe, .DU9Pgb')?.textContent?.trim() || '';
-    return { reviewerId, reviewer, stars, dateText, cardText: text, reviewText };
+    const hasPhotos = Boolean(card.querySelector('button.Tya61d, .KtCyie img, img[src*="/p/"]'));
+    return { reviewerId, reviewer, stars, dateText, cardText: text, reviewText, hasPhotos };
   }));
   return cards.map(({ dateText, cardText, ...card }) => ({
     ...card,

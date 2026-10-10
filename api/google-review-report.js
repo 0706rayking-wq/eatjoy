@@ -77,7 +77,8 @@ function buildLineMessageObjects(request, result, error) {
   for (const review of result?.negativeReviews || []) {
     sections.push([
       `【${review.reviewer || '未知評論者'}｜${review.stars}星｜${review.ageLabel || ''}】`,
-      String(review.reviewText || '').trim() || '（未填寫評論文字）'
+      String(review.reviewText || '').trim() || '（未填寫評論文字）',
+      ...(review.hasPhotos ? ['備註：有附圖'] : [])
     ].join('\n'));
   }
   const text = sections.join('\n\n');
