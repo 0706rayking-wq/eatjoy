@@ -22,29 +22,19 @@ const messages = buildLineMessageObjects(
   report,
   null
 );
+assert.equal(messages.length, 1);
 assert.equal(messages[0].type, 'text');
-assert.equal(messages[1].type, 'image');
-assert.equal(messages.length, 2);
-
-const blobMessages = buildLineMessageObjects(
-  { headers: { host: 'example.test', 'x-forwarded-proto': 'https' } },
-  { ...report, negativeReviews: [{ ...report.negativeReviews[0], imageUrl: 'https://blob.example/review.png' }] },
-  null
-);
-assert.equal(blobMessages[1].originalContentUrl, 'https://blob.example/review.png');
-assert.equal(blobMessages[1].previewImageUrl, 'https://blob.example/review.png');
-assert.equal(safePathSegment('王小明/../123'), '_______123');
-
-const messagesWithoutReviewerId = buildLineMessageObjects(
-  { headers: { host: 'example.test', 'x-forwarded-proto': 'https' } },
-  {
-    ...report,
-    negativeReviews: [{ reviewerId: '', reviewer: '陳伯鋼', stars: 3, ageLabel: '12 小時前' }]
-  },
-  null
-);
-assert.equal(messagesWithoutReviewerId.length, 2);
-assert.match(messagesWithoutReviewerId[1].originalContentUrl, /reviewKey=/);
+assert.match(messages[0].text, /測試評論者｜3星/);
+assert.match(messages[0].text, /未填寫評論文字/);
+const detailed = buildLineMessageObjects({}, { ...report, negativeReviews: [{reviewer:'棋云', stars:2, ageLabel:'2 小時前', reviewText:'服務等待太久', imageUrl:'https://unused.test/image.png'}] }, null);
+assert.equal(detailed.length, 1);
+assert.match(detailed[0].text, /棋云｜2星｜2 小時前/);
+assert.match(detailed[0].text, /服務等待太久/);
+assert.doesNotMatch(detailed[0].text, /unused.test/);
+const long = buildLineMessageObjects({}, { ...report, negativeReviews: [{reviewer:'長評論', stars:1, reviewText:'😀'.repeat(4000)}] }, null);
+assert.ok(long.length > 1);
+assert.ok(long.every(m => m.type === 'text' && m.text.length <= 5000));
+assert.ok(long.map(m=>m.text).join('').includes('😀'.repeat(4000)));
 
 const failed = buildLineMessageObjects({}, { date: '2026-08-07' }, 'blocked');
 assert.equal(failed.length, 1);

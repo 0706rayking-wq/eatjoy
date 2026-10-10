@@ -1,7 +1,6 @@
 const crypto = require('node:crypto');
 const {
-  buildReviewImageUrl,
-  checkGoogleReviewsWithScreenshots,
+  checkGoogleReviews,
   taipeiDate
 } = require('./google-review-lib');
 
@@ -74,15 +73,20 @@ function buildLineMessageObjects(request, result, error) {
       ].join('\n')
     }];
   }
-  const messages = [{ type: 'text', text: formatReportText(result, null) }];
-  const secret = String(process.env.HR_AUTOMATION_SECRET || process.env.N8N_RELAY_SECRET || '').trim();
-  for (const review of (result?.negativeReviews || []).slice(0, 4)) {
-    const imageUrl = review.imageUrl || buildReviewImageUrl(request, review, result.date, secret);
-    messages.push({
-      type: 'image',
-      originalContentUrl: imageUrl,
-      previewImageUrl: imageUrl
-    });
+  const sections = [formatReportText(result, null)];
+  for (const review of result?.negativeReviews || []) {
+    sections.push([
+      `【${review.reviewer || '未知評論者'}｜${review.stars}星｜${review.ageLabel || ''}】`,
+      String(review.reviewText || '').trim() || '（未填寫評論文字）'
+    ].join('\n'));
+  }
+  const text = sections.join('\n\n');
+  const messages = [];
+  for (let offset = 0; offset < text.length;) {
+    let end = Math.min(offset + 4900, text.length);
+    if (end < text.length && /[\uD800-\uDBFF]/.test(text[end - 1])) end -= 1;
+    messages.push({ type: 'text', text: text.slice(offset, end) });
+    offset = end;
   }
   return messages;
 }
@@ -142,39 +146,9 @@ module.exports = async function handler(request, response) {
 
   try {
     const previewOnly = request.query?.preview === '1' || request.body?.preview === true;
-    const result = await checkGoogleReviewsWithScreenshots({ includeOneDay: previewOnly });
-    let screenshotDelivery;
-    try {
-      const uploaded = await uploadReviewScreenshots(result);
-      const urlsByReviewer = new Map(uploaded.map(({ review, imageUrl }) => [
-        String(review.reviewerId || review.reviewer), imageUrl
-      ]));
-      result.negativeReviews = result.negativeReviews.map((review) => ({
-        ...review,
-        imageUrl: urlsByReviewer.get(String(review.reviewerId || review.reviewer)) || ''
-      }));
-      screenshotDelivery = { status: 'uploaded', count: uploaded.length };
-    } catch (screenshotError) {
-      console.error('Google review screenshot upload failed', screenshotError);
-      screenshotDelivery = {
-        status: 'fallback',
-        count: 0,
-        error: String(screenshotError.message || screenshotError).slice(0, 300)
-      };
-    }
-    let draftDelivery = { status: 'skipped-preview', count: 0 };
-    if (!previewOnly) {
-      try {
-        draftDelivery = await deliverReviewDrafts(result);
-      } catch (draftError) {
-        console.error('Google review draft delivery failed', draftError);
-        draftDelivery = {
-          status: 'failed',
-          count: 0,
-          error: String(draftError.message || draftError).slice(0, 300)
-        };
-      }
-    }
+    const result = await checkGoogleReviews({ includeOneDay: previewOnly });
+    const screenshotDelivery = { status: 'disabled-text-only', count: 0 };
+    const draftDelivery = { status: 'paused', count: 0 };
     return response.status(200).json({
       status: 'ok',
       ...result,

@@ -505,13 +505,13 @@ async function loadRecentReviews(page, options = {}) {
   return [...reviews.values()];
 }
 
-async function checkGoogleReviews() {
+async function checkGoogleReviews(options = {}) {
   return withReviewPage({ width: 1280, height: 1600 }, async (page) => {
     await expandReviewTexts(page);
     const debugCards = String(process.env.GOOGLE_REVIEW_DEBUG || '') === '1'
       ? await readCards(page)
       : undefined;
-    const reviews = await loadRecentReviews(page);
+    const reviews = await loadRecentReviews(page, options);
     const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
     for (const review of reviews) {
       if (counts[review.stars] !== undefined) counts[review.stars] += 1;
