@@ -6926,7 +6926,7 @@ const orderingMonthlyCosts = (history, month) => {
       const amountCents = price === null ? null : Math.round(qty * Math.round(price * 100));
       if (amountCents === null) unpriced++;
       else cents += amountCents;
-      rows.push({ ...item, date: record.date, qty, received: !!record.receivedAt, price, amount: amountCents === null ? null : amountCents / 100 });
+      rows.push({ ...item, date: record.date, orderKind: record.kind || 'regular', qty, received: !!record.receivedAt, price, amount: amountCents === null ? null : amountCents / 100 });
     });
   });
   return { rows: rows.sort((a, b) => b.date.localeCompare(a.date)), total: cents / 100, unpriced };
@@ -7055,7 +7055,11 @@ const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, 
       }).catch(e => console.warn("建立叫貨備份失敗", e));
      };
 
-     const [orderQuantities, setOrderQuantities] = useState({});
+     const [baseQuantities, setOrderQuantities] = useState({});
+     const [supplementId, setSupplementId] = useState(null);
+     const [supplementQuantities, setSupplementQuantities] = useState({});
+     const orderQuantities = supplementId ? supplementQuantities : baseQuantities;
+     const orderSaveLock = useRef(false);
 
      useEffect(() => {
       if (!selectedBranch) return;
@@ -7150,7 +7154,10 @@ const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, 
      const [zoneEditing, setZoneEditing] = useState(null);
      const zoneIcons = ['Carrot','Fish','Soup','UtensilsCrossed','IceCream','Coffee','Timer','Package','apple','beef','egg','milk','wheat','salad','sandwich','cake-slice','pizza','cooking-pot','flame','snowflake'];
      const zoneColors = ['bg-emerald-500','bg-blue-500','bg-brand-red','bg-rose-500','bg-cyan-500','bg-amber-600','bg-pink-500','bg-violet-600','bg-slate-500'];
-     const receiptRecord = currentDb.history.find(r => r.date === receiptDate);
+     const [receiptId, setReceiptId] = useState('');
+     const receiptRecords = currentDb.history.filter(r => r.date === receiptDate);
+     const receiptRecord = receiptRecords.find(r => String(r.id) === receiptId) || receiptRecords[0];
+     useEffect(() => { setSupplementId(null); setSupplementQuantities({}); }, [selectedBranch, orderDate]);
      useEffect(() => { setReceiptDraft(null); }, [receiptDate, selectedBranch, orderingRecordKey(receiptRecord)]);
      const submitReceipt = async () => {
        if (!receiptRecord || receiptBusy) return;
@@ -7222,12 +7229,13 @@ const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, 
       }
      };
 
-     const saveOrderToHistory = () => {
-      if (currentDb.history.some(r => r.date === orderDate && r.receivedAt)) {
+     const saveOrderToHistory = async () => {
+      const matchesOrder = r => r && r.date === orderDate && (supplementId ? r.id === supplementId : r.kind !== 'supplement');
+      if (currentDb.history.some(r => matchesOrder(r) && r.receivedAt)) {
         triggerNotify('此日期已驗收，原訂單已鎖定；實收量請從驗收調整', 'error');
         return false;
       }
-      const previousItems = currentDb.history.find(r => r && r.date === orderDate)?.items || [];
+      const previousItems = currentDb.history.find(matchesOrder)?.items || [];
       const orderItems = currentDb.ingredients
         .map(item => {
          const previous = previousItems.find(p => p && String(p.ingredientId) === String(item.id) && p.unit === item.unit);
@@ -7244,31 +7252,30 @@ const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, 
         
       if (orderItems.length === 0) return false;
 
-      const existingRecordIndex = currentDb.history.findIndex(r => r && r.date === orderDate);
-      let newHistory = [...currentDb.history];
-
-      if (existingRecordIndex > -1) {
-        newHistory[existingRecordIndex] = {
-         ...newHistory[existingRecordIndex],
+      try {
+       const ref = db.doc(getPublicPath(`ordering/db_${selectedBranch}`));
+       const newId = supplementId || crypto.randomUUID();
+       await db.runTransaction(async tx => {
+        const snap = await tx.get(ref);
+        const history = (snap.data()?.history || []).filter(Boolean);
+        const index = history.findIndex(matchesOrder);
+        if (index >= 0 && history[index].receivedAt) throw new Error('此筆訂單已驗收，請改用新追加訂單');
+        const previous = index >= 0 ? history[index] : null;
+        const record = {
+         ...(previous || {}), id: previous?.id || newId, date: orderDate,
+         kind: supplementId ? 'supplement' : 'regular',
          timestamp: new Date().toLocaleString(),
-         items: orderItems
+         items: orderItems.map(item => {
+          const saved = previous?.items?.find(p => p.ingredientId === item.ingredientId && p.unit === item.unit);
+          return { ...item, unitPrice: saved ? orderingPrice(saved.unitPrice) : item.unitPrice };
+         })
         };
-      } else {
-        const newHistoryRecord = {
-         id: Date.now(),
-         date: orderDate,
-         timestamp: new Date().toLocaleString(),
-         items: orderItems
-        };
-        newHistory.push(newHistoryRecord);
-      }
-
-      if (newHistory.length > 365) {
-        newHistory = newHistory.slice(-365);
-      }
-
-      updateCurrentDb({ history: newHistory });
-      return true;
+        const next = [...history];
+        if (index >= 0) next[index] = record; else next.push(record);
+        tx.set(ref, { history: next, updatedAt: Date.now() }, { merge: true });
+       });
+       return true;
+      } catch (error) { triggerNotify(error.message || '訂單儲存失敗，請重試', 'error'); return false; }
      };
 
      const monthlyStats = useMemo(() => {
@@ -7334,20 +7341,24 @@ const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, 
         const [y, m, d] = orderDate.split('-');
         const dateStr = `${parseInt(m)}/${parseInt(d)}`;
         Object.entries(groupedOrders).forEach(([vendor, items]) => {
-         let text = `${selectedBranch} ${dateStr}\n`;
+         let text = `${selectedBranch} ${dateStr}${supplementId ? '【追加訂單】單號 ' + supplementId : ''}\n`;
          items.forEach(item => { text += `${item.name} ${item.orderQty}${item.unit}\n`; });
          initialTexts[vendor] = text.trim();
         });
         setEditedOrderTexts(initialTexts);
       }
-     }, [view, groupedOrders, selectedBranch, orderDate]);
+     }, [view, groupedOrders, selectedBranch, orderDate, supplementId]);
 
      const handleTextChange = (vendor, newText) => {
       setEditedOrderTexts(prev => ({ ...prev, [vendor]: newText }));
      };
 
      const handleShare = async (vendorName) => {
-      if (!saveOrderToHistory()) return;
+      if (orderSaveLock.current) return;
+      orderSaveLock.current = true;
+      let saved;
+      try { saved = await saveOrderToHistory(); } finally { orderSaveLock.current = false; }
+      if (!saved) return;
       const text = editedOrderTexts[vendorName] || "";
 
       // 1. 優先用 navigator.share（iOS 原生分享，可直接選 LINE）
@@ -7389,6 +7400,7 @@ const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, 
 
      const handleQuantityChange = (itemId, newVal) => {
       const val = Math.max(0, parseFloat(newVal) || 0);
+      if (supplementId) { setSupplementQuantities(prev => ({ ...prev, [itemId]: val })); return; }
       setOrderQuantities(prev => ({ ...prev, [itemId]: val }));
       
       const docRef = db.doc(getPublicPath(`ordering/db_${selectedBranch}`));
@@ -7444,10 +7456,11 @@ const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, 
               </div>
               
               <div className="p-8">
-               <button onClick={() => setView('zone_select')} className="w-full bg-brand-red text-white py-5 rounded-3xl font-black text-lg shadow-xl shadow-brand-red/20 flex items-center justify-center gap-3 active-scale transition-all">
+               <button onClick={() => { setSupplementId(null); setView('zone_select'); }} className="w-full bg-brand-red text-white py-5 rounded-3xl font-black text-lg shadow-xl shadow-brand-red/20 flex items-center justify-center gap-3 active-scale transition-all">
                  開始點貨 <OrderSymbolIcon name="ArrowRight" className="text-xl" />
                </button>
                <button onClick={() => { setReceiptDate(orderingToday()); setReceiptDraft(null); setView('receipt'); }} className="w-full mt-3 p-4 border rounded-lg font-bold flex items-center justify-center gap-2"><OrderSymbolIcon name="ClipboardCheck" />驗收</button>
+               <button onClick={() => { setSupplementId(crypto.randomUUID()); setSupplementQuantities({}); setCopyStatus({}); setView('zone_select'); }} className="w-full mt-3 p-4 border rounded-lg font-bold flex items-center justify-center gap-2"><OrderSymbolIcon name="Plus" />追加訂單</button>
                
                <div className="grid grid-cols-2 gap-3 mt-4">
                  <button onClick={() => { setView('analytics'); setAnalyticsZone(null); setExpandedAnalyticsItem(null); }} className="py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold text-xs flex items-center justify-center gap-2 active-scale transition-all">
@@ -7476,6 +7489,7 @@ const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, 
           <Nav title={`${selectedBranch} - 驗收`} onBackAction={() => { if (!receiptBusy) setView('setup'); }} />
           <div className="p-4 space-y-4">
            <label className="block font-bold">進貨日期<input type="date" disabled={receiptBusy} value={receiptDate} onChange={e => setReceiptDate(e.target.value)} className="block w-full min-w-0 p-3 border rounded-lg" /></label>
+           {receiptRecords.length > 0 && <label className="block font-bold">驗收訂單<select disabled={receiptBusy} value={String(receiptRecord?.id || '')} onChange={e => setReceiptId(e.target.value)} className="block w-full min-w-0 p-3 border rounded-lg">{receiptRecords.map((record, index) => <option key={record.id} value={String(record.id)}>{record.kind === 'supplement' ? '追加單' : '原訂單'} {index + 1} · {record.timestamp} · {record.receivedAt ? '已驗收' : '待驗收'}</option>)}</select></label>}
            {!receiptRecord ? <p className="py-8 text-center">此進貨日期尚無訂單</p> : <>
             <p className="text-sm">{receiptRecord.receivedAt ? '已驗收，可修正實收數量' : '待驗收'} · {receiptRecord.items.length} 項</p>
             {(receiptRecord.items || []).map((item, index) => <div key={index} className="border-b py-3 flex items-center gap-3">
@@ -7490,7 +7504,7 @@ const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, 
         {/* 2. 區站選擇 */}
         {view === 'zone_select' && (
          <div className="max-w-md mx-auto">
-           <Nav title={`${selectedBranch} - 區站`} onBackAction={() => setView('setup')} />
+           <Nav title={`${selectedBranch} - ${supplementId ? '追加訂單' : '區站'}`} onBackAction={() => setView('setup')} />
            <div className="p-6 space-y-6 pb-20 mt-4">
             <div className="grid grid-cols-1 gap-4">
               {currentDb.zones.map((zone) => {
@@ -7635,7 +7649,7 @@ const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, 
                  <summary className="cursor-pointer font-bold py-2">金額明細（{monthlyCosts.rows.length} 筆）</summary>
                  <div className="max-h-96 overflow-y-auto divide-y divide-slate-200">
                   {monthlyCosts.rows.map((row, index) => <div key={index} className="py-3 space-y-1">
-                   <div className="font-bold break-words">{row.name}</div>
+                   <div className="font-bold break-words">{row.name} · {row.orderKind === 'supplement' ? '追加單' : '原訂單'}</div>
                    <div className="text-xs text-slate-500">{row.date} · {row.vendor || '未記錄廠商'} · {row.zone || '未記錄區站'} · {row.received ? '已驗收' : '待驗收（原訂量）'}</div>
                    <div className="text-xs text-slate-600">{row.qty} {row.unit} × {row.price === null ? '單價未記錄' : orderingMoney(row.price)}</div>
                    <div className="font-bold">{row.amount === null ? '未計價' : orderingMoney(row.amount)}</div>
