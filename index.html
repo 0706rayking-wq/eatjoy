@@ -7341,7 +7341,7 @@ const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, 
         const [y, m, d] = orderDate.split('-');
         const dateStr = `${parseInt(m)}/${parseInt(d)}`;
         Object.entries(groupedOrders).forEach(([vendor, items]) => {
-         let text = `${selectedBranch} ${dateStr}${supplementId ? '【追加訂單】單號 ' + supplementId : ''}\n`;
+         let text = `${selectedBranch} ${dateStr}${supplementId ? '【追加訂單】' : ''}\n`;
          items.forEach(item => { text += `${item.name} ${item.orderQty}${item.unit}\n`; });
          initialTexts[vendor] = text.trim();
         });
