@@ -6901,6 +6901,11 @@ const FOOD_RESEARCH_QUESTION_BANK_VERSION = '2026-08-24-950';
 };
 
 const orderingActualQty = item => Number(item.receivedQty ?? item.qty) || 0;
+const orderingRecordKey = value => {
+  if (Array.isArray(value)) return '[' + value.map(orderingRecordKey).join(',') + ']';
+  if (value && typeof value === 'object') return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + orderingRecordKey(value[key])).join(',') + '}';
+  return JSON.stringify(value);
+};
 const orderingToday = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Taipei' }).format(new Date());
 const orderingPrice = value => {
   if (value == null || String(value).trim() === '') return null;
@@ -7146,10 +7151,10 @@ const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, 
      const zoneIcons = ['Carrot','Fish','Soup','UtensilsCrossed','IceCream','Coffee','Timer','Package','apple','beef','egg','milk','wheat','salad','sandwich','cake-slice','pizza','cooking-pot','flame','snowflake'];
      const zoneColors = ['bg-emerald-500','bg-blue-500','bg-brand-red','bg-rose-500','bg-cyan-500','bg-amber-600','bg-pink-500','bg-violet-600','bg-slate-500'];
      const receiptRecord = currentDb.history.find(r => r.date === receiptDate);
-     useEffect(() => { setReceiptDraft(null); }, [receiptDate, selectedBranch, JSON.stringify(receiptRecord)]);
+     useEffect(() => { setReceiptDraft(null); }, [receiptDate, selectedBranch, orderingRecordKey(receiptRecord)]);
      const submitReceipt = async () => {
        if (!receiptRecord || receiptBusy) return;
-       const original = JSON.stringify(receiptRecord);
+       const original = orderingRecordKey(receiptRecord);
        const quantities = (receiptRecord.items || []).map((item, index) => {
          const raw = receiptDraft?.[index] ?? orderingActualQty(item);
          const value = raw === '' ? NaN : Number(raw);
@@ -7163,14 +7168,17 @@ const OrderingSystem = ({ onBack, triggerNotify, globalBranches, currentBranch, 
            const snap = await tx.get(ref);
            const history = snap.data()?.history || [];
            const index = history.findIndex(r => r.date === receiptDate && r.id === receiptRecord.id);
-           if (index < 0 || JSON.stringify(history[index]) !== original) throw new Error('訂單已更新，請重新開啟驗收後再送出');
+           if (index < 0 || orderingRecordKey(history[index]) !== original) throw new Error('訂單已更新，請重新開啟驗收後再送出');
            const next = [...history];
            next[index] = { ...history[index], receivedAt: Date.now(), items: history[index].items.map((item, i) => ({ ...item, receivedQty: quantities[i] })) };
            tx.update(ref, { history: next, updatedAt: Date.now() });
          });
          setReceiptDraft(null);
          triggerNotify('驗收已儲存，報表已採用實收數量', 'success');
-       } catch (error) { triggerNotify(error.message || '驗收儲存失敗，請重試', 'error'); }
+       } catch (error) {
+         console.error('Ordering receipt save failed', error);
+         triggerNotify(error.code === 'permission-denied' ? '驗收寫入權限不足，請聯繫管理員' : error.code === 'unavailable' ? '網路連線中斷，請保留數量並重新送出' : (error.message || '驗收儲存失敗，請重試'), 'error');
+       }
        finally { setReceiptBusy(false); }
      };
 
