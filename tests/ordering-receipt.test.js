@@ -29,3 +29,24 @@ assert.equal(context.api.orderingRecordKey({ id: 1, items: [{ qty: 5, name: 'A' 
 assert.notEqual(context.api.orderingRecordKey({ qty: 5 }), context.api.orderingRecordKey({ qty: 4 }));
 assert.ok(source.includes('tx.update(ref, { history: next'));
 console.log('Ordering receipt, cost and filter checks passed');
+const submitSource = source.slice(source.indexOf('const submitReceipt = async'), source.indexOf('const [editingIngredientId', source.indexOf('const submitReceipt = async')));
+async function checkSubmit(receivedAt) {
+  let saved;
+  const record = { id: 1, date: '2026-10-11', items: [{ name: 'A', qty: 10, unitPrice: 12 }], ...(receivedAt ? { receivedAt } : {}) };
+  const remote = { ...record, items: [{ unitPrice: 12, qty: 10, name: 'A' }] };
+  const notices = [];
+  const sandbox = vm.createContext({
+    receiptRecord: record, receiptBusy: false, receiptDraft: { 0: '4' }, receiptDate: record.date,
+    selectedBranch: 'test', getPublicPath: x => x, setReceiptBusy: () => {}, setReceiptDraft: () => {},
+    triggerNotify: (...args) => notices.push(args), console,
+    db: { doc: x => x, runTransaction: async callback => callback({
+      get: async () => ({ data: () => ({ history: [remote] }) }), update: (ref, data) => { saved = data; }
+    }) }
+  });
+  vm.runInContext(helpers + submitSource + ';globalThis.submit = submitReceipt;', sandbox);
+  await sandbox.submit();
+  assert.equal(saved.history[0].items[0].receivedQty, 4);
+  assert.equal(saved.history[0].items[0].qty, 10);
+  assert.equal(notices[0][1], 'success');
+}
+Promise.all([checkSubmit(null), checkSubmit(123)]).then(() => console.log('Initial and repeat receipt submission passed')).catch(error => { console.error(error); process.exitCode = 1; });
