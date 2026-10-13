@@ -1,5 +1,5 @@
 const assert=require('node:assert/strict'),crypto=require('node:crypto'),{Readable}=require('node:stream');
-const handler=require('./line-webhook');
+const handler=require('../api/line-webhook');
 const image=(id,timestamp,index)=>({type:'message',source:{type:'group',groupId:'HR_GROUP'},timestamp,message:{type:'image',id,imageSet:{id:'same-set',index,total:2}}});
 (async()=>{const events=[image('1001',1791901267082,2),image('1002',1791901266921,1)];const text={type:'message',source:{type:'group',groupId:'HR_GROUP'},message:{type:'text',text:'normal'}};
 assert.deepEqual(handler._test.splitHumanResourcesEvents(events),[[events[0]],[events[1]]]);assert.deepEqual(handler._test.splitHumanResourcesEvents([text,text]),[[text,text]]);
