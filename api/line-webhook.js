@@ -62,13 +62,25 @@ function selectHumanResourcesEvents(payload, groupId) {
   });
 }
 
+function splitHumanResourcesEvents(events) {
+  const batches=[];let other=[];
+  for(const event of events){
+    if(event?.type==='message'&&event.message?.type==='image'){
+      if(other.length){batches.push(other);other=[];}
+      batches.push([event]);
+    }else other.push(event);
+  }
+  if(other.length)batches.push(other);
+  return batches;
+}
+
 async function forwardToN8n(payload, events, relayUrl, relaySecret) {
   const response = await fetch(relayUrl, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${relaySecret}`,
       'Content-Type': 'application/json',
-      'X-EatJoy-Relay-Version': '1'
+      'X-EatJoy-Relay-Version': '2'
     },
     body: JSON.stringify({
       version: 1,
@@ -121,7 +133,9 @@ async function handler(request, response) {
     const events = selectHumanResourcesEvents(payload, humanResourcesGroupId);
 
     if (events.length > 0) {
-      await forwardToN8n(payload, events, n8nRelayUrl, n8nRelaySecret);
+      for(const batch of splitHumanResourcesEvents(events)){
+        await forwardToN8n(payload, batch, n8nRelayUrl, n8nRelaySecret);
+      }
 
       const assistantEvents = selectLittleThunderEvents(events);
       if (assistantEvents.length > 0) {
@@ -155,6 +169,7 @@ module.exports.config = {
   }
 };
 module.exports._test = {
+  splitHumanResourcesEvents,
   readRawBody,
   selectHumanResourcesEvents,
   selectLittleThunderEvents,
