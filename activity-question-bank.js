@@ -1,5 +1,5 @@
 /* Auto-generated from 餐飲與料理科學終極題庫570題_擴充整理版.xlsx. */
-window.FOOD_RESEARCH_QUESTIONS = [
+window.ACTIVITY_QUESTIONS = [
   {
     "id": 1,
     "category": "一、 海鮮、水產與貝類知識",

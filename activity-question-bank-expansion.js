@@ -1,6 +1,6 @@
 /* 食材知識擴充題庫：380 題。排除食安、法規與保存管理主題。 */
 (function appendIngredientKnowledgeExpansion() {
-  const bank = window.FOOD_RESEARCH_QUESTIONS;
+  const bank = window.ACTIVITY_QUESTIONS;
   if (!Array.isArray(bank)) return;
 
   const sets = [
