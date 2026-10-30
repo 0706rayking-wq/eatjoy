@@ -1,7 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const { checkGoogleReviewsWithScreenshots } = require('../api/google-review-lib');
+const { checkGoogleReviewsWithScreenshots } = require('../lib/google-review-lib');
 
 const repoDir = path.resolve(__dirname, '..');
 const runtimeDir = path.join(__dirname, 'runtime');

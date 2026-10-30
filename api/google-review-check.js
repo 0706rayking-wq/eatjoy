@@ -2,7 +2,7 @@ const crypto = require('node:crypto');
 const {
   buildReviewImageUrl,
   checkGoogleReviews
-} = require('./google-review-lib');
+} = require('../lib/google-review-lib');
 
 function safeEqual(left, right) {
   const leftBuffer = Buffer.from(String(left || ''));

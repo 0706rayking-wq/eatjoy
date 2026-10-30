@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { launchBrowser, openLatestReviews, taipeiDate } = require('../api/google-review-lib');
+const { launchBrowser, openLatestReviews, taipeiDate } = require('../lib/google-review-lib');
 
 const configPath = path.join(__dirname, 'google-review-config.json');
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));

@@ -6,7 +6,7 @@ const {
   resolveReviewUrl,
   reviewSignature,
   verifyReviewSignature
-} = require('./google-review-lib');
+} = require('../lib/google-review-lib');
 
 assert.equal(isRecentAgeLabel('剛剛'), true);
 assert.equal(isRecentAgeLabel('18 分鐘前'), true);

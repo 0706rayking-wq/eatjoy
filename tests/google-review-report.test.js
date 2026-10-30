@@ -1,5 +1,5 @@
 const assert = require('node:assert/strict');
-const { buildLineMessageObjects, formatReportText } = require('./google-review-report')._test;
+const { buildLineMessageObjects, formatReportText } = require('../api/google-review-report')._test;
 
 const report = {
   date: '2026-08-07',

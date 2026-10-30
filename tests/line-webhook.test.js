@@ -4,7 +4,7 @@ const {
   selectHumanResourcesEvents,
   selectLittleThunderEvents,
   verifyLineSignature
-} = require('./line-webhook')._test;
+} = require('../api/line-webhook')._test;
 
 const secret = 'test-channel-secret';
 const rawBody = Buffer.from(JSON.stringify({ events: [] }));

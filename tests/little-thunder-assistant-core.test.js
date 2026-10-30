@@ -6,7 +6,7 @@ const {
   buildMonthlyReminder,
   parseAssistantCommand,
   statutoryLeaveDays
-} = require('./little-thunder-assistant-core');
+} = require('../api/little-thunder-assistant-core');
 
 const state = {};
 const now = new Date('2026-08-10T09:00:00+08:00');

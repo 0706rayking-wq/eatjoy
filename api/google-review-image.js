@@ -1,7 +1,7 @@
 const {
   screenshotReview,
   verifyReviewSignature
-} = require('./google-review-lib');
+} = require('../lib/google-review-lib');
 
 module.exports = async function handler(request, response) {
   if (request.method !== 'GET') {

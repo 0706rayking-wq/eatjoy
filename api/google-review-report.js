@@ -3,7 +3,7 @@ const {
   buildReviewImageUrl,
   checkGoogleReviews,
   taipeiDate
-} = require('./google-review-lib');
+} = require('../lib/google-review-lib');
 
 function safeEqual(left, right) {
   const leftBuffer = Buffer.from(String(left || ''));

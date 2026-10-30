@@ -10,7 +10,7 @@ const {
   resolveDepartmentValues,
   uniqueAttendance,
   wrapLine
-} = require('./hr-attendance-compare')._test;
+} = require('../api/hr-attendance-compare')._test;
 
 const departmentHtml = `
 <select id="SLayer" name="SLayer">
