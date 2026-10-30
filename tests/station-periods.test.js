@@ -1,0 +1,10 @@
+const assert = require('node:assert/strict');
+const {periodRange, periodsOverlap} = require('../station-board.js');
+assert.equal(periodsOverlap('早班','晚班'), false);
+assert.equal(periodsOverlap('全天','晚班'), true);
+assert.equal(periodsOverlap('晚班','晚班'), true);
+assert.equal(periodsOverlap('09:00-12:00','12:00-18:00'), false);
+assert.equal(periodsOverlap('09:00-13:00','12:00-18:00'), true);
+assert.equal(periodsOverlap('早班','18:00-21:00'), null);
+assert.deepEqual(periodRange('18:00–21:00'), [1080,1260]);
+for (const value of ['24:00-25:00','18:60-21:00','21:00-18:00','晚班','12:00-12:00']) assert.equal(periodRange(value), null);

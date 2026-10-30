@@ -25,7 +25,22 @@
   const luminance = rgb[0]*0.2126+rgb[1]*0.7152+rgb[2]*0.0722;
   return {background,foreground:luminance > 0.179 ? '#000000' : '#ffffff'};
  }
- const api = {defaults, roster, cleanAssignments, stationColors};
+ function periodRange(value) {
+  const match = /^(\d{2}):(\d{2})[–-](\d{2}):(\d{2})$/.exec(value || '');
+  if (!match) return null;
+  const [,h,m,H,M]=match.map(Number);
+  if(h>23||H>23||m>59||M>59)return null;
+  const start=h*60+m,end=H*60+M;
+  return end>start?[start,end]:null;
+ }
+ function periodsOverlap(a,b) {
+  if(a==='全天'||b==='全天'||a===b)return true;
+  if(['早班','晚班'].includes(a)&&['早班','晚班'].includes(b))return false;
+  const x=periodRange(a),y=periodRange(b);
+  // Named shifts have no fixed clock boundaries; require manual review with custom times.
+  return x&&y?x[0]<y[1]&&y[0]<x[1]:null;
+ }
+ const api = {defaults, roster, cleanAssignments, stationColors, periodRange, periodsOverlap};
  if (typeof module === 'object' && module.exports) module.exports = api;
  else root.StationBoardData = api;
 })(typeof window === 'undefined' ? globalThis : window);
