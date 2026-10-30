@@ -41,8 +41,9 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
  const put=(id,clientX,clientY)=>{
   if(saving||loading||!surface.current||!team.active.some(p=>p.id===id))return;
   const rect=surface.current.getBoundingClientRect();
-  const x=Math.max(0,Math.min(rect.width-112,clientX-rect.left-56)),y=Math.max(0,Math.min(rect.height-82,clientY-rect.top-25));
-  const index=Math.floor((y+25)/180)*3+Math.min(2,Math.floor((x+56)/(rect.width/3)));
+  const tagWidth=Math.min(112,rect.width*0.28);
+  const x=Math.max(0,Math.min(rect.width-tagWidth,clientX-rect.left-tagWidth/2)),y=Math.max(0,Math.min(rect.height-82,clientY-rect.top-25));
+  const index=Math.floor((y+25)/180)*3+Math.min(2,Math.floor((x+tagWidth/2)/(rect.width/3)));
   setPlacements(prev=>({...prev,[id]:{x:x/rect.width,y:y/rect.height,stationId:stations[index]?.id||''}}));setSelected('');setDirty(true);
  };
  const inside=(r,x,y)=>r&&x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;
@@ -50,6 +51,8 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
  const pointerMove=e=>{
   const d=drag.current;if(!d)return;if(Math.hypot(e.clientX-d.x,e.clientY-d.y)>5)d.moved=true;if(!d.moved)return;
   setGhost({id:d.id,x:e.clientX,y:e.clientY});
+  if(e.clientY<48)window.scrollBy(0,-20);
+  if(e.clientY>window.innerHeight-48)window.scrollBy(0,20);
   const view=viewport.current,r=view?.getBoundingClientRect();
   if(inside(r,e.clientX,e.clientY)){if(e.clientX>r.right-28)view.scrollLeft+=16;if(e.clientX<r.left+28)view.scrollLeft-=16;if(e.clientY>r.bottom-28)view.scrollTop+=16;if(e.clientY<r.top+28)view.scrollTop-=16;}
  };
@@ -98,22 +101,23 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
  return <div className="station-whiteboard p-3 text-left pb-6">
   <style>{`
    .station-whiteboard{color:#1e293b;max-width:100%;letter-spacing:0}
-   .sb-layout{display:grid;grid-template-columns:minmax(0,1fr) 132px;gap:12px;align-items:start}
-   .sb-viewport{overflow:auto;max-height:68vh;border:6px solid #94a3b8;border-radius:6px;background:#fff;overscroll-behavior:contain}
-   .sb-surface{position:relative;min-width:600px;width:100%;background:#fff;color:#1e293b}
+   .sb-layout{display:flex;flex-direction:column;gap:16px;min-width:0}
+   .sb-viewport{width:100%;box-sizing:border-box;border:4px solid #94a3b8;border-radius:6px;background:#fff}
+   .sb-surface{position:relative;width:100%;background:#fff;color:#1e293b}
    .sb-stations{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));pointer-events:none}
    .sb-station{height:180px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:8px;box-sizing:border-box}
    .sb-heading{display:flex;align-items:flex-start;gap:4px;pointer-events:auto}
    .sb-heading button{min-width:36px;min-height:44px;color:#475569}
    .sb-heading .sb-title{flex:1;text-align:left;font-size:16px;font-weight:700;color:#1e293b;overflow-wrap:anywhere;border-bottom:3px solid #0d9488;padding:4px}
-   .sb-tray{border-left:1px solid #cbd5e1;padding-left:10px;min-height:220px;max-height:68vh;overflow:auto}
+   .sb-tray{width:100%;border-top:1px solid #cbd5e1;padding-top:12px}
+   .sb-roster{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
    .sb-tag{width:112px;max-width:100%;background:#fff;border:1px solid #94a3b8;border-radius:6px;box-shadow:0 2px 4px #0f172a15;overflow:hidden;margin-bottom:8px}
    .sb-name{display:block;width:100%;min-height:44px;padding:8px 5px;font-size:15px;font-weight:700;color:#1e293b;background:#f1f5f9;touch-action:none;user-select:none;cursor:grab;overflow-wrap:anywhere}
    .sb-name:active{cursor:grabbing}.sb-selected{background:#dbeafe;box-shadow:inset 0 0 0 2px #2563eb}
    .sb-tag input{display:block;width:100%;min-width:0;min-height:36px;padding:5px;font-size:14px;text-align:center;color:#475569;background:#fff;border:0;box-sizing:border-box}
-   .sb-placed{position:absolute;width:112px;max-width:112px}.sb-placed:focus-within{z-index:20}
+   .sb-placed{position:absolute;width:28%;max-width:112px}.sb-placed:focus-within{z-index:20}
    .sb-ghost{position:fixed;pointer-events:none;z-index:99999;width:112px;padding:10px;border:2px solid #2563eb;border-radius:6px;background:#eff6ff;color:#1e293b;transform:translate(-50%,-50%)}
-   @media(max-width:480px){.sb-layout{grid-template-columns:minmax(0,1fr) 116px;gap:6px}.sb-tray{padding-left:4px}.sb-viewport{border-width:4px}}
+   @media(max-width:480px){.sb-station{padding:4px}.sb-heading{gap:0}.sb-heading button{min-width:24px}.sb-heading .sb-title{font-size:14px;padding:4px 1px}.sb-name{font-size:14px}}
   `}</style>
   <BackButton title="崗位白板" onClick={()=>leave(onBack)}/>
   <div className="flex flex-wrap items-end gap-3 my-4"><h2 className="font-bold text-lg flex-1 min-w-0 break-words">{currentBranch}</h2>
@@ -125,8 +129,8 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
    <form onSubmit={addStation} className="flex gap-2 mb-3 max-w-md"><input aria-label="新增崗位名稱" placeholder="新增崗位名稱" maxLength={30} value={newName} onChange={e=>setNewName(e.target.value)} disabled={saving} className="min-w-0 flex-1 border rounded p-2 bg-white"/><button type="submit" title="新增崗位" aria-label="新增崗位" disabled={saving||!newName.trim()} className="min-h-[44px] min-w-[44px] border rounded flex items-center justify-center"><Icon name="plus" size={20}/></button></form>
    <div className="sb-layout"><div ref={viewport} className="sb-viewport" aria-label="崗位白板"><div ref={surface} className="sb-surface" style={{height:boardHeight}} onClick={e=>{if(selected&&e.target===e.currentTarget)put(selected,e.clientX,e.clientY);}}>
     <div className="sb-stations">{stations.map(s=><div className="sb-station" key={s.id}><div className="sb-heading"><button className="sb-title" title={`重新命名${s.name}`} aria-label={`重新命名${s.name}`} disabled={saving} onClick={()=>rename(s)}>{s.name}</button><button title={`刪除${s.name}`} aria-label={`刪除${s.name}`} disabled={saving} onClick={()=>remove(s)}><Icon name="x" size={16}/></button></div></div>)}</div>
-    {team.active.filter(p=>placed[p.id]).map(p=><div key={p.id} className="sb-placed" style={{left:`clamp(0px, ${placed[p.id].x*100}%, calc(100% - 112px))`,top:`clamp(0px, ${placed[p.id].y*100}%, calc(100% - 82px))`,zIndex:selected===p.id?15:5}}>{tag(p)}</div>)}
-   </div></div><aside ref={tray} className="sb-tray" aria-label="待分派人員"><h3 className="font-bold text-sm mb-3">待分派 · {waiting.length}</h3>{waiting.map(tag)}{!waiting.length&&<p className="text-sm text-slate-500">已全數分派</p>}{selected&&<button className="min-h-[44px] text-sm text-blue-700" disabled={saving} onClick={()=>toTray(selected)}>移回待分派</button>}</aside></div>
+    {team.active.filter(p=>placed[p.id]).map(p=><div key={p.id} className="sb-placed" style={{left:`clamp(0px, ${placed[p.id].x*100}%, calc(100% - min(112px, 28%)))`,top:`clamp(0px, ${placed[p.id].y*100}%, calc(100% - 82px))`,zIndex:selected===p.id?15:5}}>{tag(p)}</div>)}
+   </div></div><aside ref={tray} className="sb-tray" aria-label="上班人員"><h3 className="font-bold text-sm mb-3">上班人員 · {team.active.length} 人／待分派 {waiting.length} 人</h3><div className="sb-roster">{team.active.map(p=><div key={p.id}>{tag(p)}<span className="block text-xs text-slate-500 mb-2">{placed[p.id]?'已放上白板':'待分派'}</span></div>)}</div>{selected&&<button className="min-h-[44px] text-sm text-blue-700" disabled={saving} onClick={()=>toTray(selected)}>移回待分派</button>}</aside></div>
    {!team.active.length&&<p className="py-4 text-sm">此日期沒有上班人員。</p>}
    <div className="flex justify-between items-center gap-3 border-t mt-4 pt-3"><span role="status" className="text-sm">{dirty?'尚未儲存':'已同步'}</span><button type="button" disabled={!dirty||saving} onClick={save} className="min-h-[44px] px-4 rounded bg-blue-600 text-white disabled:opacity-50 flex gap-2 items-center"><Icon name="save" size={18}/>{saving?'儲存中...':'儲存安排'}</button></div>
   </>}
