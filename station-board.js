@@ -19,7 +19,13 @@
   const people = new Set(staff.map(p => String(p.id))), places = new Set(stations.map(s => s.id));
   return Object.fromEntries(Object.entries(assignments || {}).filter(([id, station]) => people.has(id) && places.has(station)));
  }
- const api = {defaults, roster, cleanAssignments};
+ function stationColors(color) {
+  const background = /^#[0-9a-f]{6}$/i.test(color || '') ? color : '#ffffff';
+  const rgb = [1,3,5].map(i => parseInt(background.slice(i,i+2),16)/255).map(v => v <= 0.04045 ? v/12.92 : Math.pow((v+0.055)/1.055,2.4));
+  const luminance = rgb[0]*0.2126+rgb[1]*0.7152+rgb[2]*0.0722;
+  return {background,foreground:luminance > 0.179 ? '#000000' : '#ffffff'};
+ }
+ const api = {defaults, roster, cleanAssignments, stationColors};
  if (typeof module === 'object' && module.exports) module.exports = api;
  else root.StationBoardData = api;
 })(typeof window === 'undefined' ? globalThis : window);

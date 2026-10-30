@@ -1,5 +1,6 @@
 window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,currentUser,db,getPublicPath,onBack,triggerNotify,Icon,BackButton}) {
  const {useState,useEffect,useRef}=React;
+ const {stationColors}=window.StationBoardData;
  const [date,setDate]=useState(()=>{
   const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei'}).format(new Date());
   const next=new Date(today+'T12:00:00+08:00');next.setUTCDate(next.getUTCDate()+1);
@@ -91,7 +92,7 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
    if(!ctx)throw Error('canvas');
    const wrap=(text,width)=>{const lines=[];let line='';for(const c of String(text)){if(line&&ctx.measureText(line+c).width>width){lines.push(line);line='';}line+=c;}lines.push(line);return lines;};
    ctx.font='22px sans-serif';
-   const groups=stations.map(s=>({name:s.name,rows:team.active.filter(p=>placed[p.id]?.stationId===s.id).map(p=>wrap(`${p.name} · ${notes[p.id]??p.code}`,330))}));
+   const groups=stations.map(s=>({name:s.name,...stationColors(s.color),rows:team.active.filter(p=>placed[p.id]?.stationId===s.id).map(p=>wrap(`${p.name} · ${notes[p.id]??p.code}`,330))}));
    ctx.font='bold 24px sans-serif';groups.forEach(g=>{g.title=wrap(g.name,330);g.header=28*g.title.length+30;});
    const heights=[];for(let i=0;i<groups.length;i+=3)heights.push(Math.max(130,...groups.slice(i,i+3).map(g=>g.header+20+g.rows.reduce((n,r)=>n+r.length*30+12,0))));
    ctx.font='22px sans-serif';
@@ -100,7 +101,7 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
    ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
    ctx.fillStyle='#0f172a';ctx.font='bold 32px sans-serif';ctx.fillText(`${currentBranch}｜崗位安排`,40,52);
    ctx.font='22px sans-serif';ctx.fillText(`${date}　上班 ${team.active.length} 人${dirty?'　（未儲存草稿）':''}`,40,94);
-   let y=130;groups.forEach((g,i)=>{if(i&&i%3===0)y+=heights[Math.floor(i/3)-1];const x=40+(i%3)*374,h=heights[Math.floor(i/3)];ctx.strokeStyle='#cbd5e1';ctx.strokeRect(x,y,374,h);ctx.fillStyle='#0f766e';ctx.font='bold 24px sans-serif';g.title.forEach((line,j)=>ctx.fillText(line,x+16,y+32+j*28));ctx.fillStyle='#1e293b';ctx.font='22px sans-serif';let rowY=y+g.header+10;g.rows.forEach(lines=>{lines.forEach(line=>{ctx.fillText(line,x+16,rowY);rowY+=30;});rowY+=12;});});
+   let y=130;groups.forEach((g,i)=>{if(i&&i%3===0)y+=heights[Math.floor(i/3)-1];const x=40+(i%3)*374,h=heights[Math.floor(i/3)];ctx.fillStyle=g.background;ctx.fillRect(x,y,374,h);ctx.strokeStyle='#cbd5e1';ctx.strokeRect(x,y,374,h);ctx.fillStyle=g.foreground;ctx.font='bold 24px sans-serif';g.title.forEach((line,j)=>ctx.fillText(line,x+16,y+32+j*28));ctx.font='22px sans-serif';let rowY=y+g.header+10;g.rows.forEach(lines=>{lines.forEach(line=>{ctx.fillText(line,x+16,rowY);rowY+=30;});rowY+=12;});});
    ctx.font='22px sans-serif';ctx.fillStyle='#475569';pending.forEach((line,i)=>ctx.fillText(line,40,150+heights.reduce((a,b)=>a+b,0)+i*32));
    const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('encode')),'image/png'));
    setPreview({url:URL.createObjectURL(blob),file:new File([blob],`崗位安排-${currentBranch}-${date}.png`,{type:'image/png'})});
@@ -123,8 +124,9 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
    .sb-station{min-height:130px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:8px;box-sizing:border-box;min-width:0}
    .sb-members{display:flex;flex-direction:column;gap:5px;padding-top:8px}
    .sb-heading{display:flex;align-items:flex-start;gap:4px;pointer-events:auto}
-   .sb-heading button{min-width:36px;min-height:44px;color:#475569}
-   .sb-heading .sb-title{flex:1;text-align:left;font-size:16px;font-weight:700;color:#1e293b;overflow-wrap:anywhere;border-bottom:3px solid #0d9488;padding:4px}
+   .sb-heading button{min-width:36px;min-height:44px;color:var(--station-ink,#475569)}
+   .sb-heading .sb-title{flex:1;text-align:left;font-size:16px;font-weight:700;color:var(--station-ink,#1e293b);overflow-wrap:anywhere;border-bottom:3px solid currentColor;padding:4px}
+   .sb-color{display:block;width:44px;height:36px;padding:5px;cursor:pointer;background:transparent;border:0}
    .sb-tray{width:100%;border-top:1px solid #cbd5e1;padding-top:12px}
    .sb-roster{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
    .sb-tag{display:flex;align-items:stretch;width:160px;max-width:100%;background:#fff;border:1px solid #94a3b8;border-radius:4px;overflow:hidden}
@@ -145,7 +147,7 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
    <div className="flex flex-wrap justify-between gap-2 mb-3 text-sm text-slate-600"><p>{team.exists?(team.published?'已發布班表':'未發布班表（草稿）'):'本月尚無班表'} · 上班 {team.active.length} 人</p><span>待分派 {waiting.length} 人</span></div>
    <form onSubmit={addStation} className="flex gap-2 mb-3 max-w-md"><input aria-label="新增崗位名稱" placeholder="新增崗位名稱" maxLength={30} value={newName} onChange={e=>setNewName(e.target.value)} disabled={saving} className="min-w-0 flex-1 border rounded p-2 bg-white"/><button type="submit" title="新增崗位" aria-label="新增崗位" disabled={saving||!newName.trim()} className="min-h-[44px] min-w-[44px] border rounded flex items-center justify-center"><Icon name="plus" size={20}/></button></form>
    <div className="sb-layout"><div ref={viewport} className="sb-viewport" aria-label="崗位白板"><div ref={surface} className="sb-surface">
-    <div className="sb-stations">{stations.map(s=><div className="sb-station" data-station={s.id} key={s.id} onClick={e=>{if(selected&&e.target===e.currentTarget)put(selected,e.clientX,e.clientY);}}><div className="sb-heading"><button className="sb-title" title={`重新命名${s.name}`} aria-label={`重新命名${s.name}`} disabled={saving} onClick={()=>rename(s)}>{s.name}</button><button title={`刪除${s.name}`} aria-label={`刪除${s.name}`} disabled={saving} onClick={()=>remove(s)}><Icon name="x" size={16}/></button></div><div className="sb-members">{team.active.filter(p=>placed[p.id]?.stationId===s.id).map(tag)}</div>{selected&&<button type="button" className="min-h-[44px] text-sm text-blue-700" disabled={saving} onClick={()=>{setPlacements(prev=>({...prev,[selected]:{x:0,y:0,stationId:s.id}}));setSelected('');setDirty(true);}}>分派至此</button>}</div>)}</div>
+    <div className="sb-stations">{stations.map(s=><div className="sb-station" data-station={s.id} key={s.id} style={{backgroundColor:stationColors(s.color).background,'--station-ink':stationColors(s.color).foreground}} onClick={e=>{if(selected&&e.target===e.currentTarget)put(selected,e.clientX,e.clientY);}}><div className="sb-heading"><button className="sb-title" title={`重新命名${s.name}`} aria-label={`重新命名${s.name}`} disabled={saving} onClick={()=>rename(s)}>{s.name}</button><button title={`刪除${s.name}`} aria-label={`刪除${s.name}`} disabled={saving} onClick={()=>remove(s)}><Icon name="x" size={16}/></button></div><input type="color" className="sb-color" aria-label={`${s.name}色塊顏色`} title={`${s.name}色塊顏色`} value={stationColors(s.color).background} disabled={saving} onClick={e=>e.stopPropagation()} onChange={e=>{const color=e.target.value;setStations(prev=>prev.map(item=>item.id===s.id?{...item,color}:item));setDirty(true);}}/><div className="sb-members">{team.active.filter(p=>placed[p.id]?.stationId===s.id).map(tag)}</div>{selected&&<button type="button" className="min-h-[44px] text-sm bg-white text-blue-700 rounded px-1" disabled={saving} onClick={()=>{setPlacements(prev=>({...prev,[selected]:{x:0,y:0,stationId:s.id}}));setSelected('');setDirty(true);}}>分派至此</button>}</div>)}</div>
    </div></div><aside ref={tray} className="sb-tray" aria-label="待分派人員"><h3 className="font-bold text-sm mb-3">待分派 · {waiting.length} 人</h3><div className="sb-roster">{waiting.map(tag)}</div>{!waiting.length&&<p className="text-sm text-slate-500">已全數分派</p>}{selected&&<button className="min-h-[44px] text-sm text-blue-700" disabled={saving} onClick={()=>toTray(selected)}>移回待分派</button>}</aside></div>
    {!team.active.length&&<p className="py-4 text-sm">此日期沒有上班人員。</p>}
    <button type="button" onClick={exportImage} disabled={exporting} className="my-3 min-h-[44px] border rounded px-4 flex items-center gap-2"><Icon name="image" size={18}/>{exporting?'產生圖片中...':'輸出圖片'}</button>

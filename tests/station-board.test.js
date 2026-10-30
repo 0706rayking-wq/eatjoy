@@ -1,5 +1,9 @@
 const assert = require('node:assert/strict');
-const {roster, cleanAssignments} = require('../station-board.js');
+const {roster, cleanAssignments, stationColors} = require('../station-board.js');
+assert.equal(stationColors('#000000').foreground, '#ffffff');
+assert.equal(stationColors('#ffffff').foreground, '#000000');
+assert.equal(stationColors('invalid').background, '#ffffff');
+assert.equal(stationColors('#163b60').background, '#163b60');
 const staffList = [
  {id:'1', name:'早班', shifts:{'2026-10-30':'A'}},
  {id:'2', name:'晚班', shifts:{'2026-10-30':'P4'}},
