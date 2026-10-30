@@ -12,7 +12,7 @@
    return {...person, id:String(person.id), code:code || '全天', shiftType:type};
   });
   return {published:!!month?.publishedSnapshot, exists:!!source || (!schedule?.months && !!schedule?.staffList),
-   active:period === 'all' ? rows : rows.filter(p => p.shiftType !== 'off' && (p.shiftType === 'full' || p.shiftType === period)),
+   active:period === 'all' ? rows : rows.filter(p => p.shiftType !== 'off' && (period === 'working' || p.shiftType === 'full' || p.shiftType === period)),
    off:rows.filter(p => p.shiftType === 'off')};
  }
  function cleanAssignments(assignments, staff, stations) {

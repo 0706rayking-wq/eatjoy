@@ -12,6 +12,7 @@ assert.equal(all.active.length, 4);
 assert.equal(all.published, true);
 assert.equal(all.active[2].code, '全天');
 assert.equal(all.active[3].code, 'X');
+assert.deepEqual(roster(schedule,'2026-10-30','working').active.map(p=>p.id),['1','2','3']);
 assert.equal(roster(schedule,'2026-11-01','all').exists, false);
 assert.deepEqual(cleanAssignments({'1':'soup','2':'deleted','gone':'soup'}, all.active, [{id:'soup'}]), {'1':'soup'});
 assert.equal(roster({months:{'2026-10':{staffList}}},'2026-10-30','all').published,false);

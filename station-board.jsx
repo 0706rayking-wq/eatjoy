@@ -1,111 +1,135 @@
-window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch, currentUser, db, getPublicPath, onBack, triggerNotify, Icon, BackButton}) {
- const {useState, useEffect, useRef} = React;
- const {defaults, roster, cleanAssignments} = window.StationBoardData;
- const [date, setDate] = useState(() => new Intl.DateTimeFormat('sv-SE', {timeZone:'Asia/Taipei'}).format(new Date()));
- const period = 'all';
- const [schedule, setSchedule] = useState(null);
- const [stations, setStations] = useState([]);
- const [assignments, setAssignments] = useState({});
- const [notes, setNotes] = useState({});
- const [revision, setRevision] = useState(0);
- const [configRevision, setConfigRevision] = useState(0);
- const [selected, setSelected] = useState('');
- const [newName, setNewName] = useState('');
- const [dirty, setDirty] = useState(false);
- const [loading, setLoading] = useState(true);
- const [saving, setSaving] = useState(false);
- const [error, setError] = useState('');
- const [reload, setReload] = useState(0);
- const generation = useRef(0);
- const boardId = `${encodeURIComponent(currentBranch)}__${date}__${period}`;
- const configRef = () => db.doc(getPublicPath(`station_board_config/${encodeURIComponent(currentBranch)}`));
- const boardRef = () => db.doc(getPublicPath(`station_board_days/${boardId}`));
- const team = roster(schedule, date, period);
- const effective = cleanAssignments(assignments, team.active, stations);
- useEffect(() => {
-  const run = ++generation.current;
-  setLoading(true); setError(''); setSelected(''); setDirty(false);
-  Promise.all([
-   db.doc(getPublicPath(`schedules_data/branch_${currentBranch}`)).get({source:'server'}),
-   configRef().get({source:'server'}), boardRef().get({source:'server'})
-  ]).then(([s, c, b]) => {
-   if (run !== generation.current) return;
-   setSchedule(s.exists ? s.data() : {});
-   const config = c.exists ? c.data() : {}, board = b.exists ? b.data() : {};
-   setStations(config.stations || defaults.map((name, i) => ({id:`station-${i}`, name})));
-   setAssignments(board.assignments || {});
-   setNotes(board.notes || {});
-   setRevision(board.revision || 0); setConfigRevision(config.revision || 0);
-  }).catch(e => {if (run === generation.current) setError(`讀取失敗（${e.code || 'network-error'}），請重試。`);})
-   .finally(() => {if (run === generation.current) setLoading(false);});
-  return () => {generation.current++;};
- }, [currentBranch, date, period, reload]);
- useEffect(() => {
-  const warn = e => {if(dirty) {e.preventDefault(); e.returnValue = '';}};
-  window.addEventListener('beforeunload', warn);
-  return () => window.removeEventListener('beforeunload', warn);
- }, [dirty]);
- const leave = callback => {if(!saving && (!dirty || window.confirm('尚有未儲存的安排，要放棄變更嗎？'))) callback();};
- const assign = (person, station) => {
-  if (loading || saving || error || !team.active.some(p => p.id === person)) return;
-  if (station && !stations.some(s => s.id === station)) return;
-  setAssignments(prev => {const next = {...prev}; if(station) next[person] = station; else delete next[person]; return next;});
-  setSelected(''); setDirty(true);
- };
- const addStation = e => {
-  e.preventDefault(); const name = newName.trim();
-  if (!name || stations.some(s => s.name === name)) return;
-  setStations(prev => [...prev, {id:`station-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,name}]);
-  setNewName(''); setDirty(true);
- };
- const save = async () => {
-  if (saving || loading || error) return;
-  setSaving(true);
-  try {
-   const cRef = configRef(), bRef = boardRef();
-   await db.runTransaction(async tx => {
-    const c = await tx.get(cRef), b = await tx.get(bRef);
-    if ((c.exists ? c.data().revision || 0 : 0) !== configRevision || (b.exists ? b.data().revision || 0 : 0) !== revision) throw Error('conflict');
-    tx.set(cRef, {stations, revision:configRevision + 1, updatedAt:Date.now()});
-    const validNotes = Object.fromEntries(team.active.filter(p => Object.prototype.hasOwnProperty.call(notes, p.id)).map(p => [p.id, notes[p.id]]));
-    tx.set(bRef, {branch:currentBranch, date, period, assignments:effective, notes:validNotes, revision:revision + 1, updatedAt:Date.now(), updatedBy:currentUser?.name || ''});
+window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,currentUser,db,getPublicPath,onBack,triggerNotify,Icon,BackButton}) {
+ const {useState,useEffect,useRef}=React;
+ const [date,setDate]=useState(()=>{
+  const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei'}).format(new Date());
+  const next=new Date(today+'T12:00:00+08:00');next.setUTCDate(next.getUTCDate()+1);
+  return new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Taipei'}).format(next);
+ });
+ const [schedule,setSchedule]=useState(null),[stations,setStations]=useState([]),[placements,setPlacements]=useState({}),[notes,setNotes]=useState({});
+ const [revision,setRevision]=useState(0),[configRevision,setConfigRevision]=useState(0),[selected,setSelected]=useState(''),[newName,setNewName]=useState('');
+ const [dirty,setDirty]=useState(false),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState(''),[reload,setReload]=useState(0),[ghost,setGhost]=useState(null);
+ const generation=useRef(0),surface=useRef(null),tray=useRef(null),viewport=useRef(null),drag=useRef(null),suppressClick=useRef(false);
+ const team=window.StationBoardData.roster(schedule,date,'working');
+ const boardHeight=Math.max(540,Math.ceil(stations.length/3)*180);
+ const valid=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&(!p.stationId||stations.some(s=>s.id===p.stationId));
+ const placed=Object.fromEntries(team.active.filter(p=>valid(placements[p.id])).map(p=>[p.id,placements[p.id]]));
+ const waiting=team.active.filter(p=>!placed[p.id]);
+ const configRef=()=>db.doc(getPublicPath(`station_board_config/${encodeURIComponent(currentBranch)}`));
+ const boardRef=()=>db.doc(getPublicPath(`station_board_days/${encodeURIComponent(currentBranch)}__${date}__all`));
+ useEffect(()=>{
+  const run=++generation.current;setLoading(true);setError('');setSelected('');setDirty(false);setGhost(null);drag.current=null;
+  Promise.all([db.doc(getPublicPath(`schedules_data/branch_${currentBranch}`)).get({source:'server'}),configRef().get({source:'server'}),boardRef().get({source:'server'})]).then(([s,c,b])=>{
+   if(run!==generation.current)return;
+   setSchedule(s.exists?s.data():{});
+   const config=c.exists?c.data():{},board=b.exists?b.data():{};
+   const list=config.stations||window.StationBoardData.defaults.filter(name=>name!=='休假').map((name,i)=>({id:`station-${i}`,name}));
+   setStations(list);
+   // Preserve assignments saved before the free-position whiteboard was introduced.
+   const migrated={},counts={};
+   Object.entries(board.assignments||{}).forEach(([id,stationId])=>{
+    const i=list.findIndex(s=>s.id===stationId);if(i<0)return;
+    const count=counts[stationId]||0;counts[stationId]=count+1;
+    migrated[id]={x:(i%3)/3+(count%2)*0.15,y:(Math.floor(i/3)*180+55+Math.floor(count/2)*80)/Math.max(540,Math.ceil(list.length/3)*180),stationId};
    });
-   setRevision(v => v + 1); setConfigRevision(v => v + 1); setDirty(false);
-   triggerNotify('崗位安排已儲存', 'success');
-  } catch(e) {triggerNotify(e.message === 'conflict' ? '其他同仁已更新看板，請重新載入後再安排。' : `儲存失敗（${e.code || 'network-error'}），變更已保留，請重試。`, 'error');}
-  finally {setSaving(false);}
+   setPlacements(board.placements||migrated);setNotes(board.notes||{});setRevision(board.revision||0);setConfigRevision(config.revision||0);
+  }).catch(e=>{if(run===generation.current)setError(`讀取失敗（${e.code||'network-error'}），請重試。`);}).finally(()=>{if(run===generation.current)setLoading(false);});
+  return()=>{generation.current++;};
+ },[currentBranch,date,reload]);
+ useEffect(()=>{const warn=e=>{if(dirty){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[dirty]);
+ const leave=fn=>{if(!saving&&(!dirty||window.confirm('尚有未儲存的安排，要放棄變更嗎？')))fn();};
+ const toTray=id=>{if(saving)return;setPlacements(prev=>{const next={...prev};delete next[id];return next;});setSelected('');setDirty(true);};
+ const put=(id,clientX,clientY)=>{
+  if(saving||loading||!surface.current||!team.active.some(p=>p.id===id))return;
+  const rect=surface.current.getBoundingClientRect();
+  const x=Math.max(0,Math.min(rect.width-112,clientX-rect.left-56)),y=Math.max(0,Math.min(rect.height-82,clientY-rect.top-25));
+  const index=Math.floor((y+25)/180)*3+Math.min(2,Math.floor((x+56)/(rect.width/3)));
+  setPlacements(prev=>({...prev,[id]:{x:x/rect.width,y:y/rect.height,stationId:stations[index]?.id||''}}));setSelected('');setDirty(true);
  };
- const personButton = person => <div key={person.id} className="w-[132px] max-w-full min-w-0"><button type="button" draggable={!saving} aria-pressed={selected === person.id}
-  onDragStart={e => {e.dataTransfer.setData('text/plain', person.id); e.dataTransfer.effectAllowed = 'move';}}
-  onClick={e => {e.stopPropagation(); setSelected(selected === person.id ? '' : person.id);}}
-  disabled={saving} className={`min-h-[44px] w-full px-3 py-2 rounded border text-left ${selected === person.id ? 'bg-blue-100 border-blue-600' : 'bg-white border-slate-300'}`}>
-  <span className="block font-bold break-words">{person.name}</span><span className="block text-xs text-slate-600">班表：{person.code}</span>
- </button><input aria-label={`${person.name}的班別備註`} placeholder="班別備註" maxLength={40} value={notes[person.id] ?? person.code} disabled={saving} onChange={e => {setNotes(prev => ({...prev, [person.id]:e.target.value})); setDirty(true);}} className="mt-1 w-full min-w-0 min-h-[44px] px-2 border rounded bg-white text-sm"/></div>;
- const zone = (id, name) => <div key={id || 'unassigned'} onDragOver={e => {e.preventDefault(); e.dataTransfer.dropEffect = 'move';}}
-  onDrop={e => {e.preventDefault(); assign(e.dataTransfer.getData('text/plain'), id);}}
-  className="border-t border-slate-300 py-4 min-w-0">
-  <div className="flex items-center justify-between gap-2 mb-3">
-   <h3 className="font-bold text-base break-words">{name} <span className="text-slate-500 text-sm">{team.active.filter(p => (effective[p.id] || '') === id).length}</span></h3>
-   {id && <button type="button" title={`移除${name}`} aria-label={`移除${name}`} disabled={saving} className="min-h-[44px] min-w-[44px] flex items-center justify-center" onClick={() => {
-    if(!window.confirm(`崗位清單為此分店各日期共用。移除「${name}」後，各日該崗位人員將顯示為未分派，確定移除？`)) return;
-    setStations(prev => prev.filter(s => s.id !== id)); setAssignments(prev => Object.fromEntries(Object.entries(prev).filter(([,value]) => value !== id))); setDirty(true);
-   }}><Icon name="trash-2" size={16}/></button>}
-  </div>
-  <div className="flex flex-wrap gap-2 min-h-[64px]">{team.active.filter(p => (effective[p.id] || '') === id).map(personButton)}</div>
-  {selected && <button type="button" disabled={saving} onClick={() => assign(selected, id)} className="mt-2 min-h-[44px] px-3 rounded bg-blue-600 text-white text-sm">{id ? '分派至此' : '移回未分派'}</button>}
+ const inside=(r,x,y)=>r&&x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;
+ const pointerDown=(e,id)=>{if(saving||e.button!==0)return;suppressClick.current=false;drag.current={id,x:e.clientX,y:e.clientY,moved:false};e.currentTarget.setPointerCapture(e.pointerId);};
+ const pointerMove=e=>{
+  const d=drag.current;if(!d)return;if(Math.hypot(e.clientX-d.x,e.clientY-d.y)>5)d.moved=true;if(!d.moved)return;
+  setGhost({id:d.id,x:e.clientX,y:e.clientY});
+  const view=viewport.current,r=view?.getBoundingClientRect();
+  if(inside(r,e.clientX,e.clientY)){if(e.clientX>r.right-28)view.scrollLeft+=16;if(e.clientX<r.left+28)view.scrollLeft-=16;if(e.clientY>r.bottom-28)view.scrollTop+=16;if(e.clientY<r.top+28)view.scrollTop-=16;}
+ };
+ const pointerUp=e=>{
+  const d=drag.current;drag.current=null;setGhost(null);if(!d?.moved)return;suppressClick.current=true;
+  if(inside(tray.current?.getBoundingClientRect(),e.clientX,e.clientY))toTray(d.id);
+  else if(inside(viewport.current?.getBoundingClientRect(),e.clientX,e.clientY))put(d.id,e.clientX,e.clientY);
+ };
+ const updateStations=list=>{
+  const nextHeight=Math.max(540,Math.ceil(list.length/3)*180);
+  setPlacements(prev=>Object.fromEntries(Object.entries(prev).flatMap(([id,p])=>{
+   const before=stations.findIndex(s=>s.id===p.stationId),after=list.findIndex(s=>s.id===p.stationId);
+   if(p.stationId&&after<0)return [];
+   const dx=before>=0&&after>=0?((after%3)-(before%3))/3:0;
+   const dy=before>=0&&after>=0?(Math.floor(after/3)-Math.floor(before/3))*180:0;
+   return [[id,{...p,x:Math.max(0,p.x+dx),y:Math.max(0,(p.y*boardHeight+dy)/nextHeight)}]];
+  })));
+  setStations(list);setDirty(true);
+ };
+ const addStation=e=>{e.preventDefault();const name=newName.trim();if(!name||stations.some(s=>s.name===name))return;updateStations([...stations,{id:`station-${Date.now()}-${Math.random().toString(36).slice(2,8)}`,name}]);setNewName('');};
+ const rename=s=>{const name=window.prompt('崗位名稱',s.name)?.trim();if(!name||name.length>30||stations.some(other=>other.id!==s.id&&other.name===name))return;setStations(prev=>prev.map(other=>other.id===s.id?{...other,name}:other));setDirty(true);};
+ const remove=s=>{
+  if(!window.confirm(`崗位為此店各日期共用。刪除「${s.name}」後，該崗位人員會回到待分派區，確定刪除？`))return;
+  updateStations(stations.filter(other=>other.id!==s.id));
+ };
+ const save=async()=>{
+  if(saving||loading||error)return;setSaving(true);
+  try{
+   const cRef=configRef(),bRef=boardRef();
+   await db.runTransaction(async tx=>{
+    const c=await tx.get(cRef),b=await tx.get(bRef);
+    if((c.exists?c.data().revision||0:0)!==configRevision||(b.exists?b.data().revision||0:0)!==revision)throw Error('conflict');
+    tx.set(cRef,{stations,revision:configRevision+1,updatedAt:Date.now()});
+    const validNotes=Object.fromEntries(team.active.filter(p=>Object.prototype.hasOwnProperty.call(notes,p.id)).map(p=>[p.id,notes[p.id]]));
+    tx.set(bRef,{branch:currentBranch,date,period:'all',placements:placed,assignments:Object.fromEntries(Object.entries(placed).filter(([,p])=>p.stationId).map(([id,p])=>[id,p.stationId])),notes:validNotes,revision:revision+1,updatedAt:Date.now(),updatedBy:currentUser?.name||''});
+   });
+   setRevision(n=>n+1);setConfigRevision(n=>n+1);setDirty(false);triggerNotify('白板安排已儲存','success');
+  }catch(e){triggerNotify(e.message==='conflict'?'其他同仁已更新看板，請重新載入後再安排。':`儲存失敗（${e.code||'network-error'}），變更已保留。`,'error');}finally{setSaving(false);}
+ };
+ const tag=p=><div className="sb-tag" key={p.id} data-person={p.id}>
+  <button type="button" className={`sb-name ${selected===p.id?'sb-selected':''}`} aria-label={`移動${p.name}`} aria-pressed={selected===p.id} disabled={saving}
+   onPointerDown={e=>pointerDown(e,p.id)} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={()=>{drag.current=null;setGhost(null);}}
+   onClick={e=>{e.stopPropagation();if(suppressClick.current){suppressClick.current=false;return;}setSelected(selected===p.id?'':p.id);}}>{p.name}</button>
+  <input aria-label={`${p.name}的班別備註`} title={`原班別：${p.code}`} maxLength={40} value={notes[p.id]??p.code} disabled={saving} onClick={e=>e.stopPropagation()} onChange={e=>{const value=e.target.value;setNotes(prev=>({...prev,[p.id]:value}));setDirty(true);}}/>
  </div>;
- return <div className="p-4 text-slate-800 text-left pb-12">
-  <BackButton title="崗位安排" onClick={() => leave(onBack)} />
-  <div className="flex justify-between items-center gap-3 my-4"><h2 className="font-bold text-lg break-words">{currentBranch}</h2><button type="button" title="重新載入" aria-label="重新載入" disabled={saving} onClick={() => leave(() => setReload(n => n + 1))} className="min-w-[44px] min-h-[44px] flex items-center justify-center"><Icon name="refresh-cw" size={18}/></button></div>
-  <div className="flex flex-wrap gap-3 mb-4">
-   <label className="min-w-0 flex-1">日期<input type="date" value={date} disabled={saving} onChange={e => {const value = e.target.value; if(value) leave(() => setDate(value));}} className="block w-full min-w-0 border rounded p-2 min-h-[44px] bg-white"/></label>
+ return <div className="station-whiteboard p-3 text-left pb-6">
+  <style>{`
+   .station-whiteboard{color:#1e293b;max-width:100%;letter-spacing:0}
+   .sb-layout{display:grid;grid-template-columns:minmax(0,1fr) 132px;gap:12px;align-items:start}
+   .sb-viewport{overflow:auto;max-height:68vh;border:6px solid #94a3b8;border-radius:6px;background:#fff;overscroll-behavior:contain}
+   .sb-surface{position:relative;min-width:600px;width:100%;background:#fff;color:#1e293b}
+   .sb-stations{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));pointer-events:none}
+   .sb-station{height:180px;border-right:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:8px;box-sizing:border-box}
+   .sb-heading{display:flex;align-items:flex-start;gap:4px;pointer-events:auto}
+   .sb-heading button{min-width:36px;min-height:44px;color:#475569}
+   .sb-heading .sb-title{flex:1;text-align:left;font-size:16px;font-weight:700;color:#1e293b;overflow-wrap:anywhere;border-bottom:3px solid #0d9488;padding:4px}
+   .sb-tray{border-left:1px solid #cbd5e1;padding-left:10px;min-height:220px;max-height:68vh;overflow:auto}
+   .sb-tag{width:112px;max-width:100%;background:#fff;border:1px solid #94a3b8;border-radius:6px;box-shadow:0 2px 4px #0f172a15;overflow:hidden;margin-bottom:8px}
+   .sb-name{display:block;width:100%;min-height:44px;padding:8px 5px;font-size:15px;font-weight:700;color:#1e293b;background:#f1f5f9;touch-action:none;user-select:none;cursor:grab;overflow-wrap:anywhere}
+   .sb-name:active{cursor:grabbing}.sb-selected{background:#dbeafe;box-shadow:inset 0 0 0 2px #2563eb}
+   .sb-tag input{display:block;width:100%;min-width:0;min-height:36px;padding:5px;font-size:14px;text-align:center;color:#475569;background:#fff;border:0;box-sizing:border-box}
+   .sb-placed{position:absolute;width:112px;max-width:112px}.sb-placed:focus-within{z-index:20}
+   .sb-ghost{position:fixed;pointer-events:none;z-index:99999;width:112px;padding:10px;border:2px solid #2563eb;border-radius:6px;background:#eff6ff;color:#1e293b;transform:translate(-50%,-50%)}
+   @media(max-width:480px){.sb-layout{grid-template-columns:minmax(0,1fr) 116px;gap:6px}.sb-tray{padding-left:4px}.sb-viewport{border-width:4px}}
+  `}</style>
+  <BackButton title="崗位白板" onClick={()=>leave(onBack)}/>
+  <div className="flex flex-wrap items-end gap-3 my-4"><h2 className="font-bold text-lg flex-1 min-w-0 break-words">{currentBranch}</h2>
+   <label className="text-sm">日期<input aria-label="排班日期" type="date" value={date} disabled={saving} onChange={e=>{const v=e.target.value;if(v)leave(()=>setDate(v));}} className="block min-h-[44px] max-w-full border rounded p-2 bg-white"/></label>
+   <button title="重新載入" aria-label="重新載入" disabled={saving} onClick={()=>leave(()=>setReload(n=>n+1))} className="min-h-[44px] min-w-[44px] flex justify-center items-center"><Icon name="refresh-cw" size={18}/></button>
   </div>
-  {loading ? <p role="status">讀取班表與崗位中...</p> : error ? <p role="alert" className="text-red-700">{error}</p> : <>
-   <p className="text-sm text-slate-600 mb-4">{team.exists ? (team.published ? '已發布班表' : '未發布班表（草稿）') : '本月尚無班表'} · 全日 {team.active.length} 人 · 未分派 {team.active.filter(p => !effective[p.id]).length} 人</p>
-   <form onSubmit={addStation} className="flex gap-2 mb-4"><input aria-label="新增崗位名稱" placeholder="新增崗位名稱" maxLength={30} value={newName} onChange={e => setNewName(e.target.value)} disabled={saving} className="min-w-0 flex-1 border rounded p-2 bg-white"/><button type="submit" title="新增崗位" aria-label="新增崗位" disabled={saving || !newName.trim()} className="min-h-[44px] min-w-[44px] rounded border flex items-center justify-center"><Icon name="plus" size={20}/></button></form>
-   {zone('', '未分派')}
-   <div className="grid grid-cols-2 gap-x-3">{stations.map(s => zone(s.id, s.name))}</div>
-   <div className="sticky bottom-0 bg-white border-t py-3 flex justify-between items-center gap-3"><span role="status" className="text-sm">{dirty ? '尚未儲存' : '已同步'}</span><button type="button" disabled={!dirty || saving} onClick={save} className="min-h-[44px] px-4 rounded bg-blue-600 text-white disabled:opacity-50 flex items-center gap-2"><Icon name="save" size={18}/>{saving ? '儲存中...' : '儲存安排'}</button></div>
+  {loading?<p role="status">讀取班表與白板中...</p>:error?<p role="alert">{error}</p>:<>
+   <div className="flex flex-wrap justify-between gap-2 mb-3 text-sm text-slate-600"><p>{team.exists?(team.published?'已發布班表':'未發布班表（草稿）'):'本月尚無班表'} · 上班 {team.active.length} 人</p><span>待分派 {waiting.length} 人</span></div>
+   <form onSubmit={addStation} className="flex gap-2 mb-3 max-w-md"><input aria-label="新增崗位名稱" placeholder="新增崗位名稱" maxLength={30} value={newName} onChange={e=>setNewName(e.target.value)} disabled={saving} className="min-w-0 flex-1 border rounded p-2 bg-white"/><button type="submit" title="新增崗位" aria-label="新增崗位" disabled={saving||!newName.trim()} className="min-h-[44px] min-w-[44px] border rounded flex items-center justify-center"><Icon name="plus" size={20}/></button></form>
+   <div className="sb-layout"><div ref={viewport} className="sb-viewport" aria-label="崗位白板"><div ref={surface} className="sb-surface" style={{height:boardHeight}} onClick={e=>{if(selected&&e.target===e.currentTarget)put(selected,e.clientX,e.clientY);}}>
+    <div className="sb-stations">{stations.map(s=><div className="sb-station" key={s.id}><div className="sb-heading"><button className="sb-title" title={`重新命名${s.name}`} aria-label={`重新命名${s.name}`} disabled={saving} onClick={()=>rename(s)}>{s.name}</button><button title={`刪除${s.name}`} aria-label={`刪除${s.name}`} disabled={saving} onClick={()=>remove(s)}><Icon name="x" size={16}/></button></div></div>)}</div>
+    {team.active.filter(p=>placed[p.id]).map(p=><div key={p.id} className="sb-placed" style={{left:`clamp(0px, ${placed[p.id].x*100}%, calc(100% - 112px))`,top:`clamp(0px, ${placed[p.id].y*100}%, calc(100% - 82px))`,zIndex:selected===p.id?15:5}}>{tag(p)}</div>)}
+   </div></div><aside ref={tray} className="sb-tray" aria-label="待分派人員"><h3 className="font-bold text-sm mb-3">待分派 · {waiting.length}</h3>{waiting.map(tag)}{!waiting.length&&<p className="text-sm text-slate-500">已全數分派</p>}{selected&&<button className="min-h-[44px] text-sm text-blue-700" disabled={saving} onClick={()=>toTray(selected)}>移回待分派</button>}</aside></div>
+   {!team.active.length&&<p className="py-4 text-sm">此日期沒有上班人員。</p>}
+   <div className="flex justify-between items-center gap-3 border-t mt-4 pt-3"><span role="status" className="text-sm">{dirty?'尚未儲存':'已同步'}</span><button type="button" disabled={!dirty||saving} onClick={save} className="min-h-[44px] px-4 rounded bg-blue-600 text-white disabled:opacity-50 flex gap-2 items-center"><Icon name="save" size={18}/>{saving?'儲存中...':'儲存安排'}</button></div>
   </>}
+  {ghost&&<div className="sb-ghost" style={{left:ghost.x,top:ghost.y}}>{team.active.find(p=>p.id===ghost.id)?.name}</div>}
  </div>;
 };

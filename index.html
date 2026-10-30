@@ -1155,8 +1155,8 @@
       
 
     
-    <script src="station-board.js?v=1"></script>
-    <script type="text/babel" data-presets="env,react" src="station-board.jsx?v=1"></script>
+    <script src="station-board.js?v=2"></script>
+    <script type="text/babel" data-presets="env,react" src="station-board.jsx?v=2"></script>
     <script type="text/babel" data-presets="env,react" data-cache="false">
     const { useState, useEffect, useCallback, useMemo, useRef } = React;
 const ACTIVITY_QUESTION_BANK_VERSION = '2026-08-24-950';
@@ -11706,7 +11706,7 @@ return (
            </div>
          </header>
         )}
-        <main className={`flex-grow mx-auto w-full font-bold ${currentPage === 'schedule' ? 'max-w-[1600px] px-2' : 'max-w-lg'}`}>
+        <main className={`flex-grow mx-auto w-full font-bold ${currentPage === 'schedule' ? 'max-w-[1600px] px-2' : currentPage === 'station-board' ? 'max-w-[1400px]' : 'max-w-lg'}`}>
          {!startupComplete ? <section className="px-6 min-h-[70vh] flex items-center justify-center" aria-label="系統啟動">
           <div className="w-full max-w-xs text-slate-800">
            <h2 className="text-xl font-black text-center mb-8">EATJOY 廚務 OS</h2>
