@@ -12,6 +12,9 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
  const [dirty,setDirty]=useState(false),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState(''),[reload,setReload]=useState(0),[ghost,setGhost]=useState(null);
  const [preview,setPreview]=useState(null),[exporting,setExporting]=useState(false);
  const [supports,setSupports]=useState([]);
+ const [badges,setBadges]=useState({});
+ const labelsFor=id=>['值班','收尾'].filter(label=>Array.isArray(badges[id])&&badges[id].includes(label));
+ const toggleBadge=(id,label)=>{if(saving)return;setBadges(prev=>({...prev,[id]:labelsFor(id).includes(label)?labelsFor(id).filter(x=>x!==label):[...labelsFor(id),label]}));setDirty(true);setActionPerson('');setSelected('');};
  const [actionPerson,setActionPerson]=useState('');
  const [menuPosition,setMenuPosition]=useState({left:0,top:0});
  useEffect(()=>{const close=e=>{if(e.type==='keydown'&&e.key!=='Escape')return;if(e.type==='pointerdown'&&e.target.closest('.sb-tag'))return;setActionPerson('');};document.addEventListener('pointerdown',close);document.addEventListener('keydown',close);window.addEventListener('wheel',close,true);window.addEventListener('resize',close);return()=>{document.removeEventListener('pointerdown',close);document.removeEventListener('keydown',close);window.removeEventListener('wheel',close,true);window.removeEventListener('resize',close);};},[]);
@@ -60,7 +63,7 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
     const count=counts[stationId]||0;counts[stationId]=count+1;
     migrated[id]={x:(i%3)/3+(count%2)*0.15,y:(Math.floor(i/3)*180+55+Math.floor(count/2)*80)/Math.max(540,Math.ceil(list.length/3)*180),stationId};
    });
-   setPeriods(board.periods||{});setEditor(null);setPlacements(board.placements||migrated);setSupports(Array.isArray(board.supports)?board.supports:[]);setNotes(board.notes||{});setRevision(board.revision||0);setConfigRevision(config.revision||0);
+   setBadges(board.badges||{});setPeriods(board.periods||{});setEditor(null);setPlacements(board.placements||migrated);setSupports(Array.isArray(board.supports)?board.supports:[]);setNotes(board.notes||{});setRevision(board.revision||0);setConfigRevision(config.revision||0);
   }).catch(e=>{if(run===generation.current)setError(`讀取失敗（${e.code||'network-error'}），請重試。`);}).finally(()=>{if(run===generation.current)setLoading(false);});
   return()=>{generation.current++;};
  },[currentBranch,date,reload]);
@@ -109,7 +112,7 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
     if((c.exists?c.data().revision||0:0)!==configRevision||(b.exists?b.data().revision||0:0)!==revision)throw Error('conflict');
     tx.set(cRef,{stations,revision:configRevision+1,updatedAt:Date.now()});
     const validNotes=Object.fromEntries(team.active.filter(p=>Object.prototype.hasOwnProperty.call(notes,p.id)).map(p=>[p.id,notes[p.id]]));
-    tx.set(bRef,{branch:currentBranch,date,period:'all',periods:Object.fromEntries(team.active.filter(p=>periods[p.id]).map(p=>[p.id,periods[p.id]])),placements:placed,supports:supports.filter(s=>supportPeople.some(p=>p.id===s.id)),assignments:Object.fromEntries(Object.entries(placed).filter(([,p])=>p.stationId).map(([id,p])=>[id,p.stationId])),notes:validNotes,revision:revision+1,updatedAt:Date.now(),updatedBy:currentUser?.name||''});
+    tx.set(bRef,{branch:currentBranch,date,period:'all',periods:Object.fromEntries(team.active.filter(p=>periods[p.id]).map(p=>[p.id,periods[p.id]])),placements:placed,supports:supports.filter(s=>supportPeople.some(p=>p.id===s.id)),assignments:Object.fromEntries(Object.entries(placed).filter(([,p])=>p.stationId).map(([id,p])=>[id,p.stationId])),notes:validNotes,badges:Object.fromEntries(allTags.filter(p=>labelsFor(p.id).length).map(p=>[p.id,labelsFor(p.id)])),revision:revision+1,updatedAt:Date.now(),updatedBy:currentUser?.name||''});
    });
    setRevision(n=>n+1);setConfigRevision(n=>n+1);setDirty(false);triggerNotify('白板安排已儲存','success');
   }catch(e){triggerNotify(e.message==='conflict'?'其他同仁已更新看板，請重新載入後再安排。':`儲存失敗（${e.code||'network-error'}），變更已保留。`,'error');}finally{setSaving(false);}
@@ -121,11 +124,11 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
    if(!ctx)throw Error('canvas');
    const wrap=(text,width)=>{const lines=[];let line='';for(const c of String(text)){if(line&&ctx.measureText(line+c).width>width){lines.push(line);line='';}line+=c;}lines.push(line);return lines;};
    ctx.font='22px sans-serif';
-   const groups=stations.map(s=>({name:s.name,...stationColors(s.color),tint:stationTint(s.color),rows:stationPeople(s.id).map(p=>wrap(`${p.name} · ${periodOf(p)}${!p.support&&notes[p.id]?' · '+notes[p.id]:''}`,330))}));
+   const groups=stations.map(s=>({name:s.name,...stationColors(s.color),tint:stationTint(s.color),rows:stationPeople(s.id).map(p=>wrap(`${labelsFor(p.id).map(label=>'【'+label+'】').join('')}${p.name} · ${periodOf(p)}${!p.support&&notes[p.id]?' · '+notes[p.id]:''}`,330))}));
    ctx.font='bold 24px sans-serif';groups.forEach(g=>{g.title=wrap(g.name,330);g.header=28*g.title.length+30;});
    const heights=[];for(let i=0;i<groups.length;i+=3)heights.push(Math.max(130,...groups.slice(i,i+3).map(g=>g.header+20+g.rows.reduce((n,r)=>n+r.length*30+12,0))));
    ctx.font='22px sans-serif';
-   const pending=wrap('未分派：'+(waiting.map(p=>`${p.name}（${notes[p.id]??p.code}）`).join('、')||'無'),1100);
+   const pending=wrap('未分派：'+(waiting.map(p=>`${labelsFor(p.id).map(label=>'【'+label+'】').join('')}${p.name}（${notes[p.id]??p.code}）`).join('、')||'無'),1100);
    canvas.width=1200;canvas.height=180+heights.reduce((a,b)=>a+b,0)+pending.length*32+60;
    ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
    ctx.fillStyle='#0f172a';ctx.font='bold 32px sans-serif';ctx.fillText(`${currentBranch}｜崗位安排`,40,52);
@@ -138,11 +141,11 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
  };
  const shareImage=async()=>{try{if(navigator.canShare?.({files:[preview.file]}))await navigator.share({files:[preview.file],title:'崗位安排'});else triggerNotify('此瀏覽器不支援圖片分享，請下載圖片後傳送。','info');}catch(e){if(e.name!=='AbortError')triggerNotify('分享失敗，請改用下載圖片。','error');}};
  const tag=p=><div className="sb-tag" key={p.id} data-person={p.id}>
-  <button type="button" className={`sb-name ${selected===p.id?'sb-selected':''}`} title={p.name} aria-label={`移動${p.name}${p.support?'新增時段':''}`} aria-pressed={selected===p.id} aria-expanded={showActions&&selected===p.id} disabled={saving}
+  <button type="button" className={`sb-name ${labelsFor(p.id).length?'sb-badged':''} ${selected===p.id?'sb-selected':''}`} title={p.name} aria-label={`移動${p.name}${p.support?'新增時段':''}`} aria-pressed={selected===p.id} aria-expanded={showActions&&selected===p.id} disabled={saving}
    onPointerDown={e=>pointerDown(e,p.id)} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={()=>{drag.current=null;setGhost(null);}}
-   onClick={e=>{e.stopPropagation();if(suppressClick.current){suppressClick.current=false;return;}const r=e.currentTarget.getBoundingClientRect();setMenuPosition({left:Math.max(8,Math.min(r.left,window.innerWidth-188)),top:Math.max(8,Math.min(r.bottom+4,window.innerHeight-156))});const next=actionPerson===p.id?'':p.id;setSelected(next);setActionPerson(next);}}>{p.name}</button>
+   onClick={e=>{e.stopPropagation();if(suppressClick.current){suppressClick.current=false;return;}const r=e.currentTarget.getBoundingClientRect();setMenuPosition({left:Math.max(8,Math.min(r.left,window.innerWidth-188)),top:Math.max(8,Math.min(r.bottom+4,window.innerHeight-244))});const next=actionPerson===p.id?'':p.id;setSelected(next);setActionPerson(next);}}>{labelsFor(p.id).length>0&&<span className="sb-badges">{labelsFor(p.id).map(label=><span key={label} className={label==='值班'?'sb-duty':'sb-closing'}>{label}</span>)}</span>}{p.name}</button>
   <button type="button" className="sb-period" aria-label={`${p.name}${p.support?'新增':'主要'}時段`} title={periodOf(p)} disabled={saving} onClick={()=>openPeriod(p)}>{periodOf(p)}</button>
-  {showActions&&selected===p.id&&<div className="sb-person-menu" role="group" aria-label={`${p.name}操作選單`} style={menuPosition}>{placed[p.id]&&<button type="button" disabled={saving} onClick={()=>{setActionPerson('');addSupport();}}><Icon name="plus" size={16}/>新增時段安排</button>}<button type="button" disabled={saving} onClick={()=>{setActionPerson('');openPeriod(p);}}><Icon name="clock" size={16}/>設定時段</button>{(placed[p.id]||p.support)&&<button type="button" disabled={saving} onClick={()=>toTray(p.id)}><Icon name="undo-2" size={16}/>{p.support?'移除此時段':'移回待分派'}</button>}</div>}
+  {showActions&&selected===p.id&&<div className="sb-person-menu" role="group" aria-label={`${p.name}操作選單`} style={menuPosition}>{['值班','收尾'].map(label=><button type="button" key={label} aria-pressed={labelsFor(p.id).includes(label)} disabled={saving} onClick={()=>toggleBadge(p.id,label)}><Icon name={labelsFor(p.id).includes(label)?'check':label==='值班'?'badge-check':'clipboard-check'} size={16}/>{label}</button>)}{placed[p.id]&&<button type="button" disabled={saving} onClick={()=>{setActionPerson('');addSupport();}}><Icon name="plus" size={16}/>新增時段安排</button>}<button type="button" disabled={saving} onClick={()=>{setActionPerson('');openPeriod(p);}}><Icon name="clock" size={16}/>設定時段</button>{(placed[p.id]||p.support)&&<button type="button" disabled={saving} onClick={()=>toTray(p.id)}><Icon name="undo-2" size={16}/>{p.support?'移除此時段':'移回待分派'}</button>}</div>}
  </div>;
  return <div className="station-whiteboard p-3 text-left pb-6" onClick={e=>{if(!e.target.closest('button,input,select,form,[role="dialog"]')){setActionPerson('');setSelected('');}}}>
   <style>{`
@@ -160,10 +163,11 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
    .sb-tray{width:100%;border-top:1px solid #cbd5e1;padding-top:12px}
    .sb-roster{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start}
    .sb-tag{display:flex;align-items:stretch;width:160px;max-width:100%;background:#fff;border:1px solid #cbd5e1;box-shadow:0 1px 3px #0f172a0a;border-radius:4px;overflow:hidden}
-   .sb-person-menu{position:fixed;z-index:1000;width:180px;padding:4px;background:#fff;color:#1e293b;border:1px solid #cbd5e1;border-radius:6px;box-shadow:0 4px 16px #0002}
+   .sb-person-menu{position:fixed;z-index:1000;width:180px;max-height:calc(100vh - 16px);overflow-y:auto;padding:4px;background:#fff;color:#1e293b;border:1px solid #cbd5e1;border-radius:6px;box-shadow:0 4px 16px #0002}
    .sb-person-menu button{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:8px;text-align:left;font-size:14px}.sb-person-menu button:hover,.sb-person-menu button:focus-visible{background:#eff6ff}
    .sb-members .sb-tag{width:100%}
    .sb-name{display:block;flex:1;min-width:0;min-height:44px;padding:5px 3px;font-size:14px;font-weight:700;color:#1e293b;background:#f1f5f9;touch-action:none;user-select:none;cursor:grab;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+   .sb-name{position:relative}.sb-name.sb-badged{padding-top:17px}.sb-badges{position:absolute;top:2px;left:2px;display:flex;gap:2px;pointer-events:none}.sb-badges span{font-size:10px;line-height:13px;padding:0 3px;border-radius:3px;font-weight:700}.sb-duty{background:#fef3c7;color:#78350f}.sb-closing{background:#d1fae5;color:#065f46}
    .sb-name:active{cursor:grabbing}.sb-selected{background:#dbeafe;box-shadow:inset 0 0 0 2px #2563eb}
    .sb-tag .sb-period{display:block;width:40%;min-width:0;min-height:44px;padding:2px;font-size:13px;text-align:center;overflow-wrap:anywhere;color:#475569;background:#fff;border:0;border-left:1px solid #e2e8f0;box-sizing:border-box}
    .sb-placed{position:absolute;width:28%;max-width:112px}.sb-placed:focus-within{z-index:20}
