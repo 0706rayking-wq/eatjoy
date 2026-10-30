@@ -1155,6 +1155,8 @@
       
 
     
+    <script src="station-board.js?v=1"></script>
+    <script type="text/babel" data-presets="env,react" src="station-board.jsx?v=1"></script>
     <script type="text/babel" data-presets="env,react" data-cache="false">
     const { useState, useEffect, useCallback, useMemo, useRef } = React;
 const ACTIVITY_QUESTION_BANK_VERSION = '2026-08-24-950';
@@ -4697,7 +4699,7 @@ const ACTIVITY_QUESTION_BANK_VERSION = '2026-08-24-950';
      );
     };
 
-    const IngredientManagementPage = ({ onBack, goSpecs, goWaste, goPeople, goPromotion, goDishCards, canManage }) => (
+    const IngredientManagementPage = ({ onBack, goSpecs, goWaste, goPeople, goPromotion, goDishCards, goStations, canManage }) => (
      <div className="p-4 space-y-4 page-enter text-left">
       <BackButton onClick={onBack} title="經營管理" />
       <SectionItem title="食材規格" iconName="clipboard-list" onClick={goSpecs} />
@@ -4705,6 +4707,7 @@ const ACTIVITY_QUESTION_BANK_VERSION = '2026-08-24-950';
       {canManage && <SectionItem title="人事管理" iconName="users" onClick={goPeople} />}
       <SectionItem title="升遷管道" iconName="trending-up" onClick={goPromotion} />
       <SectionItem title="菜卡生產器" iconName="badge" onClick={goDishCards} />
+      {canManage && <SectionItem title="崗位安排" iconName="layout-dashboard" onClick={goStations} />}
      </div>
     );
 
@@ -11639,7 +11642,8 @@ return (
         case 'uniform-guidelines': return <UniformGuidelinesPage onBack={()=>setCurrentPage('onboarding')} />;
         case 'benefit-eval': return <ListDetailPage onBack={()=>setCurrentPage('onboarding')} title="考核標準" list={benefitsData?.evaluation} />;
         case 'benefit-wel': return <ListDetailPage onBack={()=>setCurrentPage('onboarding')} title="福利項目" list={benefitsData?.welfare} />;
-        case 'ingredients': return <IngredientManagementPage onBack={()=>setCurrentPage('home')} goSpecs={()=>setCurrentPage('ingredient-specs')} goWaste={()=>setCurrentPage('ingredient-waste')} goPeople={()=>setCurrentPage('people-management')} goPromotion={()=>setCurrentPage('promotion-path')} goDishCards={()=>setCurrentPage('dish-card-generator')} canManage={canAccessBusinessManagement} />;
+        case 'ingredients': return <IngredientManagementPage onBack={()=>setCurrentPage('home')} goSpecs={()=>setCurrentPage('ingredient-specs')} goWaste={()=>setCurrentPage('ingredient-waste')} goPeople={()=>setCurrentPage('people-management')} goPromotion={()=>setCurrentPage('promotion-path')} goDishCards={()=>setCurrentPage('dish-card-generator')} goStations={()=>setCurrentPage('station-board')} canManage={canAccessBusinessManagement} />;
+        case 'station-board': return canAccessBusinessManagement ? <window.StationAssignmentBoard key={currentBranch} currentBranch={currentBranch} currentUser={currentUser} db={db} getPublicPath={getPublicPath} onBack={()=>setCurrentPage('ingredients')} triggerNotify={triggerNotify} Icon={Icon} BackButton={BackButton} /> : <BackButton title="返回經營管理" onClick={()=>setCurrentPage('ingredients')} />;
         case 'ingredient-specs': return <IngredientSpecsPage onBack={()=>setCurrentPage('ingredients')} items={ingredientData?.specs || []} />;
         case 'dish-card-generator': return <DishCardGeneratorPage onBack={()=>setCurrentPage('ingredients')} triggerNotify={triggerNotify} />;
         case 'ingredient-waste': return canAccessBusinessManagement ? <IngredientWasteReportPage onBack={()=>setCurrentPage('ingredients')} currentBranch={currentBranch} currentUser={currentUser} getPublicPath={getPublicPath} triggerNotify={triggerNotify} reports={wasteReports} isSuperAdmin={isSuperAdmin} /> : <div className="p-20 text-center text-slate-400 font-black h-screen flex flex-col items-center justify-center gap-4"><BackButton onClick={()=>setCurrentPage('home')} title="返回首頁" /> 此區僅限最高權限、內場主管、外場主管使用</div>;
