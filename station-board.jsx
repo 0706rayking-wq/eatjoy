@@ -11,6 +11,8 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
  const [dirty,setDirty]=useState(false),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState(''),[reload,setReload]=useState(0),[ghost,setGhost]=useState(null);
  const [preview,setPreview]=useState(null),[exporting,setExporting]=useState(false);
  const [supports,setSupports]=useState([]);
+ const [actionPerson,setActionPerson]=useState('');
+ const showActions=!!selected&&actionPerson===selected;
  const [periods,setPeriods]=useState({}),[editor,setEditor]=useState(null);
  const periodOf=p=>p.support?p.code:periods[p.id]||({morning:'早班',evening:'晚班'}[p.shiftType]||'全天');
  const openPeriod=(p,add=false)=>{const period=add?'晚班':periodOf(p);setEditor({id:p.id,add,mode:['全天','早班','晚班'].includes(period)?period:'custom',custom:period,note:notes[p.id]??p.code});};
@@ -73,7 +75,7 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
  const pointerDown=(e,id)=>{if(saving||e.button!==0)return;suppressClick.current=false;drag.current={id,x:e.clientX,y:e.clientY,moved:false};e.currentTarget.setPointerCapture(e.pointerId);};
  const pointerMove=e=>{
   const d=drag.current;if(!d)return;if(Math.hypot(e.clientX-d.x,e.clientY-d.y)>5)d.moved=true;if(!d.moved)return;
-  setGhost({id:d.id,x:e.clientX,y:e.clientY});
+  setActionPerson('');setGhost({id:d.id,x:e.clientX,y:e.clientY});
   if(e.clientY<48)window.scrollBy(0,-20);
   if(e.clientY>window.innerHeight-48)window.scrollBy(0,20);
   const view=viewport.current,r=view?.getBoundingClientRect();
@@ -135,10 +137,10 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
  const tag=p=><div className="sb-tag" key={p.id} data-person={p.id}>
   <button type="button" className={`sb-name ${selected===p.id?'sb-selected':''}`} title={p.name} aria-label={`移動${p.name}${p.support?'新增時段':''}`} aria-pressed={selected===p.id} disabled={saving}
    onPointerDown={e=>pointerDown(e,p.id)} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={()=>{drag.current=null;setGhost(null);}}
-   onClick={e=>{e.stopPropagation();if(suppressClick.current){suppressClick.current=false;return;}setSelected(selected===p.id?'':p.id);}}>{p.name}</button>
+   onClick={e=>{e.stopPropagation();if(suppressClick.current){suppressClick.current=false;return;}const next=selected===p.id?'':p.id;setSelected(next);setActionPerson(next);}}>{p.name}</button>
   <button type="button" className="sb-period" aria-label={`${p.name}${p.support?'新增':'主要'}時段`} title={periodOf(p)} disabled={saving} onClick={()=>openPeriod(p)}>{periodOf(p)}</button>
  </div>;
- return <div className="station-whiteboard p-3 text-left pb-6">
+ return <div className="station-whiteboard p-3 text-left pb-6" onClick={e=>{if(!e.target.closest('button,input,select,form,[role="dialog"]')){setActionPerson('');setSelected('');}}}>
   <style>{`
    .station-whiteboard{color:#1e293b;max-width:100%;letter-spacing:0}
    .sb-layout{display:flex;flex-direction:column;gap:16px;min-width:0}
@@ -172,8 +174,8 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
    <form onSubmit={addStation} className="flex gap-2 mb-3 max-w-md"><input aria-label="新增崗位名稱" placeholder="新增崗位名稱" maxLength={30} value={newName} onChange={e=>setNewName(e.target.value)} disabled={saving} className="min-w-0 flex-1 border rounded p-2 bg-white"/><button type="submit" title="新增崗位" aria-label="新增崗位" disabled={saving||!newName.trim()} className="min-h-[44px] min-w-[44px] border rounded flex items-center justify-center"><Icon name="plus" size={20}/></button></form>
    <div className="sb-layout"><div ref={viewport} className="sb-viewport" aria-label="崗位白板"><div ref={surface} className="sb-surface">
     <div className="sb-stations">{stations.map(s=><div className="sb-station" data-station={s.id} key={s.id} style={{backgroundColor:stationColors(s.color).background,'--station-ink':stationColors(s.color).foreground}} onClick={e=>{if(selected&&e.target===e.currentTarget)put(selected,e.clientX,e.clientY);}}><div className="sb-heading"><button className="sb-title" title={`重新命名${s.name}`} aria-label={`重新命名${s.name}`} disabled={saving} onClick={()=>rename(s)}>{s.name}</button><input type="color" className="sb-color" aria-label={`${s.name}色塊顏色`} title={`${s.name}色塊顏色`} value={stationColors(s.color).background} disabled={saving} onClick={e=>e.stopPropagation()} onChange={e=>{const color=e.target.value;setStations(prev=>prev.map(item=>item.id===s.id?{...item,color}:item));setDirty(true);}}/><button title={`刪除${s.name}`} aria-label={`刪除${s.name}`} disabled={saving} onClick={()=>remove(s)}><Icon name="x" size={16}/></button></div><div className="sb-members">{stationPeople(s.id).map(tag)}</div>{selected&&<button type="button" className="min-h-[44px] text-sm bg-white text-blue-700 rounded px-1" disabled={saving} onClick={()=>assign(selected,s.id)}>分派至此</button>}</div>)}</div>
-   </div></div><aside ref={tray} className="sb-tray" aria-label="待分派人員"><h3 className="font-bold text-sm mb-3">待分派 · {waiting.length} 人</h3><div className="sb-roster">{waiting.map(tag)}</div>{!waiting.length&&<p className="text-sm text-slate-500">已全數分派</p>}{selected&&<button className="min-h-[44px] text-sm text-blue-700" disabled={saving} onClick={()=>toTray(selected)}>{supportPeople.some(p=>p.id===selected)?'移除此時段':'移回待分派'}</button>}</aside></div>
-   {selected&&placed[selected]&&<button type="button" disabled={saving} onClick={addSupport} className="my-2 min-h-[44px] border rounded px-3 flex items-center gap-2"><Icon name="plus" size={18}/>新增時段安排</button>}
+   </div></div><aside ref={tray} className="sb-tray" aria-label="待分派人員"><h3 className="font-bold text-sm mb-3">待分派 · {waiting.length} 人</h3><div className="sb-roster">{waiting.map(tag)}</div>{!waiting.length&&<p className="text-sm text-slate-500">已全數分派</p>}{showActions&&<button className="min-h-[44px] text-sm text-blue-700" disabled={saving} onClick={()=>toTray(selected)}>{supportPeople.some(p=>p.id===selected)?'移除此時段':'移回待分派'}</button>}</aside></div>
+   {showActions&&placed[selected]&&<button type="button" disabled={saving} onClick={addSupport} className="my-2 min-h-[44px] border rounded px-3 flex items-center gap-2"><Icon name="plus" size={18}/>新增時段安排</button>}
    {!team.active.length&&<p className="py-4 text-sm">此日期沒有上班人員。</p>}
    <button type="button" onClick={exportImage} disabled={exporting} className="my-3 min-h-[44px] border rounded px-4 flex items-center gap-2"><Icon name="image" size={18}/>{exporting?'產生圖片中...':'輸出圖片'}</button>
    <div className="flex justify-between items-center gap-3 border-t mt-4 pt-3"><span role="status" className="text-sm">{dirty?'尚未儲存':'已同步'}</span><button type="button" disabled={!dirty||saving} onClick={save} className="min-h-[44px] px-4 rounded bg-blue-600 text-white disabled:opacity-50 flex gap-2 items-center"><Icon name="save" size={18}/>{saving?'儲存中...':'儲存安排'}</button></div>
