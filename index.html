@@ -1139,7 +1139,7 @@
 
 </head>
 <body class="pb-12">
-    <div id="root"></div>
+    <div id="root"><div style="min-height:70vh;display:flex;align-items:center;justify-content:center;padding:24px;color:#1e293b;text-align:center"><div style="width:100%;max-width:320px"><h2>EATJOY 廚務 OS</h2><p role="status">載入系統程式...</p><div role="progressbar" aria-label="系統載入" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="height:8px;background:#e2e8f0;border-radius:4px"></div></div></div></div>
     <div id="notify-root" style="position:fixed;top:80px;left:0;right:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none;padding:0 16px;isolation:isolate;"></div>
 <script src="activity-question-bank.js?v=2"></script>
 <script src="activity-question-bank-expansion.js"></script>
@@ -10726,7 +10726,16 @@ return (
      const [connectionAttempt, setConnectionAttempt] = useState(0);
      const [usersReady, setUsersReady] = useState(false);
      const [usersError, setUsersError] = useState('');
-     const retryConnection = () => { setUsersReady(false); setUsersError(''); setConnectionAttempt(n => n + 1); };
+     const [branchesReady, setBranchesReady] = useState(false);
+     const [branchesError, setBranchesError] = useState('');
+     const [startupComplete, setStartupComplete] = useState(false);
+     const startupProgress = 25 + (fbReady ? 25 : 0) + (branchesReady ? 25 : 0) + (usersReady ? 25 : 0);
+     const startupError = connectionError || branchesError || usersError;
+     const startupLabel = !fbReady ? '連接系統...' : !branchesReady ? '讀取分店資料...' : !usersReady ? '讀取帳號資料...' : '載入完成';
+     useEffect(() => {
+      if (fbReady && branchesReady && usersReady) setStartupComplete(true);
+     }, [fbReady, branchesReady, usersReady]);
+     const retryConnection = () => { setUsersReady(false); setUsersError(''); setBranchesReady(false); setBranchesError(''); setConnectionAttempt(n => n + 1); };
      const [user, setUser] = useState(null);
      const [notifications, setNotifications] = useState([]); // 通知系統
      const [users, setUsers] = useState([]);
@@ -10979,10 +10988,17 @@ return (
      useEffect(() => {
       if (!user) return;
       let usersReceived = false;
+      let branchesReceived = false;
+      const branchesTimeout = setTimeout(() => { if (!branchesReceived) setBranchesError('分店資料載入逾時，請重新連線。'); }, 20000);
       const usersTimeout = setTimeout(() => { if (!usersReceived) setUsersError('帳號資料載入逾時，請重新連線。'); }, 20000);
       const errH = () => triggerNotify("讀取失敗", "error");
       const subs = [
-        db.doc(getPublicPath('system/branches')).onSnapshot(d => d.exists && d.data().list && setGlobalBranches(d.data().list), errH),
+        db.doc(getPublicPath('system/branches')).onSnapshot({ includeMetadataChanges: true }, d => {
+         if (d.metadata.fromCache) return;
+         branchesReceived = true; clearTimeout(branchesTimeout);
+         if (d.exists && Array.isArray(d.data().list) && d.data().list.length) setGlobalBranches(d.data().list);
+         setBranchesReady(true); setBranchesError('');
+        }, error => { clearTimeout(branchesTimeout); setBranchesError(`分店資料讀取失敗（${error.code || 'network-error'}），請重新連線。`); }),
         db.collection(getPublicPath('global_recipes')).onSnapshot(s => {
          setGlobalRecipes(s.docs.map(d => ({...d.data(), docId: d.id, id: d.data().id || d.id})));
         }, errH),
@@ -11007,7 +11023,7 @@ return (
          } 
         }, error => { clearTimeout(usersTimeout); setUsersReady(false); setUsersError(`帳號資料讀取失敗（${error.code || 'network-error'}），請重新連線。`); })
       ];
-      return () => { clearTimeout(usersTimeout); subs.forEach(un => un()); };
+      return () => { clearTimeout(usersTimeout); clearTimeout(branchesTimeout); subs.forEach(un => un()); };
      }, [user, currentUser, connectionAttempt]);
 
      useEffect(() => {
@@ -11687,7 +11703,16 @@ return (
          </header>
         )}
         <main className={`flex-grow mx-auto w-full font-bold ${currentPage === 'schedule' ? 'max-w-[1600px] px-2' : 'max-w-lg'}`}>
-         {!fbReady ? <div className="p-20 text-center h-screen flex flex-col items-center justify-center gap-4 font-bold"><Icon name="loader-2" className="animate-spin text-brand-red" size={48}/><p className="text-slate-400 font-black text-xs">{connectionError || '連線中...'}</p>{connectionError && <button onClick={retryConnection}>重新連線</button>}</div>
+         {!startupComplete ? <section className="px-6 min-h-[70vh] flex items-center justify-center" aria-label="系統啟動">
+          <div className="w-full max-w-xs text-slate-800">
+           <h2 className="text-xl font-black text-center mb-8">EATJOY 廚務 OS</h2>
+           <div className="flex justify-between gap-3 mb-3 text-sm font-bold"><span role="status" aria-live="polite">{startupError ? '載入暫停' : startupLabel}</span><span>{startupProgress}%</span></div>
+           <div role="progressbar" aria-label="系統載入階段" aria-valuemin={0} aria-valuemax={100} aria-valuenow={startupProgress} aria-valuetext={startupLabel} className="h-2 bg-slate-200 rounded overflow-hidden">
+            <div className="h-full origin-left transition-transform duration-300 motion-reduce:transition-none" style={{backgroundColor: 'rgb(var(--brand-red, 185 18 27))', transform: `scaleX(${startupProgress / 100})`}} />
+           </div>
+           {startupError && <div className="mt-5 text-sm"><p role="alert" className="text-red-700 break-words">{startupError}</p><button type="button" onClick={retryConnection} className="mt-4 w-full min-h-11 px-4 py-3 rounded bg-brand-red text-white font-bold">重新連線</button></div>}
+          </div>
+         </section>
          : (!isManager && !currentUser) ? <AuthPage users={users} usersReady={usersReady} usersError={usersError} retryConnection={retryConnection} setCurrentUser={setCurrentUser} setCurrentPage={setCurrentPage} setIsManager={setIsManager} setIsSuperAdmin={setIsSuperAdmin} setCurrentBranch={setCurrentBranch} globalBranches={globalBranches} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />
          : (isManager || currentUser?.status === 'approved') ? renderPage() : (
            <div className="p-10 pt-32 text-center h-screen space-y-8 font-bold">
