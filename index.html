@@ -2640,24 +2640,41 @@ const ACTIVITY_QUESTION_BANK_VERSION = '2026-08-24-950';
      );
     };
 
-    const AuthPage = ({ users, setCurrentUser, setCurrentPage, setIsManager, setIsSuperAdmin, setCurrentBranch, globalBranches, triggerNotify, getPublicPath }) => {
+    const sessionStorageSafe = {
+     getItem(key) { try { return localStorage.getItem(key); } catch { return null; } },
+     setItem(key, value) { try { localStorage.setItem(key, value); return true; } catch { return false; } },
+     removeItem(key) { try { localStorage.removeItem(key); } catch {} }
+    };
+    const readSavedUser = () => {
+     try {
+      const user = JSON.parse(sessionStorageSafe.getItem('k_active_user') || 'null');
+      return user && typeof user === 'object' && typeof user.phone === 'string' ? user : null;
+     } catch { sessionStorageSafe.removeItem('k_active_user'); return null; }
+    };
+    const normalizeLoginPhone = value => String(value || '').normalize('NFKC').replace(/[\s()-]/g, '').replace(/^(?:\+886|00886)(0?)(?=9)/, '0');
+    const AuthPage = ({ users, usersReady, usersError, retryConnection, setCurrentUser, setCurrentPage, setIsManager, setIsSuperAdmin, setCurrentBranch, globalBranches, triggerNotify, getPublicPath }) => {
      const [phone, setPhone] = useState(''); 
      const [name, setName] = useState(''); 
      const [role, setRole] = useState(ROLE_OPTIONS[0]); 
      const [mode, setMode] = useState('login'); 
      const [adminPass, setAdminPass] = useState('');
      const [branch, setBranch] = useState(globalBranches[0] || '南港Lalaport');
+     const [submitting, setSubmitting] = useState(false);
 
      useEffect(() => {
       if(globalBranches.length > 0 && !globalBranches.includes(branch)) setBranch(globalBranches[0]);
      }, [globalBranches, branch]);
 
      const handleAuth = async () => {
+      if (submitting) return;
+      if (!usersReady) { triggerNotify(usersError || '帳號資料載入中，請稍候再試', 'info'); return; }
+      setSubmitting(true);
+      try {
       if (mode === 'admin') {
         if (adminPass.toLowerCase() === 'eatjoy07060112') { 
          setIsSuperAdmin(true);
          setIsManager(true); 
-         localStorage.setItem('k_super_admin', 'true');
+         sessionStorageSafe.setItem('k_super_admin', 'true');
          setCurrentBranch(branch);
          setCurrentPage('home'); 
          triggerNotify("行政主廚權限", "success"); 
@@ -2668,12 +2685,13 @@ const ACTIVITY_QUESTION_BANK_VERSION = '2026-08-24-950';
         return;
       }
       
-      if (!phone) {
-        triggerNotify("請輸入手機號碼", "error");
+      const normalizedPhone = normalizeLoginPhone(phone);
+      if (!/^09\d{8}$/.test(normalizedPhone)) {
+        triggerNotify("請輸入有效的手機號碼（09 開頭共 10 碼）", "error");
         return;
       }
       
-      const existing = users.find(u => u.phone === phone);
+      const existing = users.find(u => normalizeLoginPhone(u.phone) === normalizedPhone);
       
       if (mode === 'register') {
         if (!name) {
@@ -2684,7 +2702,7 @@ const ACTIVITY_QUESTION_BANK_VERSION = '2026-08-24-950';
          triggerNotify("此手機號碼已註冊過", "error");
          return;
         }
-        await db.collection(getPublicPath('users')).doc(phone).set({ phone, name, status: 'pending', branch: [branch], role });
+        await db.collection(getPublicPath('users')).doc(normalizedPhone).set({ phone: normalizedPhone, name, status: 'pending', branch: [branch], role });
         triggerNotify(`申請已提交(${role})，請聯絡主管`, "info");
       } else {
         if (existing) { 
@@ -2696,9 +2714,9 @@ const ACTIVITY_QUESTION_BANK_VERSION = '2026-08-24-950';
            return;
          }
          if (existing.role !== normalizedExistingRole) {
-           db.collection(getPublicPath('users')).doc(phone).update({ role: normalizedExistingRole }).catch(() => {});
+           db.collection(getPublicPath('users')).doc(existing.phone).update({ role: normalizedExistingRole }).catch(() => {});
          }
-         setCurrentUser(existingForSession); localStorage.setItem('k_active_user', JSON.stringify(existingForSession));
+         setCurrentUser(existingForSession); sessionStorageSafe.setItem('k_active_user', JSON.stringify(existingForSession));
          if (existing.status === 'approved') { 
            if(isSupervisorRole(normalizedExistingRole)) setIsManager(true);
            setCurrentBranch(branch);
@@ -2713,6 +2731,10 @@ const ACTIVITY_QUESTION_BANK_VERSION = '2026-08-24-950';
          setMode('register'); 
         }
       }
+      } catch (error) {
+       console.error('Account login failed', error);
+       triggerNotify('登入或申請失敗，請檢查網路後重試。', 'error');
+      } finally { setSubmitting(false); }
      };
      
      return (
@@ -2758,9 +2780,10 @@ const ACTIVITY_QUESTION_BANK_VERSION = '2026-08-24-950';
             <input placeholder="手機號碼 (登入帳號)" className="w-full input-light p-4 rounded-xl outline-none font-bold text-sm px-5 placeholder:text-slate-400" value={phone} onChange={e => setPhone(e.target.value)} />
            )}
            
-           <button onClick={handleAuth} className="w-full bg-brand-red text-white font-black py-4 rounded-xl shadow-lg shadow-brand-red/20 active:scale-95 transition-all text-sm mt-2 tracking-widest">
-            進入系統
+           <button onClick={handleAuth} disabled={!usersReady || submitting} className="w-full bg-brand-red text-white font-black py-4 rounded-xl shadow-lg shadow-brand-red/20 active:scale-95 transition-all text-sm mt-2 tracking-widest disabled:opacity-50">
+            {submitting ? '處理中...' : !usersReady ? '帳號資料載入中...' : '進入系統'}
            </button>
+           {usersError && <div role="alert"><p>{usersError}</p><button type="button" onClick={retryConnection}>重新連線</button></div>}
          </div>
         </div>
         
@@ -10631,7 +10654,7 @@ return (
      const [currentPage, setCurrentPage] = useState('auth');
      const [showThemeModal, setShowThemeModal] = useState(false);
      const [activeTheme, setActiveTheme] = useState(() => {
-       const saved = localStorage.getItem('k_app_theme');
+       const saved = sessionStorageSafe.getItem('k_app_theme');
        return APP_THEMES.some(theme => theme.id === saved) ? saved : 'red';
      });
 
@@ -10686,19 +10709,24 @@ return (
             if (isDark) {
                document.body.classList.add('theme-dark');
             }
-            localStorage.setItem('k_app_theme', activeTheme);
+            sessionStorageSafe.setItem('k_app_theme', activeTheme);
          }, [activeTheme]);
-     const [currentUser, setCurrentUser] = useState(() => { const saved = localStorage.getItem('k_active_user'); return saved ? JSON.parse(saved) : null; });
-     const [isSuperAdmin, setIsSuperAdmin] = useState(() => localStorage.getItem('k_super_admin') === 'true');
+     const [currentUser, setCurrentUser] = useState(readSavedUser);
+     const [isSuperAdmin, setIsSuperAdmin] = useState(() => sessionStorageSafe.getItem('k_super_admin') === 'true');
      const [isManager, setIsManager] = useState(() => {
-      if (localStorage.getItem('k_super_admin') === 'true') return true;
-      const saved = localStorage.getItem('k_active_user');
+      if (sessionStorageSafe.getItem('k_super_admin') === 'true') return true;
+      const saved = sessionStorageSafe.getItem('k_active_user');
       if (saved) {
         try { return isSupervisorRole(JSON.parse(saved).role); } catch(e) {}
       }
       return false;
      });
      const [fbReady, setFbReady] = useState(false);
+     const [connectionError, setConnectionError] = useState('');
+     const [connectionAttempt, setConnectionAttempt] = useState(0);
+     const [usersReady, setUsersReady] = useState(false);
+     const [usersError, setUsersError] = useState('');
+     const retryConnection = () => { setUsersReady(false); setUsersError(''); setConnectionAttempt(n => n + 1); };
      const [user, setUser] = useState(null);
      const [notifications, setNotifications] = useState([]); // 通知系統
      const [users, setUsers] = useState([]);
@@ -10735,8 +10763,8 @@ return (
 
      const logout = () => { 
       setCurrentUser(null); setIsManager(false); setIsSuperAdmin(false); setCurrentPage('auth'); 
-      localStorage.removeItem('k_active_user'); 
-      localStorage.removeItem('k_super_admin');
+      sessionStorageSafe.removeItem('k_active_user'); 
+      sessionStorageSafe.removeItem('k_super_admin');
      };
      const triggerNotify = useCallback((msg, type = "info") => {
       const id = Date.now(); setNotifications(prev => [...prev, { id, msg, type }]);
@@ -10929,28 +10957,39 @@ return (
      }, [currentUser, currentBranch, isSuperAdmin, globalBranches]);
 
      useEffect(() => {
+      let cancelled = false;
+      setConnectionError('');
+      const timeout = setTimeout(() => { if (!cancelled) setConnectionError('連線逾時，請檢查網路後重新連線。'); }, 20000);
       const initAuth = async () => { 
         try { 
          await auth.signInAnonymously(); 
+         if (cancelled) return;
          setFbReady(true); 
-         if (currentUser || localStorage.getItem('k_super_admin') === 'true') setCurrentPage('home'); 
+         setConnectionError('');
+         if (currentUser || sessionStorageSafe.getItem('k_super_admin') === 'true') setCurrentPage('home'); 
         } catch (e) { 
-         triggerNotify("連線失敗", "error"); 
-        } 
+         if (!cancelled) setConnectionError(`連線失敗（${e.code || 'network-error'}），請重試。`);
+        } finally { clearTimeout(timeout); }
       };
-      initAuth(); return auth.onAuthStateChanged(u => setUser(u));
-     }, []);
+      initAuth();
+      const unsubscribe = auth.onAuthStateChanged(u => { if (!cancelled) setUser(u); });
+      return () => { cancelled = true; clearTimeout(timeout); unsubscribe(); };
+     }, [connectionAttempt]);
 
      useEffect(() => {
       if (!user) return;
+      let usersReceived = false;
+      const usersTimeout = setTimeout(() => { if (!usersReceived) setUsersError('帳號資料載入逾時，請重新連線。'); }, 20000);
       const errH = () => triggerNotify("讀取失敗", "error");
       const subs = [
         db.doc(getPublicPath('system/branches')).onSnapshot(d => d.exists && d.data().list && setGlobalBranches(d.data().list), errH),
         db.collection(getPublicPath('global_recipes')).onSnapshot(s => {
          setGlobalRecipes(s.docs.map(d => ({...d.data(), docId: d.id, id: d.data().id || d.id})));
         }, errH),
-        db.collection(getPublicPath('users')).onSnapshot(s => { 
-         const all = s.docs.map(d => d.data()); setUsers(all); 
+        db.collection(getPublicPath('users')).onSnapshot({ includeMetadataChanges: true }, s => {
+         if (s.metadata.fromCache) return;
+         usersReceived = true; clearTimeout(usersTimeout);
+         const all = s.docs.map(d => d.data()); setUsers(all); setUsersReady(true); setUsersError('');
          if (currentUser) { 
            const upd = all.find(u => u.phone === currentUser.phone); 
            if (upd) {
@@ -10960,16 +10999,16 @@ return (
             }
             const userChanged = JSON.stringify(normalizedUpd) !== JSON.stringify(currentUser);
             if (userChanged) { 
-             setCurrentUser(normalizedUpd); localStorage.setItem('k_active_user', JSON.stringify(normalizedUpd)); 
+             setCurrentUser(normalizedUpd); sessionStorageSafe.setItem('k_active_user', JSON.stringify(normalizedUpd)); 
              if(normalizedUpd.status === 'approved' && isSupervisorRole(normalizedUpd.role)) setIsManager(true);
              else if(!isSuperAdmin) setIsManager(false);
             }
            } 
          } 
-        }, errH)
+        }, error => { clearTimeout(usersTimeout); setUsersReady(false); setUsersError(`帳號資料讀取失敗（${error.code || 'network-error'}），請重新連線。`); })
       ];
-      return () => subs.forEach(un => un());
-     }, [user, currentUser]);
+      return () => { clearTimeout(usersTimeout); subs.forEach(un => un()); };
+     }, [user, currentUser, connectionAttempt]);
 
      useEffect(() => {
       if(!user || !currentBranch) return;
@@ -11648,8 +11687,8 @@ return (
          </header>
         )}
         <main className={`flex-grow mx-auto w-full font-bold ${currentPage === 'schedule' ? 'max-w-[1600px] px-2' : 'max-w-lg'}`}>
-         {!fbReady ? <div className="p-20 text-center h-screen flex flex-col items-center justify-center gap-4 font-bold"><Icon name="loader-2" className="animate-spin text-brand-red" size={48}/><p className="text-slate-400 font-black text-xs">連線中...</p></div>
-         : (!isManager && !currentUser) ? <AuthPage users={users} setCurrentUser={setCurrentUser} setCurrentPage={setCurrentPage} setIsManager={setIsManager} setIsSuperAdmin={setIsSuperAdmin} setCurrentBranch={setCurrentBranch} globalBranches={globalBranches} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />
+         {!fbReady ? <div className="p-20 text-center h-screen flex flex-col items-center justify-center gap-4 font-bold"><Icon name="loader-2" className="animate-spin text-brand-red" size={48}/><p className="text-slate-400 font-black text-xs">{connectionError || '連線中...'}</p>{connectionError && <button onClick={retryConnection}>重新連線</button>}</div>
+         : (!isManager && !currentUser) ? <AuthPage users={users} usersReady={usersReady} usersError={usersError} retryConnection={retryConnection} setCurrentUser={setCurrentUser} setCurrentPage={setCurrentPage} setIsManager={setIsManager} setIsSuperAdmin={setIsSuperAdmin} setCurrentBranch={setCurrentBranch} globalBranches={globalBranches} triggerNotify={triggerNotify} getPublicPath={getPublicPath} />
          : (isManager || currentUser?.status === 'approved') ? renderPage() : (
            <div className="p-10 pt-32 text-center h-screen space-y-8 font-bold">
             <div className="bg-white w-24 h-24 rounded-full flex items-center justify-center mx-auto shadow-lg"><Icon name="clock" size={48} className="text-brand-red animate-pulse" /></div>
