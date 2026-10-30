@@ -10,11 +10,17 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
  const [revision,setRevision]=useState(0),[configRevision,setConfigRevision]=useState(0),[selected,setSelected]=useState(''),[newName,setNewName]=useState('');
  const [dirty,setDirty]=useState(false),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[error,setError]=useState(''),[reload,setReload]=useState(0),[ghost,setGhost]=useState(null);
  const [preview,setPreview]=useState(null),[exporting,setExporting]=useState(false);
+ const [supports,setSupports]=useState([]);
  const generation=useRef(0),surface=useRef(null),tray=useRef(null),viewport=useRef(null),drag=useRef(null),suppressClick=useRef(false);
  const team=window.StationBoardData.roster(schedule,date,'working');
  const valid=p=>p&&stations.some(s=>s.id===p.stationId);
  const placed=Object.fromEntries(team.active.filter(p=>valid(placements[p.id])).map(p=>[p.id,placements[p.id]]));
  const waiting=team.active.filter(p=>!placed[p.id]);
+ const supportPeople=supports.filter(s=>valid(s)&&team.active.some(p=>p.id===s.personId)).map(s=>({...team.active.find(p=>p.id===s.personId),id:s.id,code:s.period,support:true,stationId:s.stationId}));
+ const allTags=[...team.active,...supportPeople];
+ const stationPeople=id=>[...team.active.filter(p=>placed[p.id]?.stationId===id),...supportPeople.filter(p=>p.stationId===id)];
+ const assign=(id,stationId)=>{if(saving)return;if(supportPeople.some(p=>p.id===id))setSupports(prev=>prev.map(s=>s.id===id?{...s,stationId}:s));else setPlacements(prev=>({...prev,[id]:{x:0,y:0,stationId}}));setSelected('');setDirty(true);};
+ const addSupport=()=>{if(saving||!placed[selected])return;const period=window.prompt('支援時段（例如：晚班、18:00–21:00）','晚班')?.trim();if(!period)return;if(period.length>40){triggerNotify('支援時段最多 40 字','error');return;}const id='support:'+Date.now()+'-'+Math.random().toString(36).slice(2,8);setSupports(prev=>[...prev,{id,personId:selected,stationId:placed[selected].stationId,period}]);setSelected(id);setDirty(true);};
  const configRef=()=>db.doc(getPublicPath(`station_board_config/${encodeURIComponent(currentBranch)}`));
  const boardRef=()=>db.doc(getPublicPath(`station_board_days/${encodeURIComponent(currentBranch)}__${date}__all`));
  useEffect(()=>{
@@ -32,19 +38,19 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
     const count=counts[stationId]||0;counts[stationId]=count+1;
     migrated[id]={x:(i%3)/3+(count%2)*0.15,y:(Math.floor(i/3)*180+55+Math.floor(count/2)*80)/Math.max(540,Math.ceil(list.length/3)*180),stationId};
    });
-   setPlacements(board.placements||migrated);setNotes(board.notes||{});setRevision(board.revision||0);setConfigRevision(config.revision||0);
+   setPlacements(board.placements||migrated);setSupports(Array.isArray(board.supports)?board.supports:[]);setNotes(board.notes||{});setRevision(board.revision||0);setConfigRevision(config.revision||0);
   }).catch(e=>{if(run===generation.current)setError(`讀取失敗（${e.code||'network-error'}），請重試。`);}).finally(()=>{if(run===generation.current)setLoading(false);});
   return()=>{generation.current++;};
  },[currentBranch,date,reload]);
  useEffect(()=>{const warn=e=>{if(dirty){e.preventDefault();e.returnValue='';}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[dirty]);
  useEffect(()=>()=>{if(preview)URL.revokeObjectURL(preview.url);},[preview]);
  const leave=fn=>{if(!saving&&(!dirty||window.confirm('尚有未儲存的安排，要放棄變更嗎？')))fn();};
- const toTray=id=>{if(saving)return;setPlacements(prev=>{const next={...prev};delete next[id];return next;});setSelected('');setDirty(true);};
+ const toTray=id=>{if(saving)return;if(supportPeople.some(p=>p.id===id))setSupports(prev=>prev.filter(s=>s.id!==id));else setPlacements(prev=>{const next={...prev};delete next[id];return next;});setSelected('');setDirty(true);};
  const put=(id,clientX,clientY)=>{
-  if(saving||loading||!surface.current||!team.active.some(p=>p.id===id))return;
+  if(saving||loading||!surface.current||!allTags.some(p=>p.id===id))return;
   const target=Array.from(surface.current.querySelectorAll('[data-station]')).find(el=>inside(el.getBoundingClientRect(),clientX,clientY));
   if(!target)return;
-  setPlacements(prev=>({...prev,[id]:{x:0,y:0,stationId:target.dataset.station}}));setSelected('');setDirty(true);
+  assign(id,target.dataset.station);
  };
  const inside=(r,x,y)=>r&&x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom;
  const pointerDown=(e,id)=>{if(saving||e.button!==0)return;suppressClick.current=false;drag.current={id,x:e.clientX,y:e.clientY,moved:false};e.currentTarget.setPointerCapture(e.pointerId);};
@@ -62,6 +68,7 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
   else if(inside(viewport.current?.getBoundingClientRect(),e.clientX,e.clientY))put(d.id,e.clientX,e.clientY);
  };
  const updateStations=list=>{
+  setSupports(prev=>prev.filter(p=>list.some(s=>s.id===p.stationId)));
   setPlacements(prev=>Object.fromEntries(Object.entries(prev).filter(([,p])=>list.some(s=>s.id===p.stationId))));
   setStations(list);setDirty(true);
  };
@@ -80,7 +87,7 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
     if((c.exists?c.data().revision||0:0)!==configRevision||(b.exists?b.data().revision||0:0)!==revision)throw Error('conflict');
     tx.set(cRef,{stations,revision:configRevision+1,updatedAt:Date.now()});
     const validNotes=Object.fromEntries(team.active.filter(p=>Object.prototype.hasOwnProperty.call(notes,p.id)).map(p=>[p.id,notes[p.id]]));
-    tx.set(bRef,{branch:currentBranch,date,period:'all',placements:placed,assignments:Object.fromEntries(Object.entries(placed).filter(([,p])=>p.stationId).map(([id,p])=>[id,p.stationId])),notes:validNotes,revision:revision+1,updatedAt:Date.now(),updatedBy:currentUser?.name||''});
+    tx.set(bRef,{branch:currentBranch,date,period:'all',placements:placed,supports:supports.filter(s=>supportPeople.some(p=>p.id===s.id)),assignments:Object.fromEntries(Object.entries(placed).filter(([,p])=>p.stationId).map(([id,p])=>[id,p.stationId])),notes:validNotes,revision:revision+1,updatedAt:Date.now(),updatedBy:currentUser?.name||''});
    });
    setRevision(n=>n+1);setConfigRevision(n=>n+1);setDirty(false);triggerNotify('白板安排已儲存','success');
   }catch(e){triggerNotify(e.message==='conflict'?'其他同仁已更新看板，請重新載入後再安排。':`儲存失敗（${e.code||'network-error'}），變更已保留。`,'error');}finally{setSaving(false);}
@@ -92,7 +99,7 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
    if(!ctx)throw Error('canvas');
    const wrap=(text,width)=>{const lines=[];let line='';for(const c of String(text)){if(line&&ctx.measureText(line+c).width>width){lines.push(line);line='';}line+=c;}lines.push(line);return lines;};
    ctx.font='22px sans-serif';
-   const groups=stations.map(s=>({name:s.name,...stationColors(s.color),rows:team.active.filter(p=>placed[p.id]?.stationId===s.id).map(p=>wrap(`${p.name} · ${notes[p.id]??p.code}`,330))}));
+   const groups=stations.map(s=>({name:s.name,...stationColors(s.color),rows:stationPeople(s.id).map(p=>wrap(`${p.name} · ${p.support?p.code:notes[p.id]??p.code}${p.support?'（支援）':''}`,330))}));
    ctx.font='bold 24px sans-serif';groups.forEach(g=>{g.title=wrap(g.name,330);g.header=28*g.title.length+30;});
    const heights=[];for(let i=0;i<groups.length;i+=3)heights.push(Math.max(130,...groups.slice(i,i+3).map(g=>g.header+20+g.rows.reduce((n,r)=>n+r.length*30+12,0))));
    ctx.font='22px sans-serif';
@@ -109,10 +116,10 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
  };
  const shareImage=async()=>{try{if(navigator.canShare?.({files:[preview.file]}))await navigator.share({files:[preview.file],title:'崗位安排'});else triggerNotify('此瀏覽器不支援圖片分享，請下載圖片後傳送。','info');}catch(e){if(e.name!=='AbortError')triggerNotify('分享失敗，請改用下載圖片。','error');}};
  const tag=p=><div className="sb-tag" key={p.id} data-person={p.id}>
-  <button type="button" className={`sb-name ${selected===p.id?'sb-selected':''}`} title={p.name} aria-label={`移動${p.name}`} aria-pressed={selected===p.id} disabled={saving}
+  <button type="button" className={`sb-name ${selected===p.id?'sb-selected':''}`} title={p.support?`${p.name}（支援）`:p.name} aria-label={`移動${p.name}${p.support?'支援':''}`} aria-pressed={selected===p.id} disabled={saving}
    onPointerDown={e=>pointerDown(e,p.id)} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={()=>{drag.current=null;setGhost(null);}}
-   onClick={e=>{e.stopPropagation();if(suppressClick.current){suppressClick.current=false;return;}setSelected(selected===p.id?'':p.id);}}>{p.name}</button>
-  <input aria-label={`${p.name}的班別備註`} title={`原班別：${p.code}`} maxLength={40} value={notes[p.id]??p.code} disabled={saving} onClick={e=>e.stopPropagation()} onChange={e=>{const value=e.target.value;setNotes(prev=>({...prev,[p.id]:value}));setDirty(true);}}/>
+   onClick={e=>{e.stopPropagation();if(suppressClick.current){suppressClick.current=false;return;}setSelected(selected===p.id?'':p.id);}}>{p.name}{p.support&&<small>（支援）</small>}</button>
+  <input aria-label={`${p.name}${p.support?'支援時段':'的班別備註'}`} title={p.support?`支援時段：${p.code}`:`原班別：${p.code}`} maxLength={40} value={p.support?p.code:notes[p.id]??p.code} disabled={saving} onClick={e=>e.stopPropagation()} onChange={e=>{const value=e.target.value;if(p.support)setSupports(prev=>prev.map(s=>s.id===p.id?{...s,period:value}:s));else setNotes(prev=>({...prev,[p.id]:value}));setDirty(true);}}/>
  </div>;
  return <div className="station-whiteboard p-3 text-left pb-6">
   <style>{`
@@ -147,13 +154,14 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
    <div className="flex flex-wrap justify-between gap-2 mb-3 text-sm text-slate-600"><p>{team.exists?(team.published?'已發布班表':'未發布班表（草稿）'):'本月尚無班表'} · 上班 {team.active.length} 人</p><span>待分派 {waiting.length} 人</span></div>
    <form onSubmit={addStation} className="flex gap-2 mb-3 max-w-md"><input aria-label="新增崗位名稱" placeholder="新增崗位名稱" maxLength={30} value={newName} onChange={e=>setNewName(e.target.value)} disabled={saving} className="min-w-0 flex-1 border rounded p-2 bg-white"/><button type="submit" title="新增崗位" aria-label="新增崗位" disabled={saving||!newName.trim()} className="min-h-[44px] min-w-[44px] border rounded flex items-center justify-center"><Icon name="plus" size={20}/></button></form>
    <div className="sb-layout"><div ref={viewport} className="sb-viewport" aria-label="崗位白板"><div ref={surface} className="sb-surface">
-    <div className="sb-stations">{stations.map(s=><div className="sb-station" data-station={s.id} key={s.id} style={{backgroundColor:stationColors(s.color).background,'--station-ink':stationColors(s.color).foreground}} onClick={e=>{if(selected&&e.target===e.currentTarget)put(selected,e.clientX,e.clientY);}}><div className="sb-heading"><button className="sb-title" title={`重新命名${s.name}`} aria-label={`重新命名${s.name}`} disabled={saving} onClick={()=>rename(s)}>{s.name}</button><input type="color" className="sb-color" aria-label={`${s.name}色塊顏色`} title={`${s.name}色塊顏色`} value={stationColors(s.color).background} disabled={saving} onClick={e=>e.stopPropagation()} onChange={e=>{const color=e.target.value;setStations(prev=>prev.map(item=>item.id===s.id?{...item,color}:item));setDirty(true);}}/><button title={`刪除${s.name}`} aria-label={`刪除${s.name}`} disabled={saving} onClick={()=>remove(s)}><Icon name="x" size={16}/></button></div><div className="sb-members">{team.active.filter(p=>placed[p.id]?.stationId===s.id).map(tag)}</div>{selected&&<button type="button" className="min-h-[44px] text-sm bg-white text-blue-700 rounded px-1" disabled={saving} onClick={()=>{setPlacements(prev=>({...prev,[selected]:{x:0,y:0,stationId:s.id}}));setSelected('');setDirty(true);}}>分派至此</button>}</div>)}</div>
-   </div></div><aside ref={tray} className="sb-tray" aria-label="待分派人員"><h3 className="font-bold text-sm mb-3">待分派 · {waiting.length} 人</h3><div className="sb-roster">{waiting.map(tag)}</div>{!waiting.length&&<p className="text-sm text-slate-500">已全數分派</p>}{selected&&<button className="min-h-[44px] text-sm text-blue-700" disabled={saving} onClick={()=>toTray(selected)}>移回待分派</button>}</aside></div>
+    <div className="sb-stations">{stations.map(s=><div className="sb-station" data-station={s.id} key={s.id} style={{backgroundColor:stationColors(s.color).background,'--station-ink':stationColors(s.color).foreground}} onClick={e=>{if(selected&&e.target===e.currentTarget)put(selected,e.clientX,e.clientY);}}><div className="sb-heading"><button className="sb-title" title={`重新命名${s.name}`} aria-label={`重新命名${s.name}`} disabled={saving} onClick={()=>rename(s)}>{s.name}</button><input type="color" className="sb-color" aria-label={`${s.name}色塊顏色`} title={`${s.name}色塊顏色`} value={stationColors(s.color).background} disabled={saving} onClick={e=>e.stopPropagation()} onChange={e=>{const color=e.target.value;setStations(prev=>prev.map(item=>item.id===s.id?{...item,color}:item));setDirty(true);}}/><button title={`刪除${s.name}`} aria-label={`刪除${s.name}`} disabled={saving} onClick={()=>remove(s)}><Icon name="x" size={16}/></button></div><div className="sb-members">{stationPeople(s.id).map(tag)}</div>{selected&&<button type="button" className="min-h-[44px] text-sm bg-white text-blue-700 rounded px-1" disabled={saving} onClick={()=>assign(selected,s.id)}>分派至此</button>}</div>)}</div>
+   </div></div><aside ref={tray} className="sb-tray" aria-label="待分派人員"><h3 className="font-bold text-sm mb-3">待分派 · {waiting.length} 人</h3><div className="sb-roster">{waiting.map(tag)}</div>{!waiting.length&&<p className="text-sm text-slate-500">已全數分派</p>}{selected&&<button className="min-h-[44px] text-sm text-blue-700" disabled={saving} onClick={()=>toTray(selected)}>{supportPeople.some(p=>p.id===selected)?'移除支援':'移回待分派'}</button>}</aside></div>
+   {selected&&placed[selected]&&<button type="button" disabled={saving} onClick={addSupport} className="my-2 min-h-[44px] border rounded px-3 flex items-center gap-2"><Icon name="plus" size={18}/>新增支援安排</button>}
    {!team.active.length&&<p className="py-4 text-sm">此日期沒有上班人員。</p>}
    <button type="button" onClick={exportImage} disabled={exporting} className="my-3 min-h-[44px] border rounded px-4 flex items-center gap-2"><Icon name="image" size={18}/>{exporting?'產生圖片中...':'輸出圖片'}</button>
    <div className="flex justify-between items-center gap-3 border-t mt-4 pt-3"><span role="status" className="text-sm">{dirty?'尚未儲存':'已同步'}</span><button type="button" disabled={!dirty||saving} onClick={save} className="min-h-[44px] px-4 rounded bg-blue-600 text-white disabled:opacity-50 flex gap-2 items-center"><Icon name="save" size={18}/>{saving?'儲存中...':'儲存安排'}</button></div>
   </>}
-  {ghost&&<div className="sb-ghost" style={{left:ghost.x,top:ghost.y}}>{team.active.find(p=>p.id===ghost.id)?.name}</div>}
+  {ghost&&<div className="sb-ghost" style={{left:ghost.x,top:ghost.y}}>{allTags.find(p=>p.id===ghost.id)?.name}</div>}
   {preview&&<div role="dialog" aria-modal="true" aria-label="崗位圖片" className="fixed inset-0 z-[9999] bg-black/60 p-4 flex items-center justify-center"><div className="bg-white rounded-lg p-4 w-full max-w-3xl max-h-[90vh] overflow-auto"><div className="flex justify-between items-center mb-3"><h3>崗位圖片</h3><button aria-label="關閉圖片" className="min-h-[44px] min-w-[44px]" onClick={()=>setPreview(null)}><Icon name="x" size={20}/></button></div><img src={preview.url} alt="崗位安排圖片" className="w-full h-auto"/><div className="flex flex-wrap gap-3 mt-4"><a className="min-h-[44px] p-3 border rounded" href={preview.url} download={preview.file.name}>下載 PNG</a><button className="min-h-[44px] p-3 border rounded" onClick={shareImage}>分享圖片</button></div></div></div>}
  </div>;
 };
