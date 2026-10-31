@@ -1,0 +1,33 @@
+body.app-dark-mode { background:#151719!important; background-image:none!important; color:var(--t1); }
+body.app-dark-mode .app-header,
+body.app-dark-mode .glass-panel,
+body.app-dark-mode .home-selector-card,
+body.app-dark-mode [class~="bg-white"],
+body.app-dark-mode [class*="bg-white/"],
+body.app-dark-mode [class~="bg-slate-50"],
+body.app-dark-mode [class~="bg-slate-100"],
+body.app-dark-mode [class*="bg-slate-100/"],
+body.app-dark-mode [class~="bg-gray-50"],
+body.app-dark-mode [class~="bg-gray-100"] { background:var(--s1)!important; border-color:var(--gold-border)!important; }
+body.app-dark-mode .font-bold, body.app-dark-mode .font-black { color:inherit!important; }
+body.app-dark-mode [class*="text-slate-"], body.app-dark-mode [class*="text-gray-"], body.app-dark-mode .text-black { color:var(--t2)!important; -webkit-text-fill-color:currentColor!important; }
+body.app-dark-mode .text-white, body.app-dark-mode .bg-brand-red, body.app-dark-mode .bg-brand-red *, body.app-dark-mode [class*="bg-"][class*="text-white"] { color:#fff!important; -webkit-text-fill-color:currentColor!important; }
+body.app-dark-mode input,body.app-dark-mode select,body.app-dark-mode textarea { background:var(--s2)!important;color:var(--t1)!important;border-color:var(--gold-border)!important;color-scheme:dark; }
+body.app-dark-mode input::placeholder,body.app-dark-mode textarea::placeholder { color:var(--t3)!important;opacity:1; }
+body.app-dark-mode .text-brand-red { color:#fda4af!important; }
+body.app-dark-mode [class*="text-emerald-"],body.app-dark-mode [class*="text-green-"] { color:#6ee7b7!important; }
+body.app-dark-mode [class*="text-blue-"],body.app-dark-mode [class*="text-indigo-"] { color:#93c5fd!important; }
+body.app-dark-mode [class*="text-red-"],body.app-dark-mode [class*="text-rose-"] { color:#fda4af!important; }
+body.app-dark-mode [class*="text-amber-"],body.app-dark-mode [class*="text-orange-"] { color:#fcd34d!important; }
+body.app-dark-mode [class*="bg-emerald-50"],body.app-dark-mode [class*="bg-emerald-100"],body.app-dark-mode [class*="bg-blue-50"],body.app-dark-mode [class*="bg-indigo-50"],body.app-dark-mode [class*="bg-rose-50"],body.app-dark-mode [class*="bg-red-50"],body.app-dark-mode [class*="bg-amber-50"],body.app-dark-mode [class*="bg-orange-50"] { background:var(--s2)!important; }
+body.app-dark-mode [class*="shadow-"] { box-shadow:0 2px 8px #0003!important; }
+body.app-dark-mode .station-whiteboard { color:var(--t1); }
+body.app-dark-mode .sb-surface,body.app-dark-mode .sb-stations,body.app-dark-mode .sb-viewport { background:var(--s0); }
+body.app-dark-mode .sb-station { background:var(--s1)!important;border-color:var(--gold-border); }
+body.app-dark-mode .sb-heading .sb-title,body.app-dark-mode .sb-heading button { color:var(--station-ink)!important; }
+body.app-dark-mode .sb-name,body.app-dark-mode .sb-period,body.app-dark-mode .sb-person-menu { background:var(--s2)!important;color:var(--t1)!important; }
+body.app-dark-mode .sb-tag { border-color:var(--gold-border); }
+body.app-dark-mode .sb-selected,body.app-dark-mode .sb-person-menu button:hover { background:var(--s4)!important; }
+/* Keep color-coded schedule cells legible instead of inverting their meaning. */
+body.app-dark-mode #schedule-root table { color:#17202a!important;color-scheme:light; }
+body.app-dark-mode #schedule-root table .font-bold,body.app-dark-mode #schedule-root table .font-black,body.app-dark-mode #schedule-root table [class*="text-slate-"] { color:#17202a!important; }

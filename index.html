@@ -1139,6 +1139,7 @@
 
 </head>
 <body class="pb-12">
+    <link rel="stylesheet" href="dark-mode.css?v=1">
     <div id="root"><div style="min-height:70vh;display:flex;align-items:center;justify-content:center;padding:24px;color:#1e293b;text-align:center"><div style="width:100%;max-width:320px"><h2>EATJOY 廚務 OS</h2><p role="status">載入系統程式...</p><div role="progressbar" aria-label="系統載入" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" style="height:8px;background:#e2e8f0;border-radius:4px"></div></div></div></div>
     <div id="notify-root" style="position:fixed;top:80px;left:0;right:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none;padding:0 16px;isolation:isolate;"></div>
 <script src="activity-question-bank.js?v=2"></script>
@@ -10669,6 +10670,7 @@ return (
     const App = () => {
      const [currentPage, setCurrentPage] = useState('auth');
      const [showThemeModal, setShowThemeModal] = useState(false);
+     const [darkMode, setDarkMode] = useState(() => { try { return localStorage.getItem('k_app_dark_mode') === 'true'; } catch { return false; } });
      const [activeTheme, setActiveTheme] = useState(() => {
        const saved = sessionStorageSafe.getItem('k_app_theme');
        return APP_THEMES.some(theme => theme.id === saved) ? saved : 'red';
@@ -10708,6 +10710,15 @@ return (
                };
                Object.entries(reset).forEach(([k,v]) => root.style.setProperty(k, v));
             }
+            const surfaces = {'--s0':themeObj.bgHex||'#f8fafc','--s1':'#ffffff','--s2':'#f8fafc','--s3':'#f1f5f9','--s4':'#e2e8f0'};
+            Object.entries(surfaces).forEach(([k,v])=>root.style.setProperty(k,themeObj.vars?.[k]||v));
+            if(darkMode){
+             const darkVars={'--app-bg':'#151719','--s0':'#151719','--s1':'#202326','--s2':'#282c30','--s3':'#31363b','--s4':'#3b4249','--leather-deep':'#151719','--leather-base':'#191c1f','--leather-mid':'#202326','--leather-light':'#282c30','--leather-lift':'#31363b','--leather-hover':'#3b4249','--t1':'#f1f3f5','--t2':'#d5d9dd','--t3':'#b3bac2','--t4':'#969fa9','--gold-border':'#454c54','--gold-glow':'transparent'};
+             Object.entries(darkVars).forEach(([k,v])=>root.style.setProperty(k,v));
+            }
+            document.body.classList.toggle('app-dark-mode',darkMode);
+            root.style.colorScheme=darkMode?'dark':'light';
+            try { localStorage.setItem('k_app_dark_mode',String(darkMode)); } catch {}
             document.body.className = document.body.className.replace(/theme-\S+/g,'').trim();
             document.body.classList.add('theme-' + themeObj.id);
             // 判斷是否為深色主題（--leather-deep 的亮度低於閾值）
@@ -10722,11 +10733,11 @@ return (
             };
             const themeSurface = themeObj.vars?.['--leather-base'] || themeObj.bgHex || '#ffffff';
             const isDark = themeObj.vars && hexToLuma(themeSurface) < 110;
-            if (isDark) {
+            if (isDark || darkMode) {
                document.body.classList.add('theme-dark');
             }
             sessionStorageSafe.setItem('k_app_theme', activeTheme);
-         }, [activeTheme]);
+         }, [activeTheme, darkMode]);
      const [currentUser, setCurrentUser] = useState(readSavedUser);
      const [isSuperAdmin, setIsSuperAdmin] = useState(() => sessionStorageSafe.getItem('k_super_admin') === 'true');
      const [isManager, setIsManager] = useState(() => {
@@ -11751,6 +11762,7 @@ return (
                <button onClick={() => setShowThemeModal(false)} className="p-2 bg-slate-100 rounded-full text-slate-400 hover:text-brand-red transition-colors active:scale-90"><Icon name="x" size={16} /></button>
               </div>
 
+              <div className="px-6 py-3 flex items-center justify-between gap-3" style={{borderBottom:'1px solid var(--gold-border)'}}><span className="flex items-center gap-2 text-slate-800"><Icon name={darkMode?'moon':'sun'} size={18}/>暗黑模式</span><button type="button" role="switch" aria-label="暗黑模式" aria-checked={darkMode} onClick={()=>setDarkMode(value=>!value)} className="min-h-[44px] min-w-[60px] flex items-center justify-center"><span style={{display:'block',width:48,height:28,borderRadius:14,background:darkMode?'rgb(var(--brand-red))':'#64748b',padding:3}}><span style={{display:'block',width:22,height:22,borderRadius:'50%',background:'#fff',transform:darkMode?'translateX(20px)':'translateX(0)'}}/></span></button></div>
               {/* Theme grid — scrollable */}
               <div className="overflow-y-auto no-scrollbar px-5 py-4 flex-1">
                {/* Group labels */}
