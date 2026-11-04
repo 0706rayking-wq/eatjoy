@@ -122,19 +122,50 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
   try{
    const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
    if(!ctx)throw Error('canvas');
+   const font=(size,bold=false)=>{ctx.font=`${bold?'600 ':''}${size}px "Microsoft JhengHei",sans-serif`;};
    const wrap=(text,width)=>{const lines=[];let line='';for(const c of String(text)){if(line&&ctx.measureText(line+c).width>width){lines.push(line);line='';}line+=c;}lines.push(line);return lines;};
-   ctx.font='22px sans-serif';
-   const groups=stations.map(s=>({name:s.name,...stationColors(s.color),tint:stationTint(s.color),rows:stationPeople(s.id).map(p=>wrap(`${labelsFor(p.id).map(label=>'【'+label+'】').join('')}${p.name} · ${periodOf(p)}${!p.support&&notes[p.id]?' · '+notes[p.id]:''}`,330))}));
-   ctx.font='bold 24px sans-serif';groups.forEach(g=>{g.title=wrap(g.name,330);g.header=28*g.title.length+30;});
-   const heights=[];for(let i=0;i<groups.length;i+=3)heights.push(Math.max(130,...groups.slice(i,i+3).map(g=>g.header+20+g.rows.reduce((n,r)=>n+r.length*30+12,0))));
-   ctx.font='22px sans-serif';
-   const pending=wrap('未分派：'+(waiting.map(p=>`${labelsFor(p.id).map(label=>'【'+label+'】').join('')}${p.name}（${notes[p.id]??p.code}）`).join('、')||'無'),1100);
-   canvas.width=1200;canvas.height=180+heights.reduce((a,b)=>a+b,0)+pending.length*32+60;
-   ctx.fillStyle='#fff';ctx.fillRect(0,0,canvas.width,canvas.height);
-   ctx.fillStyle='#0f172a';ctx.font='bold 32px sans-serif';ctx.fillText(`${currentBranch}｜崗位安排`,40,52);
-   ctx.font='22px sans-serif';ctx.fillText(`${date}　上班 ${team.active.length} 人${dirty?'　（未儲存草稿）':''}`,40,94);
-   let y=130;groups.forEach((g,i)=>{if(i&&i%3===0)y+=heights[Math.floor(i/3)-1];const x=40+(i%3)*374,h=heights[Math.floor(i/3)];ctx.fillStyle=g.tint;ctx.fillRect(x,y,374,h);ctx.fillStyle=g.background;ctx.fillRect(x,y,374,g.header);ctx.strokeStyle='#cbd5e1';ctx.strokeRect(x,y,374,h);ctx.fillStyle=g.foreground;ctx.font='bold 24px sans-serif';g.title.forEach((line,j)=>ctx.fillText(line,x+16,y+32+j*28));ctx.font='22px sans-serif';ctx.fillStyle='#1e293b';let rowY=y+g.header+10;g.rows.forEach(lines=>{lines.forEach(line=>{ctx.fillText(line,x+16,rowY);rowY+=30;});rowY+=12;});});
-   ctx.font='22px sans-serif';ctx.fillStyle='#475569';pending.forEach((line,i)=>ctx.fillText(line,40,150+heights.reduce((a,b)=>a+b,0)+i*32));
+   const rounded=(x,y,w,h,r,fill,stroke)=>{ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1;ctx.stroke();}};
+   const makePerson=p=>{
+    font(23,true);const name=wrap(p.name,180);font(18);const period=wrap(periodOf(p),114);
+    const note=!p.support&&notes[p.id]&&notes[p.id]!==p.code?wrap(notes[p.id],294):[];
+    return {name,period,note,labels:labelsFor(p.id),height:Math.max(name.length*30,period.length*25)+26+(labelsFor(p.id).length?28:0)+note.length*24};
+   };
+   const groups=stations.map(s=>{font(25,true);const title=wrap(s.name,252),rows=stationPeople(s.id).map(makePerson);return {title,rows,color:stationTint(s.color),header:Math.max(66,title.length*32+24)};});
+   const heights=[];for(let i=0;i<groups.length;i+=3)heights.push(Math.max(180,...groups.slice(i,i+3).map(g=>g.header+28+g.rows.reduce((sum,p)=>sum+p.height+12,0))));
+   font(36,true);const heading=wrap(`${currentBranch}｜崗位安排`,1104);
+   const boardY=80+heading.length*46+68,boardH=heights.reduce((a,b)=>a+b,0)+Math.max(0,heights.length-1)*16+40;
+   font(21);const pending=waiting.flatMap(p=>wrap(`${p.name} · ${periodOf(p)}${labelsFor(p.id).length?' · '+labelsFor(p.id).join('／'):''}`,1080));
+   canvas.width=1200;canvas.height=boardY+boardH+126+Math.max(1,pending.length)*30+60;
+   ctx.fillStyle='#f7f9fa';ctx.fillRect(0,0,canvas.width,canvas.height);
+   font(36,true);ctx.fillStyle='#20323c';heading.forEach((line,i)=>ctx.fillText(line,48,66+i*46));
+   font(21);ctx.fillStyle='#61747e';ctx.fillText(`${date}　上班 ${team.active.length} 人 · 待分派 ${waiting.length} 人${dirty?'　（未儲存草稿）':''}`,48,80+heading.length*46);
+   rounded(40,boardY,1120,boardH,10,'#aab7bf');
+   rounded(47,boardY+7,1106,boardH-14,6,'#e4e9ec');
+   let y=boardY+20;
+   groups.forEach((g,i)=>{
+    if(i&&i%3===0)y+=heights[Math.floor(i/3)-1]+16;
+    const x=60+(i%3)*366,h=heights[Math.floor(i/3)];
+    rounded(x,y,348,h,6,'#ffffff','#cad5dc');
+    rounded(x+1,y+1,346,g.header,5,g.color);ctx.fillStyle=g.color;ctx.fillRect(x+1,y+g.header-5,346,5);
+    font(25,true);ctx.fillStyle='#263d48';g.title.forEach((line,j)=>ctx.fillText(line,x+16,y+36+j*32));
+    font(16);ctx.fillStyle='#687b85';ctx.textAlign='right';ctx.fillText(g.rows.length?g.rows.length+' 人':'待安排',x+332,y+36);ctx.textAlign='left';
+    let rowY=y+g.header+14;
+    g.rows.forEach(p=>{
+     ctx.save();ctx.shadowColor='#263d4818';ctx.shadowBlur=5;ctx.shadowOffsetY=2;rounded(x+12,rowY,324,p.height,4,'#fff','#cbd6dc');ctx.restore();
+     font(23,true);ctx.fillStyle='#253c48';p.name.forEach((line,j)=>ctx.fillText(line,x+24,rowY+31+j*30));
+     font(18);ctx.fillStyle='#647986';ctx.textAlign='right';p.period.forEach((line,j)=>ctx.fillText(line,x+324,rowY+29+j*25));ctx.textAlign='left';
+     let detailY=rowY+Math.max(p.name.length*30,p.period.length*25)+14;
+     p.labels.forEach((label,j)=>{rounded(x+24+j*64,detailY,56,23,3,label==='值班'?'#fff0bf':'#def2e9');font(15,true);ctx.fillStyle=label==='值班'?'#785418':'#28644d';ctx.fillText(label,x+32+j*64,detailY+17);});
+     if(p.labels.length)detailY+=28;
+     font(17);ctx.fillStyle='#647986';p.note.forEach((line,j)=>ctx.fillText(line,x+24,detailY+18+j*24));
+     rowY+=p.height+12;
+    });
+   });
+   const pendingY=boardY+boardH+44;
+   ctx.strokeStyle='#d5dee3';ctx.beginPath();ctx.moveTo(48,pendingY-12);ctx.lineTo(1152,pendingY-12);ctx.stroke();
+   font(22,true);ctx.fillStyle='#3e5866';ctx.fillText('待分派 '+waiting.length+' 人',48,pendingY+22);
+   font(21);ctx.fillStyle='#647986';(pending.length?pending:['已全數分派']).forEach((line,i)=>ctx.fillText(line,48,pendingY+58+i*30));
+   font(15);ctx.fillStyle='#7c8c95';ctx.fillText('EATJOY OS · 崗位安排',48,canvas.height-28);
    const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(Error('encode')),'image/png'));
    setPreview({url:URL.createObjectURL(blob),file:new File([blob],`崗位安排-${currentBranch}-${date}.png`,{type:'image/png'})});
   }catch(e){triggerNotify('圖片產生失敗，請重試。','error');}finally{setExporting(false);}
