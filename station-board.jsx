@@ -132,13 +132,14 @@ window.StationAssignmentBoard = function StationAssignmentBoard({currentBranch,c
    };
    const groups=stations.map(s=>{font(25,true);const title=wrap(s.name,252),rows=stationPeople(s.id).map(makePerson);return {title,rows,color:stationTint(s.color),header:Math.max(66,title.length*32+24)};});
    const heights=[];for(let i=0;i<groups.length;i+=3)heights.push(Math.max(180,...groups.slice(i,i+3).map(g=>g.header+28+g.rows.reduce((sum,p)=>sum+p.height+12,0))));
-   font(36,true);const heading=wrap(`${currentBranch}｜崗位安排`,1104);
+   font(36,true);const heading=wrap(`${currentBranch}｜崗位安排`,740);
    const boardY=80+heading.length*46+68,boardH=heights.reduce((a,b)=>a+b,0)+Math.max(0,heights.length-1)*16+40;
    font(21);const pending=waiting.flatMap(p=>wrap(`${p.name} · ${periodOf(p)}${labelsFor(p.id).length?' · '+labelsFor(p.id).join('／'):''}`,1080));
    canvas.width=1200;canvas.height=boardY+boardH+126+Math.max(1,pending.length)*30+60;
    ctx.fillStyle='#f7f9fa';ctx.fillRect(0,0,canvas.width,canvas.height);
    font(36,true);ctx.fillStyle='#20323c';heading.forEach((line,i)=>ctx.fillText(line,48,66+i*46));
-   font(21);ctx.fillStyle='#61747e';ctx.fillText(`${date}　上班 ${team.active.length} 人 · 待分派 ${waiting.length} 人${dirty?'　（未儲存草稿）':''}`,48,80+heading.length*46);
+   font(46,true);ctx.fillStyle='#20323c';ctx.textAlign='right';ctx.fillText(date,1152,68);ctx.textAlign='left';
+   font(21);ctx.fillStyle='#61747e';ctx.fillText(`上班 ${team.active.length} 人 · 待分派 ${waiting.length} 人${dirty?'　（未儲存草稿）':''}`,48,80+heading.length*46);
    rounded(40,boardY,1120,boardH,10,'#aab7bf');
    rounded(47,boardY+7,1106,boardH-14,6,'#e4e9ec');
    let y=boardY+20;
