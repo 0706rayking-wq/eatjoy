@@ -1,6 +1,8 @@
 const crypto = require('node:crypto');
+const {assertHrRelayRelease} = require('../lib/hr-relay-release-gate');
 
 const MAX_BODY_BYTES = 1024 * 1024;
+const HR_RELAY_URL = 'https://rayking0706.app.n8n.cloud/webhook/line-hr-relay-draft';
 const LITTLE_THUNDER_RELAY_URL =
   'https://rayking0706.app.n8n.cloud/webhook/little-thunder-assistant';
 
@@ -74,9 +76,14 @@ function splitHumanResourcesEvents(events) {
   return batches;
 }
 
-async function forwardToN8n(payload, events, relayUrl, relaySecret) {
+async function forwardToN8n(payload, events, relayUrl, relaySecret, hrRelay = false) {
+  // Validate, rather than override, the existing secret configuration.
+  if (hrRelay && relayUrl !== HR_RELAY_URL) {
+    throw new Error('HR relay destination does not match the reviewed endpoint');
+  }
   const response = await fetch(relayUrl, {
     method: 'POST',
+    ...(hrRelay ? { redirect: 'manual' } : {}),
     headers: {
       'Authorization': `Bearer ${relaySecret}`,
       'Content-Type': 'application/json',
@@ -89,6 +96,10 @@ async function forwardToN8n(payload, events, relayUrl, relaySecret) {
       events
     })
   });
+
+  if (hrRelay && (response.redirected || (response.status >= 300 && response.status < 400))) {
+    throw new Error('HR relay redirects are not allowed');
+  }
 
   if (!response.ok) {
     const responseText = await response.text();
@@ -117,8 +128,8 @@ async function handler(request, response) {
   try {
     const channelSecret = readRequiredEnv('LINE_CHANNEL_SECRET');
     const humanResourcesGroupId = readRequiredEnv('LINE_HR_GROUP_ID');
-    const n8nRelayUrl = readRequiredEnv('N8N_RELAY_URL');
-    const n8nRelaySecret = readRequiredEnv('N8N_RELAY_SECRET');
+    const n8nRelayUrl = String(process.env.N8N_RELAY_URL || '').trim();
+    const n8nRelaySecret = String(process.env.N8N_RELAY_SECRET || '').trim();
     const rawBody = await readRawBody(request);
     const signature = request.headers['x-line-signature'];
 
@@ -133,12 +144,17 @@ async function handler(request, response) {
     const events = selectHumanResourcesEvents(payload, humanResourcesGroupId);
 
     if (events.length > 0) {
+      response.setHeader('Cache-Control', 'no-store');
+      // User-approved temporary pause covers this shared HR/assistant batch.
+      const releaseLease = await assertHrRelayRelease();
       for(const batch of splitHumanResourcesEvents(events)){
-        await forwardToN8n(payload, batch, n8nRelayUrl, n8nRelaySecret);
+        releaseLease.assertCurrent();
+        await forwardToN8n(payload, batch, n8nRelayUrl, n8nRelaySecret, true);
       }
 
       const assistantEvents = selectLittleThunderEvents(events);
       if (assistantEvents.length > 0) {
+        releaseLease.assertCurrent();
         await forwardToN8n(
           payload,
           assistantEvents,

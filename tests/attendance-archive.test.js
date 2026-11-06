@@ -79,21 +79,51 @@ async function request(body, token) {
   await handler({method:'POST',headers:{authorization:'Bearer '+token},body},res);return res;
 }
 (async()=>{
-  process.env.HR_AUTOMATION_SECRET='test-auth';
-  assert.equal((await request(input,'wrong')).code,401);
-  delete process.env.ATTENDANCE_ARCHIVE_URL;
-  assert.equal((await request(input,'test-auth')).code,503);
-  process.env.ATTENDANCE_ARCHIVE_URL='https://script.google.com/macros/s/test/exec';
-  process.env.ATTENDANCE_ARCHIVE_SECRET='test-secret';
-  global.fetch=async()=>({ok:true,json:async()=>({status:'saved',lineText:'saved'})});
-  assert.equal((await request(input,'test-auth')).code,200);
-  let forwarded;
-  global.fetch=async(_url,options)=>{forwarded=JSON.parse(options.body);return {ok:true,json:async()=>({status:'send',lineText:'combined'})};};
-  const aggregate={action:'aggregate_line',messageId:'123',groupId:'C12345678901234567890',date:'2026-09-18',sheetType:'外場／洗滌',lineMessages:['result'],archiveText:'url'};
-  assert.equal((await request(aggregate,'test-auth')).value.status,'send');
-  assert.equal(forwarded.action,'line_batch');
-  assert.deepEqual(forwarded.lineMessages,['result']);
-  global.fetch=async()=>({ok:true,json:async()=>({status:'error'})});
-  assert.equal((await request(input,'test-auth')).code,502,'Apps Script errors must trigger n8n retries');
-  console.log('attendance archive tests passed');
+  const savedEnv={...process.env},savedFetch=global.fetch;
+  const E=require('../lib/hr-cloud-business-envelope'),groupId='C'+'1'.repeat(32);
+  const auth={schema:1,source:{groupId,messageId:input.messageId,timestamp:Date.parse('2026-09-18T04:00:00Z')},
+    sourceAdmissionReceiptHash:'a'.repeat(64),sourceParentExecutionId:'80001',
+    pinsDigest:'b'.repeat(64),cutoverSnapshotDigest:'c'.repeat(64),compare:null};
+  const photo={action:'legacy_hr_business_v1',sourceAuthorization:auth,businessPayload:{action:'archive_photo',...input}};
+  const ack=(envelope,businessResult,status='completed')=>({schema:1,protocol:'hr-legacy-archive-gate-v1',status,
+    action:envelope.businessPayload.action,sourceKey:E.sourceKey(envelope),
+    sourceAdmissionReceiptHash:envelope.sourceAuthorization.sourceAdmissionReceiptHash,
+    pinsDigest:envelope.sourceAuthorization.pinsDigest,cutoverSnapshotDigest:envelope.sourceAuthorization.cutoverSnapshotDigest,
+    requestPayloadHash:E.requestPayloadHash(envelope),effectReceiptHash:'d'.repeat(64),businessResult});
+  const response=value=>({ok:true,status:200,redirected:false,text:async()=>JSON.stringify(value)});
+  let requests=0,forwarded;
+  try {
+    process.env.HR_AUTOMATION_SECRET='test-auth';delete process.env.ATTENDANCE_ARCHIVE_URL;
+    global.fetch=async()=>{requests++;throw Error('No unexpected network');};
+    assert.equal((await request(photo,'wrong')).code,401);
+    assert.equal((await request(input,'test-auth')).code,409,'old naked archive input must be fenced');
+    assert.equal(requests,0);
+    assert.equal((await request(photo,'test-auth')).code,503,'valid envelope still needs configured archive');
+    process.env.ATTENDANCE_ARCHIVE_URL='https://script.google.com/macros/s/test/exec';
+    process.env.ATTENDANCE_ARCHIVE_SECRET='test-secret';
+    global.fetch=async(_url,options)=>{requests++;forwarded=JSON.parse(options.body);assert.equal(options.redirect,'manual');return response(ack(photo,{status:'saved',lineText:'saved'}));};
+    assert.equal((await request(photo,'test-auth')).code,200);
+    assert.equal(forwarded.action,'legacy_hr_business_v1');assert.equal(forwarded.secret,'test-secret');
+    assert.deepEqual(forwarded.businessPayload,photo.businessPayload);assert.equal('messageId' in forwarded,false);
+    global.fetch=async()=>{requests++;return response({status:'saved',lineText:'old response'});};
+    assert.equal((await request(photo,'test-auth')).code,502,'old unbound success must not release the helper');
+    global.fetch=async()=>response(ack(photo,null,'held'));
+    assert.equal((await request(photo,'test-auth')).code,409,'held source/effect cannot continue as a successful photo');
+    const aggregate={action:'legacy_hr_business_v1',
+      sourceAuthorization:{...auth,compare:{jobId:'hr-legacy-v1:'+'e'.repeat(64),payloadHash:'f'.repeat(64),resultHash:'1'.repeat(64)}},
+      businessPayload:{action:'aggregate_line',messageId:input.messageId,groupId,date:'2026-09-18',sheetType:'front',lineMessages:['result'],archiveText:'url'}};
+    global.fetch=async(_url,options)=>{forwarded=JSON.parse(options.body);return response(ack(aggregate,{status:'send',lineText:'combined'}));};
+    assert.equal((await request(aggregate,'test-auth')).value.status,'send');
+    assert.equal(forwarded.action,'legacy_hr_business_v1');assert.deepEqual(forwarded.businessPayload.lineMessages,['result']);
+    global.fetch=async()=>response(ack(aggregate,{status:'held'}));
+    assert.equal((await request(aggregate,'test-auth')).code,200,'ordinary completed aggregate waiting stays compatible');
+    requests=0;global.fetch=async()=>{requests++;return response({status:'error'});};
+    assert.equal((await request(photo,'test-auth')).code,502);assert.equal(requests,1,'unknown GAS outcome must not be automatically retried');
+    console.log('attendance archive tests passed: legacy pure/mock semantics plus authenticated strict source/effect envelope, bound ack and no retry');
+  } finally {
+    global.fetch=savedFetch;
+    for(const key of ['HR_AUTOMATION_SECRET','ATTENDANCE_ARCHIVE_URL','ATTENDANCE_ARCHIVE_SECRET']){
+      if(savedEnv[key]===undefined)delete process.env[key];else process.env[key]=savedEnv[key];
+    }
+  }
 })().catch(error=>{console.error(error);process.exitCode=1;});

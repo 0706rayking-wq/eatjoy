@@ -1,5 +1,4 @@
 const crypto = require('node:crypto');
-const explanationSyncHandler = require('../lib/hr-attendance-explanation-sync');
 const { launchBrowser } = require('../lib/browserbase-browser');
 
 const NUEIP_HOST_SUFFIX = '.nueip.com';
@@ -1186,11 +1185,10 @@ function includeExplanationSyncFailures(comparison, explanationSync) {
 }
 
 async function handler(request, response) {
-  if (['archive_photo', 'archive_result', 'aggregate_line'].includes(request.body?.action)) {
+  // Cloud keeps the existing authenticated archive and pure mapping contracts.
+  // Every other HR action is retired here, before NUEIP or any browser request.
+  if (request.body?.action === 'legacy_hr_business_v1') {
     return require('../lib/hr-attendance-archive')(request, response);
-  }
-  if (['sync_explanations', 'preview_schedule', 'sync_schedule'].includes(request.body?.action)) {
-    return explanationSyncHandler(request, response);
   }
   if (request.method !== 'POST') {
     response.setHeader('Allow', 'POST');
@@ -1200,29 +1198,11 @@ async function handler(request, response) {
     if (!authorize(request)) {
       return response.status(401).json({ status: 'error', message: 'Unauthorized' });
     }
-    if (request.body?.action === 'sync_department_explanations') {
-      const schedule = request.body?.schedule && typeof request.body.schedule === 'object'
-        ? request.body.schedule
-        : {};
-      const date = normalizeDate(schedule.date);
-      const attendance = await loadNueipAttendance(date, schedule);
-      const records = departmentExplanationRecords(schedule, attendance, date);
-      const explanationSync = await explanationSyncHandler.syncExplanationRecords(
-        records,
-        request.body?.mode === 'preview' ? 'preview' : 'commit'
-      );
-      return response.status(200).json({
-        ...schedule,
-        date,
-        attendanceSnapshot: attendance,
-        explanationSync: {
-          status: explanationSync.failed > 0 ? 'partial' : explanationSync.status,
-          updated: explanationSync.updated || 0,
-          unchanged: explanationSync.unchanged || 0,
-          failed: explanationSync.failed || 0,
-          results: explanationSync.results || []
-        }
-      });
+    if (request.body?.action === 'verify_hr_relay_noop_v1') {
+      return require('../lib/hr-relay-auth-noop')(request, response);
+    }
+    if (['archive_photo', 'archive_result', 'aggregate_line'].includes(request.body?.action)) {
+      return response.status(409).json({status:'error',code:'hr_source_authorization_required'});
     }
     if (request.body?.action === 'prepare_schedule_records') {
       const normalRecords = Array.isArray(request.body?.normalRecords) ? request.body.normalRecords : [];
@@ -1231,41 +1211,10 @@ async function handler(request, response) {
         results: normalRecords.map((record) => ({ ...record, status: 'unchanged' }))
       });
     }
-    const schedule = request.body && typeof request.body === 'object' ? request.body : {};
-    const date = normalizeDate(schedule.date);
-    const attendance = Array.isArray(schedule.attendanceSnapshot)
-      ? schedule.attendanceSnapshot
-      : await loadNueipAttendance(date, schedule);
-    const departmentRecords = departmentExplanationRecords(schedule, attendance, date);
-    const explanationSync = await explanationSyncHandler.syncExplanationRecords(departmentRecords, 'commit');
-    const excludedNames = String(process.env.NUEIP_EXCLUDED_NAMES || '黃遠志')
-      .split(',')
-      .map((name) => name.trim())
-      .filter(Boolean);
-    const silentLineNames = String(process.env.NUEIP_SILENT_LINE_NAMES || '羽婕,靜妍')
-      .split(',')
-      .map((name) => name.trim())
-      .filter(Boolean);
-    const comparison = includeExplanationSyncFailures(
-      compareAttendance(schedule, attendance, excludedNames),
-      explanationSync
-    );
-    const lineMessages = formatLineMessages(date, comparison, schedule, silentLineNames);
-    const lineMessageObjects = lineMessages.map((text) => ({ type: 'text', text })).slice(0, 5);
-    return response.status(200).json({
-      status: 'ok',
-      date,
-      attendanceCount: attendance.length,
-      explanationSync: {
-        status: explanationSync.failed > 0 ? 'partial' : explanationSync.status,
-        updated: explanationSync.updated || 0,
-        unchanged: explanationSync.unchanged || 0,
-        failed: explanationSync.failed || 0,
-        results: explanationSync.results || []
-      },
-      ...comparison,
-      lineMessages,
-      lineMessageObjects
+    return response.status(410).json({
+      status: 'disabled',
+      code: 'HR_CLOUD_EXECUTION_DISABLED',
+      message: 'HR browser execution requires the authorized company-local workflow'
     });
   } catch (error) {
     console.error('HR attendance comparison failed', error.message);

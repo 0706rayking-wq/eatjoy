@@ -66,7 +66,9 @@ console.log('browserbase browser tests passed');
   await assert.rejects(require('../lib/browserbase-browser').launchBrowser(environment, async () => { requested = true; }), /BROWSERBASE_PAUSED/);
   assert.equal(requested, false);
   for (const workflow of ['nueip-attendance-compare', 'nueip-attendance-explanation-sync']) {
-    await assert.rejects(require('../lib/browserbase-browser').launchBrowser(environment, async () => { throw new Error('AUTHORIZED_REQUEST'); }, { workflow }), /AUTHORIZED_REQUEST/);
+    let hrRequested = false;
+    await assert.rejects(require('../lib/browserbase-browser').launchBrowser(environment, async () => { hrRequested = true; }, { workflow }), /HR_CLOUD_EXECUTION_DISABLED/);
+    assert.equal(hrRequested, false);
   }
   await assert.rejects(require('../lib/browserbase-browser').launchBrowser(environment, async () => { throw new Error('unexpected'); }, { workflow: 'google-review-patrol' }), /BROWSERBASE_PAUSED/);
   console.log('Browserbase pause prevents remote requests');
