@@ -112,9 +112,17 @@ async function request(body, token) {
     const aggregate={action:'legacy_hr_business_v1',
       sourceAuthorization:{...auth,compare:{jobId:'hr-legacy-v1:'+'e'.repeat(64),payloadHash:'f'.repeat(64),resultHash:'1'.repeat(64)}},
       businessPayload:{action:'aggregate_line',messageId:input.messageId,groupId,date:'2026-09-18',sheetType:'front',lineMessages:['result'],archiveText:'url'}};
-    global.fetch=async(_url,options)=>{forwarded=JSON.parse(options.body);return response(ack(aggregate,{status:'send',lineText:'combined'}));};
-    assert.equal((await request(aggregate,'test-auth')).value.status,'send');
+    global.fetch=async(_url,options)=>{forwarded=JSON.parse(options.body);return response(ack(aggregate,{status:'accepted',count:1,requestId:'synthetic-request-1',deliveryVerified:false}));};
+    assert.equal((await request(aggregate,'test-auth')).value.status,'accepted');
     assert.equal(forwarded.action,'legacy_hr_business_v1');assert.deepEqual(forwarded.businessPayload.lineMessages,['result']);
+    for(const invalid of [{status:'send',lineText:'old fallback'}, {status:'accepted',count:1,deliveryVerified:false},
+      {status:'accepted',count:2,requestId:'synthetic-request-1',deliveryVerified:false},
+      {status:'accepted',count:1,requestId:'synthetic-request-1',deliveryVerified:true},
+      {status:'accepted',count:1,requestId:'synthetic-request-1',deliveryVerified:false,lineText:'must not resend'}]) {
+      requests=0;global.fetch=async()=>{requests++;return response(ack(aggregate,invalid));};
+      assert.equal((await request(aggregate,'test-auth')).code,502);
+      assert.equal(requests,1,'invalid or unknown LINE receipt is never retried');
+    }
     global.fetch=async()=>response(ack(aggregate,{status:'held'}));
     assert.equal((await request(aggregate,'test-auth')).code,200,'ordinary completed aggregate waiting stays compatible');
     requests=0;global.fetch=async()=>{requests++;return response({status:'error'});};
