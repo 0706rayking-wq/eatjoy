@@ -1,5 +1,6 @@
 const crypto = require('node:crypto');
 const {assertHrRelayRelease} = require('../lib/hr-relay-release-gate');
+const {isCaptureImage,captureImage} = require('../lib/hr-b-intake-hold');
 
 const MAX_BODY_BYTES = 1024 * 1024;
 const HR_RELAY_URL = 'https://rayking0706.app.n8n.cloud/webhook/line-hr-relay-draft';
@@ -141,7 +142,15 @@ async function handler(request, response) {
     }
 
     const payload = JSON.parse(rawBody.toString('utf8'));
-    const events = selectHumanResourcesEvents(payload, humanResourcesGroupId);
+    const selected = selectHumanResourcesEvents(payload, humanResourcesGroupId);
+    let capturedImages=0;
+    // Capture Taipei photos durably while every business entrance remains closed.
+    // These images must never also reach the old n8n route.
+    for(const event of selected.filter(isCaptureImage)){
+      await captureImage(event);
+      capturedImages++;
+    }
+    const events = selected.filter(event=>!isCaptureImage(event));
 
     if (events.length > 0) {
       response.setHeader('Cache-Control', 'no-store');
@@ -166,6 +175,7 @@ async function handler(request, response) {
 
     return response.status(200).json({
       status: 'ok',
+      capturedImages,
       forwardedEvents: events.length
     });
   } catch (error) {
@@ -191,3 +201,4 @@ module.exports._test = {
   selectLittleThunderEvents,
   verifyLineSignature
 };
+
