@@ -1158,7 +1158,6 @@
     
     <script src="station-board.js?v=4"></script>
     <script type="text/babel" data-presets="env,react" src="station-board.jsx?v=15"></script>
-    <script type="text/babel" data-presets="env,react" src="schedule-intent.jsx?v=1"></script>
     <script type="text/babel" data-presets="env,react" src="injury-guide.jsx?v=1"></script>
     <script type="text/babel" data-presets="env,react" data-cache="false">
     const { useState, useEffect, useCallback, useMemo, useRef } = React;
@@ -3270,7 +3269,7 @@ const ACTIVITY_QUESTION_BANK_VERSION = '2026-08-24-950';
      );
     };
 
-    const ScheduleSystem = ({ onBack, onIntent, currentBranch, isManager, getPublicPath, triggerNotify, publishContent }) => {
+    const ScheduleSystem = ({ onBack, currentBranch, isManager, getPublicPath, triggerNotify, publishContent }) => {
      const defaultShiftRules = [
       { code: 'A-5', name: '早班A5', type: 'morning' },
       { code: 'A-6', name: '早班A6', type: 'morning' },
@@ -3909,7 +3908,6 @@ const ACTIVITY_QUESTION_BANK_VERSION = '2026-08-24-950';
            <h2 className="text-lg sm:text-xl font-black text-[#1e293b] tracking-tighter truncate">{currentBranch} <span className="text-brand-red">排班系統</span></h2>
          </div>
          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-           <button onClick={onIntent} className="flex items-center gap-2 px-3 py-3 bg-white text-slate-800 border rounded-lg font-bold text-sm"><Icon name="calendar" size={16}/>下月排班意願</button>
            <button onClick={handleDownloadImage} disabled={isDownloading} className="flex-1 md:flex-none justify-center flex items-center gap-1.5 px-3 py-2 sm:py-2.5 bg-[#3b82f6] text-[#ffffff] rounded-xl active:scale-95 transition-all shadow-sm text-xs sm:text-sm font-bold whitespace-nowrap disabled:opacity-50">
             <Icon name="image" size={14} /> {isDownloading ? "處理中" : "存為圖片"}
            </button>
@@ -11633,8 +11631,7 @@ return (
         case 'menu': return <MenuDisplayPage onBack={()=>setCurrentPage('home')} items={menuData?.items} />;
         case 'kitchenReport': return <MonthlyReportPage onBack={()=>setCurrentPage('home')} report={contentStatus?.kitchenReport || {}} assemblyReport={contentStatus?.monthlyAssembly || {}} />;
         case 'game-center': return <GameCenter onBack={()=>setCurrentPage('home')} config={gameConfig} currentBranch={currentBranch} currentUser={currentUser} getPublicPath={getPublicPath} triggerNotify={triggerNotify} allUsers={users} globalBranches={globalBranches} isSuperAdmin={isSuperAdmin} />;
-        case 'schedule-intent': return <window.ScheduleIntent key={currentBranch} currentBranch={currentBranch} currentUser={currentUser} db={db} getPublicPath={getPublicPath} onBack={()=>setCurrentPage('schedule')} Icon={Icon} />;
-        case 'schedule': return <ScheduleSystem onBack={()=>setCurrentPage('home')} onIntent={()=>setCurrentPage('schedule-intent')} currentBranch={currentBranch} isManager={isManager || isSuperAdmin} getPublicPath={getPublicPath} triggerNotify={triggerNotify} publishContent={publishContent} />;
+        case 'schedule': return <ScheduleSystem onBack={()=>setCurrentPage('home')} currentBranch={currentBranch} isManager={isManager || isSuperAdmin} getPublicPath={getPublicPath} triggerNotify={triggerNotify} publishContent={publishContent} />;
         case 'onboarding': return (
          <div className="p-4 space-y-4 page-enter text-left">
            <BackButton onClick={()=>setCurrentPage('home')} title="入職相關" />
