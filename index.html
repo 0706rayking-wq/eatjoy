@@ -1137,6 +1137,18 @@
         }
     </style>
 
+    <style id="mobile-render-stability">
+        /* Avoid a separate blurred compositing surface for every mobile card. */
+        @media (hover: none) and (pointer: coarse) {
+            html body .glass-panel,
+            html body header.sticky,
+            html body .admin-tabbar,
+            html body [class*="backdrop-blur"] {
+                backdrop-filter: none !important;
+                -webkit-backdrop-filter: none !important;
+            }
+        }
+    </style>
 </head>
 <body class="pb-12">
     <link rel="stylesheet" href="dark-mode.css?v=1">
@@ -1209,7 +1221,7 @@ const ACTIVITY_QUESTION_BANK_VERSION = '2026-08-24-950';
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     try {
-     db.settings({ cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED });
+     db.settings({ cacheSizeBytes: 40 * 1024 * 1024 });
      db.enablePersistence({ synchronizeTabs: false }).catch(() => {});
     } catch(e) {}
     const auth = firebase.auth();
@@ -11028,9 +11040,6 @@ return (
          if (d.exists && Array.isArray(d.data().list) && d.data().list.length) setGlobalBranches(d.data().list);
          setBranchesReady(true); setBranchesError('');
         }, error => { clearTimeout(branchesTimeout); setBranchesError(`分店資料讀取失敗（${error.code || 'network-error'}），請重新連線。`); }),
-        db.collection(getPublicPath('global_recipes')).onSnapshot(s => {
-         setGlobalRecipes(s.docs.map(d => ({...d.data(), docId: d.id, id: d.data().id || d.id})));
-        }, errH),
         db.collection(getPublicPath('users')).onSnapshot({ includeMetadataChanges: true }, s => {
          if (s.metadata.fromCache) return;
          usersReceived = true; clearTimeout(usersTimeout);
@@ -11054,6 +11063,17 @@ return (
       ];
       return () => { clearTimeout(usersTimeout); clearTimeout(branchesTimeout); subs.forEach(un => un()); };
      }, [user, currentUser, connectionAttempt]);
+
+     // Image-heavy libraries are not needed on the home or inspection screens.
+     const needsGlobalRecipes = currentPage === 'admin';
+     const needsMenuImages = currentPage === 'menu' || currentPage === 'admin';
+     const needsIngredientImages = currentPage === 'ingredient-specs' || currentPage === 'admin';
+     useEffect(() => {
+      if (!user || !needsGlobalRecipes) { setGlobalRecipes([]); return; }
+      return db.collection(getPublicPath('global_recipes')).onSnapshot(s => {
+       setGlobalRecipes(s.docs.map(d => ({...d.data(), docId: d.id, id: d.data().id || d.id})));
+      }, () => triggerNotify('共用菜單讀取失敗，請重新進入後台', 'error'));
+     }, [user, needsGlobalRecipes]);
 
      useEffect(() => {
       if(!user || !currentBranch) return;
@@ -11084,8 +11104,20 @@ return (
       const subContentStatus = db.doc(getPublicPath(`content_status/branch_${currentBranch}`)).onSnapshot(d => setContentStatus(d.exists ? d.data() : {}), errH);
       const subOnboardVid = db.doc(getPublicPath(`onboarding/settings_${currentBranch}`)).onSnapshot(d => setOnboardingData(p => ({...p, ...(d.exists ? d.data() : {})})), errH);
       const subSigs = db.collection(getPublicPath(`signatures_${currentBranch}`)).onSnapshot(s => setSignatures(s.docs.map(d => ({ ...d.data(), id: d.id })).sort((a,b)=>b.timestamp-a.timestamp)), errH);
-      const createMergedListener = (colPath, docPath, setter, sortDesc = true) => {
-        return db.collection(getPublicPath(colPath)).onSnapshot(s => {
+      return () => {
+        subZone(); subProg(); subStd(); subTicker(); subGame(); subContentStatus(); subOnboardVid(); subSigs();
+      };
+     }, [user, currentBranch]);
+
+     useEffect(() => {
+      if (!user || !currentBranch) return;
+      const errH = () => triggerNotify('內容讀取失敗，請重新進入頁面', 'error');
+      const createMergedListener = (colPath, docPath, setter, sortDesc = true, enabled = true) => {
+        if (!enabled) { setter([]); return () => {}; }
+        let active = true;
+        let revision = 0;
+        const unsubscribe = db.collection(getPublicPath(colPath)).onSnapshot(s => {
+         const requestRevision = ++revision;
          const newItemsMap = new Map();
          s.docs.forEach(doc => {
            const data = doc.data();
@@ -11094,6 +11126,7 @@ return (
          });
          
          db.doc(getPublicPath(docPath)).get().then(d => {
+           if (!active || requestRevision !== revision) return;
            const oldItems = (d.exists && d.data().items ? d.data().items : []).map((item, idx) => ({
             ...item,
             id: item.id || item.title || item.name || item.content || `legacy_${idx}`
@@ -11136,6 +11169,7 @@ return (
            
            setter(merged);
          }).catch(() => {
+           if (!active || requestRevision !== revision) return;
            const pureNewItems = Array.from(newItemsMap.values()).filter(i => i.title || i.img || i.content);
            pureNewItems.sort((a, b) => {
             const orderA = a.sortOrder !== undefined ? a.sortOrder : 999999;
@@ -11147,26 +11181,27 @@ return (
            setter(pureNewItems);
          });
         }, errH);
+        return () => { active = false; unsubscribe(); };
       };
 
       const subAnn = createMergedListener(`announcements/branch_${currentBranch}/items`, `announcements/branch_${currentBranch}`, items => setAnnouncements(items));
-      const subMenu = createMergedListener(`menu/list_${currentBranch}/items`, `menu/list_${currentBranch}`, items => setMenuData({items}));
+      const subMenu = createMergedListener(`menu/list_${currentBranch}/items`, `menu/list_${currentBranch}`, items => setMenuData({items}), true, needsMenuImages);
       const subOnboardList = createMergedListener(`onboarding/list_${currentBranch}/items`, `onboarding/list_${currentBranch}`, items => setOnboardingData(p => ({...p, list: items})));
       const subOnboardPark = createMergedListener(`onboarding/parking_${currentBranch}/items`, `onboarding/parking_${currentBranch}`, items => setOnboardingData(p => ({...p, parking: items})));
       const subBenEval = createMergedListener(`benefits/eval_${currentBranch}/items`, `benefits/eval_${currentBranch}`, items => setBenefitsData(p => ({...p, evaluation: items})));
       const subBenWel = createMergedListener(`benefits/welfare_${currentBranch}/items`, `benefits/welfare_${currentBranch}`, items => setBenefitsData(p => ({...p, welfare: items})));
-      const subIngredientSpecs = createMergedListener(`ingredients/specs_${currentBranch}/items`, `ingredients/specs_${currentBranch}`, items => setIngredientData(p => ({...p, specs: items})));
+      const subIngredientSpecs = createMergedListener(`ingredients/specs_${currentBranch}/items`, `ingredients/specs_${currentBranch}`, items => setIngredientData(p => ({...p, specs: items})), true, needsIngredientImages);
       
       const ruleSubs = RULE_CATEGORIES.map(cat => 
         createMergedListener(`rules/${cat}_${currentBranch}/items`, `rules/${cat}_${currentBranch}`, items => setRulesData(prev => ({ ...prev, [cat]: items })))
       );
 
       return () => { 
-        subZone(); subProg(); subStd(); subAnn(); subTicker(); subGame(); subContentStatus(); subOnboardVid(); subSigs();
+        subAnn();
         subMenu(); subOnboardList(); subOnboardPark(); subBenEval(); subBenWel(); subIngredientSpecs();
         ruleSubs.forEach(un => un());
       };
-     }, [user, currentBranch]);
+     }, [user, currentBranch, needsMenuImages, needsIngredientImages]);
 
      useEffect(() => {
       if (!user || !currentBranch || !isSuperAdmin) return;
