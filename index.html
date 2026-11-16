@@ -1,6 +1,7 @@
 ﻿<!DOCTYPE html>
 <html lang="zh-TW" style="overflow-x:hidden;">
 <head>
+  <script src="kitchen-account-bridge.js"></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>饗麻饗辣廚房OS</title>
@@ -2672,7 +2673,7 @@ const ACTIVITY_QUESTION_BANK_VERSION = '2026-08-24-950';
      const [phone, setPhone] = useState(''); 
      const [name, setName] = useState(''); 
      const [role, setRole] = useState(ROLE_OPTIONS[0]); 
-     const [mode, setMode] = useState('login'); 
+     const [mode, setMode] = useState(window.EatjoyAccountBridge?.registration ? 'register' : 'login'); 
      const [adminPass, setAdminPass] = useState('');
      const [branch, setBranch] = useState(globalBranches[0] || '南港Lalaport');
      const [submitting, setSubmitting] = useState(false);
@@ -10811,7 +10812,8 @@ return (
      const [myHygieneTraining, setMyHygieneTraining] = useState({});
      const [myOccupationalSafetyTraining, setMyOccupationalSafetyTraining] = useState({});
 
-     const logout = () => { 
+     const logout = () => {
+      window.EatjoyAccountBridge?.stop();
       setCurrentUser(null); setIsManager(false); setIsSuperAdmin(false); setCurrentPage('auth'); 
       sessionStorageSafe.removeItem('k_active_user'); 
       sessionStorageSafe.removeItem('k_super_admin');
@@ -10821,6 +10823,24 @@ return (
       setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 4000);
      }, []);
 
+     useEffect(() => {
+      if (!fbReady || !usersReady || !branchesReady || !window.EatjoyAccountBridge?.active) return;
+      return window.EatjoyAccountBridge.attach({
+       success: account => {
+        const role = normalizeRole(account.role);
+        const existingForSession = { ...account, role };
+        const allowed = account.branch.filter(b => globalBranches.includes(b));
+        if (!allowed.length) throw new Error('廚務分店已不存在，請聯絡公司管理員');
+        setIsSuperAdmin(false); sessionStorageSafe.removeItem('k_super_admin');
+        setCurrentUser(existingForSession); sessionStorageSafe.setItem('k_active_user', JSON.stringify(existingForSession));
+        setIsManager(isSupervisorRole(role));
+        setCurrentBranch(previous => allowed.includes(previous) ? previous : allowed[0]);
+        setCurrentPage(previous => previous === 'auth' ? 'home' : previous);
+       },
+       failure: () => { setCurrentUser(null); setIsManager(false); setIsSuperAdmin(false); setCurrentPage('auth'); }
+      });
+     }, [fbReady, usersReady, branchesReady]);
+     useEffect(() => { window.EatjoyAccountBridge?.refresh(); }, [currentPage, currentBranch]);
      const openAnnouncement = (a) => {
       setActiveAnnouncement(a);
       const readBy = a.readBy || [];
