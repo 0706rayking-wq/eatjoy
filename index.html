@@ -10218,10 +10218,16 @@ return (
                <div key={b} className="bg-slate-50 p-4 rounded-2xl font-bold flex justify-between items-center border">
                  <span>{b}</span>
                  {globalBranches.length > 1 && (
-                  <button onClick={()=>{
+                  <button aria-label={`刪除分店 ${b}`} onClick={async ()=>{
+                    if (!window.confirm(`確定要從分店清單移除「${b}」嗎？\n按「取消」可保留此分店。`)) return;
                     const newB = globalBranches.filter(i => i !== b);
-                    db.doc(getPublicPath('system/branches')).set({ list: newB });
-                    if(currentBranch === b) setCurrentBranch(newB[0]);
+                    try {
+                      await db.doc(getPublicPath('system/branches')).set({ list: newB });
+                      if(currentBranch === b) setCurrentBranch(newB[0]);
+                      triggerNotify(`已移除分店「${b}」`, 'success');
+                    } catch (error) {
+                      triggerNotify('刪除分店失敗，請稍後再試', 'error');
+                    }
                   }} className="text-slate-300 hover:text-red-500"><Icon name="trash-2" size={16}/></button>
                  )}
                </div>
