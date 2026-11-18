@@ -1243,10 +1243,12 @@ const ACTIVITY_QUESTION_BANK_VERSION = '2026-08-24-950';
      '自助吧飲料', '吧檯調飲', '限時限量', '壽星招待', '合作品牌'
     ];
 
-    const ROLE_OPTIONS = ['內場正職/計時人員', '外場正職/計時人員', '內場主管', '外場主管'];
+    const ROLE_OPTIONS = ['內場正職人員', '內場計時人員', '外場正職人員', '外場計時人員', '內場主管', '外場主管'];
     const ROLE_META = {
-     '內場正職/計時人員': { label: '內場正職/計時人員', badge: 'bg-amber-50 text-amber-700 border-amber-100' },
-     '外場正職/計時人員': { label: '外場正職/計時人員', badge: 'bg-sky-50 text-sky-700 border-sky-100' },
+     '內場正職人員': { label: '內場正職人員', badge: 'bg-amber-50 text-amber-700 border-amber-100' },
+     '內場計時人員': { label: '內場計時人員', badge: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+     '外場正職人員': { label: '外場正職人員', badge: 'bg-sky-50 text-sky-700 border-sky-100' },
+     '外場計時人員': { label: '外場計時人員', badge: 'bg-violet-50 text-violet-700 border-violet-100' },
      '內場主管': { label: '內場主管', badge: 'bg-brand-red text-white border-brand-red' },
      '外場主管': { label: '外場主管', badge: 'bg-blue-50 text-blue-700 border-blue-200' }
     };
@@ -1256,14 +1258,15 @@ const ACTIVITY_QUESTION_BANK_VERSION = '2026-08-24-950';
      if (role && role.includes('外場') && role.includes('主管')) return '外場主管';
      if (role && role.includes('內場') && role.includes('主管')) return '內場主管';
      if (role && (role.includes('後台') || role.includes('管理'))) return '內場主管';
-     if (role && role.includes('外場') && (role.includes('正職') || role.includes('計時'))) return '外場正職/計時人員';
-     if (role && role.includes('內場') && (role.includes('正職') || role.includes('計時'))) return '內場正職/計時人員';
+     // Legacy combined roles default to full-time; explicit new roles are preserved above.
+     if (role && role.includes('外場') && (role.includes('正職') || role.includes('計時'))) return '外場正職人員';
+     if (role && role.includes('內場') && (role.includes('正職') || role.includes('計時'))) return '內場正職人員';
      if (role === '主管') return '內場主管';
-     if ((role && (role.includes('正職') || role.includes('計時'))) || !role) return '內場正職/計時人員';
-     return '內場正職/計時人員';
+     if ((role && (role.includes('正職') || role.includes('計時'))) || !role) return '內場正職人員';
+     return '內場正職人員';
     };
     const isSupervisorRole = (role) => normalizeRole(role).includes('主管');
-    const HYGIENE_REQUIRED_ROLES = ['內場正職/計時人員', '內場主管'];
+    const HYGIENE_REQUIRED_ROLES = ['內場正職人員', '內場計時人員', '內場主管'];
     const HYGIENE_COURSES = [
      { title: '餐飲衛生相關規範及預防食品中毒-中文字幕版-臺北市政府衛生局提供', url: 'https://ap1.elearning.taipei/elearn/courseinfo/so.php?v=5015' },
      { title: '食品安全衛生管理法暨臺北市食品自治條例-臺北市政府衛生局提供', url: 'https://ap1.elearning.taipei/elearn/courseinfo/so.php?v=5014' },
