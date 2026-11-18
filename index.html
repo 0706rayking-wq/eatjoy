@@ -9838,6 +9838,7 @@ return (
      const [expandedSig, setExpandedSig] = useState(null);
      const [activeRoleTab, setActiveRoleTab] = useState(ROLE_OPTIONS[0]);
      const [selectedEmployees, setSelectedEmployees] = useState([]);
+     const [bulkTargetRole, setBulkTargetRole] = useState('');
      const [bulkRoleSaving, setBulkRoleSaving] = useState(false);
      const bulkRoleLock = useRef(false);
      useEffect(() => { setSelectedEmployees([]); }, [currentBranch, activeRoleTab, tab]);
@@ -9859,13 +9860,14 @@ return (
      });
      const roleFilteredUsers = visibleUsers.filter(u => u.normalizedRole === activeRoleTab);
      const pendingUserCount = visibleUsers.filter(u => u.status === 'pending').length;
-     const selectableEmployees = roleFilteredUsers.slice(0, userPageLimit).filter(u => PART_TIME_ROLE[u.normalizedRole]);
-     const handleBulkPartTime = async () => {
+     const selectableEmployees = roleFilteredUsers.slice(0, userPageLimit).filter(u => (Array.isArray(u.branch) ? u.branch : [u.branch]).includes(currentBranch));
+     const handleBulkRoleChange = async () => {
       if (bulkRoleLock.current || !selectedEmployees.length) return;
-      const targets = visibleUsers.filter(u => selectedEmployees.includes(u.phone) && PART_TIME_ROLE[u.normalizedRole]);
+      if (!ROLE_OPTIONS.includes(bulkTargetRole)) { triggerNotify('請選擇要變更的人員類別', 'error'); return; }
+      const targets = visibleUsers.filter(u => selectedEmployees.includes(u.phone) && (Array.isArray(u.branch) ? u.branch : [u.branch]).includes(currentBranch));
       if (targets.length !== selectedEmployees.length) { triggerNotify('人員資料已變更，請重新勾選', 'error'); setSelectedEmployees([]); return; }
       if (targets.length > 400) { triggerNotify('每次最多變更 400 人', 'error'); return; }
-      if (!window.confirm(`確定將以下 ${targets.length} 位員工改為計時人員？\n${targets.map(u => u.name).join('、')}\n\n保留原本部門、分店及核准狀態。`)) return;
+      if (!window.confirm(`確定將以下 ${targets.length} 位員工改為「${bulkTargetRole}」？\n${targets.map(u => `${u.name}（${u.normalizedRole}）`).join('、')}\n\n保留原本分店及核准狀態。${isSupervisorRole(bulkTargetRole) ? '\n注意：此變更會授予主管身分。' : ''}`)) return;
       bulkRoleLock.current = true; setBulkRoleSaving(true);
       try {
        await db.runTransaction(async transaction => {
@@ -9875,10 +9877,10 @@ return (
          const branches = Array.isArray(latest?.branch) ? latest.branch : [latest?.branch];
          if (!latest || !branches.includes(currentBranch) || normalizeRole(latest.role) !== targets[i].normalizedRole) throw new Error('人員資料已變更，請重新整理後再試');
         });
-        records.forEach((snap, i) => transaction.update(db.collection(getPublicPath('users')).doc(targets[i].phone), { role: PART_TIME_ROLE[normalizeRole(snap.data().role)] }));
+        records.forEach((snap, i) => transaction.update(db.collection(getPublicPath('users')).doc(targets[i].phone), { role: bulkTargetRole }));
        });
        setSelectedEmployees([]);
-       triggerNotify(`已將 ${targets.length} 位員工改為計時人員`, 'success');
+       triggerNotify(`已將 ${targets.length} 位員工改為${bulkTargetRole}`, 'success');
       } catch (error) { triggerNotify(error.message || '批次修改失敗，請稍後再試', 'error'); }
       finally { bulkRoleLock.current = false; setBulkRoleSaving(false); }
      };
@@ -9959,18 +9961,19 @@ return (
               );
              })}
             </div>
-            {PART_TIME_ROLE[activeRoleTab] && <div className="flex flex-wrap items-center gap-3 mb-4 p-3 border rounded-lg bg-white text-sm">
+            <div className="flex flex-wrap items-center gap-3 mb-4 p-3 border rounded-lg bg-white text-sm">
              <label className="flex items-center gap-2 min-h-[44px]"><input type="checkbox" aria-label="全選目前顯示人員" disabled={bulkRoleSaving || !selectableEmployees.length} checked={!!selectableEmployees.length && selectableEmployees.every(u=>selectedEmployees.includes(u.phone))} onChange={e=>setSelectedEmployees(e.target.checked ? [...new Set([...selectedEmployees, ...selectableEmployees.map(u=>u.phone)])] : selectedEmployees.filter(id=>!selectableEmployees.some(u=>u.phone===id)))} />全選目前顯示</label>
              <span>已選 {selectedEmployees.length} 人</span>
-             <button disabled={bulkRoleSaving || !selectedEmployees.length} onClick={handleBulkPartTime} className="flex items-center gap-2 min-h-[44px] px-3 rounded-lg bg-brand-red text-white disabled:opacity-50"><Icon name="users" size={16}/>{bulkRoleSaving ? '更新中…' : '批次改為計時'}</button>
+             <select aria-label="批次修改目標人員類別" value={bulkTargetRole} onChange={e=>setBulkTargetRole(e.target.value)} disabled={bulkRoleSaving} className="min-h-[44px] max-w-full min-w-0 border rounded-lg px-2"><option value="">選擇人員類別</option>{ROLE_OPTIONS.map(role=><option key={role} value={role}>{role}</option>)}</select>
+             <button disabled={bulkRoleSaving || !selectedEmployees.length || !bulkTargetRole} onClick={handleBulkRoleChange} className="flex items-center gap-2 min-h-[44px] px-3 rounded-lg bg-brand-red text-white disabled:opacity-50"><Icon name="users" size={16}/>{bulkRoleSaving ? '更新中…' : '批次修改類別'}</button>
              {!!selectedEmployees.length && <button disabled={bulkRoleSaving} onClick={()=>setSelectedEmployees([])} className="min-h-[44px] px-2">取消選取</button>}
-            </div>}
+            </div>
             {roleFilteredUsers.slice(0, userPageLimit).map(u=>{
               const displayBranches = Array.isArray(u.branch) ? u.branch.join(', ') : u.branch;
               const roleMeta = ROLE_META[u.normalizedRole] || ROLE_META[ROLE_OPTIONS[0]];
               return (
               <div key={u.phone} className="glass-panel p-4 rounded-[2rem] border flex justify-between items-center bg-white mb-2 shadow-sm">
-               {PART_TIME_ROLE[u.normalizedRole] && <label className="flex items-center justify-center shrink-0 w-10 min-h-[44px]"><input type="checkbox" aria-label={`選取 ${u.name}`} disabled={bulkRoleSaving} checked={selectedEmployees.includes(u.phone)} onChange={e=>setSelectedEmployees(prev=>e.target.checked ? [...new Set([...prev,u.phone])] : prev.filter(id=>id!==u.phone))}/></label>}
+               {selectableEmployees.some(employee=>employee.phone===u.phone) && <label className="flex items-center justify-center shrink-0 w-10 min-h-[44px]"><input type="checkbox" aria-label={`選取 ${u.name}`} disabled={bulkRoleSaving} checked={selectedEmployees.includes(u.phone)} onChange={e=>setSelectedEmployees(prev=>e.target.checked ? [...new Set([...prev,u.phone])] : prev.filter(id=>id!==u.phone))}/></label>}
                <div className="flex-1 min-w-0 pr-2">
                  <p className="font-bold text-slate-800 mb-1 flex flex-wrap items-center gap-2">
                   {u.name} 
